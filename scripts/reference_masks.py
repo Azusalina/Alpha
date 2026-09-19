@@ -22,7 +22,7 @@ Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
   outputs/qa/reference/*.png                      verification overlays and zoomed crops
 
 DIGIT NAMES follow the user's decisions D1 (right hand) and D2 (left hand) in
-documentation/log/log-v2.md: on both hands the digit whose nail faces the viewer is the
+documentations/log/log-v2.md: on both hands the digit whose nail faces the viewer is the
 thumb. Right: long digit pointing left below the index = middle; the two down-curled digits
 = ring (left) and pinky (right). Left: short leftmost digit curled under the palm = pinky.
 
@@ -542,7 +542,7 @@ def left_keypoints(mask) -> dict:
 
 def right_keypoints(mask, dots, wrist, axis_deg, axis_info) -> dict:
     """Right (particle) hand. Digit names follow the user's decision D1
-    (documentation/log/log-v2.md): the index reaches up-left to the contact; the long digit
+    (documentations/log/log-v2.md): the index reaches up-left to the contact; the long digit
     pointing left BELOW the index is the MIDDLE finger; the short digit whose nail outline
     faces the viewer (nail at x 903-952, y 655-692) is the THUMB, lying across the base of
     the hand; the two digits curled straight down are the RING (left) and PINKY (right).

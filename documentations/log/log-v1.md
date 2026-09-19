@@ -227,3 +227,4 @@ for the startup contract. It also asked for `documentation/log/`, while the repo
 already has `documentations/logPrompt/`. This file is at the literal path
 requested; moving it under `documentations/` is a one-line change if that was
 the intent.
+*Resolved in round 2: the user consolidated the logs into `documentations/log/`.*

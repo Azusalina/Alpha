@@ -7,7 +7,7 @@
 
 细节以仓库里的文件为准，本文件不重复它们：
 
-- `documentation/log/log-v2.md`：状态、D1–D4 决定、"Resume here" 步骤
+- `documentations/log/log-v2.md`：状态、D1–D4 决定、"Resume here" 步骤
 - `docs/CONTRACTS.md`：接口约定
 - `docs/ACCEPTANCE.md`：验收阈值
 
@@ -20,7 +20,7 @@
 Alpha 是一个本地桌面应用（React + TypeScript + Vite + three.js / R3F，Tauri 2 外壳）。启动页是《创造亚当》式的双手构图：左上是雕塑质感的人手，带几何构造线；右下是粒子手，向右下消散。视觉唯一基准是 `aes-ref/alpha-white-geom.PNG`（1644 × 957）。
 
 - **Round 1**（已合并到 main，`0453b74`）：启动页原型。包括单一进度值的状态机、GPU 粒子、启动隔离、7 个 Playwright 回归测试。
-- **Round 2**（进行中，分支 `claude/v1-form-acceptance`，未 push）：按独立审查 `/home/a/Documents/Alpha/alpha-v1-review/review.md` 的 §E 执行，范围是"静态形体 + 验收工具"，不做导航。
+- **Round 2**（进行中；已推送到 `main`，在仓库根目录直接工作）：按独立审查 `/home/a/Documents/Alpha/alpha-v1-review/review.md` 的 §E 执行，范围是"静态形体 + 验收工具"，不做导航。
 
 ### Round 2 已完成的成果
 
@@ -78,19 +78,18 @@ Alpha 是一个本地桌面应用（React + TypeScript + Vite + three.js / R3F�
 继续 Alpha v1 的 round 2（形体与验收）。这是续做，不要从头开始。
 
 【环境】
-- 仓库 worktree：/home/a/Documents/Alpha/.claude/worktrees/relaxed-sammet-bbc152（若已被回收，
-  就在新 worktree 里 checkout 分支 claude/v1-form-acceptance）。分支保持不 push，
-  commit 可以做，push 前必须问我。分支不跟踪 origin/main，这是有意的。
-- node_modules：新 worktree 里没有。lockfile 未变，可以复制
-  /home/a/Documents/Alpha/v1/node_modules，或者由我来跑 npm install --legacy-peer-deps。
-  不要自己跑 npm install，它在沙箱里会卡死。
+- 直接在仓库根目录 /home/a/Documents/Alpha 的 main 上工作，不要在 .claude/worktrees/ 里。
+  如果本会话是在 .claude/worktrees/ 下启动的，先用切换目录的工具把会话移到根目录（见根目录 CLAUDE.md）。
+  commit 可以做，push 前必须问我。
+- node_modules 和 src-tauri/target（Tauri 编译缓存）都在根目录。缺了就告诉我，
+  由我来跑 npm install --legacy-peer-deps。不要自己跑 npm install，它在沙箱里会卡死。
 - Playwright 用系统 Chromium：ALPHA_CHROMIUM=/usr/bin/chromium。
   Blender 5.2.2 可以无头运行；cargo 能访问 crates.io。Python 只有 numpy / Pillow / scipy。
 - 用中文回复我。
 
 【开工前先读，按这个顺序】
-1. documentation/log/NEXT_SESSION_PROMPT.md 第一部分（成果说明）
-2. documentation/log/log-v2.md：先读 "Resume session — decisions confirmed by the user"（D1–D4）、
+1. documentations/log/NEXT_SESSION_PROMPT.md 第一部分（成果说明）
+2. documentations/log/log-v2.md：先读 "Resume session — decisions confirmed by the user"（D1–D4）、
    "Status after the step-1 run"，再读 "Resume here"
 3. docs/CONTRACTS.md（接口约定，改动前先改这里）
 4. docs/ACCEPTANCE.md（验收阈值及其推导）
@@ -122,5 +121,5 @@ Tauri 那一路已经通过验证。
 
 【完成标准】review §E 的五个问题都要能用证据回答：
 姿势是否匹配、是否有可见接缝、实体是否有古典雕塑的体块感、粒子是否保持手形、同一 seed 能否复现。
-每完成一步，就更新 log-v2.md 并 commit（不 push）。
+每完成一步，就更新 log-v2.md 并 commit；push 前先问我。
 ```

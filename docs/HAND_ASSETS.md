@@ -6,7 +6,7 @@ script from two pose files. Nothing is modelled by hand and no third-party mesh,
 scan or texture is used.
 
 Interfaces: [`docs/CONTRACTS.md`](CONTRACTS.md) §1–6. Round status:
-[`documentation/log/log-v2.md`](../documentation/log/log-v2.md).
+[`documentations/log/log-v2.md`](../documentations/log/log-v2.md).
 
 ## Files
 

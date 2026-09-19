@@ -98,16 +98,16 @@ scripts/        reference measurement, alignment check, QA capture
 tests/          Playwright startup regressions
 docs/           visual spec and decisions
 outputs/qa/     screenshots, alignment evidence, reports
-documentation/log/  implementation log
+documentations/log/  implementation log
 ```
 
 ## Status
 
-> **Round 2 (form and acceptance) is paused mid-way** on branch
-> `claude/v1-form-acceptance`. Continuous Blender hand meshes, reference masks,
+> **Round 2 (form and acceptance) is paused mid-way** on `main`
+> (work happens directly in the repo root, not in `.claude/worktrees`). Continuous Blender hand meshes, reference masks,
 > measurement tools and the Tauri shell exist; calibration and app integration
-> do not yet. Handoff and next steps: `documentation/log/log-v2.md`; a
-> paste-ready prompt for the next session: `documentation/log/NEXT_SESSION_PROMPT.md`.
+> do not yet. Handoff and next steps: `documentations/log/log-v2.md`; a
+> paste-ready prompt for the next session: `documentations/log/NEXT_SESSION_PROMPT.md`.
 > Shared interfaces: `docs/CONTRACTS.md`.
 
 | | |
@@ -115,4 +115,4 @@ documentation/log/  implementation log
 | Implemented | Startup page: loading → intro → stable home, both hands, construction drawing, particle gather, idle breathing, pointer disturbance, corner hot zones with dwell |
 | Browser verified | Type-check and production build clean; 7/7 Playwright checks pass (V01, V03, V04, V11, V14, V15 + hot-zone arming); reference alignment max 21.5 px / mean 14.3 px; composition holds from 1.14 to 1.78 aspect |
 | Not implemented | Navigation to either destination, the particle brain, the technology tree, the input box, reverse transitions, the Tauri desktop shell |
-| Not verified | Desktop (Tauri/WebKitGTK) behaviour, and performance on real hardware — the only timings taken so far are under a software rasteriser. See `documentation/log/log-v1.md`. |
+| Not verified | Desktop (Tauri/WebKitGTK) behaviour, and performance on real hardware — the only timings taken so far are under a software rasteriser. See `documentations/log/log-v1.md`. |

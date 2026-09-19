@@ -9,7 +9,7 @@
  * v1.0.0 startup scope implements `loading → intro → home`. The navigation
  * states are declared here because the startup contract is defined against them
  * (nothing belonging to a destination may exist during startup), but they are
- * not reachable yet — see documentation/log/log-v1.md.
+ * not reachable yet — see documentations/log/log-v1.md.
  */
 
 import type { QualitySettings } from '../config/quality';

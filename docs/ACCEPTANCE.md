@@ -1,7 +1,7 @@
 # Acceptance: does a rendered hand match the reference?
 
 This page covers the measurement tools for review A4 and the thresholds that decide
-"the pose matches" (decision D4 in `documentation/log/log-v2.md`). It explains how to
+"the pose matches" (decision D4 in `documentations/log/log-v2.md`). It explains how to
 run each check, what each number means, where each threshold comes from, and what the
 numbers cannot tell you.
 

@@ -50,7 +50,7 @@ What this is *not*: a sculpted, anatomically authored model. The digits are
 lofted volumes swept along splines through the joint chain with elliptical,
 tapering cross-sections — considerably better than abutting primitives, and
 short of a modelled hand. The remaining shape gap is recorded as unfinished in
-`documentation/log/log-v1.md`; per spec §6.1 it is not claimed as a passed
+`documentations/log/log-v1.md`; per spec §6.1 it is not claimed as a passed
 v1.0.0 asset.
 
 Blender 5.2.2 LTS is available on this machine if the rig is later replaced by a
@@ -65,7 +65,7 @@ the calibrated frame always fits.
 
 ## 5. Digit naming
 
-**Settled by the user in round 2** (`documentation/log/log-v2.md`, D1 and D2),
+**Settled by the user in round 2** (`documentations/log/log-v2.md`, D1 and D2),
 superseding round 1's guess. One rule for both hands: **the digit whose nail
 faces the viewer is the thumb.**
 

@@ -6,7 +6,7 @@ app. Anything that produces or consumes hand data must follow these exactly.
 Change a contract here first, then every producer and consumer together.
 
 Status of each producer/consumer at the time of writing: see
-`documentation/log/log-v2.md`.
+`documentations/log/log-v2.md`.
 
 ## 1. Frame and world space
 

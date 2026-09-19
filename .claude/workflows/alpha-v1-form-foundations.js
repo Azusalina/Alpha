@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-form-foundations',
   description: 'Build reference masks + measurement tools, Blender continuous hand meshes, and a Tauri shell; verify each adversarially',
-  whenToUse: 'Alpha v1 form/acceptance round. args: {only?: ["reference","blender","tauri"], resume?: true}. See documentation/log/log-v2.md for what is already done.',
+  whenToUse: 'Alpha v1 form/acceptance round. args: {only?: ["reference","blender","tauri"], resume?: true}. See documentations/log/log-v2.md for what is already done.',
   phases: [
     { title: 'Build', detail: 'three independent deliverables in parallel' },
     { title: 'Verify', detail: 'independent adversarial check of each deliverable' },
@@ -9,7 +9,7 @@ export const meta = {
   ],
 }
 
-const CONTEXT = `You are working in the Alpha repo at /home/a/Documents/Alpha/.claude/worktrees/relaxed-sammet-bbc152 (git branch claude/v1-form-acceptance). Alpha v1.0.0 is a React + TypeScript + Vite + three.js (@react-three/fiber) desktop-app front end. Its startup page shows two hands from The Creation of Adam: a sculptural human hand entering from the upper left, and a particle hand entering from the lower right, index fingertips almost touching.
+const CONTEXT = `You are working in the Alpha repo at /home/a/Documents/Alpha (the main checkout, branch main — not a .claude/worktrees path). Alpha v1.0.0 is a React + TypeScript + Vite + three.js (@react-three/fiber) desktop-app front end. Its startup page shows two hands from The Creation of Adam: a sculptural human hand entering from the upper left, and a particle hand entering from the lower right, index fingertips almost touching.
 
 Read first:
 - /home/a/Documents/Alpha/alpha-v1-review/review.md — an independent review of the current state. This round implements its section E scope: static hand form + acceptance tooling. Its section C (navigation) is OUT of scope.
@@ -44,7 +44,7 @@ ENVIRONMENT:
 - Do not git commit, push, stash, or change branches. Do not edit files outside your ownership list: other agents are working in the same checkout at the same time.
 - Verify by looking: render, save PNGs, Read them, and crop/zoom to fingers, finger gaps, wrist and the contact region before claiming anything looks right. Report honestly what you did not achieve.
 
-DECISIONS CONFIRMED BY THE USER (documentation/log/log-v2.md, D1-D4) — these override anything else in this prompt, and a verifier must treat them as correct, not as defects:
+DECISIONS CONFIRMED BY THE USER (documentations/log/log-v2.md, D1-D4) — these override anything else in this prompt, and a verifier must treat them as correct, not as defects:
 - D1 Right (particle) hand digit names: index reaches up-left to the contact point; MIDDLE is the long digit pointing left beneath the index (tip ~807,654); THUMB is the short digit whose nail outline faces the viewer (tip ~897,672); RING and PINKY are the two down-curled digits (tips ~901-906,755 and ~988-990,755).
 - D2 Left (human) hand digit names: THUMB is the digit with the large nail facing the viewer, coming diagonally out of the base of the palm (tip ~548-559,461); PINKY is the short leftmost digit curled under the palm, pointing back toward the wrist (tip ~437,441); middle and ring are the curled digits between. One rule for both hands: the digit whose nail faces the viewer is the thumb.
 - D3 Order: this workflow is step 1 of the log (finish and verify the three foundations). Pose calibration is step 2 and is NOT part of this run.
@@ -177,12 +177,12 @@ Set passed=true only if everything holds with evidence you produced.`,
 const ONLY = Array.isArray(args?.only) ? args.only : null
 const RESUME = args?.resume === true
 const RESUME_NOTE = RESUME
-  ? '\n\nRESUMING: this deliverable is partially built on disk from an earlier run that was stopped. Read documentation/log/log-v2.md, inspect what exists, keep what is correct, and finish the rest. Do not start over.'
+  ? '\n\nRESUMING: this deliverable is partially built on disk from an earlier run that was stopped. Read documentations/log/log-v2.md, inspect what exists, keep what is correct, and finish the rest. Do not start over.'
   : ''
 // What is actually left of each deliverable in step 1 (log-v2.md "Resume here", step 1).
 const RESUME_SCOPE = {
-  reference: 'REMAINING IN THIS RUN: everything is built (D1 relabel in reference_masks.py + regenerated keypoints.json, overlay_check.py rewritten, docs/ACCEPTANCE.md + thresholds.json + sensitivity.json written) but it has NEVER been independently verified — all three verifier passes in the last run were blocked by permission denials. Re-run your own checks, change nothing that is correct, and fix only what a verifier finds. See documentation/log/log-v2.md "Status after the step-1 run".',
-  blender: 'REMAINING IN THIS RUN: fix the open findings of the last independent verifier (documentation/log/log-v2.md, "Blender verifier findings"): (1) MAJOR — the kind=="outer" polylines in hand-<hand>.contour.json must cover the whole mask boundary (currently ~94 %, largest gap ~41 px at the left wrist underside; some real outline is labelled inner) — report boundary coverage % and the largest gap; (2) the decimation fold on the back of the left hand (~482,251 px), visible as a bright slash in the home and +-35 deg views — and correct HAND_ASSETS.md, which calls it invisible; (3) nail-edge surface defects (left thumb nail creases, right thumb underside notch, right pinky tip dent, left index nail dimple); (4) HAND_ASSETS.md says two rebuilds where there were three; re-run compare_silhouette after keypoints.json settled. Do NOT change poses or radii — pose-right depth reuse and form calibration are step 2 (D3); the forearm cuff is step 3. Keep every A1 number (1 shell, 0 non-manifold, 0 boundary, winding > 99.5 %, <= 30k triangles).',
+  reference: 'REMAINING IN THIS RUN: everything is built (D1 relabel in reference_masks.py + regenerated keypoints.json, overlay_check.py rewritten, docs/ACCEPTANCE.md + thresholds.json + sensitivity.json written) but it has NEVER been independently verified — all three verifier passes in the last run were blocked by permission denials. Re-run your own checks, change nothing that is correct, and fix only what a verifier finds. See documentations/log/log-v2.md "Status after the step-1 run".',
+  blender: 'REMAINING IN THIS RUN: fix the open findings of the last independent verifier (documentations/log/log-v2.md, "Blender verifier findings"): (1) MAJOR — the kind=="outer" polylines in hand-<hand>.contour.json must cover the whole mask boundary (currently ~94 %, largest gap ~41 px at the left wrist underside; some real outline is labelled inner) — report boundary coverage % and the largest gap; (2) the decimation fold on the back of the left hand (~482,251 px), visible as a bright slash in the home and +-35 deg views — and correct HAND_ASSETS.md, which calls it invisible; (3) nail-edge surface defects (left thumb nail creases, right thumb underside notch, right pinky tip dent, left index nail dimple); (4) HAND_ASSETS.md says two rebuilds where there were three; re-run compare_silhouette after keypoints.json settled. Do NOT change poses or radii — pose-right depth reuse and form calibration are step 2 (D3); the forearm cuff is step 3. Keep every A1 number (1 shell, 0 non-manifold, 0 boundary, winding > 99.5 %, <= 30k triangles).',
   tauri: 'Verified in the last run (passed). Nothing remains unless a verifier finds something new.',
 }
 

@@ -69,7 +69,7 @@ const PX = 2 / REFERENCE_FRAME.height;
  * reaches toward the particle hand, `thumb` is the short proximal digit at the
  * lower left, and middle/ring/pinky are the three curled digits in the order
  * their bases sit along the knuckle ridge. The drawing is stylised enough that
- * anatomical handedness is not decidable from it; see documentation/log/log-v1.md.
+ * anatomical handedness is not decidable from it; see documentations/log/log-v1.md.
  */
 const LEFT_HAND_SPEC = {
   /** Forearm anchor sits outside the frame so no cut-off stump is ever visible. */

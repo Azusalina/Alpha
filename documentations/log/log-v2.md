@@ -1,7 +1,7 @@
 # Alpha v1.0.0 — implementation log, round 2: form and acceptance
 
 Date: 2026-09-19
-Branch: `claude/v1-form-acceptance` (from `main` @ `0453b74`; not pushed)
+Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then fast-forwarded into `main` and pushed at the user's request (2026-09-19). Work continues directly on `main` in the repo root `/home/a/Documents/Alpha`.
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
@@ -103,8 +103,9 @@ verification pass, and per-hand calibration.
 5. **Workflow saved as a named, resumable script**:
    `.claude/workflows/alpha-v1-form-foundations.js`, with
    `args: {only?: [...], resume?: true}`.
-6. **Branch does not track `origin/main`**, so a bare `git push` cannot land on
-   main by accident.
+6. ~~Branch does not track `origin/main`~~ — superseded: the user had the round-2
+   work pushed to `main` and moved work into the repo root. Still ask before
+   every push.
 
 ---
 
@@ -245,10 +246,12 @@ metrics cannot see errors under ~5 px; fingertips and the tip gap carry that.
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
 
-**0. Environment.** `node_modules` is not carried into a new worktree. The
-lockfile is unchanged since round 1, so either copy an existing install
-(`cp -a /home/a/Documents/Alpha/v1/node_modules .` — same lockfile, verified) or
-run `npm install --legacy-peer-deps` yourself.
+**0. Environment.** Work in the repo root `/home/a/Documents/Alpha` on
+`main`, not in `.claude/worktrees/` (the user's choice; see the root
+`CLAUDE.md`). `node_modules` and the 2.6 GB Tauri build cache
+`src-tauri/target/` live in the root. If `node_modules` is ever missing, ask the
+user to run `npm install --legacy-peer-deps` — npm hangs from the agent
+sandbox. (`/home/a/Documents/Alpha/v1/` no longer exists.)
 
 **1. Finish and verify the three foundations.** *Partly done — see "Status
 after the step-1 run" below.* Tauri is verified. What remains:
