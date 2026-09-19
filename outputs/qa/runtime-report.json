@@ -1,0 +1,56 @@
+{
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "frameTiming": {
+    "samples": 160,
+    "median_ms": 45.4,
+    "p95_ms": 50.9,
+    "max_ms": 53.8,
+    "implied_fps": 22,
+    "note": "valid only for the renderer named above"
+  },
+  "pointer": {
+    "influenceAfterLeaving": 0.0003921823586445306
+  },
+  "viewports": [
+    {
+      "label": "reference 1.718",
+      "size": [
+        1644,
+        957
+      ],
+      "hotzoneReachable": true
+    },
+    {
+      "label": "16:9",
+      "size": [
+        1920,
+        1080
+      ],
+      "hotzoneReachable": true
+    },
+    {
+      "label": "16:10",
+      "size": [
+        1680,
+        1050
+      ],
+      "hotzoneReachable": true
+    },
+    {
+      "label": "16:10 small",
+      "size": [
+        1280,
+        800
+      ],
+      "hotzoneReachable": true
+    },
+    {
+      "label": "near square 1.14",
+      "size": [
+        1024,
+        900
+      ],
+      "hotzoneReachable": true
+    }
+  ]
+}

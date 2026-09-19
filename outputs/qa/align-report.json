@@ -1,0 +1,80 @@
+{
+  "render": "outputs/qa/home.png",
+  "frame": [
+    1644,
+    957
+  ],
+  "legend": "red ring = reference landmark, blue ring = render, green line = offset",
+  "landmarks": {
+    "left_index_tip": {
+      "found": true,
+      "reference_px": [
+        785,
+        419
+      ],
+      "render_px": [
+        798,
+        427
+      ],
+      "offset_px": [
+        13,
+        8
+      ],
+      "distance_px": 15.3,
+      "distance_frac_width": 0.0093
+    },
+    "left_thumb_tip": {
+      "found": true,
+      "reference_px": [
+        421,
+        448
+      ],
+      "render_px": [
+        411,
+        448
+      ],
+      "offset_px": [
+        -10,
+        0
+      ],
+      "distance_px": 10.0,
+      "distance_frac_width": 0.0061
+    },
+    "left_palm_low": {
+      "found": true,
+      "reference_px": [
+        600,
+        523
+      ],
+      "render_px": [
+        619,
+        513
+      ],
+      "offset_px": [
+        19,
+        -10
+      ],
+      "distance_px": 21.5,
+      "distance_frac_width": 0.0131
+    },
+    "right_index_tip": {
+      "found": true,
+      "reference_px": [
+        805,
+        437
+      ],
+      "render_px": [
+        800,
+        428
+      ],
+      "offset_px": [
+        -5,
+        -9
+      ],
+      "distance_px": 10.3,
+      "distance_frac_width": 0.0063
+    }
+  },
+  "max_offset_px": 21.5,
+  "mean_offset_px": 14.3
+}
