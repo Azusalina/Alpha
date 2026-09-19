@@ -14,8 +14,10 @@ on the day you measure (step 5).
 ## 1. What already exists and what has been verified
 
 - `src-tauri/`: a minimal Tauri 2 shell with one 1644×957 resizable window titled
-  "Alpha". It has no plugins and no commands, and it sets no WebKit environment
-  variables. `tauri.conf.json` points `devUrl` at `http://127.0.0.1:5173` and
+  "Alpha". It has no plugins and no commands, its capability allows exactly one
+  IPC command (`plugin:app|tauri_version`, via `core:app:allow-tauri-version`;
+  decision D7), and it sets no WebKit environment variables.
+  `tauri.conf.json` points `devUrl` at `http://127.0.0.1:5173` and
   `frontendDist` at `../dist`. Bundling is off (`bundle.active: false`), so
   `tauri build` produces a plain binary.
 - A diagnostics panel, available in dev builds and in builds made with
@@ -33,6 +35,7 @@ These results came from the implementation session:
 | Renderer string in WebKitGTK | Reported as **`Apple GPU` / `Apple Inc.`**, even through `WEBGL_debug_renderer_info`. WebKit masks it on every platform, so the panel marks it as masked. Step 5 shows how to read the real renderer |
 | Frame numbers from that Xvfb run | Mesa llvmpipe (software). **Not a hardware result.** Do not copy them into the table |
 | Re-check on resume (same day): `cargo check` / `cargo build` after touching the crate, then the debug binary on Xvfb (`GDK_BACKEND=x11`, only because Xvfb has no Wayland) with `Ctrl+Shift+D` sent through XTest | Both passed. Panel opened and closed; it reported `isTauri: true`, `tauriVersion: 2.11.5`, viewport and buffer 1644×957 at DPR 1, 12 000 particles, state `home`. Still software rendering, so no numbers are kept |
+| Capability narrowed from `core:default` to `core:app:allow-tauri-version` (decision D7, session 4): `cargo build`, then the debug binary on Xvfb | Passed. A throwaway page at the devUrl got `2.11.5` from `plugin:app\|tauri_version`; the ACL rejected `app\|version`, `app\|name`, `window\|title`, `webview\|internal_toggle_devtools` and `event\|listen` (`outputs/qa/desktop/ipc-acl-check.json`). The real app then reached `home` and the panel reported `isTauri: true`, `tauriVersion: 2.11.5`, 1644×957 at DPR 1 (`outputs/qa/desktop/tauri-xvfb-panel.png`). Software rendering, so no numbers are kept |
 | Real window on KDE Wayland with the Intel GPU | **Not done.** You need to run it with the steps below |
 
 ## 2. System packages (Arch)
@@ -135,6 +138,9 @@ window was hidden). Discard that run.
 
 Alternative without the panel: in `tauri dev` builds, right-click, choose
 **Inspect Element**, then in the console run `await __alpha.measureFrames(240)`.
+Use the context menu, not Tauri's Ctrl+Shift+I shortcut: that shortcut goes through
+IPC (`plugin:webview|internal_toggle_devtools`), which the narrowed capability does
+not allow, so it does nothing. The context menu is WebKit's own and needs no IPC.
 An open inspector costs frame time, so the panel is the primary method.
 
 What the fields mean:

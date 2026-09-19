@@ -184,7 +184,7 @@ output is committed; nothing below was lost.
 
 | Deliverable | Built | Independently verified | Open |
 |---|---|---|---|
-| **tauri** | ✅ | ✅ passed (3 minors) | minors: the Xvfb-release-run claim is unbacked by files on disk; `core:default` is broader than the one permission used; hotzone buttons are Tab-reachable (predates, V11 still passes) |
+| **tauri** | ✅ | ✅ passed (3 minors) | minors: the Xvfb-release-run claim is unbacked by files on disk; ~~`core:default` is broader than the one permission used~~ (fixed in session 4, D7: `core:app:allow-tauri-version` only; evidence in `outputs/qa/desktop/`); hotzone buttons are Tab-reachable (predates, V11 still passes) |
 | **blender** | ✅ | ❌ verifier 1 failed it; fixes were blocked | see findings below |
 | **reference** | ✅ | ❌ **never verified** — all three verifier passes were blocked | everything below is the builder's own word |
 

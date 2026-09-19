@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 
 # No plugins: the front end opens no URLs, touches no files and runs no shell
 # commands. Diagnostics run in the web view; their one IPC call reads the Tauri
-# version (`plugin:app|tauri_version`), which `core:default` already allows.
+# version (`plugin:app|tauri_version`), the only permission the capability
+# grants (`core:app:allow-tauri-version`, decision D7 in log-v2).
 [dependencies]
 tauri = { version = "2", features = [] }

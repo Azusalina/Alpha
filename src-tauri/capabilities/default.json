@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: Tauri core defaults only. No plugins, no shell, no network or filesystem access.",
+  "description": "Main window: only the Tauri version read by the diagnostics panel (plugin:app|tauri_version). No plugins, no shell, no network or filesystem access.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:app:allow-tauri-version"]
 }

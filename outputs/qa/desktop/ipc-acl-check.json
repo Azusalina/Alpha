@@ -1,0 +1,34 @@
+{
+ "what": "IPC permission check of the Tauri shell after narrowing the capability to core:app:allow-tauri-version (decision D7). A throwaway page served at the devUrl called each command through window.__TAURI_INTERNALS__.invoke inside the debug binary on a private Xvfb display (GDK_BACKEND=x11).",
+ "date": "2026-09-19",
+ "binary": "src-tauri/target/debug/alpha (cargo build, tauri 2.11.5, WebKitGTK 2.52.6)",
+ "capability": "src-tauri/capabilities/default.json -> permissions [core:app:allow-tauri-version]",
+ "expected": "only plugin:app|tauri_version succeeds; everything core:default used to allow is rejected by the ACL",
+ "results": {
+  "hasInternals": true,
+  "plugin:app|tauri_version": {
+   "ok": true,
+   "v": "2.11.5"
+  },
+  "plugin:app|version": {
+   "ok": false,
+   "e": "app.version not allowed. Permissions associated with this command: core:app:allow-version, core:app:default"
+  },
+  "plugin:app|name": {
+   "ok": false,
+   "e": "app.name not allowed. Permissions associated with this command: core:app:allow-name, core:app:default"
+  },
+  "plugin:window|title": {
+   "ok": false,
+   "e": "window.title not allowed. Permissions associated with this command: core:window:allow-title, core:window:default"
+  },
+  "plugin:webview|internal_toggle_devtools": {
+   "ok": false,
+   "e": "webview.internal_toggle_devtools not allowed. Permissions associated with this command: core:webview:allow-internal-toggle-devtools, core:webview:default"
+  },
+  "plugin:event|listen": {
+   "ok": false,
+   "e": "event.listen not allowed. Permissions associated with this command: core:event:allow-listen, core:event:default"
+  }
+ }
+}
