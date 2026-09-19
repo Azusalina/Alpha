@@ -42,7 +42,13 @@ ENVIRONMENT:
 - Blender 5.2.2 LTS headless: blender -b --factory-startup -P script.py -- args. Its Python has numpy. Workbench renders a 1644x957 frame in under a second; EEVEE and Cycles also work headless.
 - The main session runs a Vite dev server on port 5173 — do not stop it. If you need a browser, start your OWN server on another port (npx vite --port <yours> --strictPort, in the background; kill it when done) and use Playwright from @playwright/test with launch option executablePath '/usr/bin/chromium' (Playwright cannot download browsers here). Throwaway Node scripts that import @playwright/test must live inside the repo's scripts/ folder with a leading underscore in the filename; delete them when done.
 - Do not git commit, push, stash, or change branches. Do not edit files outside your ownership list: other agents are working in the same checkout at the same time.
-- Verify by looking: render, save PNGs, Read them, and crop/zoom to fingers, finger gaps, wrist and the contact region before claiming anything looks right. Report honestly what you did not achieve.`
+- Verify by looking: render, save PNGs, Read them, and crop/zoom to fingers, finger gaps, wrist and the contact region before claiming anything looks right. Report honestly what you did not achieve.
+
+DECISIONS CONFIRMED BY THE USER (documentation/log/log-v2.md, D1-D4) — these override anything else in this prompt, and a verifier must treat them as correct, not as defects:
+- D1 Right (particle) hand digit names: index reaches up-left to the contact point; MIDDLE is the long digit pointing left beneath the index (tip ~807,654); THUMB is the short digit whose nail outline faces the viewer (tip ~897,672); RING and PINKY are the two down-curled digits (tips ~901-906,755 and ~988-990,755).
+- D2 Left (human) hand digit names: THUMB is the digit with the large nail facing the viewer, coming diagonally out of the base of the palm (tip ~548-559,461); PINKY is the short leftmost digit curled under the palm, pointing back toward the wrist (tip ~437,441); middle and ring are the curled digits between. One rule for both hands: the digit whose nail faces the viewer is the thumb.
+- D3 Order: this workflow is step 1 of the log (finish and verify the three foundations). Pose calibration is step 2 and is NOT part of this run.
+- D4 Pose-match thresholds are derived in docs/ACCEPTANCE.md from the reference masks' own uncertainty. The log's proposed numbers (IoU >= 0.93 left / >= 0.90 right, contour p95 <= 8 px, negative-space IoU >= 0.85, keypoints within their stated uncertainty) are reference points only; wherever a derived threshold is looser, ACCEPTANCE.md must say why.`
 
 const BUILD = {
   type: 'object',
@@ -90,17 +96,18 @@ OWNERSHIP (edit only these): scripts/reference_masks.py, scripts/compare_silhoue
    - Hand-tracing assistance is allowed where automatic extraction fails (e.g. a polygon read off zoomed crops and snapped to dark contour pixels), but record which parts were traced by hand.
    - Save 1644x957 single-channel PNGs (255 = hand): assets-source/reference/left-mask.png, right-mask.png, and negative-space masks left-negative.png, right-negative.png (gaps between digits: inside the hand's convex hull, outside the silhouette, restricted to the finger region — define it precisely and document it).
    - Save verification overlays (mask edge over the reference, plus zoomed crops of fingers, gaps, wrist and the contact region) in outputs/qa/reference/ and LOOK at them. Iterate until the mask edges sit on the drawn contour.
-2. Keypoints: assets-source/reference/keypoints.json. For each hand: all 5 fingertips, the knuckles (MCP) and PIP/DIP joints where readable, wrist centre, wrist axis angle (degrees, image space), plus the gap between the two index fingertips. Every entry states "measured" (algorithmic) or "read" (by eye from a zoomed crop) and an uncertainty in px. For the right hand: as far as the main session can tell, the index finger reaches up-left to the contact point, the thumb points left below it and the remaining fingers curl downward — verify this yourself on crops; trust the image over this sentence.
+2. Keypoints: assets-source/reference/keypoints.json. For each hand: all 5 fingertips, the knuckles (MCP) and PIP/DIP joints where readable, wrist centre, wrist axis angle (degrees, image space), plus the gap between the two index fingertips. Every entry states "measured" (algorithmic) or "read" (by eye from a zoomed crop) and an uncertainty in px. Digit names for both hands follow decisions D1 and D2 exactly.
 3. scripts/compare_silhouette.py — CLI: python3 scripts/compare_silhouette.py --hand left|right --render <mask.png> [--render-keypoints <json>] --out <dir>. The render mask must be exactly 1644x957 — refuse otherwise; never stretch. Outputs JSON + PNG: IoU, precision, recall, symmetric contour distance (mean, p95, max px, via distance transforms), negative-space IoU, per-keypoint offsets when render keypoints are given, and an overlay PNG with reference red, render blue, overlap black on white. The overlay formula (review A4): normalise both to white-background/black-ink grayscale, then RGB = (renderGray, min(refGray, renderGray), refGray). Also accept --render-rgb <png> --id-color r,g,b to extract a hand mask from an ID-coloured render (tolerance +-24 per channel).
 4. Rewrite scripts/overlay_check.py (review A4). The current code produces R=B=255 everywhere — confirm that bug, then fix it. It must take an app screenshot in the silhouette view mode (contract 7), split the hands by ID colour, and run the compare_silhouette logic for both hands; it must also accept a normal full-render screenshot and produce the two-ink overlay only. Refuse mismatched resolution.
-5. docs/ACCEPTANCE.md: how to run each check, what each metric means, recommended thresholds for "pose matches" justified from the reference masks' own uncertainty (e.g. how far the mask moves under a small change of contour threshold or blur), and what these metrics cannot tell you.
+5. docs/ACCEPTANCE.md: how to run each check, what each metric means, thresholds for "pose matches" per metric and per hand, derived from the reference masks' own uncertainty (e.g. how far the mask moves under a small change of contour threshold or blur) per decision D4 — compare each derived threshold with the log's reference number and justify every one that is looser — and what these metrics cannot tell you.
 6. Self-test: each reference mask against itself (IoU 1.0, distances 0), against itself shifted 5 px (sane numbers), and the refusal on a mismatched resolution. Record the outputs.
 Return BUILD_RESULT.`,
     verify: `YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of the reference-mask and measurement-tool deliverable (scripts/reference_masks.py, scripts/compare_silhouette.py, scripts/overlay_check.py, assets-source/reference/**, docs/ACCEPTANCE.md). Try to find what is wrong. Do not edit any files; you may write throwaway outputs only under your scratchpad or /tmp. Check at least:
 - Re-run scripts/reference_masks.py from scratch; outputs are reproducible (same bytes or same pixels).
 - Overlay each mask's edge on the reference yourself and inspect zoomed crops of EVERY fingertip, every inter-finger gap, the thumb, the wrist and the contact region, for both hands. Construction lines/circles must not be part of the left mask; the right mask must be a hand shape (gesture correct), not a blob, and the tail cut must be documented and sensible.
 - Negative-space masks actually capture the gaps between digits.
-- keypoints.json: every point lies on/in the right feature (draw them on the reference and look); uncertainties are honest.
+- keypoints.json: every point lies on/in the right feature (draw them on the reference and look); names follow decisions D1 and D2 for both hands; keypoints.json is produced by scripts/reference_masks.py, not hand-edited; uncertainties are honest.
+- docs/ACCEPTANCE.md derives every threshold per D4 and justifies each one looser than the log's reference number.
 - compare_silhouette.py: IoU of a mask against itself is 1.0; a 5-px shift gives plausible numbers; mismatched resolution is refused; the overlay colours are correct (reference-only pixels red (255,0,0), render-only blue (0,0,255), overlap black) — check actual pixel values.
 - overlay_check.py: the old R=B=255 bug is gone; ID-colour splitting works on a synthetic silhouette image you construct yourself following contract 7.
 - docs/ACCEPTANCE.md thresholds are justified by measurement, not asserted.
@@ -172,9 +179,16 @@ const RESUME = args?.resume === true
 const RESUME_NOTE = RESUME
   ? '\n\nRESUMING: this deliverable is partially built on disk from an earlier run that was stopped. Read documentation/log/log-v2.md, inspect what exists, keep what is correct, and finish the rest. Do not start over.'
   : ''
+// What is actually left of each deliverable in step 1 (log-v2.md "Resume here", step 1).
+const RESUME_SCOPE = {
+  reference: 'REMAINING IN THIS RUN: (a) relabel the right-hand keypoints in scripts/reference_masks.py to decision D1 (current code calls the long left digit thumb_tip, the first down-curled tip middle_tip and the second ring_tip; they become middle_tip, ring_tip and pinky_tip; add thumb_tip at the nail-facing short digit, and relabel the right-hand MCP/PIP/DIP/CMC entries consistently), then re-run the script so keypoints.json is regenerated — do not hand-edit keypoints.json; left-hand labels already follow D2, leave them; (b) rewrite scripts/overlay_check.py; (c) write docs/ACCEPTANCE.md per D4. Leave the masks alone unless verification shows they are wrong.',
+  blender: 'REMAINING IN THIS RUN: make the deliverable pass independent verification. Do NOT change poses, radii or build parameters unless a verification failure requires it — calibration is step 2 (D3). Replace the placeholder "notes" in pose-right.json (and pose-left.json if also a placeholder) with real provenance notes that use the D1/D2 digit names. The GLBs, masks, reports, views and hands.blend in the repo were rebuilt with the committed build_hands.py; rebuild only if you change something.',
+  tauri: 'REMAINING IN THIS RUN: the build was finished; independent verification was interrupted in round 1. Re-check your own work against the acceptance list, fix anything that is not right, and return.',
+}
 
 async function runItem(item) {
-  let build = await agent(`${CONTEXT}\n\n${item.build}${RESUME_NOTE}`, { label: `build:${item.key}`, phase: 'Build', schema: BUILD })
+  const scope = RESUME && RESUME_SCOPE[item.key] ? `\n\n${RESUME_SCOPE[item.key]}` : ''
+  let build = await agent(`${CONTEXT}\n\n${item.build}${RESUME_NOTE}${scope}`, { label: `build:${item.key}`, phase: 'Build', schema: BUILD })
   if (!build) return { key: item.key, error: 'builder returned nothing' }
   const history = []
   for (let round = 1; round <= 3; round++) {
@@ -189,7 +203,7 @@ async function runItem(item) {
     if (verdict.passed && serious.length === 0) return { key: item.key, build, verdict, history }
     if (round === 3) return { key: item.key, build, verdict, history, unresolved: true }
     const fixed = await agent(
-      `${CONTEXT}\n\n${item.build}\n\nYou are continuing this deliverable; its current state is on disk. An independent verifier found the problems below. Fix every blocker and major (minors if cheap), re-run your own checks, and return BUILD_RESULT describing the FINAL state (not just the delta):\n${JSON.stringify(verdict.issues, null, 2)}`,
+      `${CONTEXT}\n\n${item.build}${scope}\n\nYou are continuing this deliverable; its current state is on disk. An independent verifier found the problems below. Fix every blocker and major (minors if cheap), re-run your own checks, and return BUILD_RESULT describing the FINAL state (not just the delta):\n${JSON.stringify(verdict.issues, null, 2)}`,
       { label: `fix:${item.key}#${round}`, phase: 'Fix', schema: BUILD },
     )
     if (fixed) build = fixed

@@ -106,6 +106,8 @@ Full rationale in `docs/DECISIONS.md`; the short version:
    near-orthographic projection while leaving the cloud real depth.
 7. **Digits are named for their role in the drawing**, not anatomically. The
    reference is too stylised to decide handedness from.
+   *Superseded in round 2: the user settled the digit names for both hands —
+   see `log-v2.md` D1/D2 and `docs/DECISIONS.md` §5.*
 
 ---
 

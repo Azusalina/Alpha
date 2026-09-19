@@ -65,11 +65,21 @@ the calibrated frame always fits.
 
 ## 5. Digit naming
 
-The reference is stylised enough that anatomical handedness is not decidable
-from it. Digits are named for their role in the drawing: `index` is the extended
-digit that reaches toward the particle hand, `thumb` is the short proximal digit
-at the lower left, and middle/ring/pinky are the three curled digits in the order
-their bases sit along the knuckle ridge. This is an open question, not a claim.
+**Settled by the user in round 2** (`documentation/log/log-v2.md`, D1 and D2),
+superseding round 1's guess. One rule for both hands: **the digit whose nail
+faces the viewer is the thumb.**
+
+- Left (human) hand: `index` is the extended digit reaching toward the particle
+  hand; `thumb` is the digit with the large nail facing the viewer, coming
+  diagonally out of the base of the palm (≈ 548–559, 461 px); `pinky` is the
+  short leftmost digit curled under the palm and pointing back toward the wrist
+  (≈ 437, 441 px); `middle` and `ring` are the two curled digits between.
+- Right (particle) hand: `index` reaches up-left to the contact point; `middle`
+  is the long digit pointing left beneath it; `thumb` is the short digit whose
+  nail outline faces the viewer (≈ 897, 672 px); `ring` and `pinky` are the two
+  down-curled digits (tips ≈ 901–906, 755 and ≈ 988–990, 755 px).
+
+Round 1 had named the left hand's short leftmost digit the thumb.
 
 ## 6. Desktop shell
 
