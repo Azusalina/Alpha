@@ -79,7 +79,8 @@ Alpha 是一个本地桌面应用（React + TypeScript + Vite + three.js / R3F�
 
 【环境】
 - 直接在仓库根目录 /home/a/Documents/Alpha 的 main 上工作，不要在 .claude/worktrees/ 里。
-  如果本会话是在 .claude/worktrees/ 下启动的，先用切换目录的工具把会话移到根目录（见根目录 CLAUDE.md）。
+  如果本会话是在 .claude/worktrees/ 下启动的，它的目录无法切换；先停下来告诉我，
+  由我在根目录重新开一个会话（见根目录 CLAUDE.md）。
   commit 可以做，push 前必须问我。
 - node_modules 和 src-tauri/target（Tauri 编译缓存）都在根目录。缺了就告诉我，
   由我来跑 npm install --legacy-peer-deps。不要自己跑 npm install，它在沙箱里会卡死。

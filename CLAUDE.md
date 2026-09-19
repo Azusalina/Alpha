@@ -6,11 +6,16 @@ The user wants every session to work directly in **`/home/a/Documents/Alpha`**
 on branch **`main`** — not in `.claude/worktrees/*`.
 
 - If this session started inside `/home/a/Documents/Alpha/.claude/worktrees/…`,
-  then before doing any work, move the session to `/home/a/Documents/Alpha`
-  with the desktop app's change-directory tool
-  (`mcp__ccd_directory__change_directory`), tell the user you did, and use
-  absolute paths under the root until the move takes effect. This instruction
-  overrides the default "stay in your worktree" behaviour.
+  the desktop app is running it in an isolated worktree. Its working directory
+  **cannot** be moved (`mcp__ccd_directory__change_directory` refuses for such
+  sessions), and its file-edit tools refuse paths in the root checkout — both
+  verified 2026-09-19. Before doing any work, tell the user and ask them to end
+  this session and start a new one on `/home/a/Documents/Alpha` with worktree
+  isolation turned off (or from a terminal: `cd /home/a/Documents/Alpha &&
+  claude`). If they want to continue here anyway: edit and commit in the
+  worktree, then bring it into the root with
+  `git -C /home/a/Documents/Alpha merge --ff-only <this worktree's branch>`,
+  and never let the two drift apart.
 - Do not create worktrees (`EnterWorktree`, `git worktree add`) unless the user
   asks for one.
 - Only one session should edit the repo at a time. If `git status` in the root
