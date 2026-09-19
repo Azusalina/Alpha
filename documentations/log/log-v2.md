@@ -5,9 +5,10 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: PAUSED mid-round at the user's request** (twice; latest after the
-step-1 run in session 3). Everything below is committed. Pick up at "Resume
-here". A paste-ready prompt for the next chat session is in
+**Status: IN PROGRESS — session 4** (repo root, `main`). Decisions D5–D11 were
+added at its start (below D1–D4). Earlier pauses: twice at the user's request,
+latest after the step-1 run in session 3. Pick up at "Resume here". A
+paste-ready prompt for a new chat session is in
 [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md).
 
 ---
@@ -19,7 +20,7 @@ here". A paste-ready prompt for the next chat session is in
 | Hand asset route | Blender script generating continuous meshes → GLB; `.py` + `.blend` as editable source |
 | "Animations" scope | Review §E only: static form + acceptance fixes, then refine the existing startup reveal / particle tone / breathing / hover. **No navigation** (review §C) this round. |
 | Tauri desktop check | This round; the user installs the Tauri CLI and runs it on the real machine |
-| Git | Commit on a new branch; do not push without asking |
+| Git | Commit on a new branch; do not push without asking (superseded: work on `main` in the repo root; D8 for pushes in this round) |
 
 ---
 
@@ -32,7 +33,7 @@ here". A paste-ready prompt for the next chat session is in
 | A1 | Mesh winding inverted, no continuous surface | **Solved by replacement**: new Blender meshes are 1 shell, 0 non-manifold, 0 boundary edges, 100 % winding agreement. The app still renders the old TS mesh until integration. |
 | A2 | Seed did not reproduce the cloud | **Fixed and verified**: same seed 0 / 30 000 mismatches (was 30 000 / 30 000); different seed differs everywhere. Commit `648beb2`. |
 | A3 | `smoothstep(edge0 > edge1)` undefined | **Fixed**, `648beb2`. |
-| A4 | Overlay channel math broken, too few measurements | **Half done**: `compare_silhouette.py` is new and correct (red/blue/black overlay, IoU, contour distance, negative space, keypoints, refuses wrong resolution). `overlay_check.py` **not yet rewritten** — the old bug is still in it. |
+| A4 | Overlay channel math broken, too few measurements | **Built, not yet independently verified**: `compare_silhouette.py` is new (red/blue/black overlay, IoU, contour distance, negative space, keypoints, refuses wrong resolution); `overlay_check.py` was rewritten in session 3 (see "Status after the step-1 run"). |
 | A5 | Playwright preset overrode 1644 × 957 | **Fixed**, `648beb2`. The suite had been running at 1280 × 720; all 7 checks still pass at the right size. |
 
 ### Reference data and tools — `scripts/reference_masks.py`, `scripts/compare_silhouette.py`
@@ -143,6 +144,21 @@ Asked before any work resumed; these override anything earlier in this log.
 
 Step 0 status: the same worktree was reused, so `node_modules` (61 packages,
 lockfile identical to `/home/a/Documents/Alpha/v1`) is already in place.
+
+### Session 4 — more decisions confirmed by the user (2026-09-19)
+
+Asked before session 4 started work, in the repo root on `main`. Same standing
+as D1–D4.
+
+| # | Question | Decision |
+|---|---|---|
+| D5 | The bright slit between the left thumb and ring finger (x 537–560, y 360–420, ~500 px): paper or highlight? | **Paper seen through a gap.** Its two sides are the thumb's and the finger's own outlines, its top is the hard edge of the shadowed palm, and its inside is paper tone (median grey 239; paper 246) while the lit facets around it are toned. `left-mask.png` excludes it, it counts as left negative space, the gates are re-derived with `--sensitivity`, and `ACCEPTANCE.md` / `meta.json` record the decision. Done by the reference deliverable in the step-1 run. |
+| D6 | Left gates are strict (contour p95 ≤ 2 px against 13 px now). If step-2 calibration plateaus? | **ACCEPTANCE §4.4 as written**: record the residual (numbers + overlays) and bring it to the user. No loosening, no other k. |
+| D7 | Tauri capability `core:default` is broader than the one command used | **Narrow it** to `core:app:allow-tauri-version` (the only call is `plugin:app\|tauri_version` in `src/app/diagnostics.ts`). Main session; verified with a build and a WebKitGTK run. |
+| D8 | Push rule: "ask before every push" vs "commit & push after every step" | **Push directly** after each completed step in this round (update this log, commit, push to `origin/main`) without asking each time. The standing rule in `CLAUDE.md` still applies to later rounds. |
+| D9 | Pass criterion for the blender major "outer contour coverage" | Per hand: **≥ 99.5 %** of the in-frame mask-boundary pixels lie within 3 px of a `kind: "outer"` polyline (projected per CONTRACTS §3), the **largest uncovered run ≤ 6 px** (two sampling steps), and no boundary against the background is labelled `inner`. Measured at session start: left 94.3 % / 36 px, right 98.3 % / 10 px. |
+| D10 | Gate for review §E "do the particles keep the hand shape" | **Decide at step 5.** Once step 4 samples the particles from `hand-right.glb`, the main session proposes a method and a threshold with measurements and asks. (The right mask's density level, 6.5 particles / 1000 px², cannot be reused as is: the app's particle density differs.) |
+| D11 | Housekeeping | The stale worktree `.claude/worktrees/alpha-v1-round2-form-9ee280` and its branch were removed (clean, at `a91c691`). `alpha-v1-review/` stays untracked. |
 
 ---
 
