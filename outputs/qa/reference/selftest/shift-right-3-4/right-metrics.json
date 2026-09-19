@@ -1,0 +1,176 @@
+{
+  "hand": "right",
+  "label": "shift diag(3,4)",
+  "frame": [
+    1644,
+    957
+  ],
+  "ignore_zone_used": true,
+  "pixels": {
+    "reference": 85577,
+    "render": 85171,
+    "overlap": 82341,
+    "render_only": 2830,
+    "reference_only": 3236,
+    "render_in_ignore_zone": 33003
+  },
+  "iou": 0.93139,
+  "precision": 0.96677,
+  "recall": 0.96219,
+  "contour_distance_px": {
+    "ref_to_render": {
+      "mean": 2.916,
+      "p95": 5.0,
+      "max": 8.544,
+      "n": 1848
+    },
+    "render_to_ref": {
+      "mean": 2.898,
+      "p95": 5.0,
+      "max": 5.0,
+      "n": 1824
+    },
+    "symmetric": {
+      "mean": 2.907,
+      "p95": 5.0,
+      "max": 8.544,
+      "n": 3672
+    }
+  },
+  "negative_space": {
+    "iou": 0.83902,
+    "reference_px": 21227,
+    "render_px": 21225
+  },
+  "keypoints": {},
+  "keypoint_summary": {
+    "n": 0,
+    "mean_px": null,
+    "max_px": null
+  },
+  "silhouette_tips": {
+    "index_tip": {
+      "reference_px": [
+        807,
+        438
+      ],
+      "render_px": [
+        810,
+        442
+      ],
+      "found": true,
+      "offset_px": [
+        3,
+        4
+      ],
+      "distance_px": 5.0,
+      "reference_uncertainty_px": 3.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "middle_tip": {
+      "reference_px": [
+        810,
+        654
+      ],
+      "render_px": [
+        813,
+        658
+      ],
+      "found": true,
+      "offset_px": [
+        3,
+        4
+      ],
+      "distance_px": 5.0,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "ring_tip": {
+      "reference_px": [
+        902,
+        755
+      ],
+      "render_px": [
+        905,
+        759
+      ],
+      "found": true,
+      "offset_px": [
+        3,
+        4
+      ],
+      "distance_px": 5.0,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "pinky_tip": {
+      "reference_px": [
+        989,
+        756
+      ],
+      "render_px": [
+        992,
+        760
+      ],
+      "found": true,
+      "offset_px": [
+        3,
+        4
+      ],
+      "distance_px": 5.0,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    }
+  },
+  "acceptance": {
+    "source": "assets-source/reference/thresholds.json (docs/ACCEPTANCE.md)",
+    "pass": true,
+    "failed": [],
+    "checks": {
+      "iou": {
+        "value": 0.93139,
+        "gate": ">= 0.901",
+        "pass": true
+      },
+      "contour_mean_px": {
+        "value": 2.907,
+        "gate": "<= 4.3",
+        "pass": true
+      },
+      "contour_p95_px": {
+        "value": 5.0,
+        "gate": "<= 10.2",
+        "pass": true
+      },
+      "negative_space_iou": {
+        "value": 0.83902,
+        "gate": ">= 0.825",
+        "pass": true
+      },
+      "tip:index_tip": {
+        "value": 5.0,
+        "gate": "<= 6.0 (= 2.0 x 3.0)",
+        "pass": true
+      },
+      "tip:middle_tip": {
+        "value": 5.0,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      },
+      "tip:ring_tip": {
+        "value": 5.0,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      },
+      "tip:pinky_tip": {
+        "value": 5.0,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      }
+    }
+  }
+}

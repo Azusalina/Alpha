@@ -3,7 +3,8 @@
 
     python3 scripts/reference_masks.py                # build everything + QA overlays
     python3 scripts/reference_masks.py --sensitivity  # also measure how far the masks move
-                                                      # under small parameter changes
+                                                      # under small parameter changes and
+                                                      # derive the acceptance gates (~25 s)
 
 Source: aes-ref/alpha-white-geom.PNG (1644 x 957), the only authority for the pose.
 Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
@@ -15,7 +16,15 @@ Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
   assets-source/reference/{left,right}-ignore.png        don't-care zone (arm past the cut)
   assets-source/reference/keypoints.json          keypoints with method + uncertainty
   assets-source/reference/meta.json               every parameter used, for provenance
+  assets-source/reference/thresholds.json         acceptance gates (--sensitivity only;
+                                                  derivation in docs/ACCEPTANCE.md)
+  outputs/qa/reference/sensitivity.json           the measurements behind the gates
   outputs/qa/reference/*.png                      verification overlays and zoomed crops
+
+DIGIT NAMES follow the user's decisions D1 (right hand) and D2 (left hand) in
+documentation/log/log-v2.md: on both hands the digit whose nail faces the viewer is the
+thumb. Right: long digit pointing left below the index = middle; the two down-curled digits
+= ring (left) and pinky (right). Left: short leftmost digit curled under the palm = pinky.
 
 LEFT HAND -- contour tracing ("live-wire").
   The drawn hand is outlined by a dark stroke (ink > ~0.5 of paper) while construction
@@ -64,7 +73,7 @@ from scipy.sparse.csgraph import dijkstra
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_silhouette import (  # noqa: E402  (shared definitions)
-    H, W, boundary, iou, negative_space, save_mask, contour_distances,
+    H, W, boundary, iou, negative_space, save_mask, contour_distances, mask_tip,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -166,8 +175,9 @@ RIGHT_SMOOTH = 4.0       # px, Gaussian on the binary silhouette, re-thresholded
 RIGHT_EDGE_SHRINK = 2.0
 RIGHT_X_MIN = 790        # nothing of the particle hand lies left of this
 # seeds read by eye: one per digit / palm region, the component under each is kept
+# (digit names per decision D1; the thumb lies across the base of the hand, inside "palm")
 RIGHT_SEEDS = {
-    "index": (840, 452), "thumb": (822, 648), "curl_a": (902, 735), "curl_b": (988, 735),
+    "index": (840, 452), "middle": (822, 648), "ring": (902, 735), "pinky": (988, 735),
     "palm": (975, 600), "back": (1080, 600), "wrist": (1220, 690),
 }
 # wrist centre and forearm axis for the cut; see keypoints for how they were obtained
@@ -531,38 +541,62 @@ def left_keypoints(mask) -> dict:
 
 
 def right_keypoints(mask, dots, wrist, axis_deg, axis_info) -> dict:
+    """Right (particle) hand. Digit names follow the user's decision D1
+    (documentation/log/log-v2.md): the index reaches up-left to the contact; the long digit
+    pointing left BELOW the index is the MIDDLE finger; the short digit whose nail outline
+    faces the viewer (nail at x 903-952, y 655-692) is the THUMB, lying across the base of
+    the hand; the two digits curled straight down are the RING (left) and PINKY (right).
+    Same rule as the left hand (D2): the digit whose nail faces the viewer is the thumb."""
     K = {}
     K["index_tip"] = kp(extreme_point(dots, (795, 415, 840, 460), 205), "measured", 3.0,
                         "outermost particle pixel along 205 deg (up-left, toward the contact)")
-    K["thumb_tip"] = kp(extreme_point(dots, (795, 630, 840, 670), 175), "measured", 4.0,
-                        "outermost particle along 175 deg; the thumb points left below the index")
-    K["middle_tip"] = kp(extreme_point(dots, (880, 730, 925, 765), 95), "measured", 4.0,
-                         "outermost particle along 95 deg; this finger curls down from the loop "
-                         "at (905-960, 650-700)")
-    K["ring_tip"] = kp(extreme_point(dots, (965, 730, 1010, 765), 90), "measured", 4.0,
-                       "outermost particle along 90 deg")
-    K["pinky_tip"] = kp([1040, 715], "read", 20.0,
-                        "no separate little finger is readable; the lower palm contour "
-                        "(1000-1080, 695-725) is the most likely place; treat as unmeasured")
+    K["middle_tip"] = kp(extreme_point(dots, (795, 630, 840, 670), 175), "measured", 4.0,
+                         "outermost particle along 175 deg; the middle finger is the long digit "
+                         "pointing left below the index (decision D1)")
+    K["thumb_tip"] = kp([898, 673], "read", 6.0,
+                        "distal end of the thumb: ~5 px beyond the leftmost point of the nail "
+                        "outline (903,674), read on an 8x crop. Not a silhouette extreme -- the "
+                        "ring finger descends from behind it (decision D1)")
+    K["ring_tip"] = kp(extreme_point(dots, (880, 730, 925, 765), 95), "measured", 4.0,
+                       "outermost particle along 95 deg; the ring finger curls straight down "
+                       "from behind the thumb (decision D1)")
+    K["pinky_tip"] = kp(extreme_point(dots, (965, 730, 1010, 765), 90), "measured", 4.0,
+                        "outermost particle along 90 deg; the little finger curls straight down "
+                        "right of the thumb nail (decision D1)")
     K["index_mcp"] = kp([975, 540], "read", 12.0, "where the index finger band meets the "
                         "dense palm mesh")
     K["index_pip"] = kp([905, 488], "read", 10.0, "one third of the band length from the MCP; "
                         "no articulation visible in the particles")
     K["index_dip"] = kp([858, 462], "read", 10.0, "not visible; placed along the band")
-    K["thumb_cmc"] = kp([1060, 640], "read", 30.0, "not readable: the thumb metacarpal is "
-                        "inside the palm; anatomical guess between the thumb MCP and the wrist")
-    K["thumb_mcp"] = kp([905, 590], "read", 12.0, "where the thumb band widens into the palm")
-    K["thumb_ip"] = kp([850, 625], "read", 10.0, "mid-length of the thumb band")
-    K["middle_mcp"] = kp([965, 650], "read", 15.0, "top of the curled loop")
-    K["middle_pip"] = kp([912, 668], "read", 10.0, "left end of the loop, where the finger turns down")
-    K["middle_dip"] = kp([903, 712], "read", 10.0, "")
-    K["ring_mcp"] = kp([1000, 665], "read", 15.0, "")
-    K["ring_pip"] = kp([985, 700], "read", 10.0, "")
-    K["ring_dip"] = kp([985, 728], "read", 10.0, "")
-    K["wrist"] = kp(wrist, "measured", 12.0,
+    K["middle_mcp"] = kp([985, 580], "read", 15.0, "where the middle finger band enters the "
+                         "dense palm mesh (960-1040, 580-640); not articulated")
+    K["middle_pip"] = kp([900, 588], "read", 10.0, "where the band bends from running left to "
+                         "running down-left")
+    K["middle_dip"] = kp([848, 617], "read", 8.0, "second bend of the band; the distal phalanx "
+                         "runs from here to the tip at (807,654)")
+    K["thumb_cmc"] = kp([1100, 700], "read", 25.0, "not readable: inside the base of the hand, "
+                        "on the line of the thumb's lower edge (905-1120, 695-730)")
+    K["thumb_mcp"] = kp([1025, 686], "read", 15.0, "not articulated in the particles; placed "
+                        "along the thumb band between the nail base and the base of the hand")
+    K["thumb_ip"] = kp([955, 674], "read", 8.0, "at the nail base (right end of the nail "
+                       "outline, x ~950)")
+    K["ring_mcp"] = kp([995, 605], "read", 20.0, "hidden inside the palm; inferred")
+    K["ring_pip"] = kp([928, 668], "read", 15.0, "hidden behind the thumb nail; inferred from "
+                       "where the ring finger emerges below the thumb (x 890-925, y ~700)")
+    K["ring_dip"] = kp([908, 722], "read", 10.0, "mid-way down the visible ring finger")
+    K["pinky_mcp"] = kp([1020, 630], "read", 20.0, "hidden inside the palm; inferred")
+    K["pinky_pip"] = kp([990, 685], "read", 12.0, "top of the little finger's vertical dotted "
+                        "arcs right of the thumb nail (975-1000, 650-700)")
+    K["pinky_dip"] = kp([990, 725], "read", 10.0, "mid-way down the visible little finger")
+    K["wrist"] = kp(wrist, "measured", 35.0,
                     "centre of the narrowest cross-section of the density silhouette between "
-                    "x 1150 and 1320 (measured perpendicular to the forearm axis); the particle "
-                    "edge is soft, hence the large uncertainty")
+                    "x 1150 and 1320 (measured perpendicular to the forearm axis). ACROSS the "
+                    "axis this is good to ~5 px; ALONG the axis it is poorly defined: the "
+                    "section width falls from ~187 px (x ~1080) to ~117 px by x ~1260 and then "
+                    "stays at 115-126 px until the particles thin out past x ~1320, so any point "
+                    "on that plateau is 'narrowest' within noise. Hence 35 px (the plateau's "
+                    "half-length). The anatomical wrist -- where the taper ends -- is at the "
+                    "proximal end of the plateau, x ~1250")
     K["wrist_axis_deg"] = {"value": round(axis_deg, 2), "method": "measured", "uncertainty_deg": 4.0,
                            "note": "line fit to the mid-points of the density silhouette's "
                                    "vertical extent for x 1150..1320 (before the cut); image "
@@ -675,7 +709,8 @@ def write_qa(gray, L, R, negL, negR, ignL, ignR, fL, fR, anchors, outline_kinds,
         "contact": ((740, 380, 880, 480), 6),
         "right-hand": ((790, 410, 1330, 790), 2),
         "right-index": ((795, 415, 1000, 560), 4),
-        "right-thumb": ((795, 560, 960, 680), 4),
+        "right-middle": ((795, 560, 960, 680), 4),
+        "right-thumb": ((870, 630, 1010, 710), 5),
         "right-curled-gaps": ((840, 620, 1060, 775), 4),
         "right-wrist-cut": ((1080, 520, 1400, 800), 2.5),
     }
@@ -713,41 +748,151 @@ def write_qa(gray, L, R, negL, negR, ignL, ignR, fL, fR, anchors, outline_kinds,
 
 # ============================================================= sensitivity
 
-def sensitivity(gray, L0, R0, wrist, axis_deg, ignore_l, ignore_r):
-    """How far do the masks move under small, equally defensible parameter changes?"""
-    res = {"left": {}, "right": {}}
+TIP_DIRS = {  # distal direction of the last phalanx, image space (deg); measured tips only
+    "left": {"index_tip": 20, "middle_tip": 100, "ring_tip": 115, "pinky_tip": 185},
+    "right": {"index_tip": 205, "middle_tip": 175, "ring_tip": 95, "pinky_tip": 90},
+}
+TIP_SEARCH_RADIUS = 25   # px; the fingertip rule's search circle (compare_silhouette.mask_tip)
+K_GATE = 2.0             # gate = K_GATE x the reference's own uncertainty (docs/ACCEPTANCE.md)
 
-    def comp(a, b, ign):
-        cd = contour_distances(a & ~ign, b & ~ign, ign)["symmetric"]
-        return {"iou": iou(a & ~ign, b & ~ign), "contour_mean": cd["mean"], "contour_p95": cd["p95"],
-                "contour_max": cd["max"]}
 
-    # left: stroke width -- the boundary could be the stroke's inner edge, centre or outer edge
-    for r in (1, 2):
-        res["left"][f"dilate_{r}px"] = comp(L0, ndi.binary_dilation(L0, iterations=r), ignore_l)
-        res["left"][f"erode_{r}px"] = comp(L0, ndi.binary_erosion(L0, iterations=r), ignore_l)
-    # left: cost-map parameters and anchor jitter
+def disk(r: int) -> np.ndarray:
+    y, x = np.mgrid[-r:r + 1, -r:r + 1]
+    return x * x + y * y <= r * r
+
+
+def right_variants(gray, L, wrist, axis_deg) -> dict:
+    """Equally defensible alternatives to the right mask: one parameter moved one step."""
+    v = {}
+    for sg in (6.0, 8.0):
+        v[f"sigma{sg}"] = build_right(gray, L, sg, RIGHT_LEVEL, wrist, axis_deg)[0]
+    for lv in (5.5, 7.5):
+        v[f"level{lv}"] = build_right(gray, L, RIGHT_SIGMA, lv, wrist, axis_deg)[0]
+    for sm in (3.0, 5.0):
+        v[f"smooth{sm}"] = build_right(gray, L, wrist=wrist, axis_deg=axis_deg, smooth=sm)[0]
+    for sh in (1.0, 3.0):
+        v[f"shrink{sh}"] = build_right(gray, L, wrist=wrist, axis_deg=axis_deg, shrink=sh)[0]
+    return v
+
+
+def left_variants(gray, L) -> dict:
+    """Equally defensible alternatives to the left mask. The outline stroke is 1.75 px wide
+    (FWHM, median; p90 2.75), so its inner and outer edges lie ~1 px either side of the
+    centre line the tracer follows: dilate/erode 1 px. Plus cost-map parameters and a 2-px
+    jitter of every anchor read by eye."""
+    v = {"stroke_outer_1px": ndi.binary_dilation(L, disk(1)),
+         "stroke_inner_1px": ndi.binary_erosion(L, disk(1))}
     for sm, gm in ((0.0, 4.0), (1.2, 4.0), (0.7, 2.0), (0.7, 6.0)):
-        m, *_ = build_left(gray, smooth=sm, gamma=gm)
-        res["left"][f"smooth{sm}_gamma{gm}"] = comp(L0, m, ignore_l)
+        v[f"smooth{sm}_gamma{gm}"] = build_left(gray, smooth=sm, gamma=gm)[0]
     rng = np.random.default_rng(7)
     for k in range(3):
         jit = [(int(np.clip(x + (rng.integers(-2, 3) if "F" not in f else 0), 0, W - 1)),
                 int(np.clip(y + (rng.integers(-2, 3) if "F" not in f else 0), 0, H - 1)), f)
                for x, y, f in LEFT_ANCHORS]
-        m, *_ = build_left(gray, anchors=jit)
-        res["left"][f"anchor_jitter_2px_{k}"] = comp(L0, m, ignore_l)
-    # right: density parameters
-    for sg in (6.0, 7.0, 8.0):
-        for lv in (5.5, 6.5, 7.5):
-            if sg == RIGHT_SIGMA and lv == RIGHT_LEVEL:
-                continue
-            m, *_ = build_right(gray, L0, sg, lv, wrist, axis_deg)
-            res["right"][f"sigma{sg}_level{lv}"] = comp(R0, m, ignore_r)
-    for r in (2, 4):
-        res["right"][f"dilate_{r}px"] = comp(R0, ndi.binary_dilation(R0, iterations=r), ignore_r)
-        res["right"][f"erode_{r}px"] = comp(R0, ndi.binary_erosion(R0, iterations=r), ignore_r)
+        v[f"anchor_jitter_2px_{k}"] = build_left(gray, anchors=jit)[0]
+    return v
+
+
+def tip_shift(m_ref, m_var, K_hand) -> dict:
+    out = {}
+    for name, e in K_hand.items():
+        rule = e.get("tip_rule")
+        if not rule:
+            continue
+        a, _ = mask_tip(m_ref, e["mask_px"], rule["direction_deg"], rule["search_radius_px"])
+        b, _ = mask_tip(m_var, e["mask_px"], rule["direction_deg"], rule["search_radius_px"])
+        out[name] = None if a is None or b is None else round(math.hypot(b[0] - a[0], b[1] - a[1]), 2)
+    return out
+
+
+def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars):
+    """How far do the masks move under small, equally defensible changes? Also: the metric
+    vs uniform edge offset curve, and how much of each mask is detail finer than a smooth
+    model could carry (morphological open/close). Derives the acceptance gates."""
+    neg_ref = {"left": negative_space(L0, fL), "right": negative_space(R0, fR)}
+
+    def comp(hand, a, b):
+        ign = ignore_l if hand == "left" else ignore_r
+        fr = fL if hand == "left" else fR
+        v = ~ign
+        cd = contour_distances(a & v, b & v, ign)["symmetric"]
+        return {"iou": iou(a & v, b & v), "contour_mean": cd["mean"], "contour_p95": cd["p95"],
+                "contour_max": cd["max"],
+                "negative_space_iou": iou(neg_ref[hand] & v, negative_space(b, fr) & v)}
+
+    res = {"k_gate": K_GATE, "left": {}, "right": {}}
+    variants = {"left": left_variants(gray, L0), "right": rvars}
+    base = {"left": L0, "right": R0}
+    for hand in ("left", "right"):
+        d = res[hand]
+        d["defensible_variants"] = {}
+        for name, m in variants[hand].items():
+            r = comp(hand, base[hand], m)
+            r["tip_shift_px"] = tip_shift(base[hand], m, K[hand])
+            d["defensible_variants"][name] = r
+        d["uniform_offset_curve"] = {}
+        for off in (1, 2, 3, 4, 5, 6, 8, 10):
+            d["uniform_offset_curve"][f"dilate{off}"] = comp(hand, base[hand], ndi.binary_dilation(base[hand], disk(off)))
+            d["uniform_offset_curve"][f"erode{off}"] = comp(hand, base[hand], ndi.binary_erosion(base[hand], disk(off)))
+        d["smooth_model_floor"] = {}
+        for r in (4, 8):
+            d["smooth_model_floor"][f"open{r}"] = comp(hand, base[hand], ndi.binary_opening(base[hand], disk(r)))
+            d["smooth_model_floor"][f"close{r}"] = comp(hand, base[hand], ndi.binary_closing(base[hand], disk(r)))
+        dv = d["defensible_variants"].values()
+
+        def worst(key, fn):
+            name, val = None, None
+            for n, r in d["defensible_variants"].items():
+                x = fn(r[key])
+                if val is None or x > val:
+                    name, val = n, x
+            return round(val, 5), name
+        d["noise"] = {
+            "iou_loss": worst("iou", lambda x: 1 - x),
+            "contour_mean_px": worst("contour_mean", lambda x: x),
+            "contour_p95_px": worst("contour_p95", lambda x: x),
+            "negative_space_iou_loss": worst("negative_space_iou", lambda x: 1 - x),
+            "tip_shift_px": {t: max((r["tip_shift_px"].get(t) or 0) for r in dv)
+                             for t in next(iter(dv))["tip_shift_px"]},
+        }
     return res
+
+
+def derive_gates(sens, K) -> dict:
+    """gate = K_GATE x noise (docs/ACCEPTANCE.md): the render may add at most as much error
+    as the reference itself carries. IoU gates are floored to 3 decimals (a render exactly at
+    k x noise passes), px gates rounded to 0.1 px."""
+    def down(x, q=0.001):
+        return round(math.floor(x / q + 1e-9) * q, 3)
+
+    def up(x, q=0.1):
+        return round(round(x / q) * q, 2)
+
+    gates = {}
+    for hand in ("left", "right"):
+        n = sens[hand]["noise"]
+        gates[hand] = {
+            "iou_min": down(1 - K_GATE * n["iou_loss"][0]),
+            "contour_mean_max_px": up(K_GATE * n["contour_mean_px"][0]),
+            "contour_p95_max_px": up(K_GATE * n["contour_p95_px"][0]),
+            "negative_space_iou_min": down(1 - K_GATE * n["negative_space_iou_loss"][0]),
+            "keypoint_k": K_GATE,
+            "noise": {k: v for k, v in n.items()},
+        }
+    return {
+        "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between "
+                      "the chosen reference mask and an equally defensible alternative (see "
+                      "outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates "
+                      "floored to 3 decimals, px gates rounded to 0.1 px. Keypoints and "
+                      "silhouette tips: distance <= k x their stated uncertainty.",
+        "generator": "scripts/reference_masks.py --sensitivity",
+        "log_reference_points": {"iou_min": {"left": 0.93, "right": 0.90}, "contour_p95_max_px": 8,
+                                 "negative_space_iou_min": 0.85, "keypoints": "within stated uncertainty (k=1)"},
+        "gates": gates,
+        "contact": {"index_tip_gap_px": K["contact"]["index_tip_gap_px"],
+                    "mask_tip_gap_px": K["contact"]["mask_tip_gap_px"],
+                    "gap_tolerance_px": round(K_GATE * K["contact"]["mask_tip_gap_px"]["uncertainty_px"], 1)},
+    }
 
 
 # ==================================================================== main
@@ -782,6 +927,26 @@ def main(argv=None):
 
     # ---- keypoints
     K = {"left": left_keypoints(L), "right": right_keypoints(R, dots, wrist, axis_deg, axis_info)}
+    # fingertip rule on the silhouette (compare_silhouette.mask_tip), so a render's tips can be
+    # measured the same way without render keypoints
+    rvars = right_variants(gray, L, wrist, axis_deg)
+    for hand, m in (("left", L), ("right", R)):
+        for name, d in TIP_DIRS[hand].items():
+            e = K[hand][name]
+            mp, _ = mask_tip(m, e["px"], d, TIP_SEARCH_RADIUS)
+            e["tip_rule"] = {"direction_deg": d, "search_radius_px": TIP_SEARCH_RADIUS,
+                             "rule": "extreme silhouette pixel along direction_deg within "
+                                     "search_radius_px of mask_px (compare_silhouette.mask_tip)"}
+            e["mask_px"] = mp
+    for name in TIP_DIRS["right"]:
+        e = K["right"][name]
+        sh = max(tip_shift(R, v, {name: e})[name] or 0.0 for v in rvars.values())
+        e["mask_uncertainty_px"] = round(max(e["uncertainty_px"], sh), 1)
+        e["mask_uncertainty_note"] = (f"the density silhouette's tip moves up to {sh:.1f} px under "
+                                      "one-step changes of blur, level, smoothing or edge shrink; "
+                                      "uncertainty of mask_px = max(that, the particle tip's)")
+    for name in TIP_DIRS["left"]:
+        K["left"][name]["mask_uncertainty_px"] = K["left"][name]["uncertainty_px"]
     tl, tr = K["left"]["index_tip"]["px"], K["right"]["index_tip"]["px"]
     dl = ndi.distance_transform_edt(~L)
     ys, xs = np.nonzero(R)
@@ -800,6 +965,13 @@ def main(argv=None):
                               "note": "closest approach of the two silhouettes"},
         "midpoint_px": [round(0.5 * (tl[0] + tr[0]), 1), round(0.5 * (tl[1] + tr[1]), 1)],
     }
+    ml, mr = K["left"]["index_tip"]["mask_px"], K["right"]["index_tip"]["mask_px"]
+    ul, ur = K["left"]["index_tip"]["mask_uncertainty_px"], K["right"]["index_tip"]["mask_uncertainty_px"]
+    contact["mask_tip_gap_px"] = {
+        "value": round(math.hypot(mr[0] - ml[0], mr[1] - ml[1]), 2), "method": "measured",
+        "uncertainty_px": round(math.hypot(ul, ur), 1), "left_px": ml, "right_px": mr,
+        "note": "distance between the two index tips measured on the silhouette masks with the "
+                "tip rule; this is the gap a silhouette render is compared with"}
 
     kp_doc = {
         "reference": "aes-ref/alpha-white-geom.PNG",
@@ -849,9 +1021,17 @@ def main(argv=None):
             "traced_outline_fraction_on_ink": round(on_ink, 4),
             "traced_outline_off_ink_stretches": off,
             "anchor_report": anchor_report(gray, anchors),
-            "hand_traced_parts": "anchor positions only (all 66 read by eye); the path between "
+            "hand_traced_parts": "anchor positions only (65 read by eye on the outline stroke, plus 2 "
+                                 "fixed extrapolation points on the frame edge); the path between "
                                  "anchors follows the drawn stroke algorithmically. The forearm "
                                  "from x~40 to the frame edge is extrapolated (straight lines).",
+            "known_ambiguities": [
+                "a bright slit (x 537-560, y 360-420) between the thumb's upper edge and the "
+                "ring finger is enclosed by drawn strokes and has paper tone; it may be paper "
+                "seen through the hand or a highlight. The mask treats it as INSIDE the hand "
+                "(filled outline); ~500 px, i.e. <0.5 % of the left area and ~3 % of the "
+                "left negative space if it were a gap.",
+            ],
             "ignore": f"x < {LEFT_CUT_X}: the drawing's forearm contours start at x~38-42; the app's arm "
                       "leaves the frame there, which the drawing does not show",
             "area_px": int(L.sum()),
@@ -884,10 +1064,14 @@ def main(argv=None):
         },
     }
 
+    meta["sensitivity"] = "outputs/qa/reference/sensitivity.json (written with --sensitivity)"
+    meta["thresholds"] = "assets-source/reference/thresholds.json (written with --sensitivity)"
     if a.sensitivity:
-        meta["sensitivity"] = sensitivity(gray, L, R, wrist, axis_deg, ign_l, ign_r)
-        (QA / "sensitivity.json").parent.mkdir(parents=True, exist_ok=True)
-        (QA / "sensitivity.json").write_text(json.dumps(meta["sensitivity"], indent=2) + "\n")
+        sens = sensitivity(gray, L, R, ign_l, ign_r, fL, fR, K, rvars)
+        QA.mkdir(parents=True, exist_ok=True)
+        (QA / "sensitivity.json").write_text(json.dumps(sens, indent=2) + "\n")
+        th = derive_gates(sens, kp_doc)
+        (OUT / "thresholds.json").write_text(json.dumps(th, indent=2) + "\n")
     (OUT / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 
     write_qa(gray, L, R, negL, negR, ign_l, ign_r, fL, fR, anchors, kinds, K, (cpt, u), dots)

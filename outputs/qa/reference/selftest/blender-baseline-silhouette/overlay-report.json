@@ -1,0 +1,111 @@
+{
+  "screenshot": "/tmp/claude-1000/-home-a-Documents-Alpha--claude-worktrees-relaxed-sammet-bbc152/602b46b7-24cb-4163-87ad-8af86174f099/scratchpad/blender-silhouette.png",
+  "frame": [
+    1644,
+    957
+  ],
+  "mode_requested": "auto",
+  "detection": {
+    "white_or_id_fraction": 1.0,
+    "left_px": 124324,
+    "right_px": 123169
+  },
+  "mode": "silhouette",
+  "contract": {
+    "white_px": 1325815,
+    "left_px": 124324,
+    "right_px": 123169,
+    "antialiased_edge_px": 0,
+    "stray_px": 0,
+    "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
+    "ok": true
+  },
+  "hands": {
+    "left": {
+      "iou": 0.90094,
+      "precision": 0.92482,
+      "recall": 0.97214,
+      "contour_mean_px": 6.757,
+      "contour_p95_px": 13.0,
+      "contour_max_px": 69.029,
+      "negative_space_iou": 0.81456,
+      "tips_px": {
+        "index_tip": 2.0,
+        "middle_tip": 1.0,
+        "ring_tip": 2.83,
+        "pinky_tip": 3.16
+      },
+      "acceptance": {
+        "pass": false,
+        "failed": [
+          "iou",
+          "contour_mean_px",
+          "contour_p95_px",
+          "negative_space_iou"
+        ]
+      }
+    },
+    "right": {
+      "iou": 0.80323,
+      "precision": 0.94909,
+      "recall": 0.8394,
+      "contour_mean_px": 10.184,
+      "contour_p95_px": 29.0,
+      "contour_max_px": 68.184,
+      "negative_space_iou": 0.70372,
+      "tips_px": {
+        "index_tip": 4.0,
+        "middle_tip": 9.22,
+        "ring_tip": 2.24,
+        "pinky_tip": 3.61
+      },
+      "acceptance": {
+        "pass": false,
+        "failed": [
+          "iou",
+          "contour_mean_px",
+          "contour_p95_px",
+          "negative_space_iou",
+          "tip:middle_tip"
+        ]
+      }
+    }
+  },
+  "contact": {
+    "reference_gap_px": 30.41,
+    "render_gap_px": 29.0,
+    "difference_px": -1.41,
+    "tolerance_px": 6.8,
+    "tips": {
+      "left": {
+        "px": [
+          786,
+          414
+        ],
+        "at_search_edge": false
+      },
+      "right": {
+        "px": [
+          807,
+          434
+        ],
+        "at_search_edge": false
+      }
+    },
+    "pass": true
+  },
+  "pose_matches": false,
+  "pose_matches_rule": "both hands pass every gate in thresholds.json, the index-tip gap is within its tolerance, and no stray pixels (docs/ACCEPTANCE.md)",
+  "files": [
+    "overlay-two-ink.png",
+    "overlay-two-ink-scored.png",
+    "overlay-on-drawing.png",
+    "overlay-zoom-left.png",
+    "overlay-zoom-right.png",
+    "overlay-zoom-contact.png",
+    "render-mask-left.png",
+    "render-mask-right.png",
+    "left/",
+    "right/"
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "old_formula": {
+    "input": "outputs/qa/home.png",
+    "R_range": [
+      255,
+      255
+    ],
+    "G_range": [
+      0,
+      242
+    ],
+    "B_range": [
+      255,
+      255
+    ],
+    "bug_confirmed": true
+  },
+  "synthetic_silhouette": {
+    "detected_mode": "silhouette",
+    "detect_stats": {
+      "white_or_id_fraction": 0.99743,
+      "left_px": 118710,
+      "right_px": 85577
+    },
+    "iou": {
+      "left": 1.0,
+      "right": 1.0
+    },
+    "contact": {
+      "reference_gap_px": 30.41,
+      "render_gap_px": 30.41,
+      "difference_px": 0.0,
+      "tolerance_px": 6.8,
+      "tips": {
+        "left": {
+          "px": [
+            786,
+            416
+          ],
+          "at_search_edge": false
+        },
+        "right": {
+          "px": [
+            807,
+            438
+          ],
+          "at_search_edge": false
+        }
+      },
+      "pass": true
+    },
+    "contract": {
+      "white_px": 1364983,
+      "left_px": 118710,
+      "right_px": 85577,
+      "antialiased_edge_px": 4038,
+      "stray_px": 0,
+      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
+      "ok": true
+    },
+    "pose_matches": true,
+    "ok": true
+  },
+  "synthetic_shifted_with_stray_line": {
+    "detected_mode": "silhouette",
+    "iou": {
+      "left": 1.0,
+      "right": 0.9162
+    },
+    "right": {
+      "iou": 0.9162,
+      "precision": 0.95728,
+      "recall": 0.95526,
+      "contour_mean_px": 3.514,
+      "contour_p95_px": 5.0,
+      "contour_max_px": 6.708,
+      "negative_space_iou": 0.8353,
+      "tips_px": {
+        "index_tip": 5.0,
+        "middle_tip": 5.0,
+        "ring_tip": 5.0,
+        "pinky_tip": 5.0
+      },
+      "acceptance": {
+        "pass": true,
+        "failed": []
+      }
+    },
+    "contact": {
+      "reference_gap_px": 30.41,
+      "render_gap_px": 34.21,
+      "difference_px": 3.8,
+      "tolerance_px": 6.8,
+      "tips": {
+        "left": {
+          "px": [
+            786,
+            416
+          ],
+          "at_search_edge": false
+        },
+        "right": {
+          "px": [
+            807,
+            443
+          ],
+          "at_search_edge": false
+        }
+      },
+      "pass": true
+    },
+    "contract": {
+      "white_px": 1367821,
+      "left_px": 118710,
+      "right_px": 85577,
+      "antialiased_edge_px": 0,
+      "stray_px": 1200,
+      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
+      "ok": false
+    },
+    "pose_matches": false,
+    "ok": true
+  },
+  "full_mode": {
+    "detected_mode_for_reference": "full",
+    "identity_is_pure_grey": true,
+    "identity_channel_ranges": {
+      "R": [
+        0,
+        255
+      ],
+      "G": [
+        0,
+        255
+      ],
+      "B": [
+        0,
+        255
+      ]
+    },
+    "moved_5px_channel_ranges": {
+      "R": [
+        0,
+        255
+      ],
+      "G": [
+        0,
+        255
+      ],
+      "B": [
+        0,
+        255
+      ]
+    },
+    "moved_5px_pure_red_px": 9088,
+    "moved_5px_pure_blue_px": 8801,
+    "ok": true
+  },
+  "refusal": {
+    "1280x720": {
+      "exit_code": 2,
+      "refused": true
+    },
+    "3288x1914": {
+      "exit_code": 2,
+      "refused": true
+    },
+    "1644x956": {
+      "exit_code": 2,
+      "refused": true
+    }
+  },
+  "ok": true
+}

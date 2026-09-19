@@ -18,7 +18,8 @@ What it does, per hand:
        - a palm block built from four flattened metacarpal sweeps fanned from the
          carpus to the knuckles, plus knuckle prominences, a thenar mass and the
          first dorsal interosseous web between thumb and index,
-       - finger pads and rounded fingertip caps.
+       - finger pads and rounded fingertip caps that end on the pose's tip px,
+         with nail plates kept inside the cap (no overhanging "claw" tips).
      Parts are fused with *selective* smooth unions: every digit is filleted into
      the palm, but digits are never blended with each other, so the curled
      fingers stay separate instead of webbing together.
@@ -28,8 +29,9 @@ What it does, per hand:
   4. Verifies: non-manifold / boundary edges, winding vs stored normals (checked
      again on the exported GLB), bounding box, fingertip projections.
   5. Exports public/assets/hand-<hand>.glb (+Y up; GLB positions are app world
-     coordinates), the silhouette contour polylines public/assets/hand-<hand>.contour.json,
-     a mesh report, optional calibration masks / shaded views, and an editable
+     coordinates), the silhouette contour polylines public/assets/hand-<hand>.contour.json
+     (each labelled 'outer' = borders the background, or 'inner' = occluding
+     contour inside the silhouette), a mesh report, optional calibration masks / shaded views, and an editable
      .blend with the joint graph kept as its own object.
 
 Coordinate conventions (see docs/HAND_ASSETS.md):
@@ -115,6 +117,8 @@ PARAMS = {
     "nail_lift": 0.70,          # nail plate centre along the dorsal axis (x thickness)
     "nail_thick": 0.36,
     "nail_width": 0.74,
+    "nail_start": 0.40,         # nail fold, as a fraction of the distal phalanx from the DIP
+    "nail_tip_inset": 0.85,     # free edge reaches this fraction of the tip cap's reach at nail height
     "section_clamp": (0.75, 2.2),  # 3D half-width / projected half-width limits
     "smooth_iters": 2,          # Laplacian smoothing passes on the extracted surface
     "smooth_factor": 0.45,
@@ -122,6 +126,7 @@ PARAMS = {
     "contour_min_px": 14.0,     # discard contour chains shorter than this (reference px)
     "contour_step_px": 3.0,     # contour resampling step (reference px)
     "contour_smooth_iters": 6,
+    "contour_side_px": 3.0,     # probe offset used to tell outer from inner contours
 }
 
 PLASTER = (0.791, 0.753, 0.686)  # #e6e1d7 in linear sRGB
@@ -454,10 +459,17 @@ def build_primitives(pose, J):
                               ab=sA * ps, an=sN * ps * 0.8, name=f"{f}_pad{i}"), P["k_pad"]))
             if last and P["nail"]:
                 # nail plate: a thin, slightly raised shell on the dorsal side
-                # of the distal phalanx, running out to the free edge
-                full = L + seg.c1
-                nc = seg.P0 + seg.T * (L * 0.30 + full * 0.42) + seg.n * sN * P["nail_lift"]
-                prims.append((Ell(nc, seg.T, seg.n, at=full * 0.40, ab=sA * P["nail_width"],
+                # of the distal phalanx. Its free edge stops inside the rounded
+                # tip cap (at the cap's reach at the nail's height above the
+                # axis), so the fingertip stays one rounded end that reaches
+                # the pose's tip px: no overhanging "claw" and no notch between
+                # nail and pad.
+                h_rel = min(P["nail_lift"] * sN / max(N1, 1e-9), 0.98)
+                reach = seg.c1 * math.sqrt(1.0 - h_rel * h_rel)
+                a0 = L * P["nail_start"]
+                a1 = L + reach * P["nail_tip_inset"]
+                nc = seg.P0 + seg.T * (0.5 * (a0 + a1)) + seg.n * sN * P["nail_lift"]
+                prims.append((Ell(nc, seg.T, seg.n, at=0.5 * (a1 - a0), ab=sA * P["nail_width"],
                                   an=sN * P["nail_thick"], name=f"{f}_nail"), P["k_nail"]))
             t_prev, n_prev = t, n
         # dorsal knuckles over the interphalangeal joints
@@ -610,9 +622,10 @@ def decimate(ob, budget):
         new = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
         ob.modifiers.remove(mod)
         old = ob.data
+        name = old.name
         ob.data = new
-        new.name = old.name
         bpy.data.meshes.remove(old)
+        new.name = name  # after removing the old mesh, so no ".001" suffix
         me = ob.data
     # triangulate everything (glTF is triangles anyway) and fix normals
     bm = bmesh.new()
@@ -838,6 +851,72 @@ def silhouette_contours(V, F, bvh):
     return [r for _, r in out]
 
 
+
+
+def _run_lengths(q, labels):
+    runs = []
+    s = 0
+    for i in range(1, len(labels) + 1):
+        if i == len(labels) or labels[i] != labels[s]:
+            runs.append([s, i - 1, labels[s]])
+            s = i
+    seglen = np.linalg.norm(np.diff(q, axis=0), axis=1)
+    cum = np.concatenate([[0.0], np.cumsum(seglen)])
+    return runs, cum
+
+
+def classify_contours(polys, bvh):
+    """Split and label the contour polylines. A point is 'outer' if it borders
+    the background (a ray through the image a few px to one side of it misses
+    the mesh) and 'inner' if it is an occluding contour inside the silhouette
+    (a digit passing in front of another part). Polylines are split where the
+    label changes (runs shorter than contour_min_px take their neighbours'
+    label), so each output polyline has one kind. Returns (polys, meta), longest
+    first; meta[i] = {kind, inFrame (fraction of points inside the frame)}."""
+    cam_b = Vector(app_to_blender(CAM_POS))
+    off = PARAMS["contour_side_px"]
+    min_px = PARAMS["contour_min_px"]
+    out = []
+    for poly in polys:
+        q = project(poly)
+        tan = np.gradient(q, axis=0)
+        tan /= np.maximum(np.linalg.norm(tan, axis=1, keepdims=True), 1e-9)
+        nrm = np.stack([-tan[:, 1], tan[:, 0]], axis=1)
+        lab = np.zeros(len(q), dtype=bool)
+        for i, (qi, ni) in enumerate(zip(q, nrm)):
+            for side in (1.0, -1.0):
+                px, py = qi + side * off * ni
+                tgt = Vector(app_to_blender(unproject(px, py, 0.0)))
+                if bvh.ray_cast(cam_b, (tgt - cam_b).normalized(), 100.0)[0] is None:
+                    lab[i] = True
+                    break
+        # absorb short runs into their neighbours until every run is long enough
+        while True:
+            runs, cum = _run_lengths(q, lab)
+            if len(runs) == 1:
+                break
+            short = [(cum[b] - cum[a], k) for k, (a, b, _) in enumerate(runs) if cum[b] - cum[a] < min_px]
+            if not short:
+                break
+            _, k = min(short)
+            a, b, v = runs[k]
+            lab[a:b + 1] = not v
+        runs, _ = _run_lengths(q, lab)
+        for a, b, v in runs:
+            # each run also takes the next run's first point, so consecutive
+            # pieces share an end point and the outline has no gap
+            piece = poly[a: min(b + 2, len(poly))]
+            if len(piece) < 2:
+                continue
+            qp = project(piece)
+            inside = (qp[:, 0] >= 0) & (qp[:, 0] <= REF_W) & (qp[:, 1] >= 0) & (qp[:, 1] <= REF_H)
+            L = float(np.linalg.norm(np.diff(piece, axis=0), axis=1).sum())
+            out.append((L, piece, {"kind": "outer" if v else "inner",
+                                   "inFrame": round(float(inside.mean()), 3)}))
+    out.sort(key=lambda x: -x[0])
+    return [p for _, p, _ in out], [m for _, _, m in out]
+
+
 # --------------------------------------------------------------------------
 # Cameras and renders
 # --------------------------------------------------------------------------
@@ -1039,7 +1118,7 @@ def build_hand(hand, args):
 
     # contours
     bvh = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
-    polys = silhouette_contours(V_app, F, bvh)
+    polys, cmeta = classify_contours(silhouette_contours(V_app, F, bvh), bvh)
     contour = {
         "hand": hand,
         "source": "assets-source/hands/build_hands.py",
@@ -1054,7 +1133,13 @@ def build_hand(hand, args):
                       "the other back-facing), chained, occluded parts removed by ray casting, "
                       "smoothed and resampled; longest first",
         "stepPx": PARAMS["contour_step_px"],
+        "metaDefinition": "meta[i] describes polylines[i]. kind 'outer': borders the background (the "
+                          "hand's own outline and the edges of the gaps between digits); kind 'inner': "
+                          "occluding contour inside the silhouette, where one part passes in front of "
+                          "another. inFrame: fraction of points inside the 1644x957 reference frame at "
+                          "the home camera (the arm continues past the frame edge).",
         "polylines": [[[round(float(c), 5) for c in p] for p in poly] for poly in polys],
+        "meta": cmeta,
     }
     out_contour = os.path.join(args.out, f"hand-{hand}.contour.json")
     with open(out_contour, "w") as f:
@@ -1203,6 +1288,7 @@ def main():
         bpy.context.scene.camera = cam
         setup_render("view")
         os.makedirs(os.path.dirname(args.blend), exist_ok=True)
+        bpy.context.preferences.filepaths.save_version = 0  # no hands.blend1 backup next to the source
         bpy.ops.wm.save_as_mainfile(filepath=args.blend, compress=True)
     print("done")
 

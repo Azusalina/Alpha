@@ -41,12 +41,24 @@ Metrics (all computed outside the ignore zone):
   negative_space_iou        IoU of the reference gaps and the render's gaps computed with the
                             SAME definition and the SAME finger region.
   keypoints                 per-keypoint offset (dx, dy, distance) and distance / reference
-                            uncertainty.
+                            uncertainty (only when --render-keypoints is given; a pose file
+                            assets-source/hands/pose-<hand>.json is accepted as-is).
+  silhouette_tips           fingertips measured ON THE RENDER MASK with the same rule that
+                            measured the reference tip (extreme mask pixel along the distal
+                            direction, within search_radius_px of the reference tip). Needs no
+                            render keypoints. Compared with the reference mask's tip (mask_px).
+  acceptance                every metric against the gates in assets-source/reference/
+                            thresholds.json (derived in docs/ACCEPTANCE.md), with pass/fail.
+                            Written only when thresholds.json exists.
+
+Self-test (identity, 5-px shift, refusal of a wrong frame size, overlay pixel colours):
+    python3 scripts/compare_silhouette.py --selftest --out outputs/qa/reference/selftest
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -122,7 +134,10 @@ def load_reference(hand: str, ref_dir: Path = REF_DIR) -> dict:
 
     kp_path = ref_dir / "keypoints.json"
     kps = json.loads(kp_path.read_text())[hand] if kp_path.exists() else {}
+    th_path = ref_dir / "thresholds.json"
+    th = json.loads(th_path.read_text()) if th_path.exists() else None
     return {
+        "thresholds": th,
         "mask": m("mask"),
         "negative": m("negative"),
         "finger_region": m("finger-region"),
@@ -220,7 +235,27 @@ def contour_distances(ref: np.ndarray, ren: np.ndarray, ignore: np.ndarray) -> d
 
 def iou(a: np.ndarray, b: np.ndarray) -> float | None:
     u = np.count_nonzero(a | b)
-    return None if u == 0 else round(np.count_nonzero(a & b) / u, 5)
+    return None if u == 0 else round(float(np.count_nonzero(a & b)) / float(u), 5)
+
+
+def mask_tip(mask: np.ndarray, center, direction_deg: float, radius: float):
+    """Fingertip rule shared by the reference and every render: the mask pixel within
+    `radius` px of `center` that lies furthest along `direction_deg` (image space, 0 = +x,
+    positive = clockwise on screen). Returns (px or None, at_search_edge)."""
+    cx, cy = center
+    r = int(math.ceil(radius))
+    x0, x1 = max(0, int(cx) - r), min(W, int(cx) + r + 1)
+    y0, y1 = max(0, int(cy) - r), min(H, int(cy) + r + 1)
+    ys, xs = np.nonzero(mask[y0:y1, x0:x1])
+    xs, ys = xs + x0, ys + y0
+    inside = np.hypot(xs - cx, ys - cy) <= radius
+    xs, ys = xs[inside], ys[inside]
+    if len(xs) == 0:
+        return None, False
+    a = math.radians(direction_deg)
+    i = int(np.argmax(xs * math.cos(a) + ys * math.sin(a)))
+    px = [int(xs[i]), int(ys[i])]
+    return px, bool(math.hypot(px[0] - cx, px[1] - cy) >= radius - 1.0)
 
 
 # ------------------------------------------------------------------ keypoints
@@ -240,6 +275,8 @@ def _kp_px(entry):
 def normalise_keypoints(data: dict, hand: str) -> dict:
     if hand in data and isinstance(data[hand], dict):
         data = data[hand]
+    if isinstance(data.get("joints"), dict):   # a pose file (CONTRACTS section 5)
+        data = data["joints"]
     return data
 
 
@@ -278,6 +315,72 @@ def keypoint_offsets(ref_kps: dict, ren_kps: dict) -> dict:
     return out
 
 
+def silhouette_tips(ref_kps: dict, render: np.ndarray) -> dict:
+    """Measure every reference tip that has a tip_rule on the render mask, same rule."""
+    out = {}
+    for name, r in ref_kps.items():
+        rule = r.get("tip_rule") if isinstance(r, dict) else None
+        if not rule or "mask_px" not in r:
+            continue
+        ref_px = r["mask_px"]
+        px, at_edge = mask_tip(render, ref_px, rule["direction_deg"], rule["search_radius_px"])
+        unc = r.get("mask_uncertainty_px", r.get("uncertainty_px"))
+        if px is None:
+            out[name] = {"reference_px": ref_px, "render_px": None, "found": False,
+                         "note": f"no render pixel within {rule['search_radius_px']} px"}
+            continue
+        d = math.hypot(px[0] - ref_px[0], px[1] - ref_px[1])
+        out[name] = {"reference_px": ref_px, "render_px": px, "found": True,
+                     "offset_px": [px[0] - ref_px[0], px[1] - ref_px[1]],
+                     "distance_px": round(d, 2), "reference_uncertainty_px": unc,
+                     "at_search_edge": at_edge,
+                     "note": "at_search_edge = the render finger runs past the search circle, "
+                             "so the true tip is further away than distance_px" if at_edge else ""}
+    return out
+
+
+def evaluate(metrics: dict, th: dict | None, hand: str) -> dict | None:
+    """Compare metrics with the derived gates of thresholds.json (docs/ACCEPTANCE.md)."""
+    if not th or hand not in th.get("gates", {}):
+        return None
+    g = th["gates"][hand]
+    cd = metrics["contour_distance_px"]["symmetric"]
+    checks = {}
+
+    def ge(name, value, gate):
+        checks[name] = {"value": value, "gate": f">= {gate}",
+                        "pass": bool(value is not None and value >= gate)}
+
+    def le(name, value, gate):
+        checks[name] = {"value": value, "gate": f"<= {gate}",
+                        "pass": bool(value is not None and value <= gate)}
+
+    ge("iou", metrics["iou"], g["iou_min"])
+    le("contour_mean_px", cd["mean"], g["contour_mean_max_px"])
+    le("contour_p95_px", cd["p95"], g["contour_p95_max_px"])
+    ge("negative_space_iou", metrics["negative_space"]["iou"], g["negative_space_iou_min"])
+    k = g.get("keypoint_k", 2.0)
+    for name, t in metrics.get("silhouette_tips", {}).items():
+        unc = t.get("reference_uncertainty_px") or 0
+        gate = round(k * unc, 2)
+        ok = bool(t.get("found")) and not t.get("at_search_edge") and t["distance_px"] <= gate
+        checks[f"tip:{name}"] = {"value": t.get("distance_px"), "gate": f"<= {gate} (= {k} x {unc})",
+                                 "pass": ok}
+    for name, v in metrics.get("keypoints", {}).items():
+        if "distance_px" in v and v.get("reference_uncertainty_px"):
+            gate = round(k * v["reference_uncertainty_px"], 2)
+            checks[f"keypoint:{name}"] = {"value": v["distance_px"], "gate": f"<= {gate}",
+                                          "pass": bool(v["distance_px"] <= gate)}
+        elif "difference" in v and v.get("reference_uncertainty"):
+            gate = round(k * v["reference_uncertainty"], 2)
+            checks[f"keypoint:{name}"] = {"value": abs(v["difference"]), "gate": f"<= {gate}",
+                                          "pass": bool(abs(v["difference"]) <= gate)}
+    return {"source": "assets-source/reference/thresholds.json (docs/ACCEPTANCE.md)",
+            "pass": bool(all(c["pass"] for c in checks.values())),
+            "failed": [n for n, c in checks.items() if not c["pass"]],
+            "checks": checks}
+
+
 # -------------------------------------------------------------------- overlay
 
 def two_ink(ref_gray: np.ndarray, ren_gray: np.ndarray) -> np.ndarray:
@@ -292,6 +395,28 @@ def two_ink(ref_gray: np.ndarray, ren_gray: np.ndarray) -> np.ndarray:
 
 def mask_gray(m: np.ndarray) -> np.ndarray:
     return np.where(m, 0, 255).astype(np.uint8)
+
+
+def ink_gray(img: np.ndarray, background: float | None = None, full_ink: float | None = None) -> np.ndarray:
+    """Normalise any picture to white ground / black ink (uint8), for the two-ink overlay.
+
+    background: the ground's luminance; default = median of the frame's outer 8-px border
+    (both the reference paper and the app's backdrop fill the border). Ink = the absolute
+    luminance difference from the ground, so a light hand on a darker ground is ink too.
+    full_ink: the difference mapped to black; default = the 99.5th percentile difference.
+    """
+    g = img.astype(np.float32)
+    if g.ndim == 3:
+        g = 0.299 * g[..., 0] + 0.587 * g[..., 1] + 0.114 * g[..., 2]
+    if background is None:
+        b = 8
+        border = np.concatenate([g[:b].ravel(), g[-b:].ravel(), g[:, :b].ravel(), g[:, -b:].ravel()])
+        background = float(np.median(border))
+    diff = np.abs(g - background)
+    if full_ink is None:
+        full_ink = max(float(np.percentile(diff, 99.5)), 1.0)
+    ink = np.clip(diff / full_ink, 0.0, 1.0)
+    return np.round(255.0 * (1.0 - ink)).astype(np.uint8)
 
 
 def annotate(overlay: np.ndarray, ignore: np.ndarray, ref_neg: np.ndarray, ren_neg: np.ndarray,
@@ -343,8 +468,18 @@ def compare(hand: str, render: np.ndarray, out_dir: Path, render_kps: dict | Non
     ren_neg = negative_space(render, ref["finger_region"]) & valid
     ref_neg = ref["negative"] & valid
 
-    kp = keypoint_offsets(ref["keypoints"], normalise_keypoints(render_kps, hand)) if render_kps else {}
+    kp = {}
+    if render_kps:
+        ren = normalise_keypoints(render_kps, hand)
+        if isinstance(render_kps.get("joints"), dict):
+            # a pose file: its *_tip joints are the CENTRES of the fingertip spheres, while the
+            # reference tips are silhouette extremes -- not comparable (the silhouette_tips
+            # check measures render tips properly). Joints (mcp/pip/dip/wrist) are centres in
+            # both and are compared.
+            ren = {k: v for k, v in ren.items() if not k.endswith("_tip")}
+        kp = keypoint_offsets(ref["keypoints"], ren)
     kp_dists = [v["distance_px"] for v in kp.values() if "distance_px" in v]
+    tips = silhouette_tips(ref["keypoints"], render)
 
     metrics = {
         "hand": hand,
@@ -369,7 +504,11 @@ def compare(hand: str, render: np.ndarray, out_dir: Path, render_kps: dict | Non
             "mean_px": round(float(np.mean(kp_dists)), 2) if kp_dists else None,
             "max_px": round(float(np.max(kp_dists)), 2) if kp_dists else None,
         },
+        "silhouette_tips": tips,
     }
+    acc = evaluate(metrics, ref["thresholds"], hand)
+    if acc is not None:
+        metrics["acceptance"] = acc
 
     out_dir.mkdir(parents=True, exist_ok=True)
     ov = two_ink(mask_gray(ref["mask"]), mask_gray(render))
@@ -381,13 +520,115 @@ def compare(hand: str, render: np.ndarray, out_dir: Path, render_kps: dict | Non
         f"contour px mean {cd['mean']}  p95 {cd['p95']}  max {cd['max']}",
         f"negative-space IoU {metrics['negative_space']['iou']}  (orange=ref gaps, green=render gaps)",
     ]
-    ann = annotate(ov, ignore, ref_neg, ren_neg, kp, lines)
+    if acc is not None:
+        lines.append(f"acceptance: {'PASS' if acc['pass'] else 'FAIL'}"
+                     + ("" if acc["pass"] else "  failed: " + ", ".join(acc["failed"])))
+    drawn = dict(kp)
+    drawn.update({f"tip:{n}": t for n, t in tips.items() if t.get("found")})
+    ann = annotate(ov, ignore, ref_neg, ren_neg, drawn, lines)
     ann.save(out_dir / f"{hand}-overlay-annotated.png")
     x0, y0, x1, y1 = bbox(ref["mask"] | render)
     ann.crop((x0, y0, x1, y1)).resize(((x1 - x0) * 2, (y1 - y0) * 2), Image.NEAREST).save(
         out_dir / f"{hand}-overlay-zoom.png")
     (out_dir / f"{hand}-metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     return metrics
+
+
+def shift(m: np.ndarray, dx: int, dy: int) -> np.ndarray:
+    """Translate a mask by whole pixels, filling with False (no wrap-around)."""
+    out = np.zeros_like(m)
+    ys, yd = (slice(0, H - dy), slice(dy, H)) if dy >= 0 else (slice(-dy, H), slice(0, H + dy))
+    xs, xd = (slice(0, W - dx), slice(dx, W)) if dx >= 0 else (slice(-dx, W), slice(0, W + dx))
+    out[yd, xd] = m[ys, xs]
+    return out
+
+
+def selftest(out_dir: Path) -> dict:
+    """Identity, 5-px shifts, refusal of wrong frame sizes, overlay pixel colours, ID split."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rep = {"identity": {}, "shift_5px": {}, "overlay_colours": {}, "refusal": {}, "id_split": {}}
+    ok = True
+    for hand in ("left", "right"):
+        ref = load_reference(hand)
+        m = ref["mask"]
+        a = compare(hand, m, out_dir / f"identity-{hand}", label="identity")
+        cd = a["contour_distance_px"]["symmetric"]
+        tips_zero = all(t.get("distance_px") == 0 for t in a["silhouette_tips"].values())
+        good = (a["iou"] == 1.0 and cd["mean"] == 0 and cd["max"] == 0
+                and a["negative_space"]["iou"] == 1.0 and tips_zero)
+        rep["identity"][hand] = {"iou": a["iou"], "contour": cd, "negative_space_iou":
+                                 a["negative_space"]["iou"], "tips_all_zero": tips_zero,
+                                 "acceptance_pass": a.get("acceptance", {}).get("pass"), "ok": good}
+        ok &= good
+        rep["shift_5px"][hand] = {}
+        # extend the hand across the ignore cut (each ignored pixel copies its nearest scored
+        # pixel, i.e. the arm is extruded perpendicular to the cut) so that a translated copy
+        # does not show the reference's own cut line as a fake 5-px edge inside the scored zone
+        ign = ref["ignore"]
+        if ign.any():
+            _, (iy, ix) = ndi.distance_transform_edt(ign, return_indices=True)
+            m_ext = m[iy, ix]
+        else:
+            m_ext = m
+        for label, (dx, dy) in {"+x": (5, 0), "+y": (0, 5), "diag(3,4)": (3, 4)}.items():
+            sm = shift(m_ext, dx, dy)
+            b = compare(hand, sm, out_dir / f"shift-{hand}-{dx}-{dy}", label=f"shift {label}")
+            cd = b["contour_distance_px"]["symmetric"]
+            tips = {n: t.get("distance_px") for n, t in b["silhouette_tips"].items()}
+            # A pure 5-px translation moves every edge pixel by exactly 5 px, so mean, p95 and
+            # max are <= 5 -- except for a few reference edge pixels just outside the ignore
+            # zone whose translated partner falls inside the excluded band; the max is also
+            # reported for edge pixels >= 8 px from the ignore zone, where it must be <= 5.
+            v = ~ign
+            near = ndi.binary_dilation(ign, iterations=2) if ign.any() else np.zeros_like(m)
+            far = ~ndi.binary_dilation(ign, iterations=8) if ign.any() else np.ones_like(m)
+            br, bn = boundary(m & v) & ~near, boundary(sm & v) & ~near
+            d_far = np.concatenate([ndi.distance_transform_edt(~bn)[br & far],
+                                    ndi.distance_transform_edt(~br)[bn & far]])
+            cd_far = {"max": round(float(d_far.max()), 3)}
+            sane = (cd_far["max"] <= 5.0 + 1e-6 and cd["p95"] <= 5.0 and 0 < cd["mean"] <= 5.0
+                    and 0.8 < b["iou"] < 1.0
+                    and all(v is not None and abs(v - 5.0) < 1e-6 for v in tips.values()))
+            rep["shift_5px"][hand][label] = {
+                "iou": b["iou"], "precision": b["precision"], "recall": b["recall"], "contour": cd,
+                "contour_max_8px_from_ignore": cd_far["max"],
+                "negative_space_iou": b["negative_space"]["iou"], "tips_px": tips,
+                "acceptance_pass": b.get("acceptance", {}).get("pass"),
+                "acceptance_failed": b.get("acceptance", {}).get("failed"), "sane": sane}
+            ok &= sane
+        # overlay colours, checked on the saved PNG of the +x shift
+        ov = np.asarray(Image.open(out_dir / f"shift-{hand}-5-0" / f"{hand}-overlay.png").convert("RGB"))
+        sm = shift(m_ext, 5, 0)
+        cols = {}
+        for name, sel, want in (("reference_only", m & ~sm, (255, 0, 0)), ("render_only", ~m & sm, (0, 0, 255)),
+                                ("overlap", m & sm, (0, 0, 0)), ("neither", ~m & ~sm, (255, 255, 255))):
+            px = ov[sel]
+            uniq = np.unique(px.reshape(-1, 3), axis=0).tolist()
+            cols[name] = {"pixels": int(sel.sum()), "expected": list(want), "unique_rgb": uniq[:4],
+                          "ok": uniq == [list(want)]}
+            ok &= cols[name]["ok"]
+        rep["overlay_colours"][hand] = cols
+        # ID-coloured synthetic render (CONTRACTS section 9): white ground, flat hand colour
+        rgb = np.full((H, W, 3), 255, np.uint8)
+        rgb[m] = ID_COLORS[hand]
+        p = out_dir / f"id-{hand}.png"
+        Image.fromarray(rgb).save(p)
+        got = mask_from_id_render(load_id_render(p), ID_COLORS[hand])
+        rep["id_split"][hand] = {"pixels_equal": bool((got == m).all())}
+        ok &= rep["id_split"][hand]["pixels_equal"]
+    for size in ((1280, 720), (3288, 1914), (1643, 957)):
+        p = out_dir / f"wrong-{size[0]}x{size[1]}.png"
+        Image.new("L", size, 0).save(p)
+        try:
+            code = main(["--hand", "left", "--render", str(p), "--out", str(out_dir / "refused")])
+        except SystemExit as e:  # argparse or refusal
+            code = e.code
+        rep["refusal"][f"{size[0]}x{size[1]}"] = {"exit_code": code, "refused": code == 2}
+        ok &= code == 2
+        p.unlink()
+    rep["ok"] = bool(ok)
+    (out_dir / "selftest.json").write_text(json.dumps(rep, indent=2) + "\n")
+    return rep
 
 
 def parse_color(s: str):
@@ -401,8 +642,9 @@ def parse_color(s: str):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--hand", required=True, choices=["left", "right"])
-    src = ap.add_mutually_exclusive_group(required=True)
+    ap.add_argument("--selftest", action="store_true", help="run the self-test into --out")
+    ap.add_argument("--hand", choices=["left", "right"])
+    src = ap.add_mutually_exclusive_group()
     src.add_argument("--render", type=Path, help="render mask PNG, 1644x957, hand = bright")
     src.add_argument("--render-rgb", type=Path, help="ID-coloured render PNG, 1644x957")
     ap.add_argument("--id-color", help="r,g,b of the hand in --render-rgb (default: left 255,0,0 / right 0,0,255)")
@@ -412,6 +654,17 @@ def main(argv=None) -> int:
     ap.add_argument("--ref-dir", type=Path, default=REF_DIR)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args(argv)
+
+    if a.selftest:
+        r = selftest(a.out)
+        print(json.dumps({"ok": r["ok"], "identity": {h: v["ok"] for h, v in r["identity"].items()},
+                          "shift_5px": {h: {k: (v["iou"], v["contour"]["mean"], v["contour"]["p95"],
+                                                v["contour"]["max"], v["sane"]) for k, v in d.items()}
+                                        for h, d in r["shift_5px"].items()},
+                          "refusal": r["refusal"], "out": str(a.out / "selftest.json")}, indent=1))
+        return 0 if r["ok"] else 1
+    if a.hand is None or (a.render is None and a.render_rgb is None):
+        ap.error("--hand and one of --render / --render-rgb are required")
 
     try:
         if a.render is not None:
@@ -427,9 +680,14 @@ def main(argv=None) -> int:
     kps = json.loads(a.render_keypoints.read_text()) if a.render_keypoints else None
     m = compare(a.hand, render, a.out, kps, not a.no_ignore, a.ref_dir, label)
     cd = m["contour_distance_px"]["symmetric"]
-    print(json.dumps({k: m[k] for k in ("hand", "label", "iou", "precision", "recall")}
-                     | {"contour_px": cd, "negative_space_iou": m["negative_space"]["iou"],
-                        "keypoints": m["keypoint_summary"], "out": str(a.out)}, indent=2))
+    summary = {k: m[k] for k in ("hand", "label", "iou", "precision", "recall")} | {
+        "contour_px": cd, "negative_space_iou": m["negative_space"]["iou"],
+        "keypoints": m["keypoint_summary"],
+        "silhouette_tips_px": {n: t.get("distance_px") for n, t in m["silhouette_tips"].items()},
+        "out": str(a.out)}
+    if "acceptance" in m:
+        summary["acceptance"] = {"pass": m["acceptance"]["pass"], "failed": m["acceptance"]["failed"]}
+    print(json.dumps(summary, indent=2))
     return 0
 
 

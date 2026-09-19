@@ -1,0 +1,354 @@
+{
+  "identity": {
+    "left": {
+      "iou": 1.0,
+      "contour": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "n": 4006
+      },
+      "negative_space_iou": 1.0,
+      "tips_all_zero": true,
+      "acceptance_pass": true,
+      "ok": true
+    },
+    "right": {
+      "iou": 1.0,
+      "contour": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0,
+        "n": 3696
+      },
+      "negative_space_iou": 1.0,
+      "tips_all_zero": true,
+      "acceptance_pass": true,
+      "ok": true
+    }
+  },
+  "shift_5px": {
+    "left": {
+      "+x": {
+        "iou": 0.94929,
+        "precision": 0.96952,
+        "recall": 0.97849,
+        "contour": {
+          "mean": 2.403,
+          "p95": 5.0,
+          "max": 5.0,
+          "n": 4016
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.79735,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": false,
+        "acceptance_failed": [
+          "iou",
+          "contour_mean_px",
+          "contour_p95_px",
+          "negative_space_iou",
+          "tip:index_tip",
+          "tip:middle_tip",
+          "tip:ring_tip",
+          "tip:pinky_tip"
+        ],
+        "sane": true
+      },
+      "+y": {
+        "iou": 0.92525,
+        "precision": 0.96117,
+        "recall": 0.96117,
+        "contour": {
+          "mean": 3.687,
+          "p95": 5.0,
+          "max": 5.0,
+          "n": 4006
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.78726,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": false,
+        "acceptance_failed": [
+          "iou",
+          "contour_mean_px",
+          "contour_p95_px",
+          "negative_space_iou",
+          "tip:index_tip",
+          "tip:middle_tip",
+          "tip:ring_tip",
+          "tip:pinky_tip"
+        ],
+        "sane": true
+      },
+      "diag(3,4)": {
+        "iou": 0.94474,
+        "precision": 0.96891,
+        "recall": 0.97428,
+        "contour": {
+          "mean": 2.746,
+          "p95": 5.0,
+          "max": 5.0,
+          "n": 4012
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.80017,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": false,
+        "acceptance_failed": [
+          "iou",
+          "contour_mean_px",
+          "contour_p95_px",
+          "negative_space_iou",
+          "tip:index_tip",
+          "tip:middle_tip",
+          "tip:ring_tip",
+          "tip:pinky_tip"
+        ],
+        "sane": true
+      }
+    },
+    "right": {
+      "+x": {
+        "iou": 0.93752,
+        "precision": 0.97019,
+        "recall": 0.96533,
+        "contour": {
+          "mean": 2.557,
+          "p95": 5.0,
+          "max": 6.708,
+          "n": 3672
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.8192,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": false,
+        "acceptance_failed": [
+          "negative_space_iou"
+        ],
+        "sane": true
+      },
+      "+y": {
+        "iou": 0.9162,
+        "precision": 0.95728,
+        "recall": 0.95526,
+        "contour": {
+          "mean": 3.514,
+          "p95": 5.0,
+          "max": 6.708,
+          "n": 3686
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.8353,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": true,
+        "acceptance_failed": [],
+        "sane": true
+      },
+      "diag(3,4)": {
+        "iou": 0.93139,
+        "precision": 0.96677,
+        "recall": 0.96219,
+        "contour": {
+          "mean": 2.907,
+          "p95": 5.0,
+          "max": 8.544,
+          "n": 3672
+        },
+        "contour_max_8px_from_ignore": 5.0,
+        "negative_space_iou": 0.83902,
+        "tips_px": {
+          "index_tip": 5.0,
+          "middle_tip": 5.0,
+          "ring_tip": 5.0,
+          "pinky_tip": 5.0
+        },
+        "acceptance_pass": true,
+        "acceptance_failed": [],
+        "sane": true
+      }
+    }
+  },
+  "overlay_colours": {
+    "left": {
+      "reference_only": {
+        "pixels": 3823,
+        "expected": [
+          255,
+          0,
+          0
+        ],
+        "unique_rgb": [
+          [
+            255,
+            0,
+            0
+          ]
+        ],
+        "ok": true
+      },
+      "render_only": {
+        "pixels": 3358,
+        "expected": [
+          0,
+          0,
+          255
+        ],
+        "unique_rgb": [
+          [
+            0,
+            0,
+            255
+          ]
+        ],
+        "ok": true
+      },
+      "overlap": {
+        "pixels": 114887,
+        "expected": [
+          0,
+          0,
+          0
+        ],
+        "unique_rgb": [
+          [
+            0,
+            0,
+            0
+          ]
+        ],
+        "ok": true
+      },
+      "neither": {
+        "pixels": 1451240,
+        "expected": [
+          255,
+          255,
+          255
+        ],
+        "unique_rgb": [
+          [
+            255,
+            255,
+            255
+          ]
+        ],
+        "ok": true
+      }
+    },
+    "right": {
+      "reference_only": {
+        "pixels": 2967,
+        "expected": [
+          255,
+          0,
+          0
+        ],
+        "unique_rgb": [
+          [
+            255,
+            0,
+            0
+          ]
+        ],
+        "ok": true
+      },
+      "render_only": {
+        "pixels": 35366,
+        "expected": [
+          0,
+          0,
+          255
+        ],
+        "unique_rgb": [
+          [
+            0,
+            0,
+            255
+          ]
+        ],
+        "ok": true
+      },
+      "overlap": {
+        "pixels": 82610,
+        "expected": [
+          0,
+          0,
+          0
+        ],
+        "unique_rgb": [
+          [
+            0,
+            0,
+            0
+          ]
+        ],
+        "ok": true
+      },
+      "neither": {
+        "pixels": 1452365,
+        "expected": [
+          255,
+          255,
+          255
+        ],
+        "unique_rgb": [
+          [
+            255,
+            255,
+            255
+          ]
+        ],
+        "ok": true
+      }
+    }
+  },
+  "refusal": {
+    "1280x720": {
+      "exit_code": 2,
+      "refused": true
+    },
+    "3288x1914": {
+      "exit_code": 2,
+      "refused": true
+    },
+    "1643x957": {
+      "exit_code": 2,
+      "refused": true
+    }
+  },
+  "id_split": {
+    "left": {
+      "pixels_equal": true
+    },
+    "right": {
+      "pixels_equal": true
+    }
+  },
+  "ok": true
+}

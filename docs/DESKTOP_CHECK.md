@@ -32,6 +32,7 @@ These results came from the implementation session:
 | Release binary (`cargo build --release --features tauri/custom-protocol`, `VITE_ALPHA_DIAGNOSTICS=1` bundle embedded) on Xvfb | The app loaded the embedded bundle and reached home. The panel reported `buildMode: production`, `isTauri: true` |
 | Renderer string in WebKitGTK | Reported as **`Apple GPU` / `Apple Inc.`**, even through `WEBGL_debug_renderer_info`. WebKit masks it on every platform, so the panel marks it as masked. Step 5 shows how to read the real renderer |
 | Frame numbers from that Xvfb run | Mesa llvmpipe (software). **Not a hardware result.** Do not copy them into the table |
+| Re-check on resume (same day): `cargo check` / `cargo build` after touching the crate, then the debug binary on Xvfb (`GDK_BACKEND=x11`, only because Xvfb has no Wayland) with `Ctrl+Shift+D` sent through XTest | Both passed. Panel opened and closed; it reported `isTauri: true`, `tauriVersion: 2.11.5`, viewport and buffer 1644×957 at DPR 1, 12 000 particles, state `home`. Still software rendering, so no numbers are kept |
 | Real window on KDE Wayland with the Intel GPU | **Not done.** You need to run it with the steps below |
 
 ## 2. System packages (Arch)

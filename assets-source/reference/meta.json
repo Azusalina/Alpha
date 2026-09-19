@@ -1496,7 +1496,10 @@
         "flags": "LF"
       }
     ],
-    "hand_traced_parts": "anchor positions only (all 66 read by eye); the path between anchors follows the drawn stroke algorithmically. The forearm from x~40 to the frame edge is extrapolated (straight lines).",
+    "hand_traced_parts": "anchor positions only (65 read by eye on the outline stroke, plus 2 fixed extrapolation points on the frame edge); the path between anchors follows the drawn stroke algorithmically. The forearm from x~40 to the frame edge is extrapolated (straight lines).",
+    "known_ambiguities": [
+      "a bright slit (x 537-560, y 360-420) between the thumb's upper edge and the ring finger is enclosed by drawn strokes and has paper tone; it may be paper seen through the hand or a highlight. The mask treats it as INSIDE the hand (filled outline); ~500 px, i.e. <0.5 % of the left area and ~3 % of the left negative space if it were a gap."
+    ],
     "ignore": "x < 45: the drawing's forearm contours start at x~38-42; the app's arm leaves the frame there, which the drawing does not show",
     "area_px": 118710
   },
@@ -1514,15 +1517,15 @@
         840,
         452
       ],
-      "thumb": [
+      "middle": [
         822,
         648
       ],
-      "curl_a": [
+      "ring": [
         902,
         735
       ],
-      "curl_b": [
+      "pinky": [
         988,
         735
       ],
@@ -1624,5 +1627,7 @@
     },
     "left_px": 18953,
     "right_px": 21227
-  }
+  },
+  "sensitivity": "outputs/qa/reference/sensitivity.json (written with --sensitivity)",
+  "thresholds": "assets-source/reference/thresholds.json (written with --sensitivity)"
 }

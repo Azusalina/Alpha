@@ -17,7 +17,8 @@ crate-type = ["rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# No plugins: the front end makes no IPC calls, opens no URLs and runs no
-# shell commands. Diagnostics run entirely in the web view.
+# No plugins: the front end opens no URLs, touches no files and runs no shell
+# commands. Diagnostics run in the web view; their one IPC call reads the Tauri
+# version (`plugin:app|tauri_version`), which `core:default` already allows.
 [dependencies]
 tauri = { version = "2", features = [] }

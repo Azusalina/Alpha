@@ -14,7 +14,17 @@
       ],
       "method": "measured",
       "uncertainty_px": 1.5,
-      "note": "extreme silhouette pixel along 20 deg (distal phalanx direction)"
+      "note": "extreme silhouette pixel along 20 deg (distal phalanx direction)",
+      "tip_rule": {
+        "direction_deg": 20,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        786,
+        416
+      ],
+      "mask_uncertainty_px": 1.5
     },
     "middle_tip": {
       "px": [
@@ -23,7 +33,17 @@
       ],
       "method": "measured",
       "uncertainty_px": 2.0,
-      "note": "extreme silhouette pixel along 100 deg"
+      "note": "extreme silhouette pixel along 100 deg",
+      "tip_rule": {
+        "direction_deg": 100,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        601,
+        523
+      ],
+      "mask_uncertainty_px": 2.0
     },
     "ring_tip": {
       "px": [
@@ -32,7 +52,17 @@
       ],
       "method": "measured",
       "uncertainty_px": 2.0,
-      "note": "extreme silhouette pixel along 115 deg"
+      "note": "extreme silhouette pixel along 115 deg",
+      "tip_rule": {
+        "direction_deg": 115,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        532,
+        505
+      ],
+      "mask_uncertainty_px": 2.0
     },
     "pinky_tip": {
       "px": [
@@ -41,7 +71,17 @@
       ],
       "method": "measured",
       "uncertainty_px": 2.0,
-      "note": "extreme silhouette pixel along 185 deg; the little finger is curled under the palm and points back toward the wrist"
+      "note": "extreme silhouette pixel along 185 deg; the little finger is curled under the palm and points back toward the wrist",
+      "tip_rule": {
+        "direction_deg": 185,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        438,
+        438
+      ],
+      "mask_uncertainty_px": 2.0
     },
     "thumb_tip": {
       "px": [
@@ -229,43 +269,87 @@
       ],
       "method": "measured",
       "uncertainty_px": 3.0,
-      "note": "outermost particle pixel along 205 deg (up-left, toward the contact)"
+      "note": "outermost particle pixel along 205 deg (up-left, toward the contact)",
+      "tip_rule": {
+        "direction_deg": 205,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        807,
+        438
+      ],
+      "mask_uncertainty_px": 3.0,
+      "mask_uncertainty_note": "the density silhouette's tip moves up to 2.0 px under one-step changes of blur, level, smoothing or edge shrink; uncertainty of mask_px = max(that, the particle tip's)"
     },
-    "thumb_tip": {
+    "middle_tip": {
       "px": [
         807.0,
         654.0
       ],
       "method": "measured",
       "uncertainty_px": 4.0,
-      "note": "outermost particle along 175 deg; the thumb points left below the index"
+      "note": "outermost particle along 175 deg; the middle finger is the long digit pointing left below the index (decision D1)",
+      "tip_rule": {
+        "direction_deg": 175,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        810,
+        654
+      ],
+      "mask_uncertainty_px": 4.0,
+      "mask_uncertainty_note": "the density silhouette's tip moves up to 3.2 px under one-step changes of blur, level, smoothing or edge shrink; uncertainty of mask_px = max(that, the particle tip's)"
     },
-    "middle_tip": {
+    "thumb_tip": {
+      "px": [
+        898.0,
+        673.0
+      ],
+      "method": "read",
+      "uncertainty_px": 6.0,
+      "note": "distal end of the thumb: ~5 px beyond the leftmost point of the nail outline (903,674), read on an 8x crop. Not a silhouette extreme -- the ring finger descends from behind it (decision D1)"
+    },
+    "ring_tip": {
       "px": [
         901.0,
         755.0
       ],
       "method": "measured",
       "uncertainty_px": 4.0,
-      "note": "outermost particle along 95 deg; this finger curls down from the loop at (905-960, 650-700)"
+      "note": "outermost particle along 95 deg; the ring finger curls straight down from behind the thumb (decision D1)",
+      "tip_rule": {
+        "direction_deg": 95,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        902,
+        755
+      ],
+      "mask_uncertainty_px": 4.0,
+      "mask_uncertainty_note": "the density silhouette's tip moves up to 2.2 px under one-step changes of blur, level, smoothing or edge shrink; uncertainty of mask_px = max(that, the particle tip's)"
     },
-    "ring_tip": {
+    "pinky_tip": {
       "px": [
         988.0,
         757.0
       ],
       "method": "measured",
       "uncertainty_px": 4.0,
-      "note": "outermost particle along 90 deg"
-    },
-    "pinky_tip": {
-      "px": [
-        1040.0,
-        715.0
+      "note": "outermost particle along 90 deg; the little finger curls straight down right of the thumb nail (decision D1)",
+      "tip_rule": {
+        "direction_deg": 90,
+        "search_radius_px": 25,
+        "rule": "extreme silhouette pixel along direction_deg within search_radius_px of mask_px (compare_silhouette.mask_tip)"
+      },
+      "mask_px": [
+        989,
+        756
       ],
-      "method": "read",
-      "uncertainty_px": 20.0,
-      "note": "no separate little finger is readable; the lower palm contour (1000-1080, 695-725) is the most likely place; treat as unmeasured"
+      "mask_uncertainty_px": 4.0,
+      "mask_uncertainty_note": "the density silhouette's tip moves up to 3.2 px under one-step changes of blur, level, smoothing or edge shrink; uncertainty of mask_px = max(that, the particle tip's)"
     },
     "index_mcp": {
       "px": [
@@ -294,82 +378,113 @@
       "uncertainty_px": 10.0,
       "note": "not visible; placed along the band"
     },
-    "thumb_cmc": {
-      "px": [
-        1060.0,
-        640.0
-      ],
-      "method": "read",
-      "uncertainty_px": 30.0,
-      "note": "not readable: the thumb metacarpal is inside the palm; anatomical guess between the thumb MCP and the wrist"
-    },
-    "thumb_mcp": {
-      "px": [
-        905.0,
-        590.0
-      ],
-      "method": "read",
-      "uncertainty_px": 12.0,
-      "note": "where the thumb band widens into the palm"
-    },
-    "thumb_ip": {
-      "px": [
-        850.0,
-        625.0
-      ],
-      "method": "read",
-      "uncertainty_px": 10.0,
-      "note": "mid-length of the thumb band"
-    },
     "middle_mcp": {
       "px": [
-        965.0,
-        650.0
+        985.0,
+        580.0
       ],
       "method": "read",
       "uncertainty_px": 15.0,
-      "note": "top of the curled loop"
+      "note": "where the middle finger band enters the dense palm mesh (960-1040, 580-640); not articulated"
     },
     "middle_pip": {
       "px": [
-        912.0,
-        668.0
+        900.0,
+        588.0
       ],
       "method": "read",
       "uncertainty_px": 10.0,
-      "note": "left end of the loop, where the finger turns down"
+      "note": "where the band bends from running left to running down-left"
     },
     "middle_dip": {
       "px": [
-        903.0,
-        712.0
+        848.0,
+        617.0
       ],
       "method": "read",
-      "uncertainty_px": 10.0
+      "uncertainty_px": 8.0,
+      "note": "second bend of the band; the distal phalanx runs from here to the tip at (807,654)"
     },
-    "ring_mcp": {
+    "thumb_cmc": {
       "px": [
-        1000.0,
-        665.0
-      ],
-      "method": "read",
-      "uncertainty_px": 15.0
-    },
-    "ring_pip": {
-      "px": [
-        985.0,
+        1100.0,
         700.0
       ],
       "method": "read",
-      "uncertainty_px": 10.0
+      "uncertainty_px": 25.0,
+      "note": "not readable: inside the base of the hand, on the line of the thumb's lower edge (905-1120, 695-730)"
+    },
+    "thumb_mcp": {
+      "px": [
+        1025.0,
+        686.0
+      ],
+      "method": "read",
+      "uncertainty_px": 15.0,
+      "note": "not articulated in the particles; placed along the thumb band between the nail base and the base of the hand"
+    },
+    "thumb_ip": {
+      "px": [
+        955.0,
+        674.0
+      ],
+      "method": "read",
+      "uncertainty_px": 8.0,
+      "note": "at the nail base (right end of the nail outline, x ~950)"
+    },
+    "ring_mcp": {
+      "px": [
+        995.0,
+        605.0
+      ],
+      "method": "read",
+      "uncertainty_px": 20.0,
+      "note": "hidden inside the palm; inferred"
+    },
+    "ring_pip": {
+      "px": [
+        928.0,
+        668.0
+      ],
+      "method": "read",
+      "uncertainty_px": 15.0,
+      "note": "hidden behind the thumb nail; inferred from where the ring finger emerges below the thumb (x 890-925, y ~700)"
     },
     "ring_dip": {
       "px": [
-        985.0,
-        728.0
+        908.0,
+        722.0
       ],
       "method": "read",
-      "uncertainty_px": 10.0
+      "uncertainty_px": 10.0,
+      "note": "mid-way down the visible ring finger"
+    },
+    "pinky_mcp": {
+      "px": [
+        1020.0,
+        630.0
+      ],
+      "method": "read",
+      "uncertainty_px": 20.0,
+      "note": "hidden inside the palm; inferred"
+    },
+    "pinky_pip": {
+      "px": [
+        990.0,
+        685.0
+      ],
+      "method": "read",
+      "uncertainty_px": 12.0,
+      "note": "top of the little finger's vertical dotted arcs right of the thumb nail (975-1000, 650-700)"
+    },
+    "pinky_dip": {
+      "px": [
+        990.0,
+        725.0
+      ],
+      "method": "read",
+      "uncertainty_px": 10.0,
+      "note": "mid-way down the visible little finger"
     },
     "wrist": {
       "px": [
@@ -377,8 +492,8 @@
         709.5
       ],
       "method": "measured",
-      "uncertainty_px": 12.0,
-      "note": "centre of the narrowest cross-section of the density silhouette between x 1150 and 1320 (measured perpendicular to the forearm axis); the particle edge is soft, hence the large uncertainty"
+      "uncertainty_px": 35.0,
+      "note": "centre of the narrowest cross-section of the density silhouette between x 1150 and 1320 (measured perpendicular to the forearm axis). ACROSS the axis this is good to ~5 px; ALONG the axis it is poorly defined: the section width falls from ~187 px (x ~1080) to ~117 px by x ~1260 and then stays at 115-126 px until the particles thin out past x ~1320, so any point on that plateau is 'narrowest' within noise. Hence 35 px (the plateau's half-length). The anatomical wrist -- where the taper ends -- is at the proximal end of the plateau, x ~1250"
     },
     "wrist_axis_deg": {
       "value": 23.41,
@@ -411,6 +526,20 @@
     "midpoint_px": [
       795.5,
       426.5
-    ]
+    ],
+    "mask_tip_gap_px": {
+      "value": 30.41,
+      "method": "measured",
+      "uncertainty_px": 3.4,
+      "left_px": [
+        786,
+        416
+      ],
+      "right_px": [
+        807,
+        438
+      ],
+      "note": "distance between the two index tips measured on the silhouette masks with the tip rule; this is the gap a silhouette render is compared with"
+    }
   }
 }

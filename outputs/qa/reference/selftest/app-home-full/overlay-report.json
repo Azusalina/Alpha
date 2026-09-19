@@ -1,0 +1,37 @@
+{
+  "screenshot": "outputs/qa/home.png",
+  "frame": [
+    1644,
+    957
+  ],
+  "mode_requested": "auto",
+  "detection": {
+    "white_or_id_fraction": 0.91141,
+    "left_px": 0,
+    "right_px": 0
+  },
+  "mode": "full",
+  "warning": null,
+  "note": "two-ink overlay only; no metrics. A full render mixes the hand outline with construction lines, particles and shading, so any number taken from it would measure those too. Capture the silhouette view mode for numbers.",
+  "normalisation": "ink = |luminance - ground| / p99.5, ground = median of the outer 8-px border, white = no ink (compare_silhouette.ink_gray)",
+  "channel_ranges": {
+    "R": [
+      0,
+      255
+    ],
+    "G": [
+      0,
+      255
+    ],
+    "B": [
+      0,
+      255
+    ]
+  },
+  "files": [
+    "overlay-two-ink.png",
+    "overlay-zoom-left.png",
+    "overlay-zoom-right.png",
+    "overlay-zoom-contact.png"
+  ]
+}

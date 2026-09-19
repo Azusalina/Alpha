@@ -45,6 +45,8 @@
     "nail_lift": 0.7,
     "nail_thick": 0.36,
     "nail_width": 0.74,
+    "nail_start": 0.4,
+    "nail_tip_inset": 0.85,
     "section_clamp": [
       0.75,
       2.2
@@ -54,11 +56,12 @@
     "tri_budget": 29000,
     "contour_min_px": 14.0,
     "contour_step_px": 3.0,
-    "contour_smooth_iters": 6
+    "contour_smooth_iters": 6,
+    "contour_side_px": 3.0
   },
   "raw_extraction": {
-    "vertices": 455534,
-    "faces": 911064,
+    "vertices": 454982,
+    "faces": 909960,
     "non_manifold_edges": 0,
     "boundary_edges": 0,
     "non_manifold_verts": 0
@@ -69,8 +72,8 @@
   "non_manifold_edges": 0,
   "boundary_edges": 0,
   "non_manifold_verts": 0,
-  "signed_volume": 0.404484,
-  "surface_area": 4.149381,
+  "signed_volume": 0.404436,
+  "surface_area": 4.144655,
   "glb_check": {
     "vertices": 14429,
     "triangles": 28854,
@@ -83,17 +86,17 @@
   "bbox_app": {
     "min": [
       -2.79529,
-      -0.10618,
+      -0.0937,
       -0.31586
     ],
     "max": [
-      -0.06073,
+      -0.07047,
       1.0904,
       0.31592
     ],
     "size": [
-      2.73456,
-      1.19658,
+      2.72482,
+      1.1841,
       0.63178
     ]
   },
@@ -104,14 +107,14 @@
         462.0
       ],
       "mesh_tip_px": [
-        560.2,
-        465.9
+        559.8,
+        461.2
       ],
-      "delta_px": 4.04,
+      "delta_px": 1.16,
       "mesh_tip_world": [
-        -0.51839,
-        0.02505,
-        0.26995
+        -0.52107,
+        0.03444,
+        0.25228
       ]
     },
     "index": {
@@ -120,14 +123,14 @@
         416.0
       ],
       "mesh_tip_px": [
-        792.2,
-        407.8
+        786.7,
+        414.5
       ],
-      "delta_px": 10.26,
+      "delta_px": 1.66,
       "mesh_tip_world": [
-        -0.06073,
-        0.14397,
-        0.13087
+        -0.07195,
+        0.13042,
+        0.1291
       ]
     },
     "middle": {
@@ -136,14 +139,14 @@
         523.0
       ],
       "mesh_tip_px": [
-        608.0,
-        529.4
+        600.8,
+        522.9
       ],
-      "delta_px": 10.28,
+      "delta_px": 0.8,
       "mesh_tip_world": [
-        -0.44466,
-        -0.10581,
-        0.02854
+        -0.46083,
+        -0.09258,
+        0.01608
       ]
     },
     "ring": {
@@ -152,14 +155,14 @@
         507.0
       ],
       "mesh_tip_px": [
-        539.2,
-        514.1
+        534.0,
+        507.6
       ],
-      "delta_px": 9.42,
+      "delta_px": 1.21,
       "mesh_tip_world": [
-        -0.60132,
-        -0.07567,
-        -0.08998
+        -0.61224,
+        -0.06189,
+        -0.08943
       ]
     },
     "pinky": {
@@ -168,18 +171,18 @@
         441.0
       ],
       "mesh_tip_px": [
-        437.1,
-        451.0
+        437.0,
+        440.9
       ],
-      "delta_px": 9.96,
+      "delta_px": 0.09,
       "mesh_tip_world": [
-        -0.82961,
-        0.05937,
-        -0.16183
+        -0.82991,
+        0.08102,
+        -0.16196
       ]
     }
   },
-  "contour_polylines": 33,
-  "contour_points": 1355,
-  "build_seconds": 56.9
+  "contour_polylines": 32,
+  "contour_points": 1344,
+  "build_seconds": 45.0
 }
