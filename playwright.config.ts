@@ -27,7 +27,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Re-assert after the spread: the preset carries 1280 x 720 and would
+        // otherwise silently replace the reference frame for every test.
+        viewport: { width: 1644, height: 957 },
+        deviceScaleFactor: 1,
+        launchOptions: { executablePath },
+      },
     },
   ],
   webServer: {

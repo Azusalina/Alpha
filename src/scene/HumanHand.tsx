@@ -72,7 +72,8 @@ export function HumanHand() {
           [
             '#include <dithering_fragment>',
             // soft leading edge, so the solid grows rather than popping in
-            'float edge = smoothstep(uReveal, uReveal - 0.16, vReveal);',
+            // edge0 < edge1: GLSL leaves smoothstep undefined the other way round
+            'float edge = 1.0 - smoothstep(uReveal - 0.16, uReveal, vReveal);',
             'if (edge <= 0.001) discard;',
             'gl_FragColor.a *= edge * uOpacity;',
           ].join('\n'),

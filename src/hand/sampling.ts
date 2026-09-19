@@ -68,7 +68,12 @@ export function sampleParticleHand(rig: HandRig, count: number, seed = 20260919)
   geometry.setAttribute('aWeight', new Float32BufferAttribute(buildWeights(geometry), 1));
 
   const mesh = new Mesh(geometry, new MeshBasicMaterial());
-  const sampler = new MeshSurfaceSampler(mesh).setWeightAttribute('aWeight').build();
+  // The sampler must draw from the seeded RNG too. Without this it falls back to
+  // Math.random, and the same seed produced a different cloud on every load.
+  const sampler = new MeshSurfaceSampler(mesh)
+    .setRandomGenerator(rng)
+    .setWeightAttribute('aWeight')
+    .build();
 
   const home = new Float32Array(count * 3);
   const size = new Float32Array(count);
