@@ -103,6 +103,12 @@ documentation/log/  implementation log
 
 ## Status
 
+> **Round 2 (form and acceptance) is paused mid-way** on branch
+> `claude/v1-form-acceptance`. Continuous Blender hand meshes, reference masks,
+> measurement tools and the Tauri shell exist; calibration and app integration
+> do not yet. Handoff and next steps: `documentation/log/log-v2.md`. Shared
+> interfaces: `docs/CONTRACTS.md`.
+
 | | |
 |---|---|
 | Implemented | Startup page: loading → intro → stable home, both hands, construction drawing, particle gather, idle breathing, pointer disturbance, corner hot zones with dwell |

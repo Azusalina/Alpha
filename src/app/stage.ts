@@ -12,6 +12,9 @@
  * not reachable yet — see documentation/log/log-v1.md.
  */
 
+import type { QualitySettings } from '../config/quality';
+import { configureDiagnostics, DIAGNOSTICS_ENABLED, measureFrames } from './diagnostics';
+
 export type SceneState =
   | 'loading'
   | 'intro'
@@ -96,12 +99,18 @@ class Stage {
 export const stage = new Stage();
 
 /**
- * Development/test inspection surface (spec 12). Attached only outside
- * production builds, so the shipped UI carries no state names or timings.
+ * Development/test inspection surface (spec 12). Attached only in `vite` dev
+ * or in a build made with VITE_ALPHA_DIAGNOSTICS=1 (for measuring a release
+ * bundle in the desktop shell); a normal production build folds the gate to
+ * false, so the shipped UI carries no state names or timings.
  * Screenshot positioning may use this; interaction acceptance may not.
  */
 export function installDevInspector(extra: Record<string, unknown> = {}): void {
-  if (import.meta.env.PROD) return;
+  if (!DIAGNOSTICS_ENABLED) return;
+  configureDiagnostics({
+    quality: extra.quality as QualitySettings | undefined,
+    sceneState: () => stage.state,
+  });
   (window as unknown as Record<string, unknown>).__alpha = {
     get state() {
       return stage.state;
@@ -124,6 +133,13 @@ export function installDevInspector(extra: Record<string, unknown> = {}): void {
     /** Freeze the clock and scrub the startup timeline to an exact fraction. */
     setTimeScale(v: number) {
       stage.timeScale = v;
+    },
+    /**
+     * Real-machine frame diagnostics (spec 9): renderer, pixel budget and
+     * frame-interval percentiles over `sampleCount` frames. See diagnostics.ts.
+     */
+    measureFrames(sampleCount = 240) {
+      return measureFrames(sampleCount);
     },
     ...extra,
   };

@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
+    "build:diagnostics": "VITE_ALPHA_DIAGNOSTICS=1 vite build",
     "dev": "vite",
     "preview": "vite preview",
     "qa:capture": "node scripts/capture-qa.mjs",
     "qa:landmarks": "python3 scripts/measure_landmarks.py",
     "qa:overlay": "python3 scripts/overlay_check.py",
     "qa:runtime": "node scripts/check-runtime.mjs",
+    "tauri": "tauri",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },

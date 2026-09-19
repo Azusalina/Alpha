@@ -16,7 +16,9 @@ import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_TIER, QUALITY } from '../config/quality';
 import { REDUCED_MOTION, STARTUP } from '../config/timing';
 import { AlphaScene } from '../scene/AlphaScene';
+import { Diagnostics } from '../ui/Diagnostics';
 import { Hotzones } from '../ui/Hotzones';
+import { DIAGNOSTICS_ENABLED } from './diagnostics';
 import { hotzonesArmed, installDevInspector, stage, type SceneState } from './stage';
 
 function usePrefersReducedMotion(): boolean {
@@ -119,6 +121,9 @@ export function App() {
       </Canvas>
 
       <Hotzones armed={hotzonesArmed(sceneState)} />
+
+      {/* Dev / VITE_ALPHA_DIAGNOSTICS=1 only; renders nothing until Ctrl+Shift+D. */}
+      {DIAGNOSTICS_ENABLED && <Diagnostics />}
     </div>
   );
 }

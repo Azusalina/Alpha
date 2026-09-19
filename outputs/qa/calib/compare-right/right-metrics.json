@@ -1,0 +1,51 @@
+{
+  "hand": "right",
+  "label": "right-mask.png",
+  "frame": [
+    1644,
+    957
+  ],
+  "ignore_zone_used": true,
+  "pixels": {
+    "reference": 85577,
+    "render": 75891,
+    "overlap": 71860,
+    "render_only": 4031,
+    "reference_only": 13717,
+    "render_in_ignore_zone": 47483
+  },
+  "iou": 0.80194,
+  "precision": 0.94688,
+  "recall": 0.83971,
+  "contour_distance_px": {
+    "ref_to_render": {
+      "mean": 9.048,
+      "p95": 24.123,
+      "max": 50.922,
+      "n": 1848
+    },
+    "render_to_ref": {
+      "mean": 11.323,
+      "p95": 42.002,
+      "max": 68.184,
+      "n": 1863
+    },
+    "symmetric": {
+      "mean": 10.19,
+      "p95": 28.714,
+      "max": 68.184,
+      "n": 3711
+    }
+  },
+  "negative_space": {
+    "iou": 0.67909,
+    "reference_px": 21227,
+    "render_px": 26501
+  },
+  "keypoints": {},
+  "keypoint_summary": {
+    "n": 0,
+    "mean_px": null,
+    "max_px": null
+  }
+}

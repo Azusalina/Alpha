@@ -4,3 +4,6 @@ dist/
 test-results/
 playwright-report/
 outputs/qa/tmp/
+src-tauri/target/
+src-tauri/gen/
+__pycache__/

@@ -1,0 +1,38 @@
+{
+  "hand": "left",
+  "notes": "placeholder, regenerated below",
+  "dorsal": [0.4, 0.86, 0.32],
+  "joints": {
+    "forearm":    { "px": [-180, 131], "z": 0, "r": 138, "flat": 0.95 },
+    "wrist":      { "px": [300, 200], "z": 0.02, "r": 60, "flat": 0.7 },
+    "palm":       { "px": [470, 288], "z": 0.03, "r": 64, "flat": 0.45 },
+    "thumb_cmc":  { "px": [385, 300], "z": 0.12, "r": 34, "flat": 0.8 },
+    "thumb_mcp":  { "px": [468, 352], "z": 0.22, "r": 27, "flat": 0.85 },
+    "thumb_ip":   { "px": [512, 405], "z": 0.25, "r": 23, "flat": 0.8 },
+    "thumb_tip":  { "px": [559, 462], "z": 0.25, "r": 18, "flat": 0.72 },
+    "index_mcp":  { "px": [600, 305], "z": 0.17, "r": 26, "flat": 0.85 },
+    "index_pip":  { "px": [690, 352], "z": 0.16, "r": 22, "flat": 0.85 },
+    "index_dip":  { "px": [742, 392], "z": 0.14, "r": 18, "flat": 0.8 },
+    "index_tip":  { "px": [786, 416], "z": 0.13, "r": 13, "flat": 0.75 },
+    "middle_mcp": { "px": [590, 315], "z": 0.06, "r": 24, "flat": 0.85 },
+    "middle_pip": { "px": [632, 386], "z": 0.05, "r": 23, "flat": 0.85 },
+    "middle_dip": { "px": [620, 455], "z": 0.03, "r": 19, "flat": 0.8 },
+    "middle_tip": { "px": [600, 523], "z": 0.02, "r": 14, "flat": 0.75 },
+    "ring_mcp":   { "px": [575, 328], "z": -0.05, "r": 23, "flat": 0.85 },
+    "ring_pip":   { "px": [589, 397], "z": -0.06, "r": 21, "flat": 0.85 },
+    "ring_dip":   { "px": [562, 457], "z": -0.08, "r": 17, "flat": 0.8 },
+    "ring_tip":   { "px": [533, 507], "z": -0.09, "r": 12, "flat": 0.75 },
+    "pinky_mcp":  { "px": [555, 340], "z": -0.15, "r": 20, "flat": 0.85 },
+    "pinky_pip":  { "px": [545, 400], "z": -0.18, "r": 17, "flat": 0.85 },
+    "pinky_dip":  { "px": [487, 432], "z": -0.18, "r": 15, "flat": 0.8 },
+    "pinky_tip":  { "px": [437, 441], "z": -0.16, "r": 12, "flat": 0.75 }
+  },
+  "chains": {
+    "arm":    ["forearm", "wrist", "palm"],
+    "thumb":  ["thumb_cmc", "thumb_mcp", "thumb_ip", "thumb_tip"],
+    "index":  ["index_mcp", "index_pip", "index_dip", "index_tip"],
+    "middle": ["middle_mcp", "middle_pip", "middle_dip", "middle_tip"],
+    "ring":   ["ring_mcp", "ring_pip", "ring_dip", "ring_tip"],
+    "pinky":  ["pinky_mcp", "pinky_pip", "pinky_dip", "pinky_tip"]
+  }
+}

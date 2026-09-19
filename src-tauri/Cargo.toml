@@ -1,0 +1,23 @@
+[package]
+name = "alpha"
+version = "1.0.0"
+description = "Alpha desktop shell"
+edition = "2021"
+publish = false
+
+# Desktop-only shell (spec 9: the Tauri run is a measurement target, not a
+# feature surface). The Tauri 2 template also builds `staticlib` and `cdylib`
+# for iOS/Android; Alpha has no mobile target, so only the `rlib` the desktop
+# binary links against is built. Add the other two back if mobile is ever in
+# scope. The `_lib` suffix keeps the library name distinct from the binary.
+[lib]
+name = "alpha_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# No plugins: the front end makes no IPC calls, opens no URLs and runs no
+# shell commands. Diagnostics run entirely in the web view.
+[dependencies]
+tauri = { version = "2", features = [] }
