@@ -1,0 +1,120 @@
+/*
+ * Alpha v1.0.0 — startup page.
+ *
+ * The paper ground comes from the reference's warm near-white. There is no
+ * divide line in v1: the spec records the composition itself as carrying the
+ * axis, and an added full-screen diagonal would fight the geometric reference.
+ */
+
+:root {
+  --alpha-paper: #f4f2ee;
+  --alpha-ink: #1b1b1d;
+  --alpha-construction: #7b7d85;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--alpha-paper);
+  color: var(--alpha-ink);
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  overflow: hidden;
+  /* the whole surface is a scene, not a document */
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.alpha-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.alpha-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Hot zones: invisible targets carrying the pointer events. The only visible
+ * affordance is a small corner mark that appears on hover — restrained, per the
+ * spec's ban on buttons, menus and debug text on the home screen.
+ */
+.hotzone {
+  /* width and height are set inline from config/timing.ts */
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+  appearance: none;
+}
+
+.hotzone--human {
+  top: 0;
+  left: 0;
+}
+
+.hotzone--system {
+  right: 0;
+  bottom: 0;
+}
+
+.hotzone__mark {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  opacity: 0;
+  transition: opacity 260ms ease;
+  border-color: var(--alpha-construction);
+  border-style: solid;
+  border-width: 0;
+}
+
+.hotzone--human .hotzone__mark {
+  top: 22px;
+  left: 22px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.hotzone--system .hotzone__mark {
+  right: 22px;
+  bottom: 22px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+}
+
+.hotzone:hover .hotzone__mark,
+.hotzone:focus-visible .hotzone__mark {
+  opacity: 0.55;
+}
+
+/* Dwell threshold reached: the corner mark firms up. Nothing louder — the home
+   screen may not grow buttons, menus or debug text. */
+.hotzone.is-hot .hotzone__mark {
+  opacity: 0.9;
+}
+
+.hotzone:focus-visible {
+  outline: 1px solid var(--alpha-construction);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotzone__mark {
+    transition-duration: 1ms;
+  }
+}

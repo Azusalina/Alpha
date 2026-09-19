@@ -1,0 +1,111 @@
+{
+  "reference": "aes-ref/alpha-white-geom.PNG",
+  "size": [
+    1644,
+    957
+  ],
+  "manual_landmarks": [
+    "right_index_mcp",
+    "right_wrist"
+  ],
+  "contour_threshold": 0.34,
+  "particle_threshold": 0.3,
+  "landmarks_px": {
+    "left_index_tip": [
+      785,
+      419
+    ],
+    "left_wrist_edge_top": [
+      52,
+      154
+    ],
+    "left_wrist_edge_bottom": [
+      38,
+      265
+    ],
+    "left_knuckle_high": [
+      324,
+      150
+    ],
+    "left_thumb_tip": [
+      421,
+      448
+    ],
+    "left_palm_low": [
+      600,
+      523
+    ],
+    "right_index_tip": [
+      805,
+      437
+    ],
+    "right_hand_low": [
+      1069,
+      761
+    ],
+    "right_wrist_far": [
+      1635,
+      781
+    ],
+    "right_wrist": [
+      1130,
+      650
+    ],
+    "right_index_mcp": [
+      990,
+      545
+    ]
+  },
+  "landmarks_norm": {
+    "left_index_tip": [
+      0.47749,
+      0.43783
+    ],
+    "left_wrist_edge_top": [
+      0.03163,
+      0.16092
+    ],
+    "left_wrist_edge_bottom": [
+      0.02311,
+      0.27691
+    ],
+    "left_knuckle_high": [
+      0.19708,
+      0.15674
+    ],
+    "left_thumb_tip": [
+      0.25608,
+      0.46813
+    ],
+    "left_palm_low": [
+      0.36496,
+      0.5465
+    ],
+    "right_index_tip": [
+      0.48966,
+      0.45664
+    ],
+    "right_hand_low": [
+      0.65024,
+      0.79519
+    ],
+    "right_wrist_far": [
+      0.99453,
+      0.81609
+    ],
+    "right_wrist": [
+      0.68735,
+      0.67921
+    ],
+    "right_index_mcp": [
+      0.60219,
+      0.56949
+    ]
+  },
+  "fingertip_gap_px": 26.9,
+  "fingertip_gap_frac_width": 0.01637,
+  "fingertip_midpoint_norm": [
+    0.48358,
+    0.44723
+  ]
+}
