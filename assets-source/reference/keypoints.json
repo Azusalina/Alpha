@@ -85,12 +85,12 @@
     },
     "thumb_tip": {
       "px": [
-        548.0,
-        461.0
+        562.0,
+        458.0
       ],
-      "method": "read",
-      "uncertainty_px": 4.0,
-      "note": "thumb tip is not a silhouette extreme (the ring finger emerges from behind it); read as the distal end of the nail outline, which faces the viewer"
+      "method": "measured",
+      "uncertainty_px": 3.0,
+      "note": "the thumb per decision D2 (the digit whose nail faces the viewer). Not a silhouette extreme (the ring finger emerges from behind the thumb's end): the core pixel (grey < 100) of the stroke that outlines the thumb's end and its nail, furthest along the thumb axis (45 deg, read from its two edges, 40-59 deg) inside [540, 440, 572, 468]. Any axis in 40-55 deg moves it < 3 px along the rounded end. (Until 2026-09-19 this was read as (548,461), the middle of the nail's lower edge rather than its distal end.)"
     },
     "index_mcp": {
       "px": [
@@ -232,9 +232,9 @@
         277.0,
         196.0
       ],
-      "method": "measured",
+      "method": "read",
       "uncertainty_px": 8.0,
-      "note": "midpoint of the wrist cross-section from the start of the dorsal bump (262,136) to the start of the palm-heel curve (292,256), both anchor points on the silhouette"
+      "note": "midpoint of the wrist cross-section from the start of the dorsal bump (262,136) to the start of the palm-heel curve (292,256): two outline anchor points placed by eye (LEFT_ANCHORS), so the centre is a reading, computed from them"
     },
     "forearm_top_edge_deg": {
       "value": 19.11,

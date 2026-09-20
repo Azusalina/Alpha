@@ -1496,12 +1496,285 @@
         "flags": "LF"
       }
     ],
-    "hand_traced_parts": "anchor positions only (65 read by eye on the outline stroke, plus 2 fixed extrapolation points on the frame edge); the path between anchors follows the drawn stroke algorithmically. The forearm from x~40 to the frame edge is extrapolated (straight lines).",
-    "known_ambiguities": [
-      "a bright slit (x 537-560, y 360-420) between the thumb's upper edge and the ring finger is enclosed by drawn strokes and has paper tone; it may be paper seen through the hand or a highlight. The mask treats it as INSIDE the hand (filled outline); ~500 px, i.e. <0.5 % of the left area and ~3 % of the left negative space if it were a gap."
+    "holes": {
+      "D5_thumb_ring_slit": {
+        "decision": "D5",
+        "anchors_read_by_eye": [
+          [
+            535,
+            370,
+            ""
+          ],
+          [
+            537,
+            358,
+            ""
+          ],
+          [
+            544,
+            366,
+            ""
+          ],
+          [
+            552,
+            384,
+            ""
+          ],
+          [
+            560,
+            397,
+            ""
+          ],
+          [
+            564,
+            403,
+            ""
+          ],
+          [
+            561,
+            413,
+            ""
+          ],
+          [
+            558,
+            422,
+            ""
+          ],
+          [
+            549,
+            409,
+            ""
+          ],
+          [
+            540,
+            396,
+            ""
+          ],
+          [
+            536,
+            384,
+            ""
+          ]
+        ],
+        "anchors_after_snap": [
+          [
+            535,
+            370
+          ],
+          [
+            537,
+            358
+          ],
+          [
+            544,
+            366
+          ],
+          [
+            552,
+            384
+          ],
+          [
+            560,
+            397
+          ],
+          [
+            564,
+            403
+          ],
+          [
+            561,
+            413
+          ],
+          [
+            558,
+            422
+          ],
+          [
+            549,
+            409
+          ],
+          [
+            540,
+            396
+          ],
+          [
+            536,
+            384
+          ]
+        ],
+        "anchor_report": [
+          {
+            "read": [
+              535,
+              370
+            ],
+            "snapped": [
+              535,
+              370
+            ],
+            "moved_px": 0.0,
+            "ink": 0.597,
+            "flags": ""
+          },
+          {
+            "read": [
+              537,
+              358
+            ],
+            "snapped": [
+              537,
+              358
+            ],
+            "moved_px": 0.0,
+            "ink": 0.677,
+            "flags": ""
+          },
+          {
+            "read": [
+              544,
+              366
+            ],
+            "snapped": [
+              544,
+              366
+            ],
+            "moved_px": 0.0,
+            "ink": 0.693,
+            "flags": ""
+          },
+          {
+            "read": [
+              552,
+              384
+            ],
+            "snapped": [
+              552,
+              384
+            ],
+            "moved_px": 0.0,
+            "ink": 0.523,
+            "flags": ""
+          },
+          {
+            "read": [
+              560,
+              397
+            ],
+            "snapped": [
+              560,
+              397
+            ],
+            "moved_px": 0.0,
+            "ink": 0.516,
+            "flags": ""
+          },
+          {
+            "read": [
+              564,
+              403
+            ],
+            "snapped": [
+              564,
+              403
+            ],
+            "moved_px": 0.0,
+            "ink": 0.531,
+            "flags": ""
+          },
+          {
+            "read": [
+              561,
+              413
+            ],
+            "snapped": [
+              561,
+              413
+            ],
+            "moved_px": 0.0,
+            "ink": 0.544,
+            "flags": ""
+          },
+          {
+            "read": [
+              558,
+              422
+            ],
+            "snapped": [
+              558,
+              422
+            ],
+            "moved_px": 0.0,
+            "ink": 0.726,
+            "flags": ""
+          },
+          {
+            "read": [
+              549,
+              409
+            ],
+            "snapped": [
+              549,
+              409
+            ],
+            "moved_px": 0.0,
+            "ink": 0.547,
+            "flags": ""
+          },
+          {
+            "read": [
+              540,
+              396
+            ],
+            "snapped": [
+              540,
+              396
+            ],
+            "moved_px": 0.0,
+            "ink": 0.56,
+            "flags": ""
+          },
+          {
+            "read": [
+              536,
+              384
+            ],
+            "snapped": [
+              536,
+              384
+            ],
+            "moved_px": 0.0,
+            "ink": 0.552,
+            "flags": ""
+          }
+        ],
+        "loop_px": 136,
+        "traced_loop_fraction_on_ink": 1.0,
+        "traced_loop_off_ink_stretches": [],
+        "area_px": 797,
+        "bbox_px": [
+          536,
+          359,
+          563,
+          420
+        ],
+        "median_grey_inside": 246.0,
+        "px_in_left_negative": 795
+      }
+    },
+    "hand_traced_parts": "anchor positions only (65 read by eye on the outline stroke, plus 2 fixed extrapolation points on the frame edge, plus 11 read by eye on the strokes around the D5 hole); the path between anchors follows the drawn stroke algorithmically. The forearm from x~40 to the frame edge is extrapolated (straight lines).",
+    "user_decisions": [
+      {
+        "id": "D5",
+        "source": "documentations/log/log-v2.md, session 4 decisions (user, 2026-09-19)",
+        "question": "the bright slit between the thumb and the ring finger (x 537-560, y 360-420): paper seen through a gap, or a highlight?",
+        "decision": "paper seen through a gap: left-mask.png excludes it and it counts as left negative space",
+        "applied_as": "hole 'D5_thumb_ring_slit' (see holes): its extent is traced, the decision that it is a hole is the user's, not a traced guess",
+        "before": "until this decision the slit was listed as a known ambiguity and the mask counted it as inside the hand"
+      }
     ],
+    "known_ambiguities": [],
     "ignore": "x < 45: the drawing's forearm contours start at x~38-42; the app's arm leaves the frame there, which the drawing does not show",
-    "area_px": 118710
+    "area_px": 117913
   },
   "right": {
     "method": "particle density: compact dark components, Gaussian blur, threshold, seeded component selection, hole fill, wrist cut",
@@ -1567,6 +1840,59 @@
       "rule": "keep pixels with (p - point) . normal <= 0; the line is perpendicular to the forearm axis, 40.0 px past the wrist centre"
     },
     "hand_traced_parts": "none (seeds, used only to pick components, are read by eye)",
+    "known_ambiguities": [
+      {
+        "what": "bays of the density silhouette along the dorsal contour of the index finger and the knuckles (x ~867-1008, y ~441-514): the particles there are sparse and the iso-line dips between them, while the particles and the thin lines joining them run almost straight. The mask follows the density rule as documented; it is not corrected by hand. A render whose dorsal contour runs straight across the bays is charged for them (bays_filled_vs_mask). Open question for the user.",
+        "measured": {
+          "window": [
+            840,
+            415,
+            1010,
+            520
+          ],
+          "bays": [
+            {
+              "px": 445,
+              "bbox_px": [
+                867,
+                441,
+                918,
+                460
+              ],
+              "largest_disk_diameter_px": 17.2
+            },
+            {
+              "px": 359,
+              "bbox_px": [
+                916,
+                457,
+                942,
+                482
+              ],
+              "largest_disk_diameter_px": 17.1
+            },
+            {
+              "px": 1409,
+              "bbox_px": [
+                947,
+                476,
+                1008,
+                514
+              ],
+              "largest_disk_diameter_px": 30.0
+            }
+          ],
+          "total_px": 2213,
+          "bays_filled_vs_mask": {
+            "iou": 0.97479,
+            "contour_mean_px": 1.062,
+            "contour_p95_px": 8.062,
+            "contour_max_px": 28.018,
+            "negative_space_iou": 1.0
+          }
+        }
+      }
+    ],
     "area_px": 85577
   },
   "negative_space": {
@@ -1625,7 +1951,7 @@
         ]
       ]
     },
-    "left_px": 18953,
+    "left_px": 19748,
     "right_px": 21227
   },
   "sensitivity": "outputs/qa/reference/sensitivity.json (written with --sensitivity)",

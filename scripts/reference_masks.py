@@ -4,7 +4,10 @@
     python3 scripts/reference_masks.py                # build everything + QA overlays
     python3 scripts/reference_masks.py --sensitivity  # also measure how far the masks move
                                                       # under small parameter changes and
-                                                      # derive the acceptance gates (~25 s)
+                                                      # derive the acceptance gates (~45 s)
+    python3 scripts/reference_masks.py --sensitivity --out /tmp/ref --qa /tmp/ref-qa
+                                                      # the same into other directories (to
+                                                      # check a fresh run against the files)
 
 Source: aes-ref/alpha-white-geom.PNG (1644 x 957), the only authority for the pose.
 Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
@@ -39,6 +42,12 @@ LEFT HAND -- contour tracing ("live-wire").
   NOT on drawn ink: the extrapolation of the two forearm contour lines from where the
   drawing starts (x ~ 38-42) to the frame edge, and the frame edge itself. That part of the
   arm lies in the left ignore zone (x < LEFT_CUT_X) and is not scored.
+  HOLES (LEFT_HOLES): paper seen through the hand, cut out of the filled outline. There is
+  one, by the user's decision D5 (documentations/log/log-v2.md): the bright slit between the
+  thumb's upper edge and the ring finger (x ~536-564, y ~358-422) is paper seen through a
+  gap, not a highlight. Whether it is a hole is the user's call; its boundary is traced like
+  the outline (anchors read by eye on the enclosing strokes, live-wire in between) and the
+  path pixels (the stroke centre line) stay in the mask, as on the outer outline.
 
 RIGHT HAND -- particle density.
   Particles = compact dark connected components (ink > DOT_INK, elongation <= DOT_MAX_ELONG,
@@ -73,7 +82,7 @@ from scipy.sparse.csgraph import dijkstra
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_silhouette import (  # noqa: E402  (shared definitions)
-    H, W, boundary, iou, negative_space, save_mask, contour_distances, mask_tip,
+    H, W, boundary, iou, negative_space, save_mask, contour_distances, mask_tip, convex_hull_mask,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +170,34 @@ LEFT_ANCHORS = [
     (39, 264, "L"),    # drawn bottom forearm contour starts here
     (0, 266, "LF"),    # extrapolated to the frame edge (slope -0.07); closes along x = 0
 ]
+
+# Holes in the left silhouette: {name: anchors}, same anchor format and tracing as the
+# outline. The interior of each traced loop (not the loop itself) is removed from the mask.
+LEFT_HOLES = {
+    # Decision D5 (user, 2026-09-19): the slit between the thumb and the ring finger is
+    # paper seen through a gap. Its sides are the thumb's and the ring finger's own outlines,
+    # its top is the hard edge of the shadowed palm; inside it the drawing is paper tone
+    # (median grey 246-247, the paper's own level) while the lit facets around it are toned.
+    "D5_thumb_ring_slit": [
+        (535, 370, ""),    # left side: vertical stroke, edge of the shadowed palm
+        (537, 358, ""),    # top: hard edge of the shadowed palm
+        (544, 366, ""),    # right side: the ring finger's outline, running down-right
+        (552, 384, ""),
+        (560, 397, ""),
+        (564, 403, ""),    # the ring outline turns down
+        (561, 413, ""),
+        (558, 422, ""),    # bottom: the ring outline meets the thumb's upper edge
+        (549, 409, ""),    # the thumb's upper edge, running up-left
+        (540, 396, ""),
+        (536, 384, ""),    # the thumb's upper edge meets the vertical stroke
+    ],
+}
+
+# left thumb tip (see left_keypoints): window around the thumb's end, stroke-core grey level,
+# and the thumb's axis direction (image space, deg; its edges run at 40 and 59 deg)
+THUMB_END_WINDOW = (540, 440, 572, 468)
+THUMB_STROKE_GREY = 100
+THUMB_AXIS_DEG = 45
 
 # ---------------------------------------------------------------- right hand
 DOT_INK = 0.45           # particle core: darker than 45 % ink
@@ -321,9 +358,31 @@ def fill_polygon(outline) -> np.ndarray:
     return np.asarray(img) > 127
 
 
-def build_left(gray, **kw):
-    pts, outline, kinds = trace_left(gray, **kw)
-    return fill_polygon(outline), pts, outline, kinds
+def path_mask(path) -> np.ndarray:
+    m = np.zeros((H, W), bool)
+    xs, ys = zip(*path)
+    m[list(ys), list(xs)] = True
+    return m
+
+
+def trace_hole(gray, anchors, **kw):
+    """A hole: the pixels strictly inside the traced loop. The loop itself (the stroke centre
+    line) stays in the hand, exactly as the outer outline's path does."""
+    pts, loop, kinds = trace_left(gray, anchors=anchors, **kw)
+    return fill_polygon(loop) & ~path_mask(loop), pts, loop, kinds
+
+
+def build_left(gray, anchors=LEFT_ANCHORS, holes=None, **kw):
+    """Left silhouette = filled outline minus the holes (LEFT_HOLES unless given).
+    Returns (mask, outline anchors after snapping, outline path, path kinds,
+    {hole name: (hole mask, hole anchors after snapping, hole loop, loop kinds)})."""
+    pts, outline, kinds = trace_left(gray, anchors=anchors, **kw)
+    m = fill_polygon(outline)
+    hs = {}
+    for name, ha in (LEFT_HOLES if holes is None else holes).items():
+        hs[name] = trace_hole(gray, ha, **kw)
+        m &= ~hs[name][0]
+    return m, pts, outline, kinds, hs
 
 
 # ================================================================ right hand
@@ -470,7 +529,7 @@ def column_edge(mask, x, which, yr=(0, H)):
     return yr[0] + (ys.min() if which == "top" else ys.max())
 
 
-def left_keypoints(mask) -> dict:
+def left_keypoints(mask, gray) -> dict:
     K = {}
     # fingertips: extreme mask pixel along the distal direction of the last phalanx
     K["index_tip"] = kp(extreme_point(mask, (740, 380, 800, 430), 20), "measured", 1.5,
@@ -482,10 +541,22 @@ def left_keypoints(mask) -> dict:
     K["pinky_tip"] = kp(extreme_point(mask, (425, 415, 470, 460), 185), "measured", 2.0,
                         "extreme silhouette pixel along 185 deg; the little finger is curled "
                         "under the palm and points back toward the wrist")
-    K["thumb_tip"] = kp([548, 461], "read", 4.0,
-                        "thumb tip is not a silhouette extreme (the ring finger emerges from "
-                        "behind it); read as the distal end of the nail outline, which faces "
-                        "the viewer")
+    # thumb tip: not a silhouette extreme -- the thumb lies in front of the ring finger, which
+    # emerges from behind its end. Its end is drawn as one stroke with the nail outline (the
+    # nail faces the viewer, decision D2), so the tip is measured on that stroke: the stroke
+    # core pixel (grey < THUMB_STROKE_GREY) furthest along the thumb's axis.
+    x0, y0, x1, y1 = THUMB_END_WINDOW
+    stroke = np.zeros(mask.shape, bool)
+    stroke[y0:y1, x0:x1] = gray[y0:y1, x0:x1] < THUMB_STROKE_GREY
+    K["thumb_tip"] = kp(extreme_point(stroke, THUMB_END_WINDOW, THUMB_AXIS_DEG), "measured", 3.0,
+                        f"the thumb per decision D2 (the digit whose nail faces the viewer). Not "
+                        f"a silhouette extreme (the ring finger emerges from behind the thumb's "
+                        f"end): the core pixel (grey < {THUMB_STROKE_GREY}) of the stroke that "
+                        f"outlines the thumb's end and its nail, furthest along the thumb axis "
+                        f"({THUMB_AXIS_DEG} deg, read from its two edges, 40-59 deg) inside "
+                        f"{list(THUMB_END_WINDOW)}. Any axis in 40-55 deg moves it < 3 px along "
+                        f"the rounded end. (Until 2026-09-19 this was read as (548,461), the "
+                        f"middle of the nail's lower edge rather than its distal end.)")
     # joints read by eye from 4-8x crops with a 5/10 px grid
     K["index_mcp"] = kp([592, 306], "read", 10.0, "knuckle bump where the back-of-hand line "
                         "turns down into the index finger (575-590, 250-285); joint centre "
@@ -513,10 +584,11 @@ def left_keypoints(mask) -> dict:
     # wrist: narrowest section between the dorsal bump and the palm-heel curve
     top = [262, 136]
     bot = [292, 256]
-    K["wrist"] = kp([0.5 * (top[0] + bot[0]), 0.5 * (top[1] + bot[1])], "measured", 8.0,
+    K["wrist"] = kp([0.5 * (top[0] + bot[0]), 0.5 * (top[1] + bot[1])], "read", 8.0,
                     "midpoint of the wrist cross-section from the start of the dorsal bump "
-                    "(262,136) to the start of the palm-heel curve (292,256), both anchor "
-                    "points on the silhouette")
+                    "(262,136) to the start of the palm-heel curve (292,256): two outline "
+                    "anchor points placed by eye (LEFT_ANCHORS), so the centre is a reading, "
+                    "computed from them")
     # forearm axis: bisector of the two drawn forearm contour lines, fitted on the mask edge
     top_pts = [(x, column_edge(mask, x, "top", (30, 200))) for x in range(60, 255, 5)]
     bot_pts = [(x, column_edge(mask, x, "bottom", (220, 300))) for x in range(60, 255, 5)]
@@ -602,6 +674,42 @@ def right_keypoints(mask, dots, wrist, axis_deg, axis_info) -> dict:
                                    "vertical extent for x 1150..1320 (before the cut); image "
                                    "space, 0 = +x, positive = down-right; points from hand to elbow"}
     return K
+
+
+RIGHT_DORSAL_WINDOW = (840, 415, 1010, 520)   # x0, y0, x1, y1: index finger + knuckles
+RIGHT_BAY_MIN_PX = 300
+RIGHT_BAY_TOP_MAX_Y = 480
+
+
+def right_dorsal_bays(R, ign, fR) -> dict:
+    """Diagnostic only -- it does not change the mask. Along the dorsal contour of the index
+    finger and the knuckles the drawn particles are sparse, and the density iso-line dips into
+    bays between them, while the particles themselves (and the thin lines joining them) run
+    almost straight. Bays = convex hull of the mask inside RIGHT_DORSAL_WINDOW minus the mask,
+    components >= RIGHT_BAY_MIN_PX px whose top lies above y RIGHT_BAY_TOP_MAX_Y (the dorsal
+    side). Also scores a copy with the bays filled against the mask: what a render whose
+    dorsal contour runs straight across them would lose on these gates for that alone."""
+    x0, y0, x1, y1 = RIGHT_DORSAL_WINDOW
+    win = np.zeros_like(R)
+    win[y0:y1, x0:x1] = True
+    lab, n = ndi.label(convex_hull_mask(R & win) & win & ~R)
+    bays, fill = [], np.zeros_like(R)
+    for i, sl in enumerate(ndi.find_objects(lab), 1):
+        b = lab == i
+        if b.sum() < RIGHT_BAY_MIN_PX or sl[0].start >= RIGHT_BAY_TOP_MAX_Y:
+            continue
+        fill |= b
+        bays.append({"px": int(b.sum()), "bbox_px": [sl[1].start, sl[0].start, sl[1].stop - 1, sl[0].stop - 1],
+                     "largest_disk_diameter_px": round(float(
+                         ndi.distance_transform_edt(np.pad(b, 1))[1:-1, 1:-1].max() * 2), 1)})
+    v = ~ign
+    filled = R | fill
+    cd = contour_distances(R & v, filled & v, ign)["symmetric"]
+    return {"window": list(RIGHT_DORSAL_WINDOW), "bays": bays, "total_px": int(fill.sum()),
+            "bays_filled_vs_mask": {"iou": iou(R & v, filled & v), "contour_mean_px": cd["mean"],
+                                    "contour_p95_px": cd["p95"], "contour_max_px": cd["max"],
+                                    "negative_space_iou": iou(negative_space(R, fR) & v,
+                                                              negative_space(filled, fR) & v)}}
 
 
 def right_wrist_from_axis(m_uncut, axis_deg, x_range=(1150, 1320)):
@@ -706,6 +814,7 @@ def write_qa(gray, L, R, negL, negR, ignL, ignR, fL, fR, anchors, outline_kinds,
         "left-wrist": ((240, 110, 440, 380), 3),
         "left-forearm-end": ((0, 30, 140, 290), 3),
         "left-knuckles": ((500, 200, 700, 360), 4),
+        "left-slit-d5": ((515, 345, 585, 435), 8),
         "contact": ((740, 380, 880, 480), 6),
         "right-hand": ((790, 410, 1330, 790), 2),
         "right-index": ((795, 415, 1000, 560), 4),
@@ -785,11 +894,16 @@ def left_variants(gray, L) -> dict:
     for sm, gm in ((0.0, 4.0), (1.2, 4.0), (0.7, 2.0), (0.7, 6.0)):
         v[f"smooth{sm}_gamma{gm}"] = build_left(gray, smooth=sm, gamma=gm)[0]
     rng = np.random.default_rng(7)
+    rng_holes = np.random.default_rng(8)   # own stream: the outline jitter stays as before D5
+
+    def jitter(anchors, g):
+        return [(int(np.clip(x + (g.integers(-2, 3) if "F" not in f else 0), 0, W - 1)),
+                 int(np.clip(y + (g.integers(-2, 3) if "F" not in f else 0), 0, H - 1)), f)
+                for x, y, f in anchors]
     for k in range(3):
-        jit = [(int(np.clip(x + (rng.integers(-2, 3) if "F" not in f else 0), 0, W - 1)),
-                int(np.clip(y + (rng.integers(-2, 3) if "F" not in f else 0), 0, H - 1)), f)
-               for x, y, f in LEFT_ANCHORS]
-        v[f"anchor_jitter_2px_{k}"] = build_left(gray, anchors=jit)[0]
+        jit = jitter(LEFT_ANCHORS, rng)
+        jit_holes = {name: jitter(ha, rng_holes) for name, ha in LEFT_HOLES.items()}
+        v[f"anchor_jitter_2px_{k}"] = build_left(gray, anchors=jit, holes=jit_holes)[0]
     return v
 
 
@@ -805,7 +919,7 @@ def tip_shift(m_ref, m_var, K_hand) -> dict:
     return out
 
 
-def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars):
+def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars, holes_l=None):
     """How far do the masks move under small, equally defensible changes? Also: the metric
     vs uniform edge offset curve, and how much of each mask is detail finer than a smooth
     model could carry (morphological open/close). Derives the acceptance gates."""
@@ -838,6 +952,15 @@ def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars):
         for r in (4, 8):
             d["smooth_model_floor"][f"open{r}"] = comp(hand, base[hand], ndi.binary_opening(base[hand], disk(r)))
             d["smooth_model_floor"][f"close{r}"] = comp(hand, base[hand], ndi.binary_closing(base[hand], disk(r)))
+            if hand == "left" and holes_l is not None and holes_l.any():
+                # closing also fills the D5 slit, a gap between two digits rather than surface
+                # detail; the same floor with that gap kept open
+                d["smooth_model_floor"][f"close{r}_d5_slit_kept_open"] = comp(
+                    hand, base[hand], ndi.binary_closing(base[hand], disk(r)) & ~holes_l)
+        if hand == "left" and holes_l is not None and holes_l.any():
+            # not a variant (the hole is the user's decision D5): what a render that leaves
+            # the slit closed scores against this mask for that alone
+            d["user_decision_effects"] = {"d5_slit_left_closed": comp(hand, base[hand], base[hand] | holes_l)}
         dv = d["defensible_variants"].values()
 
         def worst(key, fn):
@@ -898,15 +1021,23 @@ def derive_gates(sens, K) -> dict:
 # ==================================================================== main
 
 def main(argv=None):
+    global OUT, QA
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sensitivity", action="store_true")
+    ap.add_argument("--out", type=Path, default=OUT,
+                    help=f"reference data directory (default {OUT.relative_to(ROOT)})")
+    ap.add_argument("--qa", type=Path, default=QA,
+                    help=f"QA images + sensitivity.json directory (default {QA.relative_to(ROOT)}); "
+                         "--out/--qa elsewhere leave the committed files untouched, e.g. to check "
+                         "that a fresh run reproduces them")
     a = ap.parse_args(argv)
+    OUT, QA = a.out, a.qa
 
     gray = load_gray()
     OUT.mkdir(parents=True, exist_ok=True)
 
     # ---- left
-    L, anchors, outline, kinds = build_left(gray)
+    L, anchors, outline, kinds, holes = build_left(gray)
 
     # ---- right: first pass without the cut to find the forearm axis and the wrist
     R_uncut, dots, dens, cents = build_right(gray, L)
@@ -926,7 +1057,7 @@ def main(argv=None):
     negR = negative_space(R, fR)
 
     # ---- keypoints
-    K = {"left": left_keypoints(L), "right": right_keypoints(R, dots, wrist, axis_deg, axis_info)}
+    K = {"left": left_keypoints(L, gray), "right": right_keypoints(R, dots, wrist, axis_deg, axis_info)}
     # fingertip rule on the silhouette (compare_silhouette.mask_tip), so a render's tips can be
     # measured the same way without render keypoints
     rvars = right_variants(gray, L, wrist, axis_deg)
@@ -994,17 +1125,45 @@ def main(argv=None):
         save_mask(OUT / f"{name}.png", m)
 
     wire_px = sum(1 for k in kinds if k == "wire")
-    # off-ink stretches of the traced (non-straight) outline: >= 4 consecutive px with ink < 0.15
     ink_s = ink_of(ndi.gaussian_filter(gray, WIRE_SMOOTH))
-    off, run = [], []
-    for (x, y), k in zip(outline, kinds):
-        if k == "wire" and ink_s[y, x] < 0.15:
-            run.append((x, y))
-        else:
-            if len(run) >= 4:
-                off.append([list(run[0]), list(run[-1]), len(run)])
-            run = []
-    on_ink = float(np.mean([ink_s[y, x] >= 0.15 for (x, y), k in zip(outline, kinds) if k == "wire"]))
+
+    def ink_check(path, ks):
+        """Fraction of the traced (non-straight) path on ink, and its off-ink stretches
+        (>= 4 consecutive px with ink < 0.15) as [first px, last px, length]."""
+        off, run = [], []
+        for (x, y), k in zip(path, ks):
+            if k == "wire" and ink_s[y, x] < 0.15:
+                run.append((x, y))
+            else:
+                if len(run) >= 4:
+                    off.append([list(run[0]), list(run[-1]), len(run)])
+                run = []
+        if len(run) >= 4:
+            off.append([list(run[0]), list(run[-1]), len(run)])
+        on = float(np.mean([ink_s[y, x] >= 0.15 for (x, y), k in zip(path, ks) if k == "wire"]))
+        return round(on, 4), off
+
+    on_ink, off = ink_check(outline, kinds)
+    n_read = sum(1 for _, _, f in LEFT_ANCHORS if "F" not in f)
+    n_fixed = len(LEFT_ANCHORS) - n_read
+    n_hole = sum(len(v) for v in LEFT_HOLES.values())
+    hole_meta = {}
+    for name, (hm, hp, hloop, hk) in holes.items():
+        h_on, h_off = ink_check(hloop, hk)
+        ys, xs = np.nonzero(hm)
+        hole_meta[name] = {
+            "decision": "D5" if name.startswith("D5") else None,
+            "anchors_read_by_eye": [[x, y, f] for x, y, f in LEFT_HOLES[name]],
+            "anchors_after_snap": [list(p) for p in hp],
+            "anchor_report": anchor_report(gray, hp, LEFT_HOLES[name]),
+            "loop_px": len(hk),
+            "traced_loop_fraction_on_ink": h_on,
+            "traced_loop_off_ink_stretches": h_off,
+            "area_px": int(hm.sum()),
+            "bbox_px": [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())],
+            "median_grey_inside": float(np.median(gray[hm])),
+            "px_in_left_negative": int((hm & negL).sum()),
+        }
     meta = {
         "reference": "aes-ref/alpha-white-geom.PNG",
         "generator": "scripts/reference_masks.py",
@@ -1021,17 +1180,26 @@ def main(argv=None):
             "traced_outline_fraction_on_ink": round(on_ink, 4),
             "traced_outline_off_ink_stretches": off,
             "anchor_report": anchor_report(gray, anchors),
-            "hand_traced_parts": "anchor positions only (65 read by eye on the outline stroke, plus 2 "
-                                 "fixed extrapolation points on the frame edge); the path between "
-                                 "anchors follows the drawn stroke algorithmically. The forearm "
-                                 "from x~40 to the frame edge is extrapolated (straight lines).",
-            "known_ambiguities": [
-                "a bright slit (x 537-560, y 360-420) between the thumb's upper edge and the "
-                "ring finger is enclosed by drawn strokes and has paper tone; it may be paper "
-                "seen through the hand or a highlight. The mask treats it as INSIDE the hand "
-                "(filled outline); ~500 px, i.e. <0.5 % of the left area and ~3 % of the "
-                "left negative space if it were a gap.",
-            ],
+            "holes": hole_meta,
+            "hand_traced_parts": f"anchor positions only ({n_read} read by eye on the outline stroke, "
+                                 f"plus {n_fixed} fixed extrapolation points on the frame edge, plus "
+                                 f"{n_hole} read by eye on the strokes around the D5 hole); the path "
+                                 "between anchors follows the drawn stroke algorithmically. The "
+                                 "forearm from x~40 to the frame edge is extrapolated (straight "
+                                 "lines).",
+            "user_decisions": [{
+                "id": "D5",
+                "source": "documentations/log/log-v2.md, session 4 decisions (user, 2026-09-19)",
+                "question": "the bright slit between the thumb and the ring finger (x 537-560, "
+                            "y 360-420): paper seen through a gap, or a highlight?",
+                "decision": "paper seen through a gap: left-mask.png excludes it and it counts as "
+                            "left negative space",
+                "applied_as": "hole 'D5_thumb_ring_slit' (see holes): its extent is traced, the "
+                              "decision that it is a hole is the user's, not a traced guess",
+                "before": "until this decision the slit was listed as a known ambiguity and the "
+                          "mask counted it as inside the hand",
+            }],
+            "known_ambiguities": [],
             "ignore": f"x < {LEFT_CUT_X}: the drawing's forearm contours start at x~38-42; the app's arm "
                       "leaves the frame there, which the drawing does not show",
             "area_px": int(L.sum()),
@@ -1053,6 +1221,16 @@ def main(argv=None):
                     "rule": f"keep pixels with (p - point) . normal <= 0; the line is perpendicular "
                             f"to the forearm axis, {RIGHT_CUT_PAST_WRIST} px past the wrist centre"},
             "hand_traced_parts": "none (seeds, used only to pick components, are read by eye)",
+            "known_ambiguities": [{
+                "what": "bays of the density silhouette along the dorsal contour of the index "
+                        "finger and the knuckles (x ~867-1008, y ~441-514): the particles there "
+                        "are sparse and the iso-line dips between them, while the particles and "
+                        "the thin lines joining them run almost straight. The mask follows the "
+                        "density rule as documented; it is not corrected by hand. A render whose "
+                        "dorsal contour runs straight across the bays is charged for them "
+                        "(bays_filled_vs_mask). Open question for the user.",
+                "measured": right_dorsal_bays(R, ign_r, fR),
+            }],
             "area_px": int(R.sum()),
         },
         "negative_space": {
@@ -1067,15 +1245,22 @@ def main(argv=None):
     meta["sensitivity"] = "outputs/qa/reference/sensitivity.json (written with --sensitivity)"
     meta["thresholds"] = "assets-source/reference/thresholds.json (written with --sensitivity)"
     if a.sensitivity:
-        sens = sensitivity(gray, L, R, ign_l, ign_r, fL, fR, K, rvars)
+        hole_px = np.zeros_like(L)
+        for hm, *_ in holes.values():
+            hole_px |= hm
+        sens = sensitivity(gray, L, R, ign_l, ign_r, fL, fR, K, rvars, hole_px)
         QA.mkdir(parents=True, exist_ok=True)
         (QA / "sensitivity.json").write_text(json.dumps(sens, indent=2) + "\n")
         th = derive_gates(sens, kp_doc)
         (OUT / "thresholds.json").write_text(json.dumps(th, indent=2) + "\n")
     (OUT / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 
-    write_qa(gray, L, R, negL, negR, ign_l, ign_r, fL, fR, anchors, kinds, K, (cpt, u), dots)
+    all_anchors = list(anchors) + [q for h in holes.values() for q in h[1]]
+    write_qa(gray, L, R, negL, negR, ign_l, ign_r, fL, fR, all_anchors, kinds, K, (cpt, u), dots)
     print(json.dumps({"left_area": int(L.sum()), "right_area": int(R.sum()),
+                      "left_holes": {n: {k: h[k] for k in ("area_px", "bbox_px", "px_in_left_negative",
+                                                            "traced_loop_fraction_on_ink")}
+                                     for n, h in hole_meta.items()},
                       "left_negative": int(negL.sum()), "right_negative": int(negR.sum()),
                       "right_axis_deg": round(axis_deg, 2), "right_wrist": [round(v, 1) for v in wrist],
                       "contact": contact}, indent=2))

@@ -7,9 +7,9 @@
   ],
   "ignore_zone_used": true,
   "pixels": {
-    "reference": 109155,
-    "render": 109155,
-    "overlap": 109155,
+    "reference": 108358,
+    "render": 108358,
+    "overlap": 108358,
     "render_only": 0,
     "reference_only": 0,
     "render_in_ignore_zone": 9555
@@ -22,25 +22,25 @@
       "mean": 0.0,
       "p95": 0.0,
       "max": 0.0,
-      "n": 2003
+      "n": 2138
     },
     "render_to_ref": {
       "mean": 0.0,
       "p95": 0.0,
       "max": 0.0,
-      "n": 2003
+      "n": 2138
     },
     "symmetric": {
       "mean": 0.0,
       "p95": 0.0,
       "max": 0.0,
-      "n": 4006
+      "n": 4276
     }
   },
   "negative_space": {
     "iou": 1.0,
-    "reference_px": 18953,
-    "render_px": 18953
+    "reference_px": 19748,
+    "render_px": 19748
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -133,7 +133,7 @@
     "checks": {
       "iou": {
         "value": 1.0,
-        "gate": ">= 0.963",
+        "gate": ">= 0.96",
         "pass": true
       },
       "contour_mean_px": {
@@ -148,7 +148,7 @@
       },
       "negative_space_iou": {
         "value": 1.0,
-        "gate": ">= 0.872",
+        "gate": ">= 0.865",
         "pass": true
       },
       "tip:index_tip": {

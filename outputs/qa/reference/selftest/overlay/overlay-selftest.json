@@ -18,8 +18,8 @@
   "synthetic_silhouette": {
     "detected_mode": "silhouette",
     "detect_stats": {
-      "white_or_id_fraction": 0.99743,
-      "left_px": 118710,
+      "white_or_id_fraction": 0.99735,
+      "left_px": 117913,
       "right_px": 85577
     },
     "iou": {
@@ -50,10 +50,10 @@
       "pass": true
     },
     "contract": {
-      "white_px": 1364983,
-      "left_px": 118710,
+      "white_px": 1365649,
+      "left_px": 117913,
       "right_px": 85577,
-      "antialiased_edge_px": 4038,
+      "antialiased_edge_px": 4169,
       "stray_px": 0,
       "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
       "ok": true
@@ -110,8 +110,8 @@
       "pass": true
     },
     "contract": {
-      "white_px": 1367821,
-      "left_px": 118710,
+      "white_px": 1368618,
+      "left_px": 117913,
       "right_px": 85577,
       "antialiased_edge_px": 0,
       "stray_px": 1200,

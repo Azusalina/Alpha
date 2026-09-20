@@ -42,7 +42,8 @@ Metrics (all computed outside the ignore zone):
                             SAME definition and the SAME finger region.
   keypoints                 per-keypoint offset (dx, dy, distance) and distance / reference
                             uncertainty (only when --render-keypoints is given; a pose file
-                            assets-source/hands/pose-<hand>.json is accepted as-is).
+                            assets-source/hands/pose-<hand>.json is accepted as-is, for its
+                            own hand only; its *_tip joints are skipped).
   silhouette_tips           fingertips measured ON THE RENDER MASK with the same rule that
                             measured the reference tip (extreme mask pixel along the distal
                             direction, within search_radius_px of the reference tip). Needs no
@@ -276,6 +277,8 @@ def normalise_keypoints(data: dict, hand: str) -> dict:
     if hand in data and isinstance(data[hand], dict):
         data = data[hand]
     if isinstance(data.get("joints"), dict):   # a pose file (CONTRACTS section 5)
+        if data.get("hand") not in (None, hand):
+            return {}                          # the other hand's pose: nothing to compare
         data = data["joints"]
     return data
 

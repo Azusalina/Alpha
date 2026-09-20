@@ -7,6 +7,7 @@
   "params": {
     "voxel": 0.0036,
     "band": 3.0,
+    "sdf_chunk": 48,
     "k_body": 0.045,
     "k_arm": 0.06,
     "k_knuckle": 0.018,
@@ -14,7 +15,6 @@
     "k_joint": 0.016,
     "k_pad": 0.014,
     "k_ipk": 0.01,
-    "k_nail": 0.0025,
     "k_root": {
       "thumb": 0.04,
       "index": 0.026,
@@ -42,11 +42,11 @@
     "ip_knuckle_size": 0.62,
     "ip_knuckle_lift": 0.62,
     "nail": true,
-    "nail_lift": 0.7,
-    "nail_thick": 0.36,
-    "nail_width": 0.74,
     "nail_start": 0.4,
-    "nail_tip_inset": 0.85,
+    "nail_tip": 0.8,
+    "nail_width": 0.72,
+    "nail_relief": 0.12,
+    "nail_edge": 0.003,
     "section_clamp": [
       0.75,
       2.2
@@ -54,14 +54,26 @@
     "smooth_iters": 2,
     "smooth_factor": 0.45,
     "tri_budget": 29000,
+    "cleanup_iters": 4,
+    "cleanup_relax": 0.5,
     "contour_min_px": 14.0,
     "contour_step_px": 3.0,
-    "contour_smooth_iters": 6,
-    "contour_side_px": 3.0
+    "contour_smooth_px": 1.0,
+    "contour_probe_px": [
+      0.15,
+      0.3,
+      0.5,
+      1.0,
+      1.5,
+      2.0,
+      2.5
+    ],
+    "contour_edge_px": 0.35,
+    "contour_join_px": 2.0
   },
   "raw_extraction": {
-    "vertices": 387806,
-    "faces": 775608,
+    "vertices": 387800,
+    "faces": 775596,
     "non_manifold_edges": 0,
     "boundary_edges": 0,
     "non_manifold_verts": 0
@@ -72,8 +84,45 @@
   "non_manifold_edges": 0,
   "boundary_edges": 0,
   "non_manifold_verts": 0,
-  "signed_volume": 0.237014,
-  "surface_area": 3.416956,
+  "triangle_quality": {
+    "definition": "corner angles in degrees; in_frame = triangles whose centroid projects inside the 1644x957 frame",
+    "after_decimation": {
+      "triangles": 28854,
+      "max_angle_over_150": 1521,
+      "max_angle_over_165": 142,
+      "min_angle_under_5": 189,
+      "min_angle_under_2": 36,
+      "min_angle_p1": 5.69,
+      "min_angle_median": 26.98
+    },
+    "final": {
+      "triangles": 28854,
+      "max_angle_over_150": 0,
+      "max_angle_over_165": 0,
+      "min_angle_under_5": 0,
+      "min_angle_under_2": 0,
+      "min_angle_p1": 30.22,
+      "min_angle_median": 47.61
+    },
+    "final_in_frame": {
+      "triangles": 21190,
+      "max_angle_over_150": 0,
+      "max_angle_over_165": 0,
+      "min_angle_under_5": 0,
+      "min_angle_under_2": 0,
+      "min_angle_p1": 30.29,
+      "min_angle_median": 47.56
+    },
+    "cleanup_flips_per_pass": [
+      8665,
+      3044,
+      366,
+      54,
+      23
+    ]
+  },
+  "signed_volume": 0.236509,
+  "surface_area": 3.412768,
   "glb_check": {
     "vertices": 14429,
     "triangles": 28854,
@@ -85,19 +134,19 @@
   "winding_agreement_pct": 100.0,
   "bbox_app": {
     "min": [
-      -0.03993,
-      -1.31352,
-      -0.25353
+      -0.03955,
+      -1.31336,
+      -0.25318
     ],
     "max": [
-      2.91612,
-      0.10429,
-      0.28092
+      2.91602,
+      0.10449,
+      0.28077
     ],
     "size": [
-      2.95605,
-      1.41781,
-      0.53445
+      2.95557,
+      1.41785,
+      0.53396
     ]
   },
   "fingertips": {
@@ -107,14 +156,14 @@
         672.0
       ],
       "mesh_tip_px": [
-        897.0,
-        671.9
+        897.2,
+        672.4
       ],
-      "delta_px": 0.06,
+      "delta_px": 0.42,
       "mesh_tip_world": [
-        0.14954,
-        -0.38564,
-        0.23704
+        0.14979,
+        -0.38597,
+        0.2432
       ]
     },
     "index": {
@@ -123,14 +172,14 @@
         433.0
       ],
       "mesh_tip_px": [
-        807.5,
-        434.2
+        807.7,
+        433.6
       ],
-      "delta_px": 1.27,
+      "delta_px": 0.68,
       "mesh_tip_world": [
-        -0.02946,
-        0.09033,
-        0.12671
+        -0.02918,
+        0.09139,
+        0.13539
       ]
     },
     "middle": {
@@ -139,14 +188,14 @@
         654.0
       ],
       "mesh_tip_px": [
-        807.4,
-        655.3
+        807.5,
+        655.2
       ],
-      "delta_px": 1.92,
+      "delta_px": 1.98,
       "mesh_tip_world": [
-        -0.03041,
-        -0.36799,
-        0.02156
+        -0.03012,
+        -0.36791,
+        0.02048
       ]
     },
     "ring": {
@@ -155,14 +204,14 @@
         757.0
       ],
       "mesh_tip_px": [
-        906.9,
-        757.0
+        906.3,
+        756.9
       ],
-      "delta_px": 0.93,
+      "delta_px": 0.36,
       "mesh_tip_world": [
-        0.17997,
-        -0.59008,
-        -0.07201
+        0.17871,
+        -0.58985,
+        -0.07105
       ]
     },
     "pinky": {
@@ -171,18 +220,58 @@
         754.0
       ],
       "mesh_tip_px": [
-        990.6,
-        754.0
+        991.1,
+        753.9
       ],
-      "delta_px": 0.64,
+      "delta_px": 1.08,
       "mesh_tip_world": [
-        0.36411,
-        -0.59483,
-        -0.17027
+        0.36501,
+        -0.59464,
+        -0.1698
       ]
     }
   },
-  "contour_polylines": 40,
-  "contour_points": 1469,
-  "build_seconds": 38.1
+  "contour_polylines": 20,
+  "contour_points": 1558,
+  "build_seconds": 31.8,
+  "contour_coverage_d9": {
+    "hand": "right",
+    "mask": "outputs/qa/calib/right-mask.png",
+    "contour": "public/assets/hand-right.contour.json",
+    "tol_px": 3.0,
+    "polylines": 20,
+    "outer": 12,
+    "inner": 8,
+    "conn4": {
+      "boundary_px": 2485,
+      "covered_pct": 100.0,
+      "uncovered_px": 0,
+      "largest_uncovered_run_px": 0,
+      "uncovered_runs": [],
+      "boundary_inner_only_px": 0,
+      "dist_to_outer_mean_px": 0.418,
+      "dist_to_outer_p95_px": 0.845,
+      "dist_to_outer_max_px": 2.225
+    },
+    "conn8": {
+      "boundary_px": 3502,
+      "covered_pct": 100.0,
+      "uncovered_px": 0,
+      "largest_uncovered_run_px": 0,
+      "uncovered_runs": [],
+      "boundary_inner_only_px": 0,
+      "dist_to_outer_mean_px": 0.605,
+      "dist_to_outer_p95_px": 1.21,
+      "dist_to_outer_max_px": 2.951
+    },
+    "outer_precision": {
+      "mean_px": 0.528,
+      "p95_px": 0.862,
+      "max_px": 2.46,
+      "points_over_3px": 0
+    },
+    "inner_points_in_frame": 155,
+    "inner_points_on_background": 0,
+    "pass": true
+  }
 }

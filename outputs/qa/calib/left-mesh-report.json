@@ -7,6 +7,7 @@
   "params": {
     "voxel": 0.0036,
     "band": 3.0,
+    "sdf_chunk": 48,
     "k_body": 0.045,
     "k_arm": 0.06,
     "k_knuckle": 0.018,
@@ -14,7 +15,6 @@
     "k_joint": 0.016,
     "k_pad": 0.014,
     "k_ipk": 0.01,
-    "k_nail": 0.0025,
     "k_root": {
       "thumb": 0.04,
       "index": 0.026,
@@ -42,11 +42,11 @@
     "ip_knuckle_size": 0.62,
     "ip_knuckle_lift": 0.62,
     "nail": true,
-    "nail_lift": 0.7,
-    "nail_thick": 0.36,
-    "nail_width": 0.74,
     "nail_start": 0.4,
-    "nail_tip_inset": 0.85,
+    "nail_tip": 0.8,
+    "nail_width": 0.72,
+    "nail_relief": 0.12,
+    "nail_edge": 0.003,
     "section_clamp": [
       0.75,
       2.2
@@ -54,14 +54,26 @@
     "smooth_iters": 2,
     "smooth_factor": 0.45,
     "tri_budget": 29000,
+    "cleanup_iters": 4,
+    "cleanup_relax": 0.5,
     "contour_min_px": 14.0,
     "contour_step_px": 3.0,
-    "contour_smooth_iters": 6,
-    "contour_side_px": 3.0
+    "contour_smooth_px": 1.0,
+    "contour_probe_px": [
+      0.15,
+      0.3,
+      0.5,
+      1.0,
+      1.5,
+      2.0,
+      2.5
+    ],
+    "contour_edge_px": 0.35,
+    "contour_join_px": 2.0
   },
   "raw_extraction": {
-    "vertices": 454982,
-    "faces": 909960,
+    "vertices": 455026,
+    "faces": 910048,
     "non_manifold_edges": 0,
     "boundary_edges": 0,
     "non_manifold_verts": 0
@@ -72,8 +84,45 @@
   "non_manifold_edges": 0,
   "boundary_edges": 0,
   "non_manifold_verts": 0,
-  "signed_volume": 0.404436,
-  "surface_area": 4.144655,
+  "triangle_quality": {
+    "definition": "corner angles in degrees; in_frame = triangles whose centroid projects inside the 1644x957 frame",
+    "after_decimation": {
+      "triangles": 28854,
+      "max_angle_over_150": 1717,
+      "max_angle_over_165": 418,
+      "min_angle_under_5": 823,
+      "min_angle_under_2": 91,
+      "min_angle_p1": 3.15,
+      "min_angle_median": 30.58
+    },
+    "final": {
+      "triangles": 28854,
+      "max_angle_over_150": 0,
+      "max_angle_over_165": 0,
+      "min_angle_under_5": 0,
+      "min_angle_under_2": 0,
+      "min_angle_p1": 29.79,
+      "min_angle_median": 47.57
+    },
+    "final_in_frame": {
+      "triangles": 20677,
+      "max_angle_over_150": 0,
+      "max_angle_over_165": 0,
+      "min_angle_under_5": 0,
+      "min_angle_under_2": 0,
+      "min_angle_p1": 30.07,
+      "min_angle_median": 47.55
+    },
+    "cleanup_flips_per_pass": [
+      7530,
+      2773,
+      604,
+      71,
+      23
+    ]
+  },
+  "signed_volume": 0.403712,
+  "surface_area": 4.140398,
   "glb_check": {
     "vertices": 14429,
     "triangles": 28854,
@@ -85,19 +134,19 @@
   "winding_agreement_pct": 100.0,
   "bbox_app": {
     "min": [
-      -2.79529,
-      -0.0937,
-      -0.31586
+      -2.79526,
+      -0.09361,
+      -0.31578
     ],
     "max": [
-      -0.07047,
-      1.0904,
-      0.31592
+      -0.07067,
+      1.08987,
+      0.31577
     ],
     "size": [
-      2.72482,
-      1.1841,
-      0.63178
+      2.72458,
+      1.18348,
+      0.63155
     ]
   },
   "fingertips": {
@@ -107,14 +156,14 @@
         462.0
       ],
       "mesh_tip_px": [
-        559.8,
-        461.2
+        558.3,
+        462.3
       ],
-      "delta_px": 1.16,
+      "delta_px": 0.8,
       "mesh_tip_world": [
-        -0.52107,
-        0.03444,
-        0.25228
+        -0.52418,
+        0.03214,
+        0.25186
       ]
     },
     "index": {
@@ -123,14 +172,14 @@
         416.0
       ],
       "mesh_tip_px": [
-        786.7,
-        414.5
+        786.4,
+        414.7
       ],
-      "delta_px": 1.66,
+      "delta_px": 1.36,
       "mesh_tip_world": [
-        -0.07195,
-        0.13042,
-        0.1291
+        -0.07247,
+        0.12999,
+        0.12788
       ]
     },
     "middle": {
@@ -139,14 +188,14 @@
         523.0
       ],
       "mesh_tip_px": [
-        600.8,
-        522.9
+        601.6,
+        523.0
       ],
-      "delta_px": 0.8,
+      "delta_px": 1.61,
       "mesh_tip_world": [
-        -0.46083,
-        -0.09258,
-        0.01608
+        -0.45922,
+        -0.09265,
+        0.0153
       ]
     },
     "ring": {
@@ -155,14 +204,14 @@
         507.0
       ],
       "mesh_tip_px": [
-        534.0,
-        507.6
+        534.2,
+        507.3
       ],
-      "delta_px": 1.21,
+      "delta_px": 1.29,
       "mesh_tip_world": [
         -0.61224,
-        -0.06189,
-        -0.08943
+        -0.06137,
+        -0.09286
       ]
     },
     "pinky": {
@@ -171,18 +220,58 @@
         441.0
       ],
       "mesh_tip_px": [
-        437.0,
-        440.9
+        437.1,
+        441.0
       ],
-      "delta_px": 0.09,
+      "delta_px": 0.08,
       "mesh_tip_world": [
-        -0.82991,
-        0.08102,
-        -0.16196
+        -0.83002,
+        0.08087,
+        -0.16365
       ]
     }
   },
-  "contour_polylines": 32,
-  "contour_points": 1344,
-  "build_seconds": 45.0
+  "contour_polylines": 22,
+  "contour_points": 1482,
+  "build_seconds": 37.4,
+  "contour_coverage_d9": {
+    "hand": "left",
+    "mask": "outputs/qa/calib/left-mask.png",
+    "contour": "public/assets/hand-left.contour.json",
+    "tol_px": 3.0,
+    "polylines": 22,
+    "outer": 14,
+    "inner": 8,
+    "conn4": {
+      "boundary_px": 2234,
+      "covered_pct": 100.0,
+      "uncovered_px": 0,
+      "largest_uncovered_run_px": 0,
+      "uncovered_runs": [],
+      "boundary_inner_only_px": 0,
+      "dist_to_outer_mean_px": 0.426,
+      "dist_to_outer_p95_px": 0.878,
+      "dist_to_outer_max_px": 2.386
+    },
+    "conn8": {
+      "boundary_px": 3124,
+      "covered_pct": 100.0,
+      "uncovered_px": 0,
+      "largest_uncovered_run_px": 0,
+      "uncovered_runs": [],
+      "boundary_inner_only_px": 0,
+      "dist_to_outer_mean_px": 0.606,
+      "dist_to_outer_p95_px": 1.213,
+      "dist_to_outer_max_px": 2.45
+    },
+    "outer_precision": {
+      "mean_px": 0.534,
+      "p95_px": 0.892,
+      "max_px": 2.506,
+      "points_over_3px": 0
+    },
+    "inner_points_in_frame": 164,
+    "inner_points_on_background": 0,
+    "pass": true
+  }
 }

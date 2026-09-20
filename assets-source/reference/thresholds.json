@@ -12,14 +12,14 @@
   },
   "gates": {
     "left": {
-      "iou_min": 0.963,
+      "iou_min": 0.96,
       "contour_mean_max_px": 2.0,
       "contour_p95_max_px": 2.0,
-      "negative_space_iou_min": 0.872,
+      "negative_space_iou_min": 0.865,
       "keypoint_k": 2.0,
       "noise": {
         "iou_loss": [
-          0.01839,
+          0.01977,
           "stroke_inner_1px"
         ],
         "contour_mean_px": [
@@ -31,7 +31,7 @@
           "stroke_outer_1px"
         ],
         "negative_space_iou_loss": [
-          0.06374,
+          0.06739,
           "stroke_inner_1px"
         ],
         "tip_shift_px": {

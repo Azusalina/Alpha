@@ -19,20 +19,26 @@ What it does, per hand:
          carpus to the knuckles, plus knuckle prominences, a thenar mass and the
          first dorsal interosseous web between thumb and index,
        - finger pads and rounded fingertip caps that end on the pose's tip px,
-         with nail plates kept inside the cap (no overhanging "claw" tips).
+         with a nail plate on each distal phalanx as a soft relief of the
+         field (no separate solid, so no creases; it fades out inside the cap).
      Parts are fused with *selective* smooth unions: every digit is filleted into
      the palm, but digits are never blended with each other, so the curled
      fingers stay separate instead of webbing together.
   3. Extracts the zero level set with OpenVDB (the same library Blender's Voxel
      Remesh uses) -> one closed, 2-manifold surface; light Laplacian smoothing;
-     Decimate (collapse) to the triangle budget; smooth shading.
+     Decimate (collapse) to the triangle budget; then quality edge flips and
+     tangential relaxation projected back onto the dense surface (removes the
+     decimation slivers that showed as bright slashes); smooth shading.
   4. Verifies: non-manifold / boundary edges, winding vs stored normals (checked
-     again on the exported GLB), bounding box, fingertip projections.
+     again on the exported GLB), triangle quality, bounding box, fingertip
+     projections.
   5. Exports public/assets/hand-<hand>.glb (+Y up; GLB positions are app world
      coordinates), the silhouette contour polylines public/assets/hand-<hand>.contour.json
-     (each labelled 'outer' = borders the background, or 'inner' = occluding
-     contour inside the silhouette), a mesh report, optional calibration masks / shaded views, and an editable
-     .blend with the joint graph kept as its own object.
+     (the contour generator of the exported mesh from the home camera, each
+     piece labelled 'outer' = borders the background, or 'inner' = occluding
+     contour inside the silhouette), a mesh report, optional calibration masks /
+     shaded views (with masks, also the decision-D9 contour coverage check), and
+     an editable .blend with the joint graph kept as its own object.
 
 Coordinate conventions (see docs/HAND_ASSETS.md):
   app world: Y up, +Z toward the camera, reference frame on the z=0 plane,
@@ -79,6 +85,7 @@ REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 PARAMS = {
     "voxel": 0.0036,            # SDF grid spacing (~1.7 reference px)
     "band": 3.0,                # narrow-band half width, in voxels
+    "sdf_chunk": 48,            # x-planes per evaluation slab (bounds peak memory; no effect on the result)
     "k_body": 0.045,            # smooth-union radius inside the palm block
     "k_arm": 0.060,             # forearm -> wrist -> palm
     "k_knuckle": 0.018,         # knuckle prominences onto the palm block
@@ -86,7 +93,6 @@ PARAMS = {
     "k_joint": 0.016,           # between phalanges of one digit (soft knuckles)
     "k_pad": 0.014,             # finger pads onto their phalanx
     "k_ipk": 0.010,             # dorsal knuckles over the finger joints
-    "k_nail": 0.0025,           # nail plates: nearly hard union so the plate edge reads
     "k_root": {                 # digit -> palm fillet (finger roots)
         "thumb": 0.040,
         "index": 0.026,
@@ -114,19 +120,23 @@ PARAMS = {
     "ip_knuckle_size": 0.62,    # dorsal knuckle over PIP/DIP, relative to the section
     "ip_knuckle_lift": 0.62,
     "nail": True,
-    "nail_lift": 0.70,          # nail plate centre along the dorsal axis (x thickness)
-    "nail_thick": 0.36,
-    "nail_width": 0.74,
     "nail_start": 0.40,         # nail fold, as a fraction of the distal phalanx from the DIP
-    "nail_tip_inset": 0.85,     # free edge reaches this fraction of the tip cap's reach at nail height
+    "nail_tip": 0.80,           # the plate has faded out by this fraction of the tip cap's length
+    "nail_width": 0.72,         # nail half-width as a fraction of the section half-width
+    "nail_relief": 0.12,        # plate height as a fraction of the tip half-thickness
+    "nail_edge": 0.0030,        # half-width of the soft plate border (world; ~0.8 voxel)
     "section_clamp": (0.75, 2.2),  # 3D half-width / projected half-width limits
     "smooth_iters": 2,          # Laplacian smoothing passes on the extracted surface
     "smooth_factor": 0.45,
     "tri_budget": 29000,        # decimation target (<= 30k per hand)
-    "contour_min_px": 14.0,     # discard contour chains shorter than this (reference px)
+    "cleanup_iters": 4,         # post-decimation passes: quality flips + tangential relaxation
+    "cleanup_relax": 0.5,       # relaxation step (fraction of the move to the 1-ring centroid)
+    "contour_min_px": 14.0,     # discard inner contour pieces shorter than this (reference px)
     "contour_step_px": 3.0,     # contour resampling step (reference px)
-    "contour_smooth_iters": 6,
-    "contour_side_px": 3.0,     # probe offset used to tell outer from inner contours
+    "contour_smooth_px": 1.0,   # Gaussian smoothing along the contour, sigma (reference px)
+    "contour_probe_px": (0.15, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5),  # outward probes: outer/inner/hidden test
+    "contour_edge_px": 0.35,    # seeing past a contour point this close outside it = it is the true contour
+    "contour_join_px": 2.0,     # join pieces of one kind whose ends meet this closely (image px)
 }
 
 PLASTER = (0.791, 0.753, 0.686)  # #e6e1d7 in linear sRGB
@@ -323,6 +333,64 @@ def smin(a, b, k):
     return (b + (a - b) * h - k * h * (1.0 - h)).astype(np.float32)
 
 
+def _smoothstep(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+class NailRelief:
+    """Nail plate as a smooth, band-limited relief on the distal phalanx: the
+    digit's distance field is lowered by h * S(x), which raises the surface by
+    ~h over the nail footprint and fades over +-edge around its border. It is
+    not a separate solid, so there is no intersection crease: the plate edge is
+    a soft step wide enough (>= 1.5 voxels) for the grid to resolve. (Round 2
+    session 3 used a hard-unioned ellipsoid whose relief was < 1 voxel; its
+    sub-voxel creases aliased into the nail-edge dimples, creases and notches
+    the verifier found.)
+
+    Footprint, in the distal segment's frame (T along the digit, b lateral, n
+    dorsal): from the nail fold at u0 = nail_start * L to the free edge at
+    u1 = L + nail_tip * cap (inside the rounded tip cap), |v_b| < nail_width *
+    A(u), dorsal side only (v_n from 0.25 N to 0.6 N)."""
+
+    kind = "relief"
+
+    def __init__(self, seg, A0, N0, A1, N1, cap, name=""):
+        P = PARAMS
+        self.P0, self.T, self.b, self.n = seg.P0, seg.T, seg.b, seg.n
+        self.L = seg.L
+        self.A0, self.N0, self.A1, self.N1 = A0, N0, A1, N1
+        self.u0 = P["nail_start"] * self.L
+        self.cap = cap
+        self.u1 = self.L + P["nail_tip"] * cap
+        self.e = P["nail_edge"]
+        self.h = P["nail_relief"] * N1
+        self.name = name
+
+    def bounds(self):
+        r = max(self.A0, self.N0, self.A1, self.N1) + self.h + self.e
+        P1 = self.P0 + self.T * self.u1
+        return np.minimum(self.P0, P1) - r, np.maximum(self.P0, P1) + r
+
+    def relief(self, X, Y, Z):
+        dx, dy, dz = X - self.P0[0], Y - self.P0[1], Z - self.P0[2]
+        T, b, n = self.T.astype(np.float32), self.b.astype(np.float32), self.n.astype(np.float32)
+        u = dx * T[0] + dy * T[1] + dz * T[2]
+        vb = dx * b[0] + dy * b[1] + dz * b[2]
+        vn = dx * n[0] + dy * n[1] + dz * n[2]
+        s = np.clip(u / self.L, 0.0, 1.0)
+        A = self.A0 + (self.A1 - self.A0) * s
+        N = self.N0 + (self.N1 - self.N0) * s
+        e = self.e
+        # sharp-ish rise at the nail fold; long, soft fade over the tip cap so
+        # the plate merges into the rounded tip (no step, no overhang)
+        su = _smoothstep(self.u0 - e, self.u0 + e, u) * (1.0 - _smoothstep(self.L - 0.2 * self.cap, self.u1, u))
+        wb = PARAMS["nail_width"] * A
+        sb = 1.0 - _smoothstep(wb - e, wb + e, np.abs(vb))
+        sn = _smoothstep(0.25 * N, 0.60 * N, vn)
+        return (self.h * su * sb * sn).astype(np.float32)
+
+
 # --------------------------------------------------------------------------
 # Hand construction
 # --------------------------------------------------------------------------
@@ -330,7 +398,8 @@ def smin(a, b, k):
 
 def build_primitives(pose, J):
     """Return (body, digits, axes): body is a list of (prim, k) fused into the
-    palm block; digits maps name -> (list of (prim, k), root blend radius)."""
+    palm block; digits maps name -> (list of (prim, k), root blend radius,
+    list of reliefs applied to the digit's field before it joins the palm)."""
     P = PARAMS
     hand = pose["hand"]
     dorsal = unit(pose["dorsal"])
@@ -421,6 +490,7 @@ def build_primitives(pose, J):
     for f in DIGITS:
         js = [J[k] for k in ch[f]]
         prims = []
+        reliefs = []
         if f == "thumb":
             # thumb phalanges start at the MCP; its metacarpal lives in the body
             t_prev, n_prev = t_meta, n_thumb0
@@ -458,19 +528,11 @@ def build_primitives(pose, J):
             prims.append((Ell(pc, seg.T, seg.n, at=L * (0.46 if last else 0.36),
                               ab=sA * ps, an=sN * ps * 0.8, name=f"{f}_pad{i}"), P["k_pad"]))
             if last and P["nail"]:
-                # nail plate: a thin, slightly raised shell on the dorsal side
-                # of the distal phalanx. Its free edge stops inside the rounded
-                # tip cap (at the cap's reach at the nail's height above the
-                # axis), so the fingertip stays one rounded end that reaches
-                # the pose's tip px: no overhanging "claw" and no notch between
-                # nail and pad.
-                h_rel = min(P["nail_lift"] * sN / max(N1, 1e-9), 0.98)
-                reach = seg.c1 * math.sqrt(1.0 - h_rel * h_rel)
-                a0 = L * P["nail_start"]
-                a1 = L + reach * P["nail_tip_inset"]
-                nc = seg.P0 + seg.T * (0.5 * (a0 + a1)) + seg.n * sN * P["nail_lift"]
-                prims.append((Ell(nc, seg.T, seg.n, at=0.5 * (a1 - a0), ab=sA * P["nail_width"],
-                                  an=sN * P["nail_thick"], name=f"{f}_nail"), P["k_nail"]))
+                # nail plate: a soft relief on the dorsal side of the distal
+                # phalanx (see NailRelief). Its free edge stays inside the
+                # rounded tip cap, so the fingertip is one rounded end that
+                # reaches the pose's tip px (no overhanging "claw").
+                reliefs.append(NailRelief(seg, A0, N0, A1, N1, cap, name=f"{f}_nail"))
             t_prev, n_prev = t, n
         # dorsal knuckles over the interphalangeal joints
         for i in range(1, len(segs)):
@@ -481,11 +543,14 @@ def build_primitives(pose, J):
             c = s1.P0 + jn * N_j * P["ip_knuckle_lift"]
             prims.append((Ell(c, jt, jn, at=N_j * 0.55, ab=A_j * P["ip_knuckle_size"],
                               an=N_j * 0.45, name=f"{f}_ipk{i}"), P["k_ipk"]))
-        digits[f] = (prims, P["k_root"][f])
+        digits[f] = (prims, P["k_root"][f], reliefs)
     return body, digits, dict(axis=axis, lat=lat, dorsal=dorsal)
 
 
-def eval_sdf(body, digits):
+def eval_sdf(body, digits, window=None):
+    """Sample the hand's distance field on the voxel grid. `window` = (lo, hi)
+    in app world restricts the grid to a box (for close-up experiments); the
+    grid stays aligned to the full build's lattice."""
     P = PARAMS
     h = P["voxel"]
     kmax = max([k for _, k in body] + [P["k_root"][f] for f in DIGITS] + [P["k_joint"], P["k_pad"], P["k_ipk"]])
@@ -494,13 +559,17 @@ def eval_sdf(body, digits):
     for prim, _ in body:
         lo, hi = prim.bounds()
         los.append(lo), his.append(hi)
-    for f, (prims, _) in digits.items():
+    for f, (prims, _, _) in digits.items():
         for prim, _ in prims:
             lo, hi = prim.bounds()
             los.append(lo), his.append(hi)
     lo = np.min(los, axis=0) - margin
     hi = np.max(his, axis=0) + margin
     lo = np.floor(lo / h) * h
+    if window is not None:
+        wlo = np.floor((np.asarray(window[0], float) - lo) / h) * h + lo
+        hi = np.minimum(hi, np.asarray(window[1], float))
+        lo = np.maximum(lo, wlo)
     n = np.ceil((hi - lo) / h).astype(int) + 1
     xs = (lo[0] + h * np.arange(n[0])).astype(np.float32)
     ys = (lo[1] + h * np.arange(n[1])).astype(np.float32)
@@ -508,30 +577,38 @@ def eval_sdf(body, digits):
     big = np.float32(1.0)
     print(f"[sdf] grid {tuple(n)} = {np.prod(n)/1e6:.1f}M voxels, h={h}")
 
-    def box(prim_lo, prim_hi, extra):
+    def boxes(prim_lo, prim_hi, extra):
+        """The primitive's grid box, cut into slabs of at most sdf_chunk
+        x-planes so the temporaries of one evaluation stay small (every
+        operation is elementwise, so the result does not depend on the
+        chunking)."""
         i0 = np.maximum(np.floor((prim_lo - extra - lo) / h).astype(int), 0)
         i1 = np.minimum(np.ceil((prim_hi + extra - lo) / h).astype(int) + 1, n)
-        sl = tuple(slice(a, b) for a, b in zip(i0, i1))
-        X = xs[sl[0]][:, None, None]
-        Y = ys[sl[1]][None, :, None]
-        Z = zs[sl[2]][None, None, :]
-        return sl, X, Y, Z
+        if np.any(i1 <= i0):
+            return
+        Y = ys[i0[1]:i1[1]][None, :, None]
+        Z = zs[i0[2]:i1[2]][None, None, :]
+        for xa in range(i0[0], i1[0], P["sdf_chunk"]):
+            xb = min(xa + P["sdf_chunk"], i1[0])
+            yield (slice(xa, xb), slice(i0[1], i1[1]), slice(i0[2], i1[2])), xs[xa:xb][:, None, None], Y, Z
 
     B = np.full(tuple(n), big, dtype=np.float32)
     for prim, k in body:
         plo, phi = prim.bounds()
-        sl, X, Y, Z = box(plo, phi, margin)
-        B[sl] = smin(B[sl], prim.sdf(X, Y, Z), k)
+        for sl, X, Y, Z in boxes(plo, phi, margin):
+            B[sl] = smin(B[sl], prim.sdf(X, Y, Z), k)
 
     R = B.copy()
-    for f, (prims, k_root) in digits.items():
+    for f, (prims, k_root, reliefs) in digits.items():
         dl = np.min([p.bounds()[0] for p, _ in prims], axis=0)
         dh = np.max([p.bounds()[1] for p, _ in prims], axis=0)
-        sl, X, Y, Z = box(dl, dh, margin)
-        Dg = np.full(R[sl].shape, big, dtype=np.float32)
-        for prim, k in prims:
-            Dg = smin(Dg, prim.sdf(X, Y, Z), k)
-        R[sl] = np.minimum(R[sl], smin(B[sl], Dg, k_root))
+        for sl, X, Y, Z in boxes(dl, dh, margin):
+            Dg = np.full(R[sl].shape, big, dtype=np.float32)
+            for prim, k in prims:
+                Dg = smin(Dg, prim.sdf(X, Y, Z), k)
+            for rel in reliefs:
+                Dg = Dg - rel.relief(X, Y, Z)
+            R[sl] = np.minimum(R[sl], smin(B[sl], Dg, k_root))
     del B
     return R, lo, h
 
@@ -540,7 +617,7 @@ def extract_surface(R, lo, h):
     import openvdb as vdb
 
     band = PARAMS["band"] * h
-    arr = np.clip(R, -band, band).astype(np.float32)
+    arr = np.clip(R, -band, band, out=R)  # in place: R is not used afterwards
     g = vdb.FloatGrid(float(band))
     g.copyFromArray(arr)
     g.gridClass = vdb.GridClass.LEVEL_SET
@@ -637,6 +714,130 @@ def decimate(ob, budget):
     me.update()
     me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
     me.update()
+
+
+def _tri_angles(p0, p1, p2):
+    def ang(a, b, c):
+        u, v = b - a, c - a
+        lu, lv = u.length, v.length
+        if lu < 1e-12 or lv < 1e-12:
+            return 0.0
+        return math.acos(max(-1.0, min(1.0, u.dot(v) / (lu * lv))))
+    return ang(p0, p1, p2), ang(p1, p2, p0), ang(p2, p0, p1)
+
+
+def _tri_normal(p0, p1, p2):
+    return (p1 - p0).cross(p2 - p0)
+
+
+def flip_pass(bm):
+    """One sweep of quality-improving edge flips. An edge is flipped when that
+    raises the smaller of the two triangles' minimum angles (the Delaunay
+    criterion), provided the flip does not fold the surface: neither new
+    triangle may turn more than 35 deg away from the pair's mean normal, and
+    the new dihedral must stay below max(old + 5 deg, 20 deg). Decimation
+    leaves long, nearly flat 'cap' triangles whose obtuse corner dominates the
+    angle-weighted vertex normal: a visible bright or dark slash."""
+    flips = 0
+    for e in list(bm.edges):
+        if not e.is_valid or len(e.link_faces) != 2:
+            continue
+        f1, f2 = e.link_faces
+        l1 = next(l for l in f1.loops if l.edge == e)
+        a, b, c = l1.vert, l1.link_loop_next.vert, l1.link_loop_prev.vert
+        l2 = next(l for l in f2.loops if l.edge == e)
+        d = l2.link_loop_prev.vert
+        if c == d or bm.edges.get((c, d)) is not None:
+            continue
+        A, B, C, Dv = a.co, b.co, c.co, d.co
+        old_q = min(min(_tri_angles(A, B, C)), min(_tri_angles(B, A, Dv)))
+        new_q = min(min(_tri_angles(A, Dv, C)), min(_tri_angles(Dv, B, C)))
+        if new_q <= old_q + 1e-3:
+            continue
+        n1, n2 = _tri_normal(A, B, C), _tri_normal(B, A, Dv)
+        m1, m2 = _tri_normal(A, Dv, C), _tri_normal(Dv, B, C)
+        if m1.length < 1e-14 or m2.length < 1e-14 or n1.length < 1e-14 or n2.length < 1e-14:
+            continue
+        navg = (n1 + n2).normalized()
+        m1n, m2n = m1.normalized(), m2.normalized()
+        if m1n.dot(navg) < math.cos(math.radians(35)) or m2n.dot(navg) < math.cos(math.radians(35)):
+            continue
+        old_dih = math.degrees(n1.normalized().angle(n2.normalized(), 0.0))
+        new_dih = math.degrees(m1n.angle(m2n, 0.0))
+        if new_dih > max(old_dih + 5.0, 20.0):
+            continue
+        if bmesh.utils.edge_rotate(e, False) is not None:
+            flips += 1
+    return flips
+
+
+def relax_pass(bm, ref_bvh, lam):
+    """Tangential Laplacian relaxation, each vertex projected back onto the
+    dense (pre-decimation) surface, so triangle shapes improve without the
+    surface moving."""
+    bm.normal_update()
+    new = []
+    for v in bm.verts:
+        nbs = [e.other_vert(v).co for e in v.link_edges]
+        if not nbs:
+            new.append(v.co.copy())
+            continue
+        cen = sum(nbs, Vector()) / len(nbs)
+        dv = cen - v.co
+        n = v.normal
+        dt = dv - n * dv.dot(n)
+        p = v.co + dt * lam
+        loc, nrm, _, dist = ref_bvh.find_nearest(p)
+        mean_e = sum((q - v.co).length for q in nbs) / len(nbs)
+        if loc is not None and dist < 0.5 * mean_e and nrm.dot(n) > 0.5:
+            p = loc
+        new.append(p)
+    for v, p in zip(bm.verts, new):
+        v.co = p
+
+
+def cleanup_decimated(ob, ref_bvh):
+    """Remove decimation slivers: alternate quality flips and tangential
+    relaxation (projected onto the dense surface). Topology stays a closed
+    2-manifold (flips never create an existing edge); vertex and triangle
+    counts do not change."""
+    P = PARAMS
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    stats = []
+    for _ in range(P["cleanup_iters"]):
+        f = flip_pass(bm)
+        relax_pass(bm, ref_bvh, P["cleanup_relax"])
+        stats.append(f)
+    stats.append(flip_pass(bm))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
+    me.update()
+    print(f"[mesh] cleanup flips per pass {stats}")
+    return stats
+
+
+def triangle_quality(V, F, mask=None):
+    """Angle statistics of a triangle mesh (degrees)."""
+    A, B, C = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+
+    def ang(p, q, r):
+        u, v = q - p, r - p
+        cosv = np.einsum("ij,ij->i", u, v) / np.maximum(np.linalg.norm(u, axis=1) * np.linalg.norm(v, axis=1), 1e-30)
+        return np.degrees(np.arccos(np.clip(cosv, -1, 1)))
+
+    angs = np.stack([ang(A, B, C), ang(B, C, A), ang(C, A, B)], axis=1)
+    if mask is not None:
+        angs = angs[mask]
+    mx, mn = angs.max(axis=1), angs.min(axis=1)
+    return {"triangles": int(len(angs)), "max_angle_over_150": int((mx > 150).sum()),
+            "max_angle_over_165": int((mx > 165).sum()), "min_angle_under_5": int((mn < 5).sum()),
+            "min_angle_under_2": int((mn < 2).sum()), "min_angle_p1": round(float(np.percentile(mn, 1)), 2),
+            "min_angle_median": round(float(np.median(mn)), 2)}
 
 
 def mesh_arrays_app(ob):
@@ -743,178 +944,348 @@ def edge_topology(F, nverts):
 # --------------------------------------------------------------------------
 
 
-def silhouette_contours(V, F, bvh):
-    """Mesh silhouette edges seen from the home camera, chained, visible parts
-    only, smoothed and resampled. Returns list of (M,3) arrays in app space."""
-    P = PARAMS
-    fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
-    cen = V[F].mean(axis=1)
-    facing = np.einsum("ij,ij->i", fn, CAM_POS[None, :] - cen) > 0
+def contour_generator(V, N, F):
+    """Contour generator of the smooth-shaded mesh seen from the home camera:
+    the zero set of g = n . (camera - p), with the vertex normals n the GLB
+    stores, interpolated linearly over each triangle (Hertzmann & Zorin 2000).
+    Every triangle whose corners change sign holds exactly one segment, and
+    every crossed edge is shared by exactly two such triangles, so the curve
+    is a set of disjoint closed loops without branches (the mesh-edge
+    silhouette of round 2 session 3 zig-zagged and branched). Returns a list of
+    (points (M,3), normals (M,3)) per loop, app world."""
+    nV = len(V)
+    g = np.einsum("ij,ij->i", N, CAM_POS[None, :] - V)
+    s = g > 0.0
+    nF = len(F)
+    E = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+    Es = np.sort(E, axis=1)
+    key = Es[:, 0].astype(np.int64) * nV + Es[:, 1]
+    uniq, inv = np.unique(key, return_inverse=True)
+    ea, eb = uniq // nV, uniq % nV
+    cross = s[ea] != s[eb]
+    fe = inv.reshape(3, nF).T                      # edge ids of each face
+    fc = cross[fe]
+    seg_faces = np.nonzero(fc.sum(axis=1) == 2)[0]
+    # crossing point and interpolated normal on every crossed edge
+    ce = np.nonzero(cross)[0]
+    t = g[ea[ce]] / (g[ea[ce]] - g[eb[ce]])
+    pts = V[ea[ce]] + t[:, None] * (V[eb[ce]] - V[ea[ce]])
+    nrm = N[ea[ce]] + t[:, None] * (N[eb[ce]] - N[ea[ce]])
+    nrm /= np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-12)
+    cidx = -np.ones(len(uniq), dtype=np.int64)
+    cidx[ce] = np.arange(len(ce))
+    # graph: node = crossed edge, link = face segment
+    links = [[] for _ in range(len(ce))]
+    for f in seg_faces:
+        a, b = [cidx[e] for e in fe[f][fc[f]]]
+        links[a].append(b)
+        links[b].append(a)
+    seen = np.zeros(len(ce), dtype=bool)
+    loops = []
+    for start in range(len(ce)):
+        if seen[start] or len(links[start]) != 2:
+            continue
+        path = [start]
+        seen[start] = True
+        prev, cur = start, links[start][0]
+        while cur != start and not seen[cur]:
+            seen[cur] = True
+            path.append(cur)
+            a, b = links[cur]
+            prev, cur = cur, (b if a == prev else a)
+        loops.append((pts[path], nrm[path]))
+    return loops
 
-    e = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
-    fidx = np.concatenate([np.arange(len(F))] * 3)
-    es = np.sort(e, axis=1)
-    order = np.lexsort((es[:, 1], es[:, 0]))
-    es, fidx = es[order], fidx[order]
-    same = np.all(es[1:] == es[:-1], axis=1)
-    pairs = np.nonzero(same)[0]
-    a_f, b_f = fidx[pairs], fidx[pairs + 1]
-    sil = es[pairs][facing[a_f] != facing[b_f]]
 
-    # chain edges into polylines (break at vertices of degree != 2)
-    from collections import defaultdict
-    adj = defaultdict(list)
-    for u, w in sil:
-        adj[u].append(w)
-        adj[w].append(u)
-    used = set()
-    chains = []
-
-    def walk(start, nxt):
-        path = [start, nxt]
-        used.add((min(start, nxt), max(start, nxt)))
-        prev, cur = start, nxt
-        while len(adj[cur]) == 2:
-            a, b = adj[cur]
-            nn = b if a == prev else a
-            key = (min(cur, nn), max(cur, nn))
-            if key in used:
-                if nn == path[0]:
-                    path.append(nn)
+def _probe_rays(bvh, P, Nn):
+    """Label each contour point by what lies just outside it in the image:
+    'O' (background: outer outline), 'I' (a surface behind: occluding contour
+    inside the silhouette) or 'H' (hidden behind a nearer part). Probes step
+    outward from the point along its projected normal by contour_probe_px;
+    a point is outer if any probe ray misses the mesh (so gaps narrower than
+    the largest probe still count as background); otherwise the farthest probe
+    decides between inner (first hit beyond the point) and hidden. Probing
+    beside the point instead of casting at it avoids the grazing-angle
+    self-hits that made a vertex ray test drop real outline. Also returns the
+    image positions and, per point, the first probe offset that saw past the
+    point: background, or a surface more than 1 px (world) behind it (inf if
+    none)."""
+    probes = PARAMS["contour_probe_px"]
+    q = project(P)
+    q2 = project(P + Nn * 1e-4)
+    o = q2 - q
+    o /= np.maximum(np.linalg.norm(o, axis=1, keepdims=True), 1e-12)
+    cam = Vector(CAM_POS)
+    dist_p = np.linalg.norm(P - CAM_POS[None, :], axis=1)
+    tol = 1.0 * PX
+    lab = np.empty(len(P), dtype="<U1")
+    dstar = np.full(len(P), np.inf)
+    for i in range(len(P)):
+        last_hit = None
+        outer = False
+        for dpx in probes:
+            x, y = q[i] + dpx * o[i]
+            tgt = Vector(unproject(x, y, 0.0))
+            hit = bvh.ray_cast(cam, (tgt - cam).normalized(), 100.0)
+            if hit[0] is None:
+                outer = True
+                if not np.isfinite(dstar[i]):
+                    dstar[i] = dpx
                 break
-            used.add(key)
-            path.append(nn)
-            prev, cur = cur, nn
-        return path
-
-    for v in list(adj.keys()):
-        if len(adj[v]) != 2:
-            for w in adj[v]:
-                if (min(v, w), max(v, w)) not in used:
-                    chains.append(walk(v, w))
-    for v in list(adj.keys()):
-        for w in adj[v]:
-            if (min(v, w), max(v, w)) not in used:
-                chains.append(walk(v, w))
-
-    # visibility by ray casting from the camera (Blender space BVH)
-    cam_b = Vector(app_to_blender(CAM_POS))
-    tol = 3.0 * PARAMS["voxel"]
-
-    def visible(p_app):
-        pb = Vector(app_to_blender(p_app))
-        d = pb - cam_b
-        dist = d.length
-        hit = bvh.ray_cast(cam_b, d.normalized(), dist + 1.0)
-        if hit[0] is None:
-            return True
-        return hit[3] >= dist - tol
-
-    min_len = P["contour_min_px"] * PX
-    step = P["contour_step_px"] * PX
-    out = []
-    for c in chains:
-        pts = V[np.array(c)]
-        vis = np.array([visible(p) for p in pts])
-        # split into visible runs
-        runs, cur = [], []
-        for p, ok in zip(pts, vis):
-            if ok:
-                cur.append(p)
-            elif cur:
-                runs.append(np.array(cur))
-                cur = []
-        if cur:
-            runs.append(np.array(cur))
-        for r in runs:
-            if len(r) < 3:
-                continue
-            # smooth (keep endpoints)
-            q = r.copy()
-            closed = np.linalg.norm(q[0] - q[-1]) < 1e-9
-            for _ in range(P["contour_smooth_iters"]):
-                if closed:
-                    q[:-1] = 0.25 * np.roll(q[:-1], 1, 0) + 0.5 * q[:-1] + 0.25 * np.roll(q[:-1], -1, 0)
-                    q[-1] = q[0]
-                else:
-                    q[1:-1] = 0.25 * q[:-2] + 0.5 * q[1:-1] + 0.25 * q[2:]
-            seglen = np.linalg.norm(np.diff(q, axis=0), axis=1)
-            L = float(seglen.sum())
-            if L < min_len:
-                continue
-            s = np.concatenate([[0], np.cumsum(seglen)])
-            m = max(int(round(L / step)), 2)
-            t = np.linspace(0, L, m + 1)
-            res = np.stack([np.interp(t, s, q[:, i]) for i in range(3)], axis=1)
-            out.append((L, res))
-    out.sort(key=lambda x: -x[0])
-    return [r for _, r in out]
+            last_hit = hit[3]
+            if last_hit > dist_p[i] + tol and not np.isfinite(dstar[i]):
+                dstar[i] = dpx
+        if outer:
+            lab[i] = "O"
+        elif last_hit >= dist_p[i] - tol:
+            lab[i] = "I"
+        else:
+            lab[i] = "H"
+    return lab, q, dstar
 
 
-
-
-def _run_lengths(q, labels):
-    runs = []
-    s = 0
-    for i in range(1, len(labels) + 1):
-        if i == len(labels) or labels[i] != labels[s]:
-            runs.append([s, i - 1, labels[s]])
-            s = i
-    seglen = np.linalg.norm(np.diff(q, axis=0), axis=1)
-    cum = np.concatenate([[0.0], np.cumsum(seglen)])
-    return runs, cum
-
-
-def classify_contours(polys, bvh):
-    """Split and label the contour polylines. A point is 'outer' if it borders
-    the background (a ray through the image a few px to one side of it misses
-    the mesh) and 'inner' if it is an occluding contour inside the silhouette
-    (a digit passing in front of another part). Polylines are split where the
-    label changes (runs shorter than contour_min_px take their neighbours'
-    label), so each output polyline has one kind. Returns (polys, meta), longest
-    first; meta[i] = {kind, inFrame (fraction of points inside the frame)}."""
-    cam_b = Vector(app_to_blender(CAM_POS))
-    off = PARAMS["contour_side_px"]
-    min_px = PARAMS["contour_min_px"]
-    out = []
-    for poly in polys:
-        q = project(poly)
-        tan = np.gradient(q, axis=0)
-        tan /= np.maximum(np.linalg.norm(tan, axis=1, keepdims=True), 1e-9)
-        nrm = np.stack([-tan[:, 1], tan[:, 0]], axis=1)
-        lab = np.zeros(len(q), dtype=bool)
-        for i, (qi, ni) in enumerate(zip(q, nrm)):
-            for side in (1.0, -1.0):
-                px, py = qi + side * off * ni
-                tgt = Vector(app_to_blender(unproject(px, py, 0.0)))
-                if bvh.ray_cast(cam_b, (tgt - cam_b).normalized(), 100.0)[0] is None:
-                    lab[i] = True
+def _drop_folds(loops_lab):
+    """Where the surface is seen at a grazing angle, small undulations fold the
+    contour generator, leaving extra curves up to a couple of px inside the
+    true contour; their outward probes see past them (background for an
+    outline, the farther surface for an inner contour) only after crossing
+    the true contour. Edge points (seeing past within contour_edge_px) and the
+    segments between consecutive edge points of a loop trace the true
+    contour. A point of the same kind whose first seeing-past probe is farther
+    than that is relabelled hidden when an edge segment lies within that
+    probe distance + 0.75 px of it in the image, on another loop or more than
+    6 px away along its own loop (so a point is never removed by its own
+    neighbours). Outer and inner contours are treated separately."""
+    from scipy.spatial import cKDTree
+    edge = PARAMS["contour_edge_px"]
+    dropped = 0
+    arcs = [_arc(np.vstack([q, q[:1]])) for _, q, _ in loops_lab]
+    for kind in ("O", "I"):
+        A, B, own, arc_a, arc_b = [], [], [], [], []
+        for li, (lab, q, dstar) in enumerate(loops_lab):
+            n = len(q)
+            s = arcs[li]
+            e = (lab == kind) & (dstar <= edge)
+            for i in np.nonzero(e)[0]:
+                j = (i + 1) % n
+                jj = j if e[j] else i
+                A.append(q[i]), B.append(q[jj]), own.append(li)
+                arc_a.append(s[i]), arc_b.append(s[jj] if jj != 0 or i == 0 else s[-1])
+        if not A:
+            continue
+        A, B = np.array(A), np.array(B)
+        own, arc_a, arc_b = np.array(own), np.array(arc_a), np.array(arc_b)
+        tree = cKDTree(0.5 * (A + B))
+        reach = float(0.5 * np.linalg.norm(B - A, axis=1).max())
+        for li, (lab, q, dstar) in enumerate(loops_lab):
+            s = arcs[li]
+            Ltot = s[-1]
+            for i in np.nonzero((lab == kind) & (dstar > edge) & np.isfinite(dstar))[0]:
+                lim = dstar[i] + 0.75
+                for k in tree.query_ball_point(q[i], lim + reach):
+                    ab = B[k] - A[k]
+                    ll = float(ab @ ab)
+                    t = 0.0 if ll < 1e-12 else float(np.clip((q[i] - A[k]) @ ab / ll, 0.0, 1.0))
+                    if np.linalg.norm(A[k] + t * ab - q[i]) > lim:
+                        continue
+                    if own[k] == li:
+                        da = min(abs(arc_a[k] - s[i]), abs(arc_b[k] - s[i]))
+                        if min(da, Ltot - da) <= 6.0:
+                            continue
+                    lab[i] = "H"
+                    dropped += 1
                     break
-        # absorb short runs into their neighbours until every run is long enough
-        while True:
-            runs, cum = _run_lengths(q, lab)
-            if len(runs) == 1:
-                break
-            short = [(cum[b] - cum[a], k) for k, (a, b, _) in enumerate(runs) if cum[b] - cum[a] < min_px]
-            if not short:
-                break
-            _, k = min(short)
-            a, b, v = runs[k]
-            lab[a:b + 1] = not v
-        runs, _ = _run_lengths(q, lab)
-        for a, b, v in runs:
-            # each run also takes the next run's first point, so consecutive
-            # pieces share an end point and the outline has no gap
-            piece = poly[a: min(b + 2, len(poly))]
-            if len(piece) < 2:
+    return dropped
+
+
+def _arc(q):
+    return np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(q, axis=0), axis=1))])
+
+
+def _clean_labels(lab, q, closed):
+    """Absorb label flicker: hidden runs shorter than 1.5 px and inner runs
+    shorter than 3 px lying between two outer runs become outer; outer runs are
+    never relabelled (a short outer run can be a real piece of outline, e.g. a
+    narrow gap between digits)."""
+    n = len(lab)
+    if n < 3:
+        return lab
+    for _ in range(4):
+        changed = False
+        runs = []
+        s = 0
+        for i in range(1, n + 1):
+            if i == n or lab[i] != lab[s]:
+                runs.append([s, i - 1, lab[s]])
+                s = i
+        if closed and len(runs) > 1 and runs[0][2] == runs[-1][2]:
+            runs[0][0] = runs[-1][0] - n
+            runs.pop()
+        if len(runs) < 3 and not closed:
+            break
+        seglen = np.linalg.norm(np.diff(np.vstack([q, q[:1]]) if closed else q, axis=0), axis=1)
+        for k, (a, b, v) in enumerate(runs):
+            if v == "O":
                 continue
-            qp = project(piece)
-            inside = (qp[:, 0] >= 0) & (qp[:, 0] <= REF_W) & (qp[:, 1] >= 0) & (qp[:, 1] <= REF_H)
-            L = float(np.linalg.norm(np.diff(piece, axis=0), axis=1).sum())
-            out.append((L, piece, {"kind": "outer" if v else "inner",
-                                   "inFrame": round(float(inside.mean()), 3)}))
-    out.sort(key=lambda x: -x[0])
-    return [p for _, p, _ in out], [m for _, _, m in out]
+            if not closed and (k == 0 or k == len(runs) - 1):
+                continue
+            pv, nv = runs[k - 1][2], runs[(k + 1) % len(runs)][2]
+            if pv != "O" or nv != "O":
+                continue
+            idx = np.arange(a - 1, b + 1) % n if closed else np.arange(max(a - 1, 0), min(b + 1, n - 1))
+            L = float(seglen[idx].sum())
+            if (v == "H" and L < 1.5) or (v == "I" and L < 3.0):
+                lab[np.arange(a, b + 1) % n] = "O"
+                changed = True
+        if not changed:
+            break
+    return lab
+
+
+def _smooth_resample(poly, closed):
+    """Gaussian smoothing along arc length (sigma contour_smooth_px), then
+    resampling every contour_step_px; both measured in reference px at the
+    polyline's depth, end points kept."""
+    P = PARAMS
+    zbar = float(np.mean(poly[:, 2]))
+    wpx = PX * (D - zbar) / D                    # world size of 1 px at this depth
+    if closed:
+        poly = np.vstack([poly, poly[:1]])
+    s = _arc(poly)
+    L = float(s[-1])
+    if L < 1e-9:
+        return poly
+    h = 0.5 * wpx
+    m = max(int(math.ceil(L / h)), 2)
+    t = np.linspace(0.0, L, m + 1)
+    dense = np.stack([np.interp(t, s, poly[:, i]) for i in range(3)], axis=1)
+    sig = P["contour_smooth_px"] * wpx / (L / m)
+    if sig > 0.3 and len(dense) > 4:
+        r = int(math.ceil(3 * sig))
+        k = np.exp(-0.5 * (np.arange(-r, r + 1) / sig) ** 2)
+        k /= k.sum()
+        if closed:
+            body = dense[:-1]
+            pad = np.vstack([body[-r:], body, body[:r]]) if r < len(body) else np.tile(body, (3, 1))
+            sm = np.stack([np.convolve(pad[:, i], k, mode="same") for i in range(3)], axis=1)
+            sm = sm[r:r + len(body)] if r < len(body) else sm[len(body):2 * len(body)]
+            dense = np.vstack([sm, sm[:1]])
+        else:
+            pad = np.vstack([np.repeat(dense[:1], r, 0), dense, np.repeat(dense[-1:], r, 0)])
+            sm = np.stack([np.convolve(pad[:, i], k, mode="same") for i in range(3)], axis=1)[r:r + len(dense)]
+            # pin the ends, blending into the smoothed curve over one kernel width
+            w = np.clip(np.minimum(np.arange(len(dense)), np.arange(len(dense))[::-1]) / max(r, 1), 0, 1)[:, None]
+            dense = sm * w + dense * (1 - w)
+    s = _arc(dense)
+    L = float(s[-1])
+    step = P["contour_step_px"] * wpx
+    m = max(int(round(L / step)), 1)
+    t = np.linspace(0.0, L, m + 1)
+    return np.stack([np.interp(t, s, dense[:, i]) for i in range(3)], axis=1)
+
+
+def extract_contours(V, N, F):
+    """Silhouette contour polylines of the final mesh from the home camera,
+    each labelled outer / inner; returns (polys, meta), longest first."""
+    P = PARAMS
+    bvh = BVHTree.FromPolygons([tuple(v) for v in V.tolist()], [tuple(f) for f in F.tolist()])
+    out = []
+    loops = [(pts, nrm) for pts, nrm in contour_generator(V, N, F) if len(pts) >= 3]
+    labelled = [_probe_rays(bvh, pts, nrm) for pts, nrm in loops]
+    n_fold = _drop_folds(labelled)
+    print(f"[contour] {len(loops)} generator loops, {sum(len(p) for p, _ in loops)} points, "
+          f"{n_fold} fold points relabelled hidden")
+    for (pts, nrm), (lab, q, _) in zip(loops, labelled):
+        lab = _clean_labels(lab, q, closed=True)
+        n = len(lab)
+        if np.all(lab == lab[0]):
+            if lab[0] == "H":
+                continue
+            pieces = [(np.arange(n + 1) % n, lab[0], True)]
+        else:
+            # rotate so the loop starts at a label change, then split into runs;
+            # each run also takes the next run's first point so that pieces
+            # meet end to end
+            k0 = int(np.nonzero(lab != np.roll(lab, 1))[0][0])
+            order = (np.arange(n) + k0) % n
+            lab_r = lab[order]
+            runs = []
+            s0 = 0
+            for i in range(1, n + 1):
+                if i == n or lab_r[i] != lab_r[s0]:
+                    runs.append((s0, i - 1, lab_r[s0]))
+                    s0 = i
+            pieces = []
+            for (a, e, v), nxt in zip(runs, runs[1:] + runs[:1]):
+                if v == "H":
+                    continue
+                end = e + 1 if nxt[2] != "H" else e
+                pieces.append((order[np.arange(a, end + 1) % n], v, False))
+        for idx, v, closed in pieces:
+            poly = pts[idx]
+            qq = project(poly)
+            Lpx = float(_arc(qq)[-1])
+            if v == "I" and Lpx < P["contour_min_px"]:
+                continue
+            if v == "O" and Lpx < 1.0:
+                continue
+            res = _smooth_resample(poly[:-1] if closed else poly, closed)
+            out.append((res, "outer" if v == "O" else "inner", bool(closed)))
+    out = _join_pieces(out)
+    final = []
+    for res, kind, closed in out:
+        qp = project(res)
+        inside = (qp[:, 0] >= 0) & (qp[:, 0] <= REF_W) & (qp[:, 1] >= 0) & (qp[:, 1] <= REF_H)
+        final.append((float(_arc(res)[-1]), res, {"kind": kind, "inFrame": round(float(inside.mean()), 3),
+                                                   "closed": closed}))
+    final.sort(key=lambda x: -x[0])
+    return [p for _, p, _ in final], [m for _, _, m in final]
+
+
+def _join_pieces(pieces):
+    """Join open pieces of the same kind whose ends meet: within
+    contour_join_px in the image and 2.5 x that in 3D (so a piece in front is
+    never joined to one behind it at a T-junction). A piece whose own ends
+    meet is closed."""
+    lim_px = PARAMS["contour_join_px"]
+    lim_w = 2.5 * lim_px * PX
+    items = [[p, k, c] for p, k, c in pieces]
+
+    def meet(a, b):
+        return (np.linalg.norm(project(a) - project(b)) <= lim_px) and (np.linalg.norm(a - b) <= lim_w)
+
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(items)):
+            if items[i][2]:
+                continue
+            for j in range(i + 1, len(items)):
+                if items[j][2] or items[j][1] != items[i][1]:
+                    continue
+                a, b = items[i][0], items[j][0]
+                if meet(a[-1], b[0]):
+                    m = np.vstack([a, b])
+                elif meet(a[-1], b[-1]):
+                    m = np.vstack([a, b[::-1]])
+                elif meet(a[0], b[-1]):
+                    m = np.vstack([b, a])
+                elif meet(a[0], b[0]):
+                    m = np.vstack([a[::-1], b])
+                else:
+                    continue
+                items[i][0] = m
+                del items[j]
+                changed = True
+                break
+            if changed:
+                break
+    for it in items:
+        p = it[0]
+        if not it[2] and len(p) > 3 and meet(p[0], p[-1]):
+            it[0] = np.vstack([p, p[:1]])
+            it[2] = True
+    return [tuple(it) for it in items]
 
 
 # --------------------------------------------------------------------------
@@ -1069,7 +1440,13 @@ def build_hand(hand, args):
     bm.free()
     print(f"[mesh] raw non-manifold edges {raw_nm}, boundary {raw_bd}, nm verts {raw_nmv}")
     clean_and_smooth(ob)
+    # the dense, smoothed surface is the reference the decimated mesh is kept on
+    ref_bvh = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
     decimate(ob, PARAMS["tri_budget"])
+    V_dec, F_dec = mesh_arrays_app(ob)
+    q_before = triangle_quality(V_dec, F_dec)
+    flip_stats = cleanup_decimated(ob, ref_bvh)
+    del ref_bvh
 
     bm = bmesh.new()
     bm.from_mesh(ob.data)
@@ -1089,6 +1466,8 @@ def build_hand(hand, args):
     V_app, F = mesh_arrays_app(ob)
     vn, fn = vertex_normals(V_app, F)
     face_area = 0.5 * np.linalg.norm(fn, axis=1)
+    cpx = project(V_app[F].mean(axis=1))
+    in_frame_tris = (cpx[:, 0] >= 0) & (cpx[:, 0] <= REF_W) & (cpx[:, 1] >= 0) & (cpx[:, 1] <= REF_H)
     # signed volume (positive = outward winding)
     vol = float(np.einsum("ij,ij->i", V_app[F[:, 0]], np.cross(V_app[F[:, 1]], V_app[F[:, 2]])).sum() / 6.0)
 
@@ -1116,9 +1495,14 @@ def build_hand(hand, args):
             "mesh_tip_world": [round(float(x), 5) for x in V_app[i]],
         }
 
-    # contours
-    bvh = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
-    polys, cmeta = classify_contours(silhouette_contours(V_app, F, bvh), bvh)
+    # contours, from the mesh exactly as exported (GLB positions, normals and
+    # triangles, welded by position so the loops close)
+    wV, wi = np.unique(np.round(gV, 7), axis=0, return_inverse=True)
+    wi = wi.reshape(-1)
+    wN = np.zeros_like(wV)
+    np.add.at(wN, wi, gN)
+    wN /= np.maximum(np.linalg.norm(wN, axis=1, keepdims=True), 1e-12)
+    polys, cmeta = extract_contours(wV, wN, wi[gF])
     contour = {
         "hand": hand,
         "source": "assets-source/hands/build_hands.py",
@@ -1129,15 +1513,18 @@ def build_hand(hand, args):
             "reference": {"width": REF_W, "height": REF_H, "frameWidth": round(FRAME_W, 6),
                           "frameHeight": FRAME_H},
         },
-        "definition": "mesh silhouette edges from the home camera (one adjacent face front-facing, "
-                      "the other back-facing), chained, occluded parts removed by ray casting, "
-                      "smoothed and resampled; longest first",
+        "definition": "silhouette of the mesh from the home camera: where the smooth-shaded surface "
+                      "turns from facing the camera to facing away (zero set of n . (camera - p), "
+                      "vertex normals interpolated over the triangles; closed loops), parts hidden "
+                      "behind other parts removed by ray casting, smoothed (sigma 1 px) and "
+                      "resampled every stepPx reference px; longest first",
         "stepPx": PARAMS["contour_step_px"],
         "metaDefinition": "meta[i] describes polylines[i]. kind 'outer': borders the background (the "
                           "hand's own outline and the edges of the gaps between digits); kind 'inner': "
                           "occluding contour inside the silhouette, where one part passes in front of "
                           "another. inFrame: fraction of points inside the 1644x957 reference frame at "
-                          "the home camera (the arm continues past the frame edge).",
+                          "the home camera (the arm continues past the frame edge). closed: the "
+                          "polyline is a closed loop (last point = first point).",
         "polylines": [[[round(float(c), 5) for c in p] for p in poly] for poly in polys],
         "meta": cmeta,
     }
@@ -1161,6 +1548,14 @@ def build_hand(hand, args):
         "non_manifold_edges": nm_e,
         "boundary_edges": bd_e,
         "non_manifold_verts": nm_v,
+        "triangle_quality": {
+            "definition": "corner angles in degrees; in_frame = triangles whose centroid projects inside "
+                          "the 1644x957 frame",
+            "after_decimation": q_before,
+            "final": triangle_quality(V_app, F),
+            "final_in_frame": triangle_quality(V_app, F, mask=in_frame_tris),
+            "cleanup_flips_per_pass": flip_stats,
+        },
         "signed_volume": round(vol, 6),
         "surface_area": round(float(face_area.sum()), 6),
         "glb_check": {
@@ -1268,14 +1663,19 @@ def main():
     clear_scene()
     hands = ["left", "right"] if args.hand == "both" else [args.hand]
     built = {}
+    reports = {}
+
+    def write_report(hand):
+        os.makedirs(args.report_dir, exist_ok=True)
+        with open(os.path.join(args.report_dir, f"{hand}-mesh-report.json"), "w") as f:
+            json.dump(reports[hand], f, indent=2)
+
     for hand in hands:
         print(f"==== building {hand} hand ====")
         ob, report = build_hand(hand, args)
         built[hand] = ob
-        os.makedirs(args.report_dir, exist_ok=True)
-        rp = os.path.join(args.report_dir, f"{hand}-mesh-report.json")
-        with open(rp, "w") as f:
-            json.dump(report, f, indent=2)
+        reports[hand] = report
+        write_report(hand)
         print(json.dumps({k: report[k] for k in ("hand", "vertices", "triangles", "shells",
                                                    "non_manifold_edges", "boundary_edges",
                                                    "winding_agreement_pct", "build_seconds")}))
@@ -1283,6 +1683,21 @@ def main():
         for hand, ob in built.items():
             others = [o for h, o in built.items() if h != hand]
             render_hand(hand, ob, others, args)
+    if args.masks_enabled:
+        # decision D9: outer contour polylines vs the mask just rendered
+        # (same code as `python3 assets-source/hands/check_contours.py`)
+        sys.path.insert(0, SCRIPT_DIR)
+        sys.dont_write_bytecode = True  # no __pycache__ next to the sources
+        import check_contours
+        for hand in hands:
+            cov = check_contours.check_hand(hand, args.masks, args.out, 3.0, out_dir=args.masks)
+            reports[hand]["contour_coverage_d9"] = cov
+            write_report(hand)
+            c4, c8 = cov["conn4"], cov["conn8"]
+            print(f"[d9] {hand}: covered {c4['covered_pct']} % / {c8['covered_pct']} % (4/8-boundary), "
+                  f"largest uncovered run {c4['largest_uncovered_run_px']} / {c8['largest_uncovered_run_px']} px, "
+                  f"inner on background {cov['inner_points_on_background']}, "
+                  f"{'PASS' if cov['pass'] else 'FAIL'}")
     if args.blend:
         cam = home_camera()
         bpy.context.scene.camera = cam

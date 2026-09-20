@@ -3,11 +3,11 @@
   "left": {
     "defensible_variants": {
       "stroke_outer_1px": {
-        "iou": 0.98193,
+        "iou": 0.98063,
         "contour_mean": 1.002,
         "contour_p95": 1.0,
         "contour_max": 2.236,
-        "negative_space_iou": 0.93813,
+        "negative_space_iou": 0.93402,
         "tip_shift_px": {
           "index_tip": 1.0,
           "middle_tip": 1.0,
@@ -16,11 +16,11 @@
         }
       },
       "stroke_inner_1px": {
-        "iou": 0.98161,
+        "iou": 0.98023,
         "contour_mean": 1.0,
         "contour_p95": 1.0,
         "contour_max": 1.0,
-        "negative_space_iou": 0.93626,
+        "negative_space_iou": 0.93261,
         "tip_shift_px": {
           "index_tip": 1.0,
           "middle_tip": 1.0,
@@ -29,11 +29,11 @@
         }
       },
       "smooth0.0_gamma4.0": {
-        "iou": 0.99847,
-        "contour_mean": 0.095,
+        "iou": 0.99818,
+        "contour_mean": 0.104,
         "contour_p95": 1.0,
         "contour_max": 8.246,
-        "negative_space_iou": 0.99113,
+        "negative_space_iou": 0.98962,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -42,11 +42,11 @@
         }
       },
       "smooth1.2_gamma4.0": {
-        "iou": 0.99651,
-        "contour_mean": 0.187,
+        "iou": 0.99611,
+        "contour_mean": 0.195,
         "contour_p95": 1.0,
         "contour_max": 3.606,
-        "negative_space_iou": 0.97725,
+        "negative_space_iou": 0.97615,
         "tip_shift_px": {
           "index_tip": 1.0,
           "middle_tip": 1.0,
@@ -55,11 +55,11 @@
         }
       },
       "smooth0.7_gamma2.0": {
-        "iou": 0.99983,
-        "contour_mean": 0.01,
+        "iou": 0.99963,
+        "contour_mean": 0.019,
         "contour_p95": 0.0,
-        "contour_max": 2.0,
-        "negative_space_iou": 0.9991,
+        "contour_max": 4.243,
+        "negative_space_iou": 0.99808,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -68,11 +68,11 @@
         }
       },
       "smooth0.7_gamma6.0": {
-        "iou": 0.99968,
-        "contour_mean": 0.029,
+        "iou": 0.99967,
+        "contour_mean": 0.027,
         "contour_p95": 0.0,
         "contour_max": 8.246,
-        "negative_space_iou": 0.99974,
+        "negative_space_iou": 0.9997,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -81,11 +81,11 @@
         }
       },
       "anchor_jitter_2px_0": {
-        "iou": 0.99995,
+        "iou": 0.99994,
         "contour_mean": 0.003,
         "contour_p95": 0.0,
         "contour_max": 1.414,
-        "negative_space_iou": 0.99905,
+        "negative_space_iou": 0.99904,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -95,10 +95,10 @@
       },
       "anchor_jitter_2px_1": {
         "iou": 0.99992,
-        "contour_mean": 0.005,
+        "contour_mean": 0.004,
         "contour_p95": 0.0,
         "contour_max": 1.0,
-        "negative_space_iou": 0.999,
+        "negative_space_iou": 0.99904,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -107,11 +107,11 @@
         }
       },
       "anchor_jitter_2px_2": {
-        "iou": 0.99995,
-        "contour_mean": 0.002,
+        "iou": 0.99994,
+        "contour_mean": 0.003,
         "contour_p95": 0.0,
         "contour_max": 1.0,
-        "negative_space_iou": 0.99852,
+        "negative_space_iou": 0.99858,
         "tip_shift_px": {
           "index_tip": 0.0,
           "middle_tip": 0.0,
@@ -122,116 +122,116 @@
     },
     "uniform_offset_curve": {
       "dilate1": {
-        "iou": 0.98193,
+        "iou": 0.98063,
         "contour_mean": 1.002,
         "contour_p95": 1.0,
         "contour_max": 2.236,
-        "negative_space_iou": 0.93813
+        "negative_space_iou": 0.93402
       },
       "erode1": {
-        "iou": 0.98161,
+        "iou": 0.98023,
         "contour_mean": 1.0,
         "contour_p95": 1.0,
         "contour_max": 1.0,
-        "negative_space_iou": 0.93626
+        "negative_space_iou": 0.93261
       },
       "dilate2": {
-        "iou": 0.96455,
-        "contour_mean": 1.771,
+        "iou": 0.96211,
+        "contour_mean": 1.775,
         "contour_p95": 2.0,
         "contour_max": 7.071,
-        "negative_space_iou": 0.87866
+        "negative_space_iou": 0.87089
       },
       "erode2": {
-        "iou": 0.96324,
-        "contour_mean": 1.755,
+        "iou": 0.96045,
+        "contour_mean": 1.756,
         "contour_p95": 2.0,
         "contour_max": 2.0,
-        "negative_space_iou": 0.88054
+        "negative_space_iou": 0.87378
       },
       "dilate3": {
-        "iou": 0.94529,
-        "contour_mean": 2.781,
+        "iou": 0.94174,
+        "contour_mean": 2.785,
         "contour_p95": 3.0,
         "contour_max": 14.56,
-        "negative_space_iou": 0.812
+        "negative_space_iou": 0.8001
       },
       "erode3": {
-        "iou": 0.94212,
-        "contour_mean": 2.725,
+        "iou": 0.93765,
+        "contour_mean": 2.727,
         "contour_p95": 3.0,
         "contour_max": 3.162,
-        "negative_space_iou": 0.81734
+        "negative_space_iou": 0.808
       },
       "dilate4": {
-        "iou": 0.92933,
-        "contour_mean": 3.698,
+        "iou": 0.92494,
+        "contour_mean": 3.72,
         "contour_p95": 4.0,
         "contour_max": 18.682,
-        "negative_space_iou": 0.76132
+        "negative_space_iou": 0.74681
       },
       "erode4": {
-        "iou": 0.92381,
-        "contour_mean": 3.613,
+        "iou": 0.91781,
+        "contour_mean": 3.615,
         "contour_p95": 4.0,
         "contour_max": 4.123,
-        "negative_space_iou": 0.77234
+        "negative_space_iou": 0.7608
       },
       "dilate5": {
-        "iou": 0.90938,
-        "contour_mean": 4.942,
+        "iou": 0.90412,
+        "contour_mean": 4.983,
         "contour_p95": 5.0,
         "contour_max": 27.893,
-        "negative_space_iou": 0.69363
+        "negative_space_iou": 0.67634
       },
       "erode5": {
-        "iou": 0.90003,
-        "contour_mean": 4.757,
+        "iou": 0.89202,
+        "contour_mean": 4.759,
         "contour_p95": 5.0,
         "contour_max": 5.385,
-        "negative_space_iou": 0.7115
+        "negative_space_iou": 0.69822
       },
       "dilate6": {
-        "iou": 0.89478,
-        "contour_mean": 5.9,
+        "iou": 0.88904,
+        "contour_mean": 5.972,
         "contour_p95": 6.0,
         "contour_max": 33.956,
-        "negative_space_iou": 0.65131
+        "negative_space_iou": 0.63216
       },
       "erode6": {
-        "iou": 0.88177,
-        "contour_mean": 5.635,
+        "iou": 0.87212,
+        "contour_mean": 5.638,
         "contour_p95": 6.0,
         "contour_max": 6.708,
-        "negative_space_iou": 0.67383
+        "negative_space_iou": 0.6591
       },
       "dilate8": {
-        "iou": 0.86503,
-        "contour_mean": 8.017,
-        "contour_p95": 8.0,
-        "contour_max": 45.122,
-        "negative_space_iou": 0.56263
+        "iou": 0.85872,
+        "contour_mean": 9.937,
+        "contour_p95": 17.632,
+        "contour_max": 86.267,
+        "negative_space_iou": 0.54309
       },
       "erode8": {
-        "iou": 0.84261,
-        "contour_mean": 7.563,
+        "iou": 0.82932,
+        "contour_mean": 7.566,
         "contour_p95": 8.0,
         "contour_max": 8.944,
-        "negative_space_iou": 0.59555
+        "negative_space_iou": 0.57905
       },
       "dilate10": {
-        "iou": 0.83488,
-        "contour_mean": 10.299,
-        "contour_p95": 10.63,
-        "contour_max": 51.788,
-        "negative_space_iou": 0.48068
+        "iou": 0.82879,
+        "contour_mean": 12.28,
+        "contour_p95": 23.923,
+        "contour_max": 88.51,
+        "negative_space_iou": 0.46452
       },
       "erode10": {
-        "iou": 0.79955,
-        "contour_mean": 9.683,
+        "iou": 0.78203,
+        "contour_mean": 9.684,
         "contour_p95": 10.0,
         "contour_max": 11.662,
-        "negative_space_iou": 0.52394
+        "negative_space_iou": 0.50628
       }
     },
     "smooth_model_floor": {
@@ -240,33 +240,56 @@
         "contour_mean": 0.005,
         "contour_p95": 0.0,
         "contour_max": 1.0,
-        "negative_space_iou": 0.9972
+        "negative_space_iou": 0.99732
       },
       "close4": {
-        "iou": 0.99887,
-        "contour_mean": 0.101,
+        "iou": 0.99821,
+        "contour_mean": 0.13,
         "contour_p95": 0.0,
         "contour_max": 14.866,
-        "negative_space_iou": 0.99425
+        "negative_space_iou": 0.99089
+      },
+      "close4_d5_slit_kept_open": {
+        "iou": 0.99887,
+        "contour_mean": 0.094,
+        "contour_p95": 0.0,
+        "contour_max": 14.866,
+        "negative_space_iou": 0.99448
       },
       "open8": {
-        "iou": 0.99962,
-        "contour_mean": 0.02,
+        "iou": 0.99958,
+        "contour_mean": 0.021,
         "contour_p95": 0.0,
         "contour_max": 1.414,
-        "negative_space_iou": 0.99077
+        "negative_space_iou": 0.99099
       },
       "close8": {
-        "iou": 0.99552,
-        "contour_mean": 0.5,
+        "iou": 0.98825,
+        "contour_mean": 2.423,
+        "contour_p95": 10.138,
+        "contour_max": 78.492,
+        "negative_space_iou": 0.93584
+      },
+      "close8_d5_slit_kept_open": {
+        "iou": 0.99549,
+        "contour_mean": 0.468,
         "contour_p95": 1.0,
         "contour_max": 37.363,
-        "negative_space_iou": 0.9751
+        "negative_space_iou": 0.9761
+      }
+    },
+    "user_decision_effects": {
+      "d5_slit_left_closed": {
+        "iou": 0.9927,
+        "contour_mean": 1.749,
+        "contour_p95": 0.0,
+        "contour_max": 76.4,
+        "negative_space_iou": 0.95974
       }
     },
     "noise": {
       "iou_loss": [
-        0.01839,
+        0.01977,
         "stroke_inner_1px"
       ],
       "contour_mean_px": [
@@ -278,7 +301,7 @@
         "stroke_outer_1px"
       ],
       "negative_space_iou_loss": [
-        0.06374,
+        0.06739,
         "stroke_inner_1px"
       ],
       "tip_shift_px": {

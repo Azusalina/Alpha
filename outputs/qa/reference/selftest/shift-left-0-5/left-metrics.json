@@ -7,40 +7,40 @@
   ],
   "ignore_zone_used": true,
   "pixels": {
-    "reference": 109155,
-    "render": 109155,
-    "overlap": 104917,
-    "render_only": 4238,
-    "reference_only": 4238,
+    "reference": 108358,
+    "render": 108358,
+    "overlap": 103980,
+    "render_only": 4378,
+    "reference_only": 4378,
     "render_in_ignore_zone": 9090
   },
-  "iou": 0.92525,
-  "precision": 0.96117,
-  "recall": 0.96117,
+  "iou": 0.92233,
+  "precision": 0.9596,
+  "recall": 0.9596,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 3.688,
+      "mean": 3.573,
       "p95": 5.0,
       "max": 5.0,
-      "n": 2003
+      "n": 2138
     },
     "render_to_ref": {
-      "mean": 3.685,
+      "mean": 3.565,
       "p95": 5.0,
       "max": 5.0,
-      "n": 2003
+      "n": 2138
     },
     "symmetric": {
-      "mean": 3.687,
+      "mean": 3.569,
       "p95": 5.0,
       "max": 5.0,
-      "n": 4006
+      "n": 4276
     }
   },
   "negative_space": {
-    "iou": 0.78726,
-    "reference_px": 18953,
-    "render_px": 19189
+    "iou": 0.78362,
+    "reference_px": 19748,
+    "render_px": 19984
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -141,12 +141,12 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.92525,
-        "gate": ">= 0.963",
+        "value": 0.92233,
+        "gate": ">= 0.96",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 3.687,
+        "value": 3.569,
         "gate": "<= 2.0",
         "pass": false
       },
@@ -156,8 +156,8 @@
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.78726,
-        "gate": ">= 0.872",
+        "value": 0.78362,
+        "gate": ">= 0.865",
         "pass": false
       },
       "tip:index_tip": {

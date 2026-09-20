@@ -376,7 +376,10 @@ def main(argv=None) -> int:
     ap.add_argument("screenshot", nargs="?", type=Path, default=DEFAULT_SHOT)
     ap.add_argument("--mode", choices=["auto", "silhouette", "full"], default="auto")
     ap.add_argument("--out", type=Path, default=None)
-    ap.add_argument("--render-keypoints", type=Path)
+    ap.add_argument("--render-keypoints", type=Path,
+                    help='render joints: {"left": {...}, "right": {...}} (keypoints.json shape) for '
+                         'both hands, or a pose file (assets-source/hands/pose-<hand>.json), '
+                         'which is used for its own hand only')
     ap.add_argument("--no-ignore", action="store_true")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
