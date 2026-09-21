@@ -1094,6 +1094,9 @@ TIP_DIRS = {  # distal direction of the last phalanx, image space (deg); measure
 }
 TIP_SEARCH_RADIUS = 25   # px; the fingertip rule's search circle (compare_silhouette.mask_tip)
 K_GATE = 2.0             # gate = K_GATE x the reference's own uncertainty (docs/ACCEPTANCE.md)
+K_JOINT = 3.0            # joints only (decision D16): 16 separate checks per hand, so each gets
+                         # k = 3 for the family to keep a single 2-sigma check's confidence
+                         # (0.989 ** 16 = 0.84; docs/ACCEPTANCE.md section 4.1)
 
 
 def disk(r: int) -> np.ndarray:
@@ -1245,7 +1248,8 @@ def derive_gates(sens, K) -> dict:
             "contour_mean_max_px": up(K_GATE * n["contour_mean_px"][0]),
             "contour_p95_max_px": up(K_GATE * n["contour_p95_px"][0]),
             "negative_space_iou_min": down(1 - K_GATE * n["negative_space_iou_loss"][0]),
-            "keypoint_k": K_GATE,
+            "tip_k": K_GATE,
+            "joint_k": K_JOINT,
             "noise": {k: v for k, v in n.items()},
         }
     head = {} if RIGHT_BRIDGE_DORSAL_BAYS else {"NOT_THE_REFERENCE": NOT_REFERENCE_NOTE}
@@ -1253,8 +1257,10 @@ def derive_gates(sens, K) -> dict:
         "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between "
                       "the chosen reference mask and an equally defensible alternative (see "
                       "outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates "
-                      "floored to 3 decimals, px gates rounded to 0.1 px. Keypoints and "
-                      "silhouette tips: distance <= k x their stated uncertainty.",
+                      "floored to 3 decimals, px gates rounded to 0.1 px. Silhouette tips: "
+                      "distance <= tip_k (= 2) x their stated uncertainty. Joints: distance <= "
+                      "joint_k (= 3) x their stated uncertainty, corrected for the 16 checks per "
+                      "hand (decision D16).",
         "generator": "scripts/reference_masks.py --sensitivity",
         "user_decisions": {
             "D5": "left-mask.png excludes the slit between the thumb and the ring finger (paper "
@@ -1266,6 +1272,8 @@ def derive_gates(sens, K) -> dict:
                    "reference's",
             "D14": "the left gates keep the +-1 px dilate/erode stroke variant, although half the "
                    "p90 stroke width is slightly over 1 px (docs/ACCEPTANCE.md section 4.1)",
+            "D16": "joints are gated at 3 x their stated uncertainty (16 checks per hand; an exact "
+                   "pose then passes all of them about 84 % of the time); tips stay at 2 x",
         },
         "log_reference_points": {"iou_min": {"left": 0.93, "right": 0.90}, "contour_p95_max_px": 8,
                                  "negative_space_iou_min": 0.85, "keypoints": "within stated uncertainty (k=1)"},

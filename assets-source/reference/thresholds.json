@@ -1,10 +1,11 @@
 {
-  "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between the chosen reference mask and an equally defensible alternative (see outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates floored to 3 decimals, px gates rounded to 0.1 px. Keypoints and silhouette tips: distance <= k x their stated uncertainty.",
+  "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between the chosen reference mask and an equally defensible alternative (see outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates floored to 3 decimals, px gates rounded to 0.1 px. Silhouette tips: distance <= tip_k (= 2) x their stated uncertainty. Joints: distance <= joint_k (= 3) x their stated uncertainty, corrected for the 16 checks per hand (decision D16).",
   "generator": "scripts/reference_masks.py --sensitivity",
   "user_decisions": {
     "D5": "left-mask.png excludes the slit between the thumb and the ring finger (paper seen through a gap); it counts as left negative space",
     "D12": "right-mask.png bridges the dorsal bays along the back of the index finger and the knuckles; the right gates are derived from the bridged mask",
-    "D14": "the left gates keep the +-1 px dilate/erode stroke variant, although half the p90 stroke width is slightly over 1 px (docs/ACCEPTANCE.md section 4.1)"
+    "D14": "the left gates keep the +-1 px dilate/erode stroke variant, although half the p90 stroke width is slightly over 1 px (docs/ACCEPTANCE.md section 4.1)",
+    "D16": "joints are gated at 3 x their stated uncertainty (16 checks per hand; an exact pose then passes all of them about 84 % of the time); tips stay at 2 x"
   },
   "log_reference_points": {
     "iou_min": {
@@ -21,7 +22,8 @@
       "contour_mean_max_px": 2.0,
       "contour_p95_max_px": 2.0,
       "negative_space_iou_min": 0.865,
-      "keypoint_k": 2.0,
+      "tip_k": 2.0,
+      "joint_k": 3.0,
       "noise": {
         "iou_loss": [
           0.01977,
@@ -52,7 +54,8 @@
       "contour_mean_max_px": 3.7,
       "contour_p95_max_px": 8.9,
       "negative_space_iou_min": 0.825,
-      "keypoint_k": 2.0,
+      "tip_k": 2.0,
+      "joint_k": 3.0,
       "noise": {
         "iou_loss": [
           0.04054,

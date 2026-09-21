@@ -408,14 +408,10 @@
       "contour_p95_px",
       "negative_space_iou",
       "keypoint:middle_mcp",
-      "keypoint:ring_mcp",
       "keypoint:pinky_mcp",
       "keypoint:pinky_pip",
       "keypoint:pinky_dip",
-      "keypoint:thumb_cmc",
-      "keypoint:thumb_mcp",
-      "keypoint:thumb_ip",
-      "keypoint:wrist"
+      "keypoint:thumb_cmc"
     ],
     "checks": {
       "iou": {
@@ -460,83 +456,83 @@
       },
       "keypoint:index_mcp": {
         "value": 8.06,
-        "gate": "<= 20.0",
+        "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": true
       },
       "keypoint:index_pip": {
         "value": 11.31,
-        "gate": "<= 12.0",
+        "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:index_dip": {
         "value": 4.47,
-        "gate": "<= 12.0",
+        "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:middle_mcp": {
         "value": 41.34,
-        "gate": "<= 20.0",
+        "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": false
       },
       "keypoint:middle_pip": {
         "value": 9.22,
-        "gate": "<= 12.0",
+        "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:middle_dip": {
         "value": 5.39,
-        "gate": "<= 12.0",
+        "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:ring_mcp": {
         "value": 24.17,
-        "gate": "<= 24.0",
-        "pass": false
+        "gate": "<= 36.0 (= 3.0 x 12.0)",
+        "pass": true
       },
       "keypoint:ring_pip": {
         "value": 15.81,
-        "gate": "<= 20.0",
+        "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": true
       },
       "keypoint:ring_dip": {
         "value": 13.15,
-        "gate": "<= 16.0",
+        "gate": "<= 24.0 (= 3.0 x 8.0)",
         "pass": true
       },
       "keypoint:pinky_mcp": {
         "value": 77.78,
-        "gate": "<= 30.0",
+        "gate": "<= 45.0 (= 3.0 x 15.0)",
         "pass": false
       },
       "keypoint:pinky_pip": {
         "value": 59.94,
-        "gate": "<= 20.0",
+        "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": false
       },
       "keypoint:pinky_dip": {
         "value": 25.02,
-        "gate": "<= 16.0",
+        "gate": "<= 24.0 (= 3.0 x 8.0)",
         "pass": false
       },
       "keypoint:thumb_cmc": {
         "value": 54.08,
-        "gate": "<= 30.0",
+        "gate": "<= 45.0 (= 3.0 x 15.0)",
         "pass": false
       },
       "keypoint:thumb_mcp": {
         "value": 22.36,
-        "gate": "<= 20.0",
-        "pass": false
+        "gate": "<= 30.0 (= 3.0 x 10.0)",
+        "pass": true
       },
       "keypoint:thumb_ip": {
         "value": 16.4,
-        "gate": "<= 16.0",
-        "pass": false
+        "gate": "<= 24.0 (= 3.0 x 8.0)",
+        "pass": true
       },
       "keypoint:wrist": {
         "value": 23.35,
-        "gate": "<= 16.0",
-        "pass": false
+        "gate": "<= 24.0 (= 3.0 x 8.0)",
+        "pass": true
       }
     }
   }

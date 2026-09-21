@@ -369,7 +369,8 @@ def evaluate(metrics: dict, th: dict | None, hand: str) -> dict | None:
     le("contour_mean_px", cd["mean"], g["contour_mean_max_px"])
     le("contour_p95_px", cd["p95"], g["contour_p95_max_px"])
     ge("negative_space_iou", metrics["negative_space"]["iou"], g["negative_space_iou_min"])
-    k = g.get("keypoint_k", 2.0)
+    k = g.get("tip_k", g.get("keypoint_k", 2.0))
+    kj = g.get("joint_k", g.get("keypoint_k", 2.0))   # joints: decision D16 (k = 3)
     for name, t in metrics.get("silhouette_tips", {}).items():
         unc = t.get("reference_uncertainty_px") or 0
         gate = round(k * unc, 2)
@@ -378,11 +379,12 @@ def evaluate(metrics: dict, th: dict | None, hand: str) -> dict | None:
                                  "pass": ok}
     for name, v in metrics.get("keypoints", {}).items():
         if "distance_px" in v and v.get("reference_uncertainty_px"):
-            gate = round(k * v["reference_uncertainty_px"], 2)
-            checks[f"keypoint:{name}"] = {"value": v["distance_px"], "gate": f"<= {gate}",
+            gate = round(kj * v["reference_uncertainty_px"], 2)
+            checks[f"keypoint:{name}"] = {"value": v["distance_px"],
+                                          "gate": f"<= {gate} (= {kj} x {v['reference_uncertainty_px']})",
                                           "pass": bool(v["distance_px"] <= gate)}
         elif "difference" in v and v.get("reference_uncertainty"):
-            gate = round(k * v["reference_uncertainty"], 2)
+            gate = round(kj * v["reference_uncertainty"], 2)
             checks[f"keypoint:{name}"] = {"value": abs(v["difference"]), "gate": f"<= {gate}",
                                           "pass": bool(abs(v["difference"]) <= gate)}
     return {"source": "assets-source/reference/thresholds.json (docs/ACCEPTANCE.md)",

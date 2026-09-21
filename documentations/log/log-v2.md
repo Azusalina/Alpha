@@ -173,6 +173,7 @@ correctly left them to the user):
 | D13 | Left thumb tip: the script moved it from D2's reading (548–559, 461) to a measured (562, 458), the distal end of the thumb along its axis. Which? | **The measured (562, 458)**, uncertainty ±8 px (at k = 2 it covers D2's whole range). D2 decided which digit is the thumb; that is unchanged. No gate depends on this point. |
 | D14 | The left gates come from a ±1 px dilate/erode variant; the corrected stroke measurement gives a median half-width of 0.82 px but 1.07 px at p90. Widen the variant? | **Keep ±1 px**; the left gates stay as they are. The p90 caveat stays documented in ACCEPTANCE §4.1. |
 | D15 | The playwright-cli skill the user installed (`.claude/skills/playwright-cli/`, `.playwright/cli.config.json`, a `.gitignore` line) | Keep it only if it is useful, and never in the pushed repo. It works here (its own Chromium, WebGL 2, 1644 × 957 screenshots) and suits the step-4/5 screenshot loop, so it stays **local only**: the three paths are listed in `.git/info/exclude`, and the `.gitignore` line moved there. |
+| D16 | The joint gates are 16 separate 2 u checks per hand; an exact pose passes all of them only ≈ 10 % of the time (reference verifier, 2026-09-21). How to treat them? | **Correct for the number of checks: joints at 3 u** (all 16 pass ≈ 84 % of the time, the confidence of one 2-σ check). Tips stay at 2 u. `thresholds.json` carries `tip_k` 2 and `joint_k` 3; ACCEPTANCE §4.1/§4.2 and CONTRACTS §8 explain it. Baseline with D16: left fails 5 joints (pinky_pip, pinky_mcp, middle_mcp, thumb_cmc, pinky_dip), right none. |
 
 ---
 
@@ -316,10 +317,9 @@ parameters; the annotated overlays draw their caption over the left forearm;
 the right pose's depth profile is still the left's (step 2); the left thumb's
 large nail (D2) and the forearm cuff (steps 2–3).
 
-**Open for the user before step 2:** the joint gates are 16 separate 2 u
-checks per hand; an exact pose passes all of them only about 0.865¹⁶ ≈ 10 %
-of the time under ACCEPTANCE's own 1-σ model (reference verifier's finding).
-See the session-4 decisions below once answered.
+**Decided before step 2 (D16):** the joint gates were 16 separate 2 u checks
+per hand, which an exact pose passes only ≈ 10 % of the time (reference
+verifier's finding); joints are now gated at 3 u, tips stay at 2 u.
 
 ## Resume here
 

@@ -12,7 +12,7 @@ export const meta = {
 const CONTEXT = `You are working in the Alpha repo at /home/a/Documents/Alpha (the main checkout, branch main — not a .claude/worktrees path). Alpha v1.0.0 is a React + TypeScript + Vite + three.js desktop-app front end. Its startup page shows two hands from The Creation of Adam: a sculptural human hand (LEFT) entering from the upper left, and a particle hand (RIGHT) entering from the lower right, index fingertips almost touching. The hands are built by a Blender script from one pose file per hand.
 
 Read first:
-- documentations/log/log-v2.md: decisions D1-D11 and "Resume here" (this run is step 2).
+- documentations/log/log-v2.md: decisions D1-D16, "Step 1 closed" and "Resume here" (this run is step 2).
 - docs/CONTRACTS.md (sections 1-8) and docs/ACCEPTANCE.md (how each metric is computed and read; the gates and why).
 - docs/HAND_ASSETS.md (how the builder turns a pose into a mesh; what each pose field does).
 - aes-ref/alpha-white-geom.PNG — THE reference (1644x957). Crop and upscale it with Pillow, then Read the PNG, before judging anything.
@@ -29,6 +29,7 @@ DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here
 - D12 The right reference mask bridges the dorsal bays along the back of the index finger and the knuckles: the back of the finger is straight there.
 - D13 The left thumb tip keypoint is the measured (562, 458), uncertainty 8 px.
 - D14 The left gates stay as derived (the +-1 px stroke variant); they are strict on purpose.
+- D16 Joints (MCP/PIP/DIP, thumb chain, wrist) are gated at 3 x their stated uncertainty (joint_k in thresholds.json), silhouette tips at 2 x (tip_k): 16 joint checks per hand would otherwise fail an exact pose most of the time. compare_silhouette.py applies both.
 
 ENVIRONMENT:
 - Blender 5.2.2 LTS headless: blender -b --factory-startup -P script.py -- args (about 35-55 s per hand). Python 3.14 with numpy, Pillow, scipy only (no OpenCV, no scikit-image, no trimesh; do not pip install anything).
@@ -125,7 +126,7 @@ LOOP:
 3. Score: python3 scripts/compare_silhouette.py --hand ${hand} --render outputs/qa/calib/${hand}-mask.png --render-keypoints assets-source/hands/pose-${hand}.json --out outputs/qa/calib/compare-${hand}
 4. Look at the overlays in outputs/qa/calib/compare-${hand}/ (red = reference only, blue = render only, black = both); crop and zoom wherever there is colour; then choose the next edit. Use precision vs recall and the tip offsets to tell pose errors from thickness errors (ACCEPTANCE.md section 3). Fix the big structures first (wrist and forearm band, palm and back-of-hand outline, each digit's axis), thickness second, tips last.
 
-GATES: the ${hand} entries of assets-source/reference/thresholds.json (docs/ACCEPTANCE.md section 4): IoU, contour mean and p95, negative-space IoU, silhouette tips, and keypoints within 2 x their stated uncertainty (the pose file is passed as render keypoints). The index-tip contact gap needs both hands; the main session checks it afterwards, so keep your index tip on its reference tip.
+GATES: the ${hand} entries of assets-source/reference/thresholds.json (docs/ACCEPTANCE.md section 4): IoU, contour mean and p95, negative-space IoU, silhouette tips (2 x their stated uncertainty), and joints within 3 x their stated uncertainty (D16; the pose file is passed as render keypoints). The index-tip contact gap needs both hands; the main session checks it afterwards, so keep your index tip on its reference tip.
 
 CONSTRAINTS:
 - Digit identity stays as D1/D2 define it.

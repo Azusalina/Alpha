@@ -279,7 +279,17 @@ in quadrature instead, it allows up to √3 × noise. A gate at 1 × noise would
 that differs from the chosen mask exactly as much as an equally valid mask does. A much
 larger k would accept poses that the reference can clearly tell apart. Keypoint
 uncertainties are 1-σ-style radii. For a 2-D Gaussian, only 39 % of exact measurements
-land within 1 σ and 86 % land within 2 σ, so the same k = 2 applies to keypoints.
+land within 1 σ and 86 % land within 2 σ, so the same k = 2 applies to the silhouette tips.
+
+**Joints: k = 3 (decision D16).** Every joint is its own check, and a hand has 16 of them
+(MCP / PIP / DIP of four fingers, the thumb's CMC / MCP / IP, the wrist). At k = 2 an exact
+pose would pass all 16 only 0.865¹⁶ ≈ 10 % of the time — the gate would fail good poses by
+construction, mostly on joints that are hidden and only read by eye. To keep the confidence
+of a single 2-σ check for the whole family, each joint needs P = 0.865^(1/16) = 0.991, i.e.
+k = √(−2 ln(1 − P)) = 3.07; the gate uses k = 3 (all 16 pass 84 % of the time). The four
+tips per hand stay at k = 2: their stated uncertainties (left 1.5–2 px, right 3–4 px) are
+already at or above the measured tip noise (≤ 1 px and ≤ 3.2 px), so the tip gates are not
+tight in practice. `thresholds.json` carries both factors as `tip_k` and `joint_k`.
 
 Can a smooth mesh reach these gates at all? Yes. Morphologically opening and closing each
 reference mask with an 8-px disk removes every feature a smooth hand model could not carry.
@@ -305,7 +315,7 @@ bridge).
 | Contour p95 | 1.00 px (stroke outer edge) | **≤ 2.0 px** | 4.47 px (level 7.5) | **≤ 8.9 px** | ≤ 8 px |
 | Negative-space IoU | 0.0674 loss (stroke inner edge) | **≥ 0.865** | 0.0870 loss (level 5.5) | **≥ 0.825** | ≥ 0.85 |
 | Silhouette tips | tip moves ≤ 1 px; stated uncertainty 1.5–2 px | **index ≤ 3.0 px, middle / ring / pinky ≤ 4.0 px** | tip moves ≤ 3.2 px; uncertainty 3–4 px | **index ≤ 6.0 px, middle / ring / pinky ≤ 8.0 px** | within stated uncertainty (k = 1) |
-| Keypoints (joints) | stated uncertainty *u* | **≤ 2 *u*** | stated uncertainty *u* | **≤ 2 *u*** | within *u* |
+| Keypoints (joints) | stated uncertainty *u* | **≤ 3 *u*** (D16) | stated uncertainty *u* | **≤ 3 *u*** (D16) | within *u* |
 | Contact gap | tips 1.5 px (left) and 3.0 px (right), combined 3.4 px | **\|Δgap\| ≤ 6.8 px** (reference 30.4 px) | | | none |
 
 **Pose matches** when both hands pass every gate, the contact gap is within tolerance and the
@@ -343,8 +353,10 @@ gates to be hard: the current Blender mesh scores IoU 0.901 and p95 13 px (§6).
    8.702 % IoU, so 1 − 2 × 0.08702 = 0.82596, which `derive_gates` floors to three decimals
    and ships as **0.825** (`thresholds.json` → `gates.right.negative_space_iou_min`). A gate
    of 0.85 would be k = 1.72.
-3. **Keypoints and tips at 2 × uncertainty (log: 1 ×).** An exact render would fail about
-   60 % of 1-σ checks from the reference's own scatter alone (see "Why k = 2" above).
+3. **Tips at 2 × and joints at 3 × uncertainty (log: 1 ×).** An exact render would fail
+   about 60 % of 1-σ checks from the reference's own scatter alone (see "Why k = 2" above);
+   joints are 16 checks per hand, so each gets k = 3 to keep the family's confidence
+   (decision D16).
 
 ### 4.3 Reading a score as an edge offset
 
@@ -457,8 +469,8 @@ raw masks gives the same silhouette numbers, and with `--render-keypoints` the j
 
 | Hand | IoU (P / R) | Contour mean / p95 / max (px) | Neg-space IoU | Tips (px) | Failed gates |
 |---|---|---|---|---|---|
-| left | 0.894 (0.918 / 0.972) | 5.4 / 12.1 / 43.0 | 0.783 | index 2.0, middle 2.2, ring 2.8, pinky 3.2 | IoU, mean, p95, neg-space; joints pinky_pip, pinky_mcp, middle_mcp, thumb_cmc, pinky_dip, wrist, thumb_mcp, ring_mcp, thumb_ip |
-| right | 0.790 (0.954 / 0.821) | 11.2 / 30.0 / 68.2 | 0.703 | index 4.0, middle 9.2, ring 2.2, pinky 3.6 | IoU, mean, p95, neg-space, middle tip; joints wrist, index_mcp |
+| left | 0.894 (0.918 / 0.972) | 5.4 / 12.1 / 43.0 | 0.783 | index 2.0, middle 2.2, ring 2.8, pinky 3.2 | IoU, mean, p95, neg-space; joints (at 3 *u*) pinky_pip, pinky_mcp, middle_mcp, thumb_cmc, pinky_dip |
+| right | 0.790 (0.954 / 0.821) | 11.2 / 30.0 / 68.2 | 0.703 | index 4.0, middle 9.2, ring 2.2, pinky 3.6 | IoU, mean, p95, neg-space, middle tip; no joint |
 
 The contact gap is 29.0 px (reference 30.41, Δ −1.4 px, tolerance 6.8), which passes. The
 right IoU fell from 0.803 to 0.790 only because D12 added the bridged dorsal bays to the
