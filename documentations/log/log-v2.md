@@ -6,7 +6,9 @@ Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review 
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
 **Status: IN PROGRESS — session 4** (repo root, `main`). Step 1 is closed
-(all three foundations verified); step 2 is next. Decisions D5–D15 were added
+(all three foundations verified); step 2 (calibration) is running; step 4 (the
+app on the Blender assets) is done in parallel. Step 3 and step 5 wait for
+step 2 (D3). Decisions D5–D15 were added
 during this session (below D1–D4). Earlier pauses: twice at the user's request,
 latest after the step-1 run in session 3. Pick up at "Resume here". A
 paste-ready prompt for a new chat session is in
@@ -320,6 +322,50 @@ large nail (D2) and the forearm cuff (steps 2–3).
 **Decided before step 2 (D16):** the joint gates were 16 separate 2 u checks
 per hand, which an exact pose passes only ≈ 10 % of the time (reference
 verifier's finding); joints are now gated at 3 u, tips stay at 2 u.
+
+## Step 4 — the app on the Blender assets (session 4, 2026-09-21)
+
+Done in the main session while step 2 (`wf_ed7d0e78-c57`) calibrates the poses;
+the files are disjoint. Commits `aa31b9d`, `f65131e`, `f1e178c`.
+
+- **Exact camera mapping** (`composition.ts`): `pixelToWorld(px, py, z)` with
+  the `(D − z) / D` factor and `projectToPixel`, `HOME_DISTANCE` = D (review
+  B1.4 fixed; CONTRACTS §3).
+- **Poses** (`hand/pose.ts`): both pose files are bundled, validated and turned
+  into rigs; `LEFT_HAND_SPEC`, the right-hand similarity transform and the
+  round-1 tube mesh (`hand/mesh.ts`) are gone.
+- **Assets** (`hand/assets.ts`): GLBs and contour files load through
+  `useLoader` in one Suspense boundary, preloaded together; the startup
+  timeline starts only once they and the particle sample are in.
+- **Reveal** (`hand/reveal.ts`): per-vertex order from the pose bones, 0 where
+  the forearm enters the frame, 1 at every fingertip (thumb branching at the
+  wrist); plus a knuckle weight for the sampler.
+- **Left hand**: `FrontSide` plaster; construction lines in the review-B2 order
+  — wrist structure → metacarpals → knuckles → outer contour (the mesh's own
+  silhouette from `hand-left.contour.json`, drawn in ink) — with overlapping
+  layer windows; the surface reveal starts while the contour is being drawn.
+- **Right hand**: particles sampled from `hand-right.glb` with the seeded
+  sampler, weighted to fingertips, knuckles and the rim (sparse palm), size
+  tiers with larger points lighter and a 2.2 cap, breathing damped on rim
+  particles, the tail released from the forearm surface along its own axis.
+- **Canvas `flat`** and re-tuned plaster lighting (a more grazing key; one named
+  constant in `AlphaScene.tsx`).
+- **View modes** `silhouette` / `solid` / `full` (CONTRACTS §9) plus a dev-only
+  `?tier=low` for an MSAA-free capture.
+- Round-1 landmark tools retired (`preview_rig.py`, `measure_landmarks.py`, the
+  generated landmark file, `npm run qa:landmarks`).
+
+Checks: `tsc` clean; Playwright 7 / 7; the app's silhouette capture matches the
+Blender masks at IoU 0.9998 per hand (every differing pixel within 1 px of the
+edge, 0 stray), and `overlay_check.py` reproduces the Blender baseline from it —
+the first run of the tool on a real app capture. Startup frames at p = 0.2 /
+0.45 / 0.62 / 0.8 show the intended order. Screenshots so far are SwiftShader
+/ Chromium; nothing here is a hardware frame time.
+
+Left for later steps: the seed digest and the in-browser GLB integrity check
+(step 5); particle tone and the tail judged against the calibrated hands (steps
+5–6); construction lines are 1 device px (`LineSegments`) — screen-constant
+widths (`Line2`) would be a later refinement (spec 6.2).
 
 ## Resume here
 
