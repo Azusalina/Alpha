@@ -160,6 +160,16 @@ as D1–D4.
 | D10 | Gate for review §E "do the particles keep the hand shape" | **Decide at step 5.** Once step 4 samples the particles from `hand-right.glb`, the main session proposes a method and a threshold with measurements and asks. (The right mask's density level, 6.5 particles / 1000 px², cannot be reused as is: the app's particle density differs.) |
 | D11 | Housekeeping | The stale worktree `.claude/worktrees/alpha-v1-round2-form-9ee280` and its branch were removed (clean, at `a91c691`). `alpha-v1-review/` stays untracked. |
 
+Asked on 2026-09-21, after the step-1 run surfaced them (the reference fixer
+correctly left them to the user):
+
+| # | Question | Decision |
+|---|---|---|
+| D12 | The right reference mask dips into three bays along the back of the index finger and the knuckles (x 867–1008, y 441–514; 445 + 359 + 1 409 px): the particles there are sparse and joined only by thin lines, which the density rule does not count. Bridge them? | **Bridge them**: the back of the finger runs straight, as the particles and their joining lines do. Bridging becomes the default in `scripts/reference_masks.py`; the gates are re-derived (expected right IoU ≥ 0.918, contour mean ≤ 3.7 px, p95 ≤ 8.9 px, negative space ≥ 0.825 unchanged; tips and the negative-space mask do not move). |
+| D13 | Left thumb tip: the script moved it from D2's reading (548–559, 461) to a measured (562, 458), the distal end of the thumb along its axis. Which? | **The measured (562, 458)**, uncertainty ±8 px (at k = 2 it covers D2's whole range). D2 decided which digit is the thumb; that is unchanged. No gate depends on this point. |
+| D14 | The left gates come from a ±1 px dilate/erode variant; the corrected stroke measurement gives a median half-width of 0.82 px but 1.07 px at p90. Widen the variant? | **Keep ±1 px**; the left gates stay as they are. The p90 caveat stays documented in ACCEPTANCE §4.1. |
+| D15 | The playwright-cli skill the user installed (`.claude/skills/playwright-cli/`, `.playwright/cli.config.json`, a `.gitignore` line) | Keep it only if it is useful, and never in the pushed repo. It works here (its own Chromium, WebGL 2, 1644 × 957 screenshots) and suits the step-4/5 screenshot loop, so it stays **local only**: the three paths are listed in `.git/info/exclude`, and the `.gitignore` line moved there. |
+
 ---
 
 ## Status after the step-1 run (2026-09-19, session 3)
