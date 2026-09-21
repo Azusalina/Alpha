@@ -5,8 +5,9 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: IN PROGRESS — session 4** (repo root, `main`). Decisions D5–D11 were
-added at its start (below D1–D4). Earlier pauses: twice at the user's request,
+**Status: IN PROGRESS — session 4** (repo root, `main`). Step 1 is closed
+(all three foundations verified); step 2 is next. Decisions D5–D15 were added
+during this session (below D1–D4). Earlier pauses: twice at the user's request,
 latest after the step-1 run in session 3. Pick up at "Resume here". A
 paste-ready prompt for a new chat session is in
 [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md).
@@ -26,6 +27,9 @@ paste-ready prompt for a new chat session is in
 
 ## What was built
 
+*As of session 2; the "Not done" notes below are historical. Current status:
+"Step 1 closed".*
+
 ### Review defects
 
 | # | Defect | Status |
@@ -33,7 +37,7 @@ paste-ready prompt for a new chat session is in
 | A1 | Mesh winding inverted, no continuous surface | **Solved by replacement**: new Blender meshes are 1 shell, 0 non-manifold, 0 boundary edges, 100 % winding agreement. The app still renders the old TS mesh until integration. |
 | A2 | Seed did not reproduce the cloud | **Fixed and verified**: same seed 0 / 30 000 mismatches (was 30 000 / 30 000); different seed differs everywhere. Commit `648beb2`. |
 | A3 | `smoothstep(edge0 > edge1)` undefined | **Fixed**, `648beb2`. |
-| A4 | Overlay channel math broken, too few measurements | **Built, not yet independently verified**: `compare_silhouette.py` is new (red/blue/black overlay, IoU, contour distance, negative space, keypoints, refuses wrong resolution); `overlay_check.py` was rewritten in session 3 (see "Status after the step-1 run"). |
+| A4 | Overlay channel math broken, too few measurements | **Fixed and verified** (session 4): `compare_silhouette.py` (red/blue/black overlay, IoU, contour distance, negative space, tips, joints, refuses wrong resolution) and the rewritten `overlay_check.py` passed an independent verification. |
 | A5 | Playwright preset overrode 1644 × 957 | **Fixed**, `648beb2`. The suite had been running at 1280 × 720; all 7 checks still pass at the right size. |
 
 ### Reference data and tools — `scripts/reference_masks.py`, `scripts/compare_silhouette.py`
@@ -221,7 +225,7 @@ Main-session smoke checks on the committed state: `compare_silhouette.py
 on a synthetic silhouette runs, channels no longer stuck at 255; mesh reports 1
 shell / 0 / 0 / 100 %; `tsc` clean.
 
-### Blender verifier findings (verifier 1; still open)
+### Blender verifier findings (verifier 1) — closed in session 4, see "Step 1 closed"
 
 - **major** — `hand-left.contour.json` `outer` polylines cover only ~94 % of the
   boundary (largest gap ~41 px, wrist underside), and some real outline is
@@ -242,14 +246,14 @@ shell / 0 / 0 / 100 %; `tsc` clean.
   metrics were computed while `keypoints.json` was being regenerated
   concurrently, so re-run the comparison before trusting keypoint numbers.
 
-### Baselines now (replace the table in "What was built")
+### Baselines at the end of session 3 (superseded: see "Step 1 closed")
 
 | Hand | IoU | Contour mean / p95 (px) | Negative-space IoU |
 |---|---|---|---|
 | left | 0.901 | 6.8 / 13 | 0.815 |
 | right | 0.803 | 10.2 / 29 | 0.704 |
 
-### Gates derived per D4 (`docs/ACCEPTANCE.md`)
+### Gates derived per D4 at the end of session 3 (superseded: see "Step 1 closed")
 
 Gate = 2 × the reference mask's own noise. **Left is stricter than the log's
 numbers** (IoU ≥ 0.963, contour mean and p95 ≤ 2 px, negative space ≥ 0.872,
@@ -268,6 +272,55 @@ metrics cannot see errors under ~5 px; fingertips and the tip gap carry that.
 
 ---
 
+## Step 1 closed (session 4, 2026-09-19 → 2026-09-21)
+
+All three foundations have now passed an independent verification. Runs:
+`wf_9e94756b-4d6` (blender + reference; twice cut off by the account's session
+limit, then resumed from its journal) and `wf_b24351c4-fc7` (reference, after
+D12–D14). Workflows were invoked by `scriptPath`; the session was attended and
+no agent was blocked by permissions.
+
+| Deliverable | Verified | Outcome |
+|---|---|---|
+| **tauri** | ✅ session 3 | Plus D7 in session 4: the capability is `core:app:allow-tauri-version` only, checked on Xvfb (`outputs/qa/desktop/`). |
+| **blender** | ✅ `verify:blender#1` (minors only) | Every session-3 finding is closed: the `outer` contour covers 100 % of the in-frame mask boundary on both hands with a largest uncovered run of 0 px (D9; the builder prints the check as `[d9]`); the decimation fold on the back of the left hand and the nail-edge defects are gone; `HAND_ASSETS.md` rewritten to match the code. GLBs, contours, masks and views reproduce byte/pixel-identically; A1 numbers unchanged (1 shell, 0 / 0, 100 %, 28 854 triangles). The main session found the contour JSONs on disk stale after the first interrupted run and rebuilt them (commit `4f117b3`). |
+| **reference** | ✅ `verify:reference#1` of `wf_b24351c4-fc7` (minors only) | D5, D12, D13 and D14 applied; 33 output files reproduce byte-identically. Fixed on the way: a sign error in `stroke_width_fwhm()` (the stroke is median 1.64 px wide, not 1.44), `compare_silhouette.py` applying a pose file to the wrong hand, several ACCEPTANCE statements. `--no-bridge-bays` writes the pre-D12 mask for comparison only (marked `NOT_THE_REFERENCE`, refused inside the reference directories, and — main session — refused by `compare_silhouette.py --ref-dir`). |
+
+**Gates now** (`thresholds.json`, CONTRACTS §8): left IoU ≥ 0.960, contour
+mean and p95 ≤ 2.0 px, negative space ≥ 0.865, tips index ≤ 3 / others ≤ 4 px;
+right IoU ≥ 0.918, mean ≤ 3.7 px, p95 ≤ 8.9 px, negative space ≥ 0.825, tips
+index ≤ 6 / others ≤ 8 px; joints ≤ 2 × stated uncertainty; contact gap
+30.41 ± 6.8 px.
+
+**Baseline before calibration** (ACCEPTANCE §6, re-measured by the main
+session against the final reference):
+
+| Hand | IoU | Contour mean / p95 (px) | Neg-space IoU | Failing |
+|---|---|---|---|---|
+| left | 0.894 | 5.4 / 12.1 | 0.783 | IoU, mean, p95, negative space; 9 of 16 joints (pinky_pip 6.0 u, pinky_mcp 5.2 u, middle_mcp 4.1 u, thumb_cmc 3.6 u, …) |
+| right | 0.790 | 11.2 / 30.0 | 0.703 | IoU, mean, p95, negative space, middle tip (9.2 px); 2 joints (wrist, index_mcp) |
+
+Contact gap 29.0 px (Δ −1.4, passes).
+
+**Main-session follow-ups done:** CONTRACTS §6 (coverage), §7 (D5/D12/D13),
+§8 (gate table, `--no-bridge-bays`); ACCEPTANCE §6 re-measured, plus three
+verifier minors (the left gates are stricter than the log only for the
+silhouette metrics; the right hand's position is pinned only to about ±5 px;
+the thumb-tip grey sweep moves it ≤ 4.2 px, not 3.6); three HAND_ASSETS
+minors (mask pixel totals, the depth-copy tolerance, the right hand's failing
+middle tip).
+
+**Remaining minors, not fixed** (recorded for later): the D12 bay rule tells
+dorsal from palmar by "top above y 480", which only works for the current
+parameters; the annotated overlays draw their caption over the left forearm;
+the right pose's depth profile is still the left's (step 2); the left thumb's
+large nail (D2) and the forearm cuff (steps 2–3).
+
+**Open for the user before step 2:** the joint gates are 16 separate 2 u
+checks per hand; an exact pose passes all of them only about 0.865¹⁶ ≈ 10 %
+of the time under ACCEPTANCE's own 1-σ model (reference verifier's finding).
+See the session-4 decisions below once answered.
+
 ## Resume here
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
@@ -279,8 +332,8 @@ Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
 user to run `npm install --legacy-peer-deps` — npm hangs from the agent
 sandbox. (`/home/a/Documents/Alpha/v1/` no longer exists.)
 
-**1. Finish and verify the three foundations.** *Partly done — see "Status
-after the step-1 run" below.* Tauri is verified. What remains:
+**1. Finish and verify the three foundations.** ✅ **Done** in session 4 —
+see "Step 1 closed". (The text below is kept for the record.)
 
 - *blender*: fix the verifier's findings (contour coverage gap, decimation fold,
   nail-edge defects; right pose depth copied from the left is a step-2 item), then

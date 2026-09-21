@@ -134,9 +134,16 @@ def load_reference(hand: str, ref_dir: Path = REF_DIR) -> dict:
         return np.asarray(Image.open(p).convert("L")) > 127
 
     kp_path = ref_dir / "keypoints.json"
-    kps = json.loads(kp_path.read_text())[hand] if kp_path.exists() else {}
+    kp_all = json.loads(kp_path.read_text()) if kp_path.exists() else {}
     th_path = ref_dir / "thresholds.json"
     th = json.loads(th_path.read_text()) if th_path.exists() else None
+    # `reference_masks.py --no-bridge-bays` writes comparison-only data whose JSON files
+    # all start with this key (decision D12). Nothing may be scored against it.
+    if "NOT_THE_REFERENCE" in kp_all or (th and "NOT_THE_REFERENCE" in th):
+        print(f"refusing {ref_dir}: marked NOT_THE_REFERENCE (comparison-only output, "
+              "decision D12); score against assets-source/reference/", file=sys.stderr)
+        raise SystemExit(2)
+    kps = kp_all[hand] if kp_all else {}
     return {
         "thresholds": th,
         "mask": m("mask"),

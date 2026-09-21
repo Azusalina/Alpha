@@ -310,9 +310,9 @@ NORMAL only, no material; 1 connected component; 0 boundary and 0 non-manifold
 edges after welding by position; no directed edge used twice; normals unit to
 1.4e-7; 100 % winding agreement; signed volume positive. GLB triangles
 projected with the contract-3 formula and rasterised match the Blender mask
-almost exactly — 3 differing pixels of 114 639 hand pixels (left) and 2 of
-75 582 (right), each on the mask edge — so the Blender, glTF and app
-conventions agree.
+almost exactly — 3 differing pixels of 124 219 hand pixels (left) and 2 of
+122 990 (right; mask value > 127, forearm to the frame edge included), each on
+the mask edge — so the Blender, glTF and app conventions agree.
 
 Rebuilding into a scratch directory on 2026-09-20 reproduced the committed
 outputs exactly: both GLBs and both contour JSONs byte-identical, all masks,
@@ -329,8 +329,10 @@ provisional until the reference round finishes):
 | right | 0.803 | 0.949 | 0.839 | 10.2 / 29.3 / 68.2 | 0.703 | 2.2–9.2 |
 
 Both hands fail the derived gates in `docs/ACCEPTANCE.md` on IoU, contour
-distance and negative space, as expected before step 2: the form is not
-calibrated yet.
+distance and negative space, and the right hand also fails the middle-tip gate
+(9.2 px against 8.0), as expected before step 2: the form is not calibrated
+yet. The left hand also fails several keypoint gates on hidden joints (see
+below).
 
 ## Provenance
 
@@ -355,8 +357,10 @@ calibrated yet.
   by a few px; several hidden left joints (pinky MCP/PIP, thumb CMC, middle MCP)
   are 40–78 px from the reference readings, and the right wrist is 89 px off.
   Those are pose numbers, not builder errors.
-- **The right pose's depth profile was not reconstructed independently**: `z`,
-  `flat` and `dorsal` are within ±0.01 of the left pose at every joint. A
+- **The right pose's depth profile was not reconstructed independently**: `z`
+  is within 0.02 of the left pose at every hand joint (the off-frame forearm
+  differs by 0.05), `flat` within 0.05, and `dorsal` differs by 0.02 per
+  component. A
   step-2 item (the verifier's finding; poses are frozen until then).
 - **The left thumb does not yet show D2's large viewer-facing nail.** The nail
   relief is deliberately shallow (0.12 × tip half-thickness); making that thumb

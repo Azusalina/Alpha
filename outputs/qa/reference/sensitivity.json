@@ -330,12 +330,16 @@
   },
   "right": {
     "dorsal_bays": {
+      "rule": "bays = components of (convex hull of (mask AND window) AND window AND NOT mask) with >= 300 px whose top lies above y 480 (the dorsal side), on the density-rule mask; bridging adds them to the mask",
       "window": [
         840,
         415,
         1010,
         520
       ],
+      "window_read_by_eye": true,
+      "min_bay_px": 300,
+      "bay_top_max_y": 480,
       "bays": [
         {
           "px": 445,
@@ -369,7 +373,7 @@
         }
       ],
       "total_px": 2213,
-      "bridged": false,
+      "bridged": true,
       "ink_evidence": {
         "rule": "ink = clip((paper 247 - grey) / 247, 0, 1); 'inked' = ink > 0.10",
         "bays": {
@@ -395,20 +399,21 @@
         },
         "reading": "the bays carry 7.3x the ink of the paper just outside the hull and 41 % of the ink inside the mask nearby: they are drawn-on area, not paper. The ink there is the thin lines joining the particles, which the dot-only density rule does not count."
       },
-      "bays_filled_vs_mask": {
+      "density_rule_vs_bridged": {
         "iou": 0.97479,
         "contour_mean_px": 1.062,
         "contour_p95_px": 8.062,
         "contour_max_px": 28.018,
-        "negative_space_iou": 1.0
+        "negative_space_iou": 1.0,
+        "reading": "the density-rule mask (with the bays) scored against the bridged mask; all four metrics are symmetric"
       }
     },
     "defensible_variants": {
       "sigma6.0": {
-        "iou": 0.97584,
-        "contour_mean": 1.029,
-        "contour_p95": 2.828,
-        "contour_max": 20.125,
+        "iou": 0.98105,
+        "contour_mean": 0.861,
+        "contour_p95": 2.0,
+        "contour_max": 19.209,
         "negative_space_iou": 0.96088,
         "tip_shift_px": {
           "index_tip": 1.41,
@@ -418,10 +423,10 @@
         }
       },
       "sigma8.0": {
-        "iou": 0.98294,
-        "contour_mean": 0.763,
-        "contour_p95": 2.189,
-        "contour_max": 5.0,
+        "iou": 0.98336,
+        "contour_mean": 0.841,
+        "contour_p95": 2.0,
+        "contour_max": 21.541,
         "negative_space_iou": 0.96766,
         "tip_shift_px": {
           "index_tip": 1.41,
@@ -431,10 +436,10 @@
         }
       },
       "level5.5": {
-        "iou": 0.95325,
-        "contour_mean": 2.151,
-        "contour_p95": 5.0,
-        "contour_max": 22.847,
+        "iou": 0.96128,
+        "contour_mean": 1.868,
+        "contour_p95": 4.0,
+        "contour_max": 20.616,
         "negative_space_iou": 0.91298,
         "tip_shift_px": {
           "index_tip": 2.0,
@@ -444,9 +449,9 @@
         }
       },
       "level7.5": {
-        "iou": 0.95093,
-        "contour_mean": 2.041,
-        "contour_p95": 5.099,
+        "iou": 0.95946,
+        "contour_mean": 1.802,
+        "contour_p95": 4.472,
         "contour_max": 21.633,
         "negative_space_iou": 0.92279,
         "tip_shift_px": {
@@ -457,8 +462,8 @@
         }
       },
       "smooth3.0": {
-        "iou": 0.99427,
-        "contour_mean": 0.257,
+        "iou": 0.99467,
+        "contour_mean": 0.263,
         "contour_p95": 1.0,
         "contour_max": 2.236,
         "negative_space_iou": 0.97583,
@@ -470,8 +475,8 @@
         }
       },
       "smooth5.0": {
-        "iou": 0.99408,
-        "contour_mean": 0.268,
+        "iou": 0.99526,
+        "contour_mean": 0.236,
         "contour_p95": 1.0,
         "contour_max": 2.236,
         "negative_space_iou": 0.98971,
@@ -483,8 +488,8 @@
         }
       },
       "shrink1.0": {
-        "iou": 0.97874,
-        "contour_mean": 1.001,
+        "iou": 0.98037,
+        "contour_mean": 1.004,
         "contour_p95": 1.0,
         "contour_max": 2.236,
         "negative_space_iou": 0.94131,
@@ -496,8 +501,8 @@
         }
       },
       "shrink3.0": {
-        "iou": 0.97482,
-        "contour_mean": 1.068,
+        "iou": 0.97712,
+        "contour_mean": 1.064,
         "contour_p95": 1.414,
         "contour_max": 2.0,
         "negative_space_iou": 0.93836,
@@ -511,159 +516,168 @@
     },
     "uniform_offset_curve": {
       "dilate1": {
-        "iou": 0.97878,
+        "iou": 0.98055,
         "contour_mean": 1.0,
         "contour_p95": 1.0,
         "contour_max": 2.236,
         "negative_space_iou": 0.94136
       },
       "erode1": {
-        "iou": 0.97739,
+        "iou": 0.97926,
         "contour_mean": 1.001,
         "contour_p95": 1.0,
         "contour_max": 2.0,
         "negative_space_iou": 0.94685
       },
       "dilate2": {
-        "iou": 0.95846,
-        "contour_mean": 1.758,
+        "iou": 0.96186,
+        "contour_mean": 1.755,
         "contour_p95": 2.0,
         "contour_max": 3.606,
         "negative_space_iou": 0.88993
       },
       "erode2": {
-        "iou": 0.95494,
-        "contour_mean": 2.12,
+        "iou": 0.95864,
+        "contour_mean": 2.139,
         "contour_p95": 2.0,
         "contour_max": 39.925,
         "negative_space_iou": 0.89485
       },
       "dilate3": {
-        "iou": 0.93579,
-        "contour_mean": 2.744,
+        "iou": 0.94094,
+        "contour_mean": 2.737,
         "contour_p95": 3.0,
         "contour_max": 4.472,
         "negative_space_iou": 0.83166
       },
       "erode3": {
-        "iou": 0.92888,
-        "contour_mean": 3.089,
+        "iou": 0.93476,
+        "contour_mean": 3.103,
         "contour_p95": 3.0,
         "contour_max": 39.925,
         "negative_space_iou": 0.83711
       },
       "dilate4": {
-        "iou": 0.91719,
-        "contour_mean": 3.635,
+        "iou": 0.92372,
+        "contour_mean": 3.627,
         "contour_p95": 4.0,
         "contour_max": 5.831,
         "negative_space_iou": 0.78508
       },
       "erode4": {
-        "iou": 0.90668,
-        "contour_mean": 4.008,
+        "iou": 0.91431,
+        "contour_mean": 3.984,
         "contour_p95": 4.0,
         "contour_max": 39.812,
         "negative_space_iou": 0.79511
       },
       "dilate5": {
-        "iou": 0.8942,
-        "contour_mean": 4.781,
+        "iou": 0.90227,
+        "contour_mean": 4.775,
         "contour_p95": 5.0,
         "contour_max": 9.849,
         "negative_space_iou": 0.72783
       },
       "erode5": {
-        "iou": 0.87813,
-        "contour_mean": 5.15,
+        "iou": 0.88783,
+        "contour_mean": 5.115,
         "contour_p95": 5.0,
         "contour_max": 40.162,
         "negative_space_iou": 0.73844
       },
       "dilate6": {
-        "iou": 0.87728,
-        "contour_mean": 5.673,
+        "iou": 0.88644,
+        "contour_mean": 5.665,
         "contour_p95": 6.0,
         "contour_max": 13.0,
         "negative_space_iou": 0.6857
       },
       "erode6": {
-        "iou": 0.85637,
-        "contour_mean": 6.041,
-        "contour_p95": 6.083,
+        "iou": 0.86762,
+        "contour_mean": 5.988,
+        "contour_p95": 6.0,
         "contour_max": 39.85,
         "negative_space_iou": 0.70213
       },
       "dilate8": {
-        "iou": 0.84326,
-        "contour_mean": 7.791,
-        "contour_p95": 8.062,
+        "iou": 0.8542,
+        "contour_mean": 7.771,
+        "contour_p95": 8.0,
         "contour_max": 40.497,
         "negative_space_iou": 0.60289
       },
       "erode8": {
-        "iou": 0.8099,
-        "contour_mean": 8.014,
-        "contour_p95": 8.544,
+        "iou": 0.82424,
+        "contour_mean": 7.927,
+        "contour_p95": 8.0,
         "contour_max": 40.262,
         "negative_space_iou": 0.62087
       },
       "dilate10": {
-        "iou": 0.80985,
-        "contour_mean": 10.145,
-        "contour_p95": 11.402,
+        "iou": 0.82183,
+        "contour_mean": 9.926,
+        "contour_p95": 10.0,
         "contour_max": 42.72,
         "negative_space_iou": 0.52367
       },
       "erode10": {
-        "iou": 0.76075,
-        "contour_mean": 10.307,
-        "contour_p95": 12.649,
+        "iou": 0.77743,
+        "contour_mean": 10.032,
+        "contour_p95": 10.198,
         "contour_max": 40.792,
-        "negative_space_iou": 0.55045
+        "negative_space_iou": 0.55305
       }
     },
     "smooth_model_floor": {
       "open4": {
-        "iou": 0.99838,
-        "contour_mean": 0.066,
+        "iou": 0.99935,
+        "contour_mean": 0.023,
         "contour_p95": 0.0,
-        "contour_max": 9.849,
+        "contour_max": 4.243,
         "negative_space_iou": 0.99981
       },
       "close4": {
-        "iou": 0.99973,
-        "contour_mean": 0.012,
+        "iou": 0.9998,
+        "contour_mean": 0.01,
         "contour_p95": 0.0,
         "contour_max": 1.0,
         "negative_space_iou": 0.99948
       },
       "open8": {
-        "iou": 0.99481,
-        "contour_mean": 0.222,
+        "iou": 0.99754,
+        "contour_mean": 0.104,
         "contour_p95": 1.0,
-        "contour_max": 12.369,
+        "contour_max": 7.81,
         "negative_space_iou": 0.98305
       },
       "close8": {
-        "iou": 0.99682,
-        "contour_mean": 0.136,
+        "iou": 0.99792,
+        "contour_mean": 0.098,
         "contour_p95": 1.0,
         "contour_max": 4.123,
         "negative_space_iou": 0.99477
       }
     },
+    "user_decision_effects": {
+      "d12_bays_left_open": {
+        "iou": 0.97479,
+        "contour_mean": 1.062,
+        "contour_p95": 8.062,
+        "contour_max": 28.018,
+        "negative_space_iou": 1.0
+      }
+    },
     "noise": {
       "iou_loss": [
-        0.04907,
+        0.04054,
         "level7.5"
       ],
       "contour_mean_px": [
-        2.151,
+        1.868,
         "level5.5"
       ],
       "contour_p95_px": [
-        5.099,
+        4.472,
         "level7.5"
       ],
       "negative_space_iou_loss": [

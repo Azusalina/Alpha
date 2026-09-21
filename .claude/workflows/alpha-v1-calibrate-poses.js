@@ -26,6 +26,9 @@ DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here
 - D4 The gates are those in assets-source/reference/thresholds.json, derived in docs/ACCEPTANCE.md from the reference masks' own noise.
 - D5 The bright slit between the left thumb and ring finger (x 537-560, y 360-420) is paper seen through a gap: it is negative space, not hand.
 - D6 If calibration plateaus above a gate: record the residual (numbers + overlays) and bring it to the user. Never loosen a gate, never pick another k, never edit thresholds.json.
+- D12 The right reference mask bridges the dorsal bays along the back of the index finger and the knuckles: the back of the finger is straight there.
+- D13 The left thumb tip keypoint is the measured (562, 458), uncertainty 8 px.
+- D14 The left gates stay as derived (the +-1 px stroke variant); they are strict on purpose.
 
 ENVIRONMENT:
 - Blender 5.2.2 LTS headless: blender -b --factory-startup -P script.py -- args (about 35-55 s per hand). Python 3.14 with numpy, Pillow, scipy only (no OpenCV, no scikit-image, no trimesh; do not pip install anything).

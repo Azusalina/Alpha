@@ -1,46 +1,46 @@
 {
   "hand": "left",
-  "label": "blender-silhouette.png left",
+  "label": "blender-baseline-silhouette.png left",
   "frame": [
     1644,
     957
   ],
   "ignore_zone_used": true,
   "pixels": {
-    "reference": 109155,
-    "render": 114740,
-    "overlap": 106114,
-    "render_only": 8626,
-    "reference_only": 3041,
-    "render_in_ignore_zone": 9584
+    "reference": 108358,
+    "render": 114639,
+    "overlap": 105281,
+    "render_only": 9358,
+    "reference_only": 3077,
+    "render_in_ignore_zone": 9580
   },
-  "iou": 0.90094,
-  "precision": 0.92482,
-  "recall": 0.97214,
+  "iou": 0.89436,
+  "precision": 0.91837,
+  "recall": 0.9716,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 4.962,
-      "p95": 11.705,
-      "max": 16.125,
-      "n": 2003
-    },
-    "render_to_ref": {
-      "mean": 8.439,
-      "p95": 46.242,
-      "max": 69.029,
+      "mean": 5.119,
+      "p95": 12.042,
+      "max": 19.105,
       "n": 2138
     },
+    "render_to_ref": {
+      "mean": 5.594,
+      "p95": 12.176,
+      "max": 42.953,
+      "n": 2140
+    },
     "symmetric": {
-      "mean": 6.757,
-      "p95": 13.0,
-      "max": 69.029,
-      "n": 4141
+      "mean": 5.356,
+      "p95": 12.083,
+      "max": 42.953,
+      "n": 4278
     }
   },
   "negative_space": {
-    "iou": 0.81456,
-    "reference_px": 18953,
-    "render_px": 18661
+    "iou": 0.78345,
+    "reference_px": 19748,
+    "render_px": 18696
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -74,15 +74,15 @@
         523
       ],
       "render_px": [
-        602,
-        523
+        599,
+        522
       ],
       "found": true,
       "offset_px": [
-        1,
-        0
+        -2,
+        -1
       ],
-      "distance_px": 1.0,
+      "distance_px": 2.24,
       "reference_uncertainty_px": 2.0,
       "at_search_edge": false,
       "note": ""
@@ -137,23 +137,23 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.90094,
-        "gate": ">= 0.963",
+        "value": 0.89436,
+        "gate": ">= 0.96",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 6.757,
+        "value": 5.356,
         "gate": "<= 2.0",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 13.0,
+        "value": 12.083,
         "gate": "<= 2.0",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.81456,
-        "gate": ">= 0.872",
+        "value": 0.78345,
+        "gate": ">= 0.865",
         "pass": false
       },
       "tip:index_tip": {
@@ -162,7 +162,7 @@
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 1.0,
+        "value": 2.24,
         "gate": "<= 4.0 (= 2.0 x 2.0)",
         "pass": true
       },

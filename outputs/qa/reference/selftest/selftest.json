@@ -19,7 +19,7 @@
         "mean": 0.0,
         "p95": 0.0,
         "max": 0.0,
-        "n": 3696
+        "n": 3468
       },
       "negative_space_iou": 1.0,
       "tips_all_zero": true,
@@ -125,14 +125,14 @@
     },
     "right": {
       "+x": {
-        "iou": 0.93752,
-        "precision": 0.97019,
-        "recall": 0.96533,
+        "iou": 0.94344,
+        "precision": 0.97328,
+        "recall": 0.96853,
         "contour": {
-          "mean": 2.557,
+          "mean": 2.514,
           "p95": 5.0,
           "max": 6.708,
-          "n": 3672
+          "n": 3444
         },
         "contour_max_8px_from_ignore": 5.0,
         "negative_space_iou": 0.8192,
@@ -149,14 +149,14 @@
         "sane": true
       },
       "+y": {
-        "iou": 0.9162,
-        "precision": 0.95728,
-        "recall": 0.95526,
+        "iou": 0.92159,
+        "precision": 0.96019,
+        "recall": 0.95821,
         "contour": {
-          "mean": 3.514,
+          "mean": 3.6,
           "p95": 5.0,
           "max": 6.708,
-          "n": 3686
+          "n": 3458
         },
         "contour_max_8px_from_ignore": 5.0,
         "negative_space_iou": 0.8353,
@@ -171,14 +171,14 @@
         "sane": true
       },
       "diag(3,4)": {
-        "iou": 0.93139,
-        "precision": 0.96677,
-        "recall": 0.96219,
+        "iou": 0.93869,
+        "precision": 0.97062,
+        "recall": 0.96614,
         "contour": {
-          "mean": 2.907,
+          "mean": 2.836,
           "p95": 5.0,
           "max": 8.544,
-          "n": 3672
+          "n": 3444
         },
         "contour_max_8px_from_ignore": 5.0,
         "negative_space_iou": 0.83902,
@@ -263,7 +263,7 @@
     },
     "right": {
       "reference_only": {
-        "pixels": 2967,
+        "pixels": 2763,
         "expected": [
           255,
           0,
@@ -279,7 +279,7 @@
         "ok": true
       },
       "render_only": {
-        "pixels": 35366,
+        "pixels": 35162,
         "expected": [
           0,
           0,
@@ -295,7 +295,7 @@
         "ok": true
       },
       "overlap": {
-        "pixels": 82610,
+        "pixels": 85027,
         "expected": [
           0,
           0,
@@ -311,7 +311,7 @@
         "ok": true
       },
       "neither": {
-        "pixels": 1452365,
+        "pixels": 1450356,
         "expected": [
           255,
           255,

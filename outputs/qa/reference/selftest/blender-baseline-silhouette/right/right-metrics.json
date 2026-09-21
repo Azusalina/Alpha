@@ -1,46 +1,46 @@
 {
   "hand": "right",
-  "label": "blender-silhouette.png right",
+  "label": "blender-baseline-silhouette.png right",
   "frame": [
     1644,
     957
   ],
   "ignore_zone_used": true,
   "pixels": {
-    "reference": 85577,
-    "render": 75686,
-    "overlap": 71833,
-    "render_only": 3853,
-    "reference_only": 13744,
-    "render_in_ignore_zone": 47483
+    "reference": 87790,
+    "render": 75582,
+    "overlap": 72113,
+    "render_only": 3469,
+    "reference_only": 15677,
+    "render_in_ignore_zone": 47408
   },
-  "iou": 0.80323,
-  "precision": 0.94909,
-  "recall": 0.8394,
+  "iou": 0.7902,
+  "precision": 0.9541,
+  "recall": 0.82143,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 9.045,
-      "p95": 24.123,
+      "mean": 9.79,
+      "p95": 25.0,
       "max": 50.922,
-      "n": 1848
+      "n": 1734
     },
     "render_to_ref": {
-      "mean": 11.33,
+      "mean": 12.449,
       "p95": 42.404,
       "max": 68.184,
       "n": 1838
     },
     "symmetric": {
-      "mean": 10.184,
-      "p95": 29.0,
+      "mean": 11.158,
+      "p95": 29.967,
       "max": 68.184,
-      "n": 3686
+      "n": 3572
     }
   },
   "negative_space": {
-    "iou": 0.70372,
+    "iou": 0.70286,
     "reference_px": 21227,
-    "render_px": 25593
+    "render_px": 25646
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -138,22 +138,22 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.80323,
-        "gate": ">= 0.901",
+        "value": 0.7902,
+        "gate": ">= 0.918",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 10.184,
-        "gate": "<= 4.3",
+        "value": 11.158,
+        "gate": "<= 3.7",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 29.0,
-        "gate": "<= 10.2",
+        "value": 29.967,
+        "gate": "<= 8.9",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.70372,
+        "value": 0.70286,
         "gate": ">= 0.825",
         "pass": false
       },

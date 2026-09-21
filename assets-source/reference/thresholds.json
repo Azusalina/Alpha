@@ -1,6 +1,11 @@
 {
   "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between the chosen reference mask and an equally defensible alternative (see outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates floored to 3 decimals, px gates rounded to 0.1 px. Keypoints and silhouette tips: distance <= k x their stated uncertainty.",
   "generator": "scripts/reference_masks.py --sensitivity",
+  "user_decisions": {
+    "D5": "left-mask.png excludes the slit between the thumb and the ring finger (paper seen through a gap); it counts as left negative space",
+    "D12": "right-mask.png bridges the dorsal bays along the back of the index finger and the knuckles; the right gates are derived from the bridged mask",
+    "D14": "the left gates keep the +-1 px dilate/erode stroke variant, although half the p90 stroke width is slightly over 1 px (docs/ACCEPTANCE.md section 4.1)"
+  },
   "log_reference_points": {
     "iou_min": {
       "left": 0.93,
@@ -43,22 +48,22 @@
       }
     },
     "right": {
-      "iou_min": 0.901,
-      "contour_mean_max_px": 4.3,
-      "contour_p95_max_px": 10.2,
+      "iou_min": 0.918,
+      "contour_mean_max_px": 3.7,
+      "contour_p95_max_px": 8.9,
       "negative_space_iou_min": 0.825,
       "keypoint_k": 2.0,
       "noise": {
         "iou_loss": [
-          0.04907,
+          0.04054,
           "level7.5"
         ],
         "contour_mean_px": [
-          2.151,
+          1.868,
           "level5.5"
         ],
         "contour_p95_px": [
-          5.099,
+          4.472,
           "level7.5"
         ],
         "negative_space_iou_loss": [

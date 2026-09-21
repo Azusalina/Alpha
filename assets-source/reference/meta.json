@@ -2042,13 +2042,18 @@
         "decision": "paper seen through a gap: left-mask.png excludes it and it counts as left negative space",
         "applied_as": "hole 'D5_thumb_ring_slit' (see holes): its extent is traced, the decision that it is a hole is the user's, not a traced guess",
         "before": "until this decision the slit was listed as a known ambiguity and the mask counted it as inside the hand"
-      }
-    ],
-    "known_ambiguities": [
+      },
       {
-        "what": "where exactly the left thumb ENDS. The thumb's end and its nail are drawn as one stroke, and the ring finger emerges from behind it, so the tip is not a silhouette extreme. The stored point is the distal corner of the nail outline; the user's decision D2 quotes (548-559, 461), the lower-left of the same nail end. Both are on drawn ink and both are defensible readings; the stated uncertainty (8 px) is set by that choice of convention and covers the D2 range at k=2. The rule is also only as good as its hand-read window: widening it by 5-8 px picks up the ring finger's outline and the answer jumps 19.7-42.4 px.",
-        "open_question_for_the_user": "keypoints.json -> left.thumb_tip stores [562, 458], which is 4.2-14.3 px from the range decision D2 quotes. D2 settled WHICH digit is the thumb, not the sub-pixel reading of its end, so this script did not treat the change as settled by D2 -- but the user has not confirmed it either. Nothing gates on it (it has no tip_rule and pose files' *_tip joints are skipped), so it affects step-2 pose reading only. To go back to the D2 reading, set K['thumb_tip'] to a kp([548, 461], 'read', ...) in left_keypoints().",
-        "chosen_px": [
+        "id": "D13",
+        "source": "documentations/log/log-v2.md, decisions asked on 2026-09-21 (user)",
+        "question": "the left thumb tip: decision D2's approximate reading (548-559, 461), or the measured (562, 458), the distal end of the thumb along its axis?",
+        "decision": "the measured (562, 458), uncertainty 8 px (at k = 2 it covers D2's whole range). D2 decided which digit is the thumb; that is unchanged. No gate depends on this point.",
+        "applied_as": "keypoints.json -> left.thumb_tip: thumb_end_point() inside the hand-read window [540, 440, 572, 468], method 'measured', uncertainty_px 8.0. The script stops if the measured point ever differs from the decided one.",
+        "decided_px": [
+          562,
+          458
+        ],
+        "measured_px": [
           562,
           458
         ],
@@ -2066,14 +2071,28 @@
           14.3,
           4.2
         ],
-        "measured": "left.hand_read_choices.thumb_tip_sensitivity (window, axis and grey sweeps, in this file)"
+        "context": "the thumb's end and its nail are drawn as one stroke, and the ring finger emerges from behind it, so the tip is not a silhouette extreme. The stored point is the distal corner of the nail outline; D2's range marks the lower-left of the same nail end. Both are on drawn ink; the 8 px is set by that choice of convention, not by noise. The rule is only as good as its hand-read window: widening it by 5-8 px picks up the ring finger's outline and the answer jumps 19.7-42.4 px (left.hand_read_choices.thumb_tip_sensitivity: window, axis and grey sweeps).",
+        "before": "until this decision the point was listed as a known ambiguity, an open question for the user"
+      },
+      {
+        "id": "D14",
+        "source": "documentations/log/log-v2.md, decisions asked on 2026-09-21 (user)",
+        "question": "the left gates come from a +-1 px dilate/erode variant of the mask; the corrected stroke measurement gives a median half-width of 0.82 px but 1.07 px at p90. Widen the variant?",
+        "decision": "keep +-1 px; the left gates stay as they are. The p90 caveat stays documented in docs/ACCEPTANCE.md section 4.1.",
+        "applied_as": "left_variants(): stroke_outer_1px / stroke_inner_1px (dilation / erosion with a radius-1 disk), which set all four left gates",
+        "stroke_half_width_px": {
+          "median": 0.82,
+          "p90": 1.07
+        },
+        "caveat": "on the widest tenth of the outline the stroke's half-width is 1.07 px or more (half the p90 width), just outside +-1 px, so there the variant understates the reference's own uncertainty slightly (stroke_width_fwhm_px)"
       }
     ],
+    "known_ambiguities": [],
     "ignore": "x < 45: the drawing's forearm contours start at x~38-42; the app's arm leaves the frame there, which the drawing does not show",
     "area_px": 117913
   },
   "right": {
-    "method": "particle density: compact dark components, Gaussian blur, threshold, seeded component selection, hole fill, wrist cut",
+    "method": "particle density: compact dark components, Gaussian blur, threshold, seeded component selection, hole fill, wrist cut, dorsal bays bridged (decision D12)",
     "dot_ink": 0.45,
     "dot_max_elongation": 3.0,
     "dot_max_length_px": 16.0,
@@ -2111,12 +2130,12 @@
         690
       ]
     },
-    "bridge_dorsal_bays": false,
+    "bridge_dorsal_bays": true,
     "edge_to_nearest_particle_px": {
       "median": 3.61,
       "p25": 2.24,
       "p75": 5.0,
-      "p95": 7.07
+      "p95": 6.71
     },
     "particles_detected": 1409,
     "forearm_axis_deg": 23.41,
@@ -2136,95 +2155,30 @@
       ],
       "rule": "keep pixels with (p - point) . normal <= 0; the line is perpendicular to the forearm axis, 40.0 px past the wrist centre"
     },
-    "hand_traced_parts": "none (seeds, used only to pick components, are read by eye)",
-    "user_decisions": [],
-    "known_ambiguities": [
+    "hand_traced_parts": "none. Read by eye: the component seeds (used only to pick components) and the window the dorsal bays are bridged in (decision D12; the bridge itself is computed)",
+    "user_decisions": [
       {
-        "what": "bays of the density silhouette along the dorsal contour of the index finger and the knuckles (x ~867-1008, y ~441-514): the particles there are sparse and the iso-line dips between them, while the particles and the thin lines joining them run almost straight. The mask follows the density rule as documented; it is not corrected by hand. A render whose dorsal contour runs straight across the bays is charged for them (bays_filled_vs_mask).",
-        "open_question_for_the_user": "should the reference bridge the bays, so that the dorsal contour is a hand shape? ink_evidence below says the bays are drawn-on area, and a hand's back is not scalloped, so bridging them looks right -- but it moves all four right-hand gates, so it is the user's call, like D5 on the left. Not decided by this script: run it with --bridge-bays to see the other answer (both are measured side by side in outputs/qa/reference/bays-bridged/).",
-        "measured": {
-          "window": [
-            840,
-            415,
-            1010,
-            520
-          ],
-          "bays": [
-            {
-              "px": 445,
-              "bbox_px": [
-                867,
-                441,
-                918,
-                460
-              ],
-              "largest_disk_diameter_px": 17.2
-            },
-            {
-              "px": 359,
-              "bbox_px": [
-                916,
-                457,
-                942,
-                482
-              ],
-              "largest_disk_diameter_px": 17.1
-            },
-            {
-              "px": 1409,
-              "bbox_px": [
-                947,
-                476,
-                1008,
-                514
-              ],
-              "largest_disk_diameter_px": 30.0
-            }
-          ],
-          "total_px": 2213,
-          "bridged": false,
-          "ink_evidence": {
-            "rule": "ink = clip((paper 247 - grey) / 247, 0, 1); 'inked' = ink > 0.10",
-            "bays": {
-              "what": "bays (dorsal hull minus mask)",
-              "px": 2213,
-              "mean_ink": 0.0432,
-              "frac_ink_gt_0.10": 0.1008,
-              "frac_ink_gt_0.45": 0.0258
-            },
-            "mask_inside_window": {
-              "what": "mask inside the dorsal window",
-              "px": 5350,
-              "mean_ink": 0.1046,
-              "frac_ink_gt_0.10": 0.2536,
-              "frac_ink_gt_0.45": 0.0753
-            },
-            "paper_outside_hull": {
-              "what": "paper in the window, >8 px outside the hull",
-              "px": 7927,
-              "mean_ink": 0.0059,
-              "frac_ink_gt_0.10": 0.0032,
-              "frac_ink_gt_0.45": 0.0016
-            },
-            "reading": "the bays carry 7.3x the ink of the paper just outside the hull and 41 % of the ink inside the mask nearby: they are drawn-on area, not paper. The ink there is the thin lines joining the particles, which the dot-only density rule does not count."
-          },
-          "bays_filled_vs_mask": {
-            "iou": 0.97479,
-            "contour_mean_px": 1.062,
-            "contour_p95_px": 8.062,
-            "contour_max_px": 28.018,
-            "negative_space_iou": 1.0
-          }
-        }
+        "id": "D12",
+        "source": "documentations/log/log-v2.md, decisions asked on 2026-09-21 (user)",
+        "question": "the right mask dips into three bays along the back of the index finger and the knuckles (x 867-1008, y 441-514; 445 + 359 + 1 409 px): the particles there are sparse and joined only by thin lines, which the density rule does not count. Bridge them?",
+        "decision": "bridge them: the back of the finger runs straight, as the particles and their joining lines do. Bridging is the default in scripts/reference_masks.py and the gates are derived from the bridged mask.",
+        "applied_as": "RIGHT_BRIDGE_DORSAL_BAYS: build_right() adds the bays of the density-rule mask (dorsal_bays below: the rule, each bay, the ink inside them and how far the two masks differ). The forearm axis, the wrist and the cut are measured before the bridge, so it adds the bays and moves nothing else. The same bridge is applied to every defensible variant of the sensitivity study.",
+        "applied_in_this_run": true,
+        "before": "until this decision the mask followed the density iso-line into the bays, and the bays were listed as a known ambiguity, an open question for the user"
       }
     ],
+    "known_ambiguities": [],
     "dorsal_bays": {
+      "rule": "bays = components of (convex hull of (mask AND window) AND window AND NOT mask) with >= 300 px whose top lies above y 480 (the dorsal side), on the density-rule mask; bridging adds them to the mask",
       "window": [
         840,
         415,
         1010,
         520
       ],
+      "window_read_by_eye": true,
+      "min_bay_px": 300,
+      "bay_top_max_y": 480,
       "bays": [
         {
           "px": 445,
@@ -2258,7 +2212,7 @@
         }
       ],
       "total_px": 2213,
-      "bridged": false,
+      "bridged": true,
       "ink_evidence": {
         "rule": "ink = clip((paper 247 - grey) / 247, 0, 1); 'inked' = ink > 0.10",
         "bays": {
@@ -2284,15 +2238,16 @@
         },
         "reading": "the bays carry 7.3x the ink of the paper just outside the hull and 41 % of the ink inside the mask nearby: they are drawn-on area, not paper. The ink there is the thin lines joining the particles, which the dot-only density rule does not count."
       },
-      "bays_filled_vs_mask": {
+      "density_rule_vs_bridged": {
         "iou": 0.97479,
         "contour_mean_px": 1.062,
         "contour_p95_px": 8.062,
         "contour_max_px": 28.018,
-        "negative_space_iou": 1.0
+        "negative_space_iou": 1.0,
+        "reading": "the density-rule mask (with the bays) scored against the bridged mask; all four metrics are symmetric"
       }
     },
-    "area_px": 85577
+    "area_px": 87790
   },
   "negative_space": {
     "definition": "compare_silhouette.negative_space: convex hull of (mask AND finger region) minus the mask, inside the finger region, opened with 3x3, components >= 40 px",
