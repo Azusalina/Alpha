@@ -14,10 +14,16 @@ export const STARTUP = {
   phases: {
     /** Hands travel in from the two corners toward the final composition. */
     approach: [0.0, 0.62],
-    /** Construction scaffolding and contour are drawn on the human hand. */
-    constructionDraw: [0.05, 0.72],
-    /** The sculptural surface resolves out of the drawing. */
-    surfaceReveal: [0.42, 0.95],
+    /**
+     * Construction drawing on the human hand: wrist structure → metacarpals →
+     * knuckles → outer contour (hand/constructionLines.ts LAYERS; review B2).
+     */
+    constructionDraw: [0.04, 0.7],
+    /**
+     * The sculptural surface resolves out of the drawing, starting while the
+     * outer contour is still being drawn (it is drawn over about 0.51–0.70).
+     */
+    surfaceReveal: [0.58, 0.97],
     /** Floating particles gather into the hand form. */
     particleGather: [0.1, 0.9],
     /** Construction lines settle back to their resting weight. */

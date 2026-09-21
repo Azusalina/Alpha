@@ -41,10 +41,10 @@ x = (px / 1644 − 0.5) · FRAME_WIDTH  · (D − z) / D
 y = (0.5 − py / 957)  · FRAME_HEIGHT · (D − z) / D
 ```
 
-> **Known defect in the app (review B1.4):** `src/config/composition.ts`
-> `pixelToWorld` / `imageToWorld` omit the `(D − z) / D` factor, so they are
-> exact only at `z = 0`. The Blender builder already uses the exact formula.
-> The app must switch to it when it starts reading pose files.
+In the app: `src/config/composition.ts` → `pixelToWorld(px, py, z)` and
+`projectToPixel(x, y, z)`, with `HOME_DISTANCE` = D. (Review B1.4 — the old
+`pixelToWorld` ignored `(D − z) / D` — is fixed; the app reads the pose files
+through `src/hand/pose.ts`.)
 
 ## 4. Blender ↔ app
 
@@ -185,19 +185,22 @@ bridged), with the ±1 px left stroke variant kept (D14).
 the pre-D12 right mask for comparison only: every JSON it writes starts with
 `NOT_THE_REFERENCE`, and it refuses to write into the reference directories.
 
-## 9. App view modes (to be implemented)
+## 9. App view modes
 
-Dev/test only, via `window.__alpha.setViewMode(mode)`:
+Dev/test only, via `window.__alpha.setViewMode(mode)` (read back as
+`window.__alpha.viewMode`); implemented in `src/app/stage.ts` and the scene
+components. For a capture without multisampling, open the dev server with
+`?tier=low` (dev / `VITE_ALPHA_DIAGNOSTICS=1` builds only).
 
 | Mode | Renders |
 |---|---|
 | `silhouette` | White background; left hand flat **(255, 0, 0)**; right hand mesh flat **(0, 0, 255)**; no lines, no particles; materials `toneMapped: false`. 1644 × 957, DPR 1. |
+|  | Checked 2026-09-21: the app's silhouette (`?tier=low`) matches the Blender masks at IoU 0.9998 on both hands, every differing pixel within 1 px of the edge, 0 stray pixels. |
 | `solid` | Both hand meshes in plaster, no construction lines, no particles. |
 | `full` | The product. |
 
-Note: `@react-three/fiber` defaults to ACES tone mapping unless the Canvas is
-`flat`. ID colours only survive with tone mapping off for those materials (or a
-`flat` Canvas, which also makes the plaster tone predictable).
+The Canvas is `flat` (no tone mapping), so the ID colours come out exact and the
+plaster tone is set by the lights and the material directly.
 
 ## 10. Desktop diagnostics (produced by the Tauri round)
 

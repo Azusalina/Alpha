@@ -8,25 +8,44 @@
  */
 
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Plane, Vector3 } from 'three';
 
 import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import type { QualityTier } from '../config/quality';
+import { preloadHandAssets } from '../hand/assets';
 import { CameraRig } from './CameraRig';
 import { HumanHand } from './HumanHand';
 import { ParticleHand } from './ParticleHand';
+import { useViewMode } from './useViewMode';
+
+// Fetch both GLBs and both contour files at once, before either hand renders.
+preloadHandAssets();
 
 interface Props {
   tier: QualityTier;
   reducedMotion: boolean;
+  /**
+   * Called once, after both hand meshes, both contour files and the particle
+   * sample are ready (the hands mount together inside one Suspense boundary).
+   */
+  onReady: () => void;
+}
+
+/** Mounts only when every sibling in its Suspense boundary has resolved. */
+function AssetsReady({ onReady }: { onReady: () => void }) {
+  useEffect(() => {
+    onReady();
+  }, [onReady]);
+  return null;
 }
 
 /** The composition plane; the pointer is projected onto it for particle hover. */
 const COMPOSITION_PLANE = new Plane(new Vector3(0, 0, 1), 0);
 
-export function AlphaScene({ tier, reducedMotion }: Props) {
+export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
+  const viewMode = useViewMode();
   const pointer = useThree((s) => s.pointer);
   const raycaster = useThree((s) => s.raycaster);
   const camera = useThree((s) => s.camera);
@@ -72,7 +91,8 @@ export function AlphaScene({ tier, reducedMotion }: Props) {
 
   return (
     <>
-      <color attach="background" args={[PALETTE.paper]} />
+      {/* the silhouette view mode needs a pure white ground (docs/CONTRACTS.md §9) */}
+      <color key={viewMode} attach="background" args={[viewMode === 'silhouette' ? '#ffffff' : PALETTE.paper]} />
       <CameraRig />
 
       {/*
@@ -85,8 +105,11 @@ export function AlphaScene({ tier, reducedMotion }: Props) {
       <directionalLight position={[2.2, -1.4, 1.6]} intensity={0.4} color={PALETTE.paperDeep} />
       <ambientLight intensity={0.35} />
 
-      <HumanHand />
-      <ParticleHand tier={tier} pointer={worldPointer} reducedMotion={reducedMotion} />
+      <Suspense fallback={null}>
+        <HumanHand />
+        <ParticleHand tier={tier} pointer={worldPointer} reducedMotion={reducedMotion} />
+        <AssetsReady onReady={onReady} />
+      </Suspense>
     </>
   );
 }

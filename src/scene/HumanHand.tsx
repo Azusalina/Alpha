@@ -2,41 +2,62 @@
  * The left, human hand: a soft plaster-like solid plus the geometric
  * construction drawing that produced it.
  *
- * Startup reads as a drawing being made (spec 2, 启动): the scaffolding and
- * contour are drawn in order along their own arc length, then the sculptural
- * surface resolves out from the wrist toward the fingertips. Both are driven by
- * the one startup progress value, and both are shader uniforms, so no React
- * state changes per frame.
+ * The solid is the Blender-built GLB (public/assets/hand-left.glb: one
+ * watertight shell with outward winding, so it renders front faces only). The
+ * lines come from the same pose file and from the mesh's own silhouette.
+ *
+ * Startup reads as a drawing being made (spec 2, 启动): wrist structure,
+ * metacarpals, knuckles and the outer contour are drawn in order along their own
+ * arc length, then the sculptural surface resolves out from the wrist toward the
+ * fingertips. Both are driven by the one startup progress value, and both are
+ * shader uniforms, so no React state changes per frame.
  */
 
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import {
   Color,
-  DoubleSide,
+  Float32BufferAttribute,
+  FrontSide,
   Group,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   NormalBlending,
   ShaderMaterial,
 } from 'three';
 
+import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import { STARTUP, phaseProgress } from '../config/timing';
+import { useHandContour, useHandGeometry } from '../hand/assets';
 import { buildConstructionGeometry } from '../hand/constructionLines';
-import { buildHandSurface } from '../hand/mesh';
-import { buildLeftHandRig } from '../hand/skeleton';
-import { stage } from '../app/stage';
+import { handRig } from '../hand/pose';
+import { skeletonValues } from '../hand/reveal';
+import { useViewMode } from './useViewMode';
 
 /** How far the hand starts outside its final position, in world units. */
 const APPROACH_OFFSET: [number, number, number] = [-0.55, 0.42, -0.15];
+
+/** The reveal runs past 1 so the soft edge clears the fingertips entirely. */
+const REVEAL_OVERSHOOT = 1.18;
 
 /** Cubic ease-out; the hands arrive slowing down rather than snapping. */
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
 export function HumanHand() {
-  const rig = useMemo(() => buildLeftHandRig(), []);
-  const surface = useMemo(() => buildHandSurface(rig), [rig]);
-  const lines = useMemo(() => buildConstructionGeometry(rig), [rig]);
+  const source = useHandGeometry('left');
+  const contour = useHandContour('left');
+  const rig = handRig('left');
+  const viewMode = useViewMode();
+
+  /** The mesh plus `aReveal` (0 where the forearm enters the frame, 1 at each fingertip). */
+  const surface = useMemo(() => {
+    const g = source.clone();
+    g.setAttribute('aReveal', new Float32BufferAttribute(skeletonValues(g, rig).reveal, 1));
+    return g;
+  }, [source, rig]);
+
+  const lines = useMemo(() => buildConstructionGeometry(rig, contour), [rig, contour]);
 
   const groupRef = useRef<Group>(null);
 
@@ -48,10 +69,9 @@ export function HumanHand() {
   const surfaceMaterial = useMemo(() => {
     const m = new MeshStandardMaterial({
       color: new Color(PALETTE.sculptureLight),
-      roughness: 0.94,
+      roughness: 0.92,
       metalness: 0,
-      flatShading: false,
-      side: DoubleSide,
+      side: FrontSide,
       transparent: true,
       blending: NormalBlending,
     });
@@ -82,7 +102,13 @@ export function HumanHand() {
     return m;
   }, []);
 
-  /** Construction lines: revealed along their own ordered arc length. */
+  /** docs/CONTRACTS.md §9 silhouette: flat (255, 0, 0), untouched by lighting or tone mapping. */
+  const silhouetteMaterial = useMemo(
+    () => new MeshBasicMaterial({ color: new Color(1, 0, 0), toneMapped: false, side: FrontSide }),
+    [],
+  );
+
+  /** Construction lines: revealed along the shared draw clock. */
   const lineMaterial = useMemo(
     () =>
       new ShaderMaterial({
@@ -96,15 +122,19 @@ export function HumanHand() {
           uDraw: { value: 0 },
           uSettle: { value: 0 },
           uColor: { value: new Color(PALETTE.construction) },
+          uInk: { value: new Color(PALETTE.inkSoft) },
         },
         vertexShader: /* glsl */ `
           attribute float aOrder;
           attribute float aWeight;
+          attribute float aInk;
           varying float vOrder;
           varying float vWeight;
+          varying float vInk;
           void main() {
             vOrder = aOrder;
             vWeight = aWeight;
+            vInk = aInk;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
@@ -112,16 +142,20 @@ export function HumanHand() {
           uniform float uDraw;
           uniform float uSettle;
           uniform vec3 uColor;
+          uniform vec3 uInk;
           varying float vOrder;
           varying float vWeight;
+          varying float vInk;
           void main() {
             // nothing beyond the drawing head is visible yet
             float drawn = step(vOrder, uDraw);
-            // the freshly drawn head is darker, then eases back to resting weight
+            // the freshly drawn head is darker, then eases back to resting weight;
+            // the outer contour keeps more of its weight than the scaffolding
             float freshness = 1.0 - smoothstep(0.0, 0.12, uDraw - vOrder);
-            float alpha = drawn * vWeight * mix(1.0, 0.78, uSettle) * (0.9 + 0.5 * freshness);
+            float rest = mix(0.78, 0.95, vInk);
+            float alpha = drawn * vWeight * mix(1.0, rest, uSettle) * (0.9 + 0.5 * freshness);
             if (alpha <= 0.002) discard;
-            gl_FragColor = vec4(uColor, alpha);
+            gl_FragColor = vec4(mix(uColor, uInk, vInk), min(alpha, 1.0));
           }
         `,
       }),
@@ -145,15 +179,16 @@ export function HumanHand() {
     }
     lineMaterial.uniforms.uDraw.value = draw;
     lineMaterial.uniforms.uSettle.value = settle;
-    // reveal runs past 1 so the soft edge clears the fingertips entirely
-    surfaceMaterial.userData.uniforms.uReveal.value = reveal * 1.18;
-    surfaceMaterial.userData.uniforms.uOpacity.value = Math.min(1, reveal * 1.4);
+    // the dev view modes show the finished form whatever the timeline says
+    const finished = stage.viewMode !== 'full';
+    surfaceMaterial.userData.uniforms.uReveal.value = finished ? REVEAL_OVERSHOOT : reveal * REVEAL_OVERSHOOT;
+    surfaceMaterial.userData.uniforms.uOpacity.value = finished ? 1 : Math.min(1, reveal * 1.4);
   });
 
   return (
     <group ref={groupRef}>
-      <mesh geometry={surface} material={surfaceMaterial} />
-      <lineSegments geometry={lines} material={lineMaterial} renderOrder={10} />
+      <mesh geometry={surface} material={viewMode === 'silhouette' ? silhouetteMaterial : surfaceMaterial} />
+      {viewMode === 'full' && <lineSegments geometry={lines} material={lineMaterial} renderOrder={10} />}
     </group>
   );
 }

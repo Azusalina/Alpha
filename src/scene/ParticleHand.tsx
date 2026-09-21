@@ -15,6 +15,9 @@ import {
   BufferGeometry,
   Color,
   Float32BufferAttribute,
+  FrontSide,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
   NormalBlending,
   ShaderMaterial,
   Vector3,
@@ -24,8 +27,10 @@ import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
 import { IDLE, REDUCED_MOTION, STARTUP, phaseProgress } from '../config/timing';
-import { sampleParticleHand, scatterOrigin } from '../hand/sampling';
-import { buildRightHandRig } from '../hand/skeleton';
+import { useHandGeometry } from '../hand/assets';
+import { handRig } from '../hand/pose';
+import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
+import { useViewMode } from './useViewMode';
 
 interface Props {
   tier: QualityTier;
@@ -47,14 +52,18 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const camera = useThree((s) => s.camera);
   const dpr = useThree((s) => s.viewport.dpr);
 
+  const source = useHandGeometry('right');
+  const rig = handRig('right');
+  const viewMode = useViewMode();
+
   const geometry = useMemo(() => {
-    const rig = buildRightHandRig();
-    const cloud = sampleParticleHand(rig, QUALITY[tier].particleCount, SCENE_SEED);
+    const cloud = sampleParticleHand(source, rig, QUALITY[tier].particleCount, SCENE_SEED);
+    const toward = dissipationDirection(rig);
 
     const scatter = new Float32Array(cloud.count * 3);
     const tmp = new Vector3();
     for (let i = 0; i < cloud.count; i++) {
-      scatterOrigin(cloud, i, tmp);
+      scatterOrigin(cloud, toward, i, tmp);
       scatter[i * 3] = tmp.x;
       scatter[i * 3 + 1] = tmp.y;
       scatter[i * 3 + 2] = tmp.z;
@@ -64,11 +73,29 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.setAttribute('position', new Float32BufferAttribute(cloud.home, 3));
     g.setAttribute('aScatter', new Float32BufferAttribute(scatter, 3));
     g.setAttribute('aSize', new Float32BufferAttribute(cloud.size, 1));
+    g.setAttribute('aTone', new Float32BufferAttribute(cloud.tone, 1));
     g.setAttribute('aId', new Float32BufferAttribute(cloud.id, 1));
     g.setAttribute('aDissolve', new Float32BufferAttribute(cloud.dissolve, 1));
+    g.setAttribute('aRim', new Float32BufferAttribute(cloud.rim, 1));
     g.computeBoundingSphere();
     return g;
-  }, [tier]);
+  }, [source, rig, tier]);
+
+  /** Dev view modes (docs/CONTRACTS.md §9) show the mesh the particles are sampled from. */
+  const solidMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: new Color(PALETTE.sculptureLight),
+        roughness: 0.92,
+        metalness: 0,
+        side: FrontSide,
+      }),
+    [],
+  );
+  const silhouetteMaterial = useMemo(
+    () => new MeshBasicMaterial({ color: new Color(0, 0, 1), toneMapped: false, side: FrontSide }),
+    [],
+  );
 
   const material = useMemo(
     () =>
@@ -90,8 +117,10 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
         vertexShader: /* glsl */ `
           attribute vec3 aScatter;
           attribute float aSize;
+          attribute float aTone;
           attribute float aId;
           attribute float aDissolve;
+          attribute float aRim;
 
           uniform float uGather;
           uniform float uTime;
@@ -121,9 +150,12 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             vec3 pos = mix(aScatter, position, g);
 
             // Idle breathing, enveloped by gather so it is silent while scattered.
+            // Particles that define the outline (on the rim, not yet dissolving)
+            // move least, so the hand keeps its shape while it breathes (review B3).
             float phase = uTime * 6.2831853 + h2 * 6.2831853;
             vec3 drift = vec3(sin(phase), cos(phase * 0.87), sin(phase * 0.63)) * uBreath;
-            pos += drift * g * (0.4 + 0.9 * aDissolve);
+            float hold = 1.0 - 0.7 * aRim * (1.0 - aDissolve);
+            pos += drift * g * (0.4 + 0.9 * aDissolve) * hold;
 
             // Local pointer disturbance: neighbours only, pushed outward.
             vec3 away = pos - uPointer;
@@ -136,8 +168,9 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             gl_Position = projectionMatrix * mv;
             gl_PointSize = aSize * uSizeScale / max(0.25, -mv.z);
 
-            // The tail reads lighter; everything fades up as it gathers.
-            vAlpha = (1.0 - 0.45 * aDissolve) * clamp(g * 1.6, 0.0, 1.0);
+            // Larger points are lighter (aTone), the tail reads lighter still, and
+            // everything fades up as it gathers.
+            vAlpha = aTone * (1.0 - 0.45 * aDissolve) * clamp(g * 1.6, 0.0, 1.0);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -213,5 +246,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     material.uniforms.uSizeScale.value = perWorldUnit * camera.position.z * POINT_SIZE;
   });
 
+  if (viewMode !== 'full') {
+    return <mesh geometry={source} material={viewMode === 'silhouette' ? silhouetteMaterial : solidMaterial} />;
+  }
   return <points geometry={geometry} material={material} frustumCulled={false} />;
 }

@@ -11,9 +11,9 @@
 
 import { Canvas } from '@react-three/fiber';
 import gsap from 'gsap';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { DEFAULT_TIER, QUALITY } from '../config/quality';
+import { DEFAULT_TIER, QUALITY, type QualityTier } from '../config/quality';
 import { REDUCED_MOTION, STARTUP } from '../config/timing';
 import { AlphaScene } from '../scene/AlphaScene';
 import { Diagnostics } from '../ui/Diagnostics';
@@ -34,6 +34,17 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+/**
+ * Quality tier. Dev/test builds accept `?tier=low|medium` — the silhouette
+ * capture uses `low` for a context without multisampling (docs/ACCEPTANCE.md §1);
+ * the product always runs the default tier.
+ */
+function initialTier(): QualityTier {
+  if (!DIAGNOSTICS_ENABLED) return DEFAULT_TIER;
+  const t = new URLSearchParams(window.location.search).get('tier');
+  return t === 'low' || t === 'medium' ? t : DEFAULT_TIER;
+}
+
 /** React re-renders only when the state *name* changes, never per frame. */
 function useSceneState(): SceneState {
   const [state, setState] = useState<SceneState>(stage.state);
@@ -45,7 +56,7 @@ export function App() {
   const reducedMotion = usePrefersReducedMotion();
   const sceneState = useSceneState();
   const startedRef = useRef(false);
-  const tier = DEFAULT_TIER;
+  const [tier] = useState(initialTier);
 
   /**
    * Startup timeline. One GSAP tween owns the single progress scalar; every
@@ -75,6 +86,14 @@ export function App() {
     });
   };
 
+  // The scene calls this once every asset is loaded and the particles are
+  // sampled; the timeline then starts on the next frame.
+  const startRef = useRef(start);
+  startRef.current = start;
+  const onAssetsReady = useCallback(() => {
+    requestAnimationFrame(() => startRef.current());
+  }, []);
+
   useEffect(() => {
     installDevInspector({
       /** Test hook: scrub the startup timeline without waiting for real time. */
@@ -102,6 +121,9 @@ export function App() {
     <div className="alpha-root" data-scene-state={sceneState}>
       <Canvas
         className="alpha-canvas"
+        // No tone mapping: the plaster tone is set by the lights and the material
+        // directly, and the silhouette view mode's ID colours come out exact.
+        flat
         frameloop={visible ? 'always' : 'never'}
         dpr={[1, QUALITY[tier].maxPixelRatio]}
         gl={{
@@ -112,12 +134,9 @@ export function App() {
         camera={{ position: [0, 0, 5] }}
         onCreated={({ gl }) => {
           gl.setClearAlpha(1);
-          // The scene is fully procedural, so "assets ready" is the first
-          // successful context creation; start the timeline from there.
-          requestAnimationFrame(start);
         }}
       >
-        <AlphaScene tier={tier} reducedMotion={reducedMotion} />
+        <AlphaScene tier={tier} reducedMotion={reducedMotion} onReady={onAssetsReady} />
       </Canvas>
 
       <Hotzones armed={hotzonesArmed(sceneState)} />

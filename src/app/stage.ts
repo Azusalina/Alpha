@@ -47,6 +47,18 @@ export function hotzonesArmed(state: SceneState): boolean {
 
 type Listener = (state: SceneState) => void;
 
+/**
+ * What the scene draws (docs/CONTRACTS.md §9). Dev/test only; the product is
+ * always `full`.
+ *  - `silhouette`: white ground, left hand flat (255, 0, 0), right hand *mesh* flat
+ *    (0, 0, 255), no lines, no particles, no tone mapping — for overlay_check.py.
+ *  - `solid`: both hand meshes in plaster, no lines, no particles.
+ *  - `full`: the product.
+ */
+export type ViewMode = 'full' | 'solid' | 'silhouette';
+
+export const VIEW_MODES: readonly ViewMode[] = ['full', 'solid', 'silhouette'];
+
 class Stage {
   private _state: SceneState = 'loading';
   private listeners = new Set<Listener>();
@@ -79,8 +91,27 @@ class Stage {
   pointerSmoothed: [number, number, number] | null = null;
   pointerInfluence = 0;
 
+  private _viewMode: ViewMode = 'full';
+  private viewListeners = new Set<(mode: ViewMode) => void>();
+
   get state(): SceneState {
     return this._state;
+  }
+
+  get viewMode(): ViewMode {
+    return this._viewMode;
+  }
+
+  setViewMode(mode: ViewMode): void {
+    if (!VIEW_MODES.includes(mode)) throw new Error(`unknown view mode ${String(mode)}`);
+    if (mode === this._viewMode) return;
+    this._viewMode = mode;
+    for (const l of this.viewListeners) l(mode);
+  }
+
+  subscribeViewMode(l: (mode: ViewMode) => void): () => void {
+    this.viewListeners.add(l);
+    return () => this.viewListeners.delete(l);
   }
 
   set(next: SceneState): void {
@@ -133,6 +164,13 @@ export function installDevInspector(extra: Record<string, unknown> = {}): void {
     /** Freeze the clock and scrub the startup timeline to an exact fraction. */
     setTimeScale(v: number) {
       stage.timeScale = v;
+    },
+    get viewMode() {
+      return stage.viewMode;
+    },
+    /** docs/CONTRACTS.md §9: 'silhouette' | 'solid' | 'full'. */
+    setViewMode(mode: ViewMode) {
+      stage.setViewMode(mode);
     },
     /**
      * Real-machine frame diagnostics (spec 9): renderer, pixel budget and

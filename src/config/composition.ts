@@ -2,12 +2,13 @@
  * Composition constants for Alpha v1.0.0.
  *
  * The single authority for pose, silhouette, proportion and framing is
- * `aes-ref/alpha-white-geom.PNG` (1644 x 957). Every number below is either
- * measured from that image by `scripts/measure_landmarks.py` or derived from a
- * measured value, so the calibration can be re-checked instead of re-guessed.
+ * `aes-ref/alpha-white-geom.PNG` (1644 x 957). The hands themselves are placed by
+ * their pose files (`assets-source/hands/pose-*.json`, src/hand/pose.ts); this file
+ * holds the frame, the home camera and the exact pixel ↔ world mapping they use
+ * (docs/CONTRACTS.md §1–3).
  *
- * Image space is normalised: x in [0,1] left to right, y in [0,1] top to bottom.
- * World space places the reference frame on the z = 0 plane, y up.
+ * Reference pixels: x right, y down, 1644 x 957. World space places the reference
+ * frame on the z = 0 plane, y up, +z toward the camera.
  */
 
 export const REFERENCE_FRAME = {
@@ -22,12 +23,6 @@ export const FRAME_HEIGHT = 2;
 export const FRAME_WIDTH = FRAME_HEIGHT * REFERENCE_FRAME.aspect;
 
 /**
- * Measured landmarks and fingertip gap, re-exported from the generated file so
- * the app can never drift from `outputs/qa/reference-landmarks.json`.
- */
-export { LANDMARKS_NORM, FINGERTIP_GAP_FRAC_WIDTH } from './referenceLandmarks.generated';
-
-/**
  * Long-focal-length perspective: enough depth for the particle hand to read as
  * volumetric, little enough distortion that the reference's near-orthographic
  * projection still matches. Recorded as an engineering default (spec 7.1).
@@ -40,14 +35,34 @@ export const CAMERA = {
   far: 100,
 } as const;
 
-/** Convert a normalised reference-image point to world space on the z = 0 plane. */
-export function imageToWorld(nx: number, ny: number, z = 0): [number, number, number] {
-  return [(nx - 0.5) * FRAME_WIDTH, (0.5 - ny) * FRAME_HEIGHT, z];
+/**
+ * Home camera distance at the reference aspect: the frame height exactly fills the
+ * vertical field of view. D = (FRAME_HEIGHT / 2) / tan(fov / 2) = 1 / tan(11°) = 5.144554
+ * (docs/CONTRACTS.md §2). Every pose file, GLB and contour is calibrated against it.
+ */
+export const HOME_DISTANCE = FRAME_HEIGHT / 2 / Math.tan((CAMERA.fovDeg * Math.PI) / 360);
+
+/**
+ * Reference pixels at world depth `z` → world space, through the home camera
+ * (docs/CONTRACTS.md §3). Exact at every depth: a point further from the camera is
+ * pushed out by (D − z) / D so that it still projects onto the same pixel.
+ */
+export function pixelToWorld(px: number, py: number, z = 0): [number, number, number] {
+  const k = (HOME_DISTANCE - z) / HOME_DISTANCE;
+  return [
+    (px / REFERENCE_FRAME.width - 0.5) * FRAME_WIDTH * k,
+    (0.5 - py / REFERENCE_FRAME.height) * FRAME_HEIGHT * k,
+    z,
+  ];
 }
 
-/** Convert reference-image pixels to world space on the z = 0 plane. */
-export function pixelToWorld(px: number, py: number, z = 0): [number, number, number] {
-  return imageToWorld(px / REFERENCE_FRAME.width, py / REFERENCE_FRAME.height, z);
+/** World space → reference pixels, through the home camera (docs/CONTRACTS.md §3). */
+export function projectToPixel(x: number, y: number, z: number): [number, number] {
+  const s = HOME_DISTANCE / (HOME_DISTANCE - z);
+  return [
+    ((x * s) / FRAME_WIDTH + 0.5) * REFERENCE_FRAME.width,
+    (0.5 - (y * s) / FRAME_HEIGHT) * REFERENCE_FRAME.height,
+  ];
 }
 
 /**
