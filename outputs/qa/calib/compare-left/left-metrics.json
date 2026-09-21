@@ -8,39 +8,39 @@
   "ignore_zone_used": true,
   "pixels": {
     "reference": 108358,
-    "render": 114639,
-    "overlap": 105281,
-    "render_only": 9358,
-    "reference_only": 3077,
-    "render_in_ignore_zone": 9580
+    "render": 108217,
+    "overlap": 106326,
+    "render_only": 1891,
+    "reference_only": 2032,
+    "render_in_ignore_zone": 9179
   },
-  "iou": 0.89436,
-  "precision": 0.91837,
-  "recall": 0.9716,
+  "iou": 0.96442,
+  "precision": 0.98253,
+  "recall": 0.98125,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 5.119,
-      "p95": 12.042,
-      "max": 19.105,
+      "mean": 1.624,
+      "p95": 4.472,
+      "max": 8.485,
       "n": 2138
     },
     "render_to_ref": {
-      "mean": 5.594,
-      "p95": 12.176,
-      "max": 42.953,
-      "n": 2140
+      "mean": 1.605,
+      "p95": 4.243,
+      "max": 9.434,
+      "n": 2109
     },
     "symmetric": {
-      "mean": 5.356,
-      "p95": 12.083,
-      "max": 42.953,
-      "n": 4278
+      "mean": 1.615,
+      "p95": 4.243,
+      "max": 9.434,
+      "n": 4247
     }
   },
   "negative_space": {
-    "iou": 0.78345,
+    "iou": 0.91863,
     "reference_px": 19748,
-    "render_px": 18696
+    "render_px": 19935
   },
   "keypoints": {
     "index_mcp": {
@@ -49,16 +49,16 @@
         306.0
       ],
       "render_px": [
-        600,
-        305
+        570.4,
+        291.5
       ],
       "offset_px": [
-        8.0,
-        -1.0
+        -21.6,
+        -14.5
       ],
-      "distance_px": 8.06,
+      "distance_px": 26.02,
       "reference_uncertainty_px": 10.0,
-      "distance_over_uncertainty": 0.81
+      "distance_over_uncertainty": 2.6
     },
     "index_pip": {
       "reference_px": [
@@ -66,16 +66,16 @@
         344.0
       ],
       "render_px": [
-        690,
-        352
+        676.8,
+        344.9
       ],
       "offset_px": [
-        8.0,
-        8.0
+        -5.2,
+        0.9
       ],
-      "distance_px": 11.31,
+      "distance_px": 5.28,
       "reference_uncertainty_px": 6.0,
-      "distance_over_uncertainty": 1.89
+      "distance_over_uncertainty": 0.88
     },
     "index_dip": {
       "reference_px": [
@@ -83,16 +83,16 @@
         390.0
       ],
       "render_px": [
-        742,
-        392
+        736.6,
+        390.9
       ],
       "offset_px": [
-        4.0,
-        2.0
+        -1.4,
+        0.9
       ],
-      "distance_px": 4.47,
+      "distance_px": 1.66,
       "reference_uncertainty_px": 6.0,
-      "distance_over_uncertainty": 0.75
+      "distance_over_uncertainty": 0.28
     },
     "middle_mcp": {
       "reference_px": [
@@ -100,16 +100,16 @@
         350.0
       ],
       "render_px": [
-        590,
-        315
+        593.7,
+        334.4
       ],
       "offset_px": [
-        -22.0,
-        -35.0
+        -18.3,
+        -15.6
       ],
-      "distance_px": 41.34,
+      "distance_px": 24.05,
       "reference_uncertainty_px": 10.0,
-      "distance_over_uncertainty": 4.13
+      "distance_over_uncertainty": 2.4
     },
     "middle_pip": {
       "reference_px": [
@@ -117,16 +117,16 @@
         395.0
       ],
       "render_px": [
-        632,
-        386
+        628.6,
+        397.5
       ],
       "offset_px": [
-        2.0,
-        -9.0
+        -1.4,
+        2.5
       ],
-      "distance_px": 9.22,
+      "distance_px": 2.87,
       "reference_uncertainty_px": 6.0,
-      "distance_over_uncertainty": 1.54
+      "distance_over_uncertainty": 0.48
     },
     "middle_dip": {
       "reference_px": [
@@ -134,16 +134,16 @@
         460.0
       ],
       "render_px": [
-        620,
-        455
+        621.2,
+        461.6
       ],
       "offset_px": [
-        -2.0,
-        -5.0
+        -0.8,
+        1.6
       ],
-      "distance_px": 5.39,
+      "distance_px": 1.79,
       "reference_uncertainty_px": 6.0,
-      "distance_over_uncertainty": 0.9
+      "distance_over_uncertainty": 0.3
     },
     "ring_mcp": {
       "reference_px": [
@@ -151,16 +151,16 @@
         350.0
       ],
       "render_px": [
-        575,
-        328
+        560.7,
+        337.3
       ],
       "offset_px": [
-        -10.0,
-        -22.0
+        -24.3,
+        -12.7
       ],
-      "distance_px": 24.17,
+      "distance_px": 27.42,
       "reference_uncertainty_px": 12.0,
-      "distance_over_uncertainty": 2.01
+      "distance_over_uncertainty": 2.28
     },
     "ring_pip": {
       "reference_px": [
@@ -168,16 +168,16 @@
         410.0
       ],
       "render_px": [
-        589,
-        397
+        583.6,
+        402
       ],
       "offset_px": [
-        9.0,
-        -13.0
+        3.6,
+        -8.0
       ],
-      "distance_px": 15.81,
+      "distance_px": 8.77,
       "reference_uncertainty_px": 10.0,
-      "distance_over_uncertainty": 1.58
+      "distance_over_uncertainty": 0.88
     },
     "ring_dip": {
       "reference_px": [
@@ -185,16 +185,16 @@
         470.0
       ],
       "render_px": [
-        562,
-        457
+        565.9,
+        457.4
       ],
       "offset_px": [
-        2.0,
-        -13.0
+        5.9,
+        -12.6
       ],
-      "distance_px": 13.15,
+      "distance_px": 13.91,
       "reference_uncertainty_px": 8.0,
-      "distance_over_uncertainty": 1.64
+      "distance_over_uncertainty": 1.74
     },
     "pinky_mcp": {
       "reference_px": [
@@ -202,16 +202,16 @@
         395.0
       ],
       "render_px": [
-        555,
-        340
+        515.6,
+        364.3
       ],
       "offset_px": [
-        55.0,
-        -55.0
+        15.6,
+        -30.7
       ],
-      "distance_px": 77.78,
+      "distance_px": 34.44,
       "reference_uncertainty_px": 15.0,
-      "distance_over_uncertainty": 5.19
+      "distance_over_uncertainty": 2.3
     },
     "pinky_pip": {
       "reference_px": [
@@ -219,16 +219,16 @@
         428.0
       ],
       "render_px": [
-        545,
-        400
+        503,
+        423.2
       ],
       "offset_px": [
-        53.0,
-        -28.0
+        11.0,
+        -4.8
       ],
-      "distance_px": 59.94,
+      "distance_px": 12.0,
       "reference_uncertainty_px": 10.0,
-      "distance_over_uncertainty": 5.99
+      "distance_over_uncertainty": 1.2
     },
     "pinky_dip": {
       "reference_px": [
@@ -236,16 +236,16 @@
         433.0
       ],
       "render_px": [
-        487,
-        432
+        462.1,
+        433.6
       ],
       "offset_px": [
-        25.0,
-        -1.0
+        0.1,
+        0.6
       ],
-      "distance_px": 25.02,
+      "distance_px": 0.61,
       "reference_uncertainty_px": 8.0,
-      "distance_over_uncertainty": 3.13
+      "distance_over_uncertainty": 0.08
     },
     "thumb_cmc": {
       "reference_px": [
@@ -253,16 +253,16 @@
         330.0
       ],
       "render_px": [
-        385,
-        300
+        422.7,
+        292
       ],
       "offset_px": [
-        -45.0,
-        -30.0
+        -7.3,
+        -38.0
       ],
-      "distance_px": 54.08,
+      "distance_px": 38.69,
       "reference_uncertainty_px": 15.0,
-      "distance_over_uncertainty": 3.61
+      "distance_over_uncertainty": 2.58
     },
     "thumb_mcp": {
       "reference_px": [
@@ -270,16 +270,16 @@
         372.0
       ],
       "render_px": [
-        468,
-        352
+        475.1,
+        353.6
       ],
       "offset_px": [
-        -10.0,
-        -20.0
+        -2.9,
+        -18.4
       ],
-      "distance_px": 22.36,
+      "distance_px": 18.63,
       "reference_uncertainty_px": 10.0,
-      "distance_over_uncertainty": 2.24
+      "distance_over_uncertainty": 1.86
     },
     "thumb_ip": {
       "reference_px": [
@@ -287,16 +287,16 @@
         418.0
       ],
       "render_px": [
-        512,
-        405
+        515.2,
+        408.6
       ],
       "offset_px": [
-        -10.0,
-        -13.0
+        -6.8,
+        -9.4
       ],
-      "distance_px": 16.4,
+      "distance_px": 11.6,
       "reference_uncertainty_px": 8.0,
-      "distance_over_uncertainty": 2.05
+      "distance_over_uncertainty": 1.45
     },
     "wrist": {
       "reference_px": [
@@ -304,22 +304,22 @@
         196.0
       ],
       "render_px": [
-        300,
-        200
+        297,
+        196.2
       ],
       "offset_px": [
-        23.0,
-        4.0
+        20.0,
+        0.2
       ],
-      "distance_px": 23.35,
+      "distance_px": 20.0,
       "reference_uncertainty_px": 8.0,
-      "distance_over_uncertainty": 2.92
+      "distance_over_uncertainty": 2.5
     }
   },
   "keypoint_summary": {
     "n": 16,
-    "mean_px": 25.74,
-    "max_px": 77.78
+    "mean_px": 15.48,
+    "max_px": 38.69
   },
   "silhouette_tips": {
     "index_tip": {
@@ -329,12 +329,12 @@
       ],
       "render_px": [
         786,
-        414
+        418
       ],
       "found": true,
       "offset_px": [
         0,
-        -2
+        2
       ],
       "distance_px": 2.0,
       "reference_uncertainty_px": 1.5,
@@ -347,8 +347,27 @@
         523
       ],
       "render_px": [
-        599,
+        600,
         522
+      ],
+      "found": true,
+      "offset_px": [
+        -1,
+        -1
+      ],
+      "distance_px": 1.41,
+      "reference_uncertainty_px": 2.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "ring_tip": {
+      "reference_px": [
+        532,
+        505
+      ],
+      "render_px": [
+        530,
+        504
       ],
       "found": true,
       "offset_px": [
@@ -360,25 +379,6 @@
       "at_search_edge": false,
       "note": ""
     },
-    "ring_tip": {
-      "reference_px": [
-        532,
-        505
-      ],
-      "render_px": [
-        534,
-        507
-      ],
-      "found": true,
-      "offset_px": [
-        2,
-        2
-      ],
-      "distance_px": 2.83,
-      "reference_uncertainty_px": 2.0,
-      "at_search_edge": false,
-      "note": ""
-    },
     "pinky_tip": {
       "reference_px": [
         438,
@@ -386,14 +386,14 @@
       ],
       "render_px": [
         437,
-        435
+        440
       ],
       "found": true,
       "offset_px": [
         -1,
-        -3
+        2
       ],
-      "distance_px": 3.16,
+      "distance_px": 2.24,
       "reference_uncertainty_px": 2.0,
       "at_search_edge": false,
       "note": ""
@@ -403,36 +403,28 @@
     "source": "assets-source/reference/thresholds.json (docs/ACCEPTANCE.md)",
     "pass": false,
     "failed": [
-      "iou",
-      "contour_mean_px",
-      "contour_p95_px",
-      "negative_space_iou",
-      "keypoint:middle_mcp",
-      "keypoint:pinky_mcp",
-      "keypoint:pinky_pip",
-      "keypoint:pinky_dip",
-      "keypoint:thumb_cmc"
+      "contour_p95_px"
     ],
     "checks": {
       "iou": {
-        "value": 0.89436,
+        "value": 0.96442,
         "gate": ">= 0.96",
-        "pass": false
+        "pass": true
       },
       "contour_mean_px": {
-        "value": 5.356,
+        "value": 1.615,
         "gate": "<= 2.0",
-        "pass": false
+        "pass": true
       },
       "contour_p95_px": {
-        "value": 12.083,
+        "value": 4.243,
         "gate": "<= 2.0",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.78345,
+        "value": 0.91863,
         "gate": ">= 0.865",
-        "pass": false
+        "pass": true
       },
       "tip:index_tip": {
         "value": 2.0,
@@ -440,97 +432,97 @@
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 2.24,
+        "value": 1.41,
         "gate": "<= 4.0 (= 2.0 x 2.0)",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 2.83,
+        "value": 2.24,
         "gate": "<= 4.0 (= 2.0 x 2.0)",
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 3.16,
+        "value": 2.24,
         "gate": "<= 4.0 (= 2.0 x 2.0)",
         "pass": true
       },
       "keypoint:index_mcp": {
-        "value": 8.06,
+        "value": 26.02,
         "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": true
       },
       "keypoint:index_pip": {
-        "value": 11.31,
+        "value": 5.28,
         "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:index_dip": {
-        "value": 4.47,
+        "value": 1.66,
         "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:middle_mcp": {
-        "value": 41.34,
+        "value": 24.05,
         "gate": "<= 30.0 (= 3.0 x 10.0)",
-        "pass": false
+        "pass": true
       },
       "keypoint:middle_pip": {
-        "value": 9.22,
+        "value": 2.87,
         "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:middle_dip": {
-        "value": 5.39,
+        "value": 1.79,
         "gate": "<= 18.0 (= 3.0 x 6.0)",
         "pass": true
       },
       "keypoint:ring_mcp": {
-        "value": 24.17,
+        "value": 27.42,
         "gate": "<= 36.0 (= 3.0 x 12.0)",
         "pass": true
       },
       "keypoint:ring_pip": {
-        "value": 15.81,
+        "value": 8.77,
         "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": true
       },
       "keypoint:ring_dip": {
-        "value": 13.15,
+        "value": 13.91,
         "gate": "<= 24.0 (= 3.0 x 8.0)",
         "pass": true
       },
       "keypoint:pinky_mcp": {
-        "value": 77.78,
+        "value": 34.44,
         "gate": "<= 45.0 (= 3.0 x 15.0)",
-        "pass": false
+        "pass": true
       },
       "keypoint:pinky_pip": {
-        "value": 59.94,
+        "value": 12.0,
         "gate": "<= 30.0 (= 3.0 x 10.0)",
-        "pass": false
+        "pass": true
       },
       "keypoint:pinky_dip": {
-        "value": 25.02,
+        "value": 0.61,
         "gate": "<= 24.0 (= 3.0 x 8.0)",
-        "pass": false
+        "pass": true
       },
       "keypoint:thumb_cmc": {
-        "value": 54.08,
+        "value": 38.69,
         "gate": "<= 45.0 (= 3.0 x 15.0)",
-        "pass": false
+        "pass": true
       },
       "keypoint:thumb_mcp": {
-        "value": 22.36,
+        "value": 18.63,
         "gate": "<= 30.0 (= 3.0 x 10.0)",
         "pass": true
       },
       "keypoint:thumb_ip": {
-        "value": 16.4,
+        "value": 11.6,
         "gate": "<= 24.0 (= 3.0 x 8.0)",
         "pass": true
       },
       "keypoint:wrist": {
-        "value": 23.35,
+        "value": 20.0,
         "gate": "<= 24.0 (= 3.0 x 8.0)",
         "pass": true
       }
