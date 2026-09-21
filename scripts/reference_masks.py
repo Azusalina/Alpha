@@ -8,6 +8,11 @@
     python3 scripts/reference_masks.py --sensitivity --out /tmp/ref --qa /tmp/ref-qa
                                                       # the same into other directories (to
                                                       # check a fresh run against the files)
+    python3 scripts/reference_masks.py --sensitivity --bridge-bays --out /tmp/refB --qa /tmp/refB-qa
+                                                      # the other answer to the open question
+                                                      # about the right hand's dorsal bays
+                                                      # (see RIGHT_BRIDGE_DORSAL_BAYS below
+                                                      # and docs/ACCEPTANCE.md section 2)
 
 Source: aes-ref/alpha-white-geom.PNG (1644 x 957), the only authority for the pose.
 Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
@@ -61,6 +66,11 @@ RIGHT HAND -- particle density.
   the wrist line: perpendicular to the forearm axis, RIGHT_CUT_PAST_WRIST px past the
   wrist centre (both measured, see right_axis_from_mask / right_wrist_from_axis).
   Nothing on the right hand is hand-traced; only the component seeds are read by eye.
+  OPEN QUESTION (RIGHT_BRIDGE_DORSAL_BAYS, off): along the back of the index finger and the
+  knuckles the particles are sparse and the density iso-line dips into three bays, so the
+  mask is not a hand shape there, although the drawing is inked across them (the thin
+  strokes joining the particles, which the density rule does not count). Whether to bridge
+  them is the user's call; --bridge-bays computes the other answer. docs/ACCEPTANCE.md #2.
 
 NEGATIVE SPACE -- see compare_silhouette.negative_space (one definition for reference
   and render). The finger region per hand is the documented polygon FINGER_REGION: distal
@@ -211,6 +221,15 @@ RIGHT_SMOOTH = 4.0       # px, Gaussian on the binary silhouette, re-thresholded
 # silhouette ~2-4 px outside its outermost particles, so the edge is pulled in by 2 px.
 RIGHT_EDGE_SHRINK = 2.0
 RIGHT_X_MIN = 790        # nothing of the particle hand lies left of this
+# Dorsal bays (index finger + knuckles): where the drawn particles are sparse, the density
+# iso-line dips inside the almost straight line of particles and the thin strokes joining them.
+# Whether the reference should bridge them is an open question for the user (see
+# right_dorsal_bays, meta.json -> right.known_ambiguities and docs/ACCEPTANCE.md section 2);
+# until it is decided the mask follows the density rule unchanged. --bridge-bays flips this.
+RIGHT_BRIDGE_DORSAL_BAYS = False
+RIGHT_DORSAL_WINDOW = (840, 415, 1010, 520)   # x0, y0, x1, y1: index finger + knuckles
+RIGHT_BAY_MIN_PX = 300
+RIGHT_BAY_TOP_MAX_Y = 480
 # seeds read by eye: one per digit / palm region, the component under each is kept
 # (digit names per decision D1; the thumb lies across the base of the hand, inside "palm")
 RIGHT_SEEDS = {
@@ -352,6 +371,89 @@ def anchor_report(gray, pts, anchors=LEFT_ANCHORS):
     return rep
 
 
+STROKE_PROFILE_RADIUS = 6.0   # px sampled either side of the path
+STROKE_PROFILE_STEP = 0.25    # px
+STROKE_PROFILE_MIN_PEAK = 0.30  # ignore profiles whose peak ink is fainter than this
+
+
+def stroke_width_fwhm(gray, outline, kinds) -> dict:
+    """How wide is the drawn outline stroke the tracer follows?
+
+    This number decides the left hand's largest sensitivity variant (dilate/erode by 1 px:
+    the tracer follows the stroke's centre line, but its inner or outer edge would be just as
+    defensible a silhouette boundary). It is measured here so that it is reproducible from a
+    committed artefact instead of asserted in a comment.
+
+    For every traced ('wire') path pixel, ink is sampled along the path normal over
+    +-STROKE_PROFILE_RADIUS px in STROKE_PROFILE_STEP steps (bilinear). The width is the full
+    width at half the profile's own maximum, with the two half-crossings interpolated
+    linearly. Profiles whose peak is fainter than STROKE_PROFILE_MIN_PEAK, or whose half-level
+    run reaches the end of the sampled window (a second stroke alongside), are dropped, as is
+    everything within 15 px of the left ignore cut.
+    """
+    ink = ink_of(gray).astype(np.float32)
+    P = np.array(outline, float)
+    n = len(P)
+    ss = np.arange(-STROKE_PROFILE_RADIUS, STROKE_PROFILE_RADIUS + 1e-9, STROKE_PROFILE_STEP)
+    w, dropped = [], 0
+    for i in range(n):
+        if kinds[i] != "wire" or P[i, 0] < LEFT_CUT_X + 15:
+            continue
+        d = P[(i + 3) % n] - P[(i - 3) % n]
+        ln = math.hypot(d[0], d[1])
+        if ln < 1e-6:
+            continue
+        nx, ny = -d[1] / ln, d[0] / ln
+        v = ndi.map_coordinates(ink, [P[i, 1] + ny * ss, P[i, 0] + nx * ss], order=1, mode="constant")
+        k = int(np.argmax(v))
+        if v[k] < STROKE_PROFILE_MIN_PEAK:
+            dropped += 1
+            continue
+        half = v[k] / 2.0
+        lo, hi = k, k
+        while lo > 0 and v[lo - 1] >= half:
+            lo -= 1
+        while hi < len(v) - 1 and v[hi + 1] >= half:
+            hi += 1
+        if lo == 0 or hi == len(v) - 1:
+            dropped += 1
+            continue
+
+        def cross(i0, i1):
+            """Fractional index where the profile crosses `half` between samples i0 and i1.
+            The (i1 - i0) factor is what makes this work in BOTH directions: i1 = i0 + 1 on
+            the far side, i1 = i0 - 1 on the near side. (Until 2026-09-20 it was missing, so
+            the near-side crossing was extrapolated the wrong way and every width came out
+            about 12-14 % too small.)"""
+            v0, v1 = float(v[i0]), float(v[i1])
+            return i0 + (half - v0) / (v1 - v0) * (i1 - i0) if v1 != v0 else float(i0)
+
+        w.append(abs(cross(hi, hi + 1) - cross(lo, lo - 1)) * STROKE_PROFILE_STEP)
+    w = np.array(w)
+    q = np.percentile(w, [10, 25, 50, 75, 90])
+    return {
+        "rule": f"full width at half maximum of the ink profile across the traced outline, "
+                f"sampled every {STROKE_PROFILE_STEP} px over +-{STROKE_PROFILE_RADIUS} px along "
+                f"the path normal; profiles with peak ink < {STROKE_PROFILE_MIN_PEAK} or running "
+                f"off the window are dropped, as is x < {LEFT_CUT_X + 15}",
+        "n_profiles": int(len(w)), "n_dropped": int(dropped),
+        "median_px": round(float(q[2]), 2), "mean_px": round(float(w.mean()), 2),
+        "p10_px": round(float(q[0]), 2), "p25_px": round(float(q[1]), 2),
+        "p75_px": round(float(q[3]), 2), "p90_px": round(float(q[4]), 2),
+        "max_px": round(float(w.max()), 2),
+        "half_width_median_px": round(float(q[2]) / 2, 2),
+        "half_width_p90_px": round(float(q[4]) / 2, 2),
+        "known_bias_px": round(STROKE_PROFILE_STEP / 2, 3),
+        "note": "the stroke's two edges lie half this either side of the centre line the tracer "
+                f"follows: {float(q[2]) / 2:.2f} px at the median, {float(q[4]) / 2:.2f} px at p90. "
+                "So the +-1 px dilate/erode variant covers the typical stroke with room to spare, "
+                "but not the widest tenth of it. Known bias: the half level is taken from the "
+                f"largest SAMPLE rather than the interpolated peak, which widens each profile by "
+                f"up to half a sampling step ({STROKE_PROFILE_STEP / 2} px) -- i.e. these numbers "
+                "err on the wide side, against the +-1 px variant, not for it.",
+    }
+
+
 def fill_polygon(outline) -> np.ndarray:
     img = Image.new("L", (W, H), 0)
     ImageDraw.Draw(img).polygon([(x, y) for x, y in outline], fill=255, outline=255)
@@ -443,7 +545,7 @@ def right_cut(wrist, axis_deg, past=RIGHT_CUT_PAST_WRIST):
 
 
 def build_right(gray, left_mask, sigma=RIGHT_SIGMA, level=RIGHT_LEVEL, wrist=None, axis_deg=None,
-                past=RIGHT_CUT_PAST_WRIST, smooth=None, shrink=None):
+                past=RIGHT_CUT_PAST_WRIST, smooth=None, shrink=None, bridge=None):
     excl = ndi.binary_dilation(left_mask, iterations=3)
     dots, cents = particles(gray, excl)
     dens = particle_density(cents, sigma)
@@ -465,6 +567,8 @@ def build_right(gray, left_mask, sigma=RIGHT_SIGMA, level=RIGHT_LEVEL, wrist=Non
     lab, _ = ndi.label(m)
     ids = {int(lab[y, x]) for (x, y) in RIGHT_SEEDS.values()} - {0}
     m = np.isin(lab, list(ids))
+    if RIGHT_BRIDGE_DORSAL_BAYS if bridge is None else bridge:
+        m = m | dorsal_bay_fill(m)
     return m, dots, dens, cents
 
 
@@ -529,6 +633,51 @@ def column_edge(mask, x, which, yr=(0, H)):
     return yr[0] + (ys.min() if which == "top" else ys.max())
 
 
+def thumb_end_point(gray, window=THUMB_END_WINDOW, axis=THUMB_AXIS_DEG, grey=THUMB_STROKE_GREY):
+    """Distal end of the stroke that outlines the left thumb's end and nail: the darkest-core
+    pixel (grey < `grey`) inside `window` that is furthest along `axis`."""
+    x0, y0, x1, y1 = window
+    stroke = np.zeros(gray.shape, bool)
+    stroke[y0:y1, x0:x1] = gray[y0:y1, x0:x1] < grey
+    return extreme_point(stroke, window, axis)
+
+
+# windows read by eye, used only to show how much the thumb-tip answer depends on the window
+THUMB_WINDOW_SWEEP = [(538, 438, 575, 471), (545, 445, 570, 466), (535, 435, 580, 475),
+                      (530, 430, 590, 485), (540, 440, 600, 490)]
+
+
+def thumb_tip_sensitivity(gray) -> dict:
+    """How far does the left thumb tip move when the hand-read window, the axis or the grey
+    level is changed? Recorded so the stated uncertainty can be checked against a committed
+    artefact (the window is the load-bearing choice, not the axis or the level)."""
+    p0 = thumb_end_point(gray)
+
+    def d(p):
+        return round(math.hypot(p[0] - p0[0], p[1] - p0[1]), 1)
+
+    win = [{"window": list(w), "px": (p := thumb_end_point(gray, window=w)), "moved_px": d(p)}
+           for w in THUMB_WINDOW_SWEEP]
+    ax = [{"axis_deg": a, "px": (p := thumb_end_point(gray, axis=a)), "moved_px": d(p)}
+          for a in (30, 35, 40, 45, 50, 55, 60, 70)]
+    gy = [{"grey": g, "px": (p := thumb_end_point(gray, grey=g)), "moved_px": d(p)}
+          for g in (60, 80, 100, 120, 140, 160)]
+    d2 = [548, 461], [559, 461]     # decision D2's stated range for the left thumb tip
+    return {
+        "chosen_px": p0, "window_sweep": win, "axis_sweep": ax, "grey_sweep": gy,
+        "max_move_px": {"window": max(r["moved_px"] for r in win),
+                        "axis": max(r["moved_px"] for r in ax),
+                        "grey": max(r["moved_px"] for r in gy)},
+        "distance_to_decision_D2_range_px": [round(math.hypot(p[0] - p0[0], p[1] - p0[1]), 1) for p in d2],
+        "reading": "inside the chosen window the point is stable (axis and grey move it a few px). "
+                   "Widening the window moves it 19.7-42.4 px, because it then finds the ring "
+                   "finger's outline instead of the thumb's end -- so the window is a hand-read "
+                   "choice the number depends on. The stated uncertainty (8 px) is set by the "
+                   "reading convention: the distal corner of the nail outline (here) versus the "
+                   "lower-left of the same nail end (decision D2's range).",
+    }
+
+
 def left_keypoints(mask, gray) -> dict:
     K = {}
     # fingertips: extreme mask pixel along the distal direction of the last phalanx
@@ -545,18 +694,22 @@ def left_keypoints(mask, gray) -> dict:
     # emerges from behind its end. Its end is drawn as one stroke with the nail outline (the
     # nail faces the viewer, decision D2), so the tip is measured on that stroke: the stroke
     # core pixel (grey < THUMB_STROKE_GREY) furthest along the thumb's axis.
-    x0, y0, x1, y1 = THUMB_END_WINDOW
-    stroke = np.zeros(mask.shape, bool)
-    stroke[y0:y1, x0:x1] = gray[y0:y1, x0:x1] < THUMB_STROKE_GREY
-    K["thumb_tip"] = kp(extreme_point(stroke, THUMB_END_WINDOW, THUMB_AXIS_DEG), "measured", 3.0,
+    K["thumb_tip"] = kp(thumb_end_point(gray), "measured", 8.0,
                         f"the thumb per decision D2 (the digit whose nail faces the viewer). Not "
                         f"a silhouette extreme (the ring finger emerges from behind the thumb's "
                         f"end): the core pixel (grey < {THUMB_STROKE_GREY}) of the stroke that "
                         f"outlines the thumb's end and its nail, furthest along the thumb axis "
-                        f"({THUMB_AXIS_DEG} deg, read from its two edges, 40-59 deg) inside "
-                        f"{list(THUMB_END_WINDOW)}. Any axis in 40-55 deg moves it < 3 px along "
-                        f"the rounded end. (Until 2026-09-19 this was read as (548,461), the "
-                        f"middle of the nail's lower edge rather than its distal end.)")
+                        f"({THUMB_AXIS_DEG} deg, read from its two edges, 40-59 deg) inside the "
+                        f"window {list(THUMB_END_WINDOW)}, which is read by eye. Inside that "
+                        f"window the answer is stable: axis 30-60 deg moves it <= 5 px and the "
+                        f"grey level 60-160 <= 3.6 px. The window itself is load-bearing -- "
+                        f"widening it by 5-8 px picks up the next stroke down-right, which "
+                        f"belongs to the ring finger, and the answer jumps 19.7-42.4 px (meta.json "
+                        f"-> left.hand_read_choices.thumb_tip_sensitivity). The 8 px uncertainty "
+                        f"is set by the reading convention, not by noise: this is the distal "
+                        f"corner of the nail outline, while the user's D2 reading (548-559, 461) "
+                        f"marks the lower-left of the same nail end, 4.2-14.3 px away; k=2 "
+                        f"covers that range. (Until 2026-09-19 the stored value was (548,461).)")
     # joints read by eye from 4-8x crops with a 5/10 px grid
     K["index_mcp"] = kp([592, 306], "read", 10.0, "knuckle bump where the back-of-hand line "
                         "turns down into the index finger (575-590, 250-285); joint centre "
@@ -676,23 +829,15 @@ def right_keypoints(mask, dots, wrist, axis_deg, axis_info) -> dict:
     return K
 
 
-RIGHT_DORSAL_WINDOW = (840, 415, 1010, 520)   # x0, y0, x1, y1: index finger + knuckles
-RIGHT_BAY_MIN_PX = 300
-RIGHT_BAY_TOP_MAX_Y = 480
-
-
-def right_dorsal_bays(R, ign, fR) -> dict:
-    """Diagnostic only -- it does not change the mask. Along the dorsal contour of the index
-    finger and the knuckles the drawn particles are sparse, and the density iso-line dips into
-    bays between them, while the particles themselves (and the thin lines joining them) run
-    almost straight. Bays = convex hull of the mask inside RIGHT_DORSAL_WINDOW minus the mask,
-    components >= RIGHT_BAY_MIN_PX px whose top lies above y RIGHT_BAY_TOP_MAX_Y (the dorsal
-    side). Also scores a copy with the bays filled against the mask: what a render whose
-    dorsal contour runs straight across them would lose on these gates for that alone."""
+def dorsal_bays(R):
+    """The bays of the density silhouette along the dorsal contour of the index finger and the
+    knuckles: convex hull of the mask inside RIGHT_DORSAL_WINDOW minus the mask, components
+    >= RIGHT_BAY_MIN_PX px whose top lies above y RIGHT_BAY_TOP_MAX_Y (the dorsal side).
+    Returns (fill mask, per-bay descriptions)."""
     x0, y0, x1, y1 = RIGHT_DORSAL_WINDOW
     win = np.zeros_like(R)
     win[y0:y1, x0:x1] = True
-    lab, n = ndi.label(convex_hull_mask(R & win) & win & ~R)
+    lab, _ = ndi.label(convex_hull_mask(R & win) & win & ~R)
     bays, fill = [], np.zeros_like(R)
     for i, sl in enumerate(ndi.find_objects(lab), 1):
         b = lab == i
@@ -702,10 +847,57 @@ def right_dorsal_bays(R, ign, fR) -> dict:
         bays.append({"px": int(b.sum()), "bbox_px": [sl[1].start, sl[0].start, sl[1].stop - 1, sl[0].stop - 1],
                      "largest_disk_diameter_px": round(float(
                          ndi.distance_transform_edt(np.pad(b, 1))[1:-1, 1:-1].max() * 2), 1)})
+    return fill, bays
+
+
+def dorsal_bay_fill(R) -> np.ndarray:
+    return dorsal_bays(R)[0]
+
+
+def bay_ink_evidence(gray, R, fill) -> dict:
+    """Is the drawing inked where the bays are? The density rule counts compact dots only, so
+    it ignores the thin lines that join them. Compares the ink inside the bays with the ink in
+    the mask nearby and with the paper outside the dorsal hull."""
+    ink = ink_of(gray)
+    x0, y0, x1, y1 = RIGHT_DORSAL_WINDOW
+    win = np.zeros_like(R)
+    win[y0:y1, x0:x1] = True
+    hull = convex_hull_mask(R & win) & win
+
+    def s(m, what):
+        v = ink[m]
+        return {"what": what, "px": int(m.sum()), "mean_ink": round(float(v.mean()), 4),
+                "frac_ink_gt_0.10": round(float(np.mean(v > 0.10)), 4),
+                "frac_ink_gt_0.45": round(float(np.mean(v > 0.45)), 4)}
+
+    bays_s = s(fill, "bays (dorsal hull minus mask)")
+    mask_s = s(R & win, "mask inside the dorsal window")
+    paper_s = s(win & ~ndi.binary_dilation(hull, iterations=8), "paper in the window, >8 px outside the hull")
+    return {
+        "rule": f"ink = clip((paper {PAPER:.0f} - grey) / {PAPER:.0f}, 0, 1); 'inked' = ink > 0.10",
+        "bays": bays_s, "mask_inside_window": mask_s, "paper_outside_hull": paper_s,
+        "reading": f"the bays carry {bays_s['mean_ink'] / max(paper_s['mean_ink'], 1e-9):.1f}x the ink "
+                   f"of the paper just outside the hull and {bays_s['mean_ink'] / max(mask_s['mean_ink'], 1e-9) * 100:.0f} % "
+                   "of the ink inside the mask nearby: they are drawn-on area, not paper. The ink "
+                   "there is the thin lines joining the particles, which the dot-only density "
+                   "rule does not count.",
+    }
+
+
+def right_dorsal_bays(R, gray, ign, fR) -> dict:
+    """Diagnostic -- with RIGHT_BRIDGE_DORSAL_BAYS false (the default) it does not change the
+    mask. Along the dorsal contour of the index finger and the knuckles the drawn particles are
+    sparse, and the density iso-line dips into bays between them, while the particles themselves
+    (and the thin lines joining them) run almost straight. Scores a copy with the bays filled
+    against the mask: what a render whose dorsal contour runs straight across them would lose on
+    these gates for that alone."""
+    fill, bays = dorsal_bays(R)
     v = ~ign
     filled = R | fill
     cd = contour_distances(R & v, filled & v, ign)["symmetric"]
     return {"window": list(RIGHT_DORSAL_WINDOW), "bays": bays, "total_px": int(fill.sum()),
+            "bridged": bool(RIGHT_BRIDGE_DORSAL_BAYS),
+            "ink_evidence": bay_ink_evidence(gray, R, fill) if fill.any() else None,
             "bays_filled_vs_mask": {"iou": iou(R & v, filled & v), "contour_mean_px": cd["mean"],
                                     "contour_p95_px": cd["p95"], "contour_max_px": cd["max"],
                                     "negative_space_iou": iou(negative_space(R, fR) & v,
@@ -854,6 +1046,17 @@ def write_qa(gray, L, R, negL, negR, ignL, ignR, fL, fR, anchors, outline_kinds,
     rgbp[boundary(R)] = (230, 0, 0)
     Image.fromarray(rgbp).crop((790, 400, 1644, 957)).save(QA / "right-particles.png")
 
+    # the open question of section 2: the dorsal bays, as drawn and as bridged. Blue = the
+    # mask as shipped, orange = where --bridge-bays would add, dots = the detected particles.
+    fill, _ = dorsal_bays(R)
+    rgbb = np.stack([gray] * 3, -1).astype(np.uint8).copy()
+    rgbb[dots] = (120, 190, 255)
+    rgbb[fill] = rgbb[fill] * 0.45 + np.array([255, 150, 0]) * 0.55
+    rgbb[boundary(R)] = (0, 70, 255)
+    rgbb[boundary(R | fill) & ~boundary(R)] = (230, 110, 0)
+    crop_zoom(Image.fromarray(rgbb.astype(np.uint8)), (830, 405, 1030, 535), 6,
+              grid=10).save(QA / "crop-right-dorsal-bays.png")
+
 
 # ============================================================= sensitivity
 
@@ -885,10 +1088,14 @@ def right_variants(gray, L, wrist, axis_deg) -> dict:
 
 
 def left_variants(gray, L) -> dict:
-    """Equally defensible alternatives to the left mask. The outline stroke is 1.75 px wide
-    (FWHM, median; p90 2.75), so its inner and outer edges lie ~1 px either side of the
-    centre line the tracer follows: dilate/erode 1 px. Plus cost-map parameters and a 2-px
-    jitter of every anchor read by eye."""
+    """Equally defensible alternatives to the left mask. The tracer follows the centre line of
+    the drawn outline stroke, but its inner or outer edge would be just as defensible a
+    silhouette boundary, so the mask is dilated and eroded by 1 px. That 1 px is checked
+    against the stroke's measured width (stroke_width_fwhm, recorded as
+    meta.json -> left.stroke_width_fwhm_px and in sensitivity.json): half the median FWHM is
+    how far each edge really lies from the centre line (0.8 px), so +-1 px covers the typical
+    stroke with room to spare -- though not the widest tenth of it (half-width 1.1 px at p90).
+    Plus cost-map parameters and a 2-px jitter of every anchor read by eye."""
     v = {"stroke_outer_1px": ndi.binary_dilation(L, disk(1)),
          "stroke_inner_1px": ndi.binary_erosion(L, disk(1))}
     for sm, gm in ((0.0, 4.0), (1.2, 4.0), (0.7, 2.0), (0.7, 6.0)):
@@ -919,7 +1126,8 @@ def tip_shift(m_ref, m_var, K_hand) -> dict:
     return out
 
 
-def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars, holes_l=None):
+def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars, holes_l=None,
+                stroke_fwhm=None, bays=None):
     """How far do the masks move under small, equally defensible changes? Also: the metric
     vs uniform edge offset curve, and how much of each mask is detail finer than a smooth
     model could carry (morphological open/close). Derives the acceptance gates."""
@@ -935,6 +1143,11 @@ def sensitivity(gray, L0, R0, ignore_l, ignore_r, fL, fR, K, rvars, holes_l=None
                 "negative_space_iou": iou(neg_ref[hand] & v, negative_space(b, fr) & v)}
 
     res = {"k_gate": K_GATE, "left": {}, "right": {}}
+    if stroke_fwhm is not None:
+        # the measurement behind the +-1 px stroke variant, the largest left-hand noise source
+        res["left"]["stroke_width_fwhm_px"] = stroke_fwhm
+    if bays is not None:
+        res["right"]["dorsal_bays"] = bays
     variants = {"left": left_variants(gray, L0), "right": rvars}
     base = {"left": L0, "right": R0}
     for hand in ("left", "right"):
@@ -1021,9 +1234,15 @@ def derive_gates(sens, K) -> dict:
 # ==================================================================== main
 
 def main(argv=None):
-    global OUT, QA
+    global OUT, QA, RIGHT_BRIDGE_DORSAL_BAYS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sensitivity", action="store_true")
+    ap.add_argument("--bridge-bays", action="store_true",
+                    help="bridge the right hand's dorsal bays (index finger + knuckles): fill the "
+                         "dips of the density iso-line between sparse particles, so the dorsal "
+                         "contour runs along the particles and the strokes joining them. OFF by "
+                         "default: it is an open question for the user (docs/ACCEPTANCE.md "
+                         "section 2). Use --out/--qa to keep the committed reference untouched.")
     ap.add_argument("--out", type=Path, default=OUT,
                     help=f"reference data directory (default {OUT.relative_to(ROOT)})")
     ap.add_argument("--qa", type=Path, default=QA,
@@ -1032,6 +1251,7 @@ def main(argv=None):
                          "that a fresh run reproduces them")
     a = ap.parse_args(argv)
     OUT, QA = a.out, a.qa
+    RIGHT_BRIDGE_DORSAL_BAYS = a.bridge_bays
 
     gray = load_gray()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -1144,6 +1364,9 @@ def main(argv=None):
         return round(on, 4), off
 
     on_ink, off = ink_check(outline, kinds)
+    stroke_fwhm = stroke_width_fwhm(gray, outline, kinds)
+    thumb_sens = thumb_tip_sensitivity(gray)
+    bays_report = right_dorsal_bays(R, gray, ign_r, fR)
     n_read = sum(1 for _, _, f in LEFT_ANCHORS if "F" not in f)
     n_fixed = len(LEFT_ANCHORS) - n_read
     n_hole = sum(len(v) for v in LEFT_HOLES.values())
@@ -1180,6 +1403,7 @@ def main(argv=None):
             "traced_outline_fraction_on_ink": round(on_ink, 4),
             "traced_outline_off_ink_stretches": off,
             "anchor_report": anchor_report(gray, anchors),
+            "stroke_width_fwhm_px": stroke_fwhm,
             "holes": hole_meta,
             "hand_traced_parts": f"anchor positions only ({n_read} read by eye on the outline stroke, "
                                  f"plus {n_fixed} fixed extrapolation points on the frame edge, plus "
@@ -1187,6 +1411,17 @@ def main(argv=None):
                                  "between anchors follows the drawn stroke algorithmically. The "
                                  "forearm from x~40 to the frame edge is extrapolated (straight "
                                  "lines).",
+            "hand_read_choices": {
+                "what": "everything else in the left hand that was chosen by eye rather than "
+                        "measured. The anchors above are the big one; these are the rest.",
+                "thumb_tip_window_px": list(THUMB_END_WINDOW),
+                "thumb_tip_axis_deg": THUMB_AXIS_DEG,
+                "thumb_tip_stroke_grey": THUMB_STROKE_GREY,
+                "thumb_tip_sensitivity": thumb_sens,
+                "ignore_cut_x": LEFT_CUT_X,
+                "finger_region_polygon": FINGER_REGION["left"],
+                "read_keypoints": sorted(n for n, e in K["left"].items() if e["method"] == "read"),
+            },
             "user_decisions": [{
                 "id": "D5",
                 "source": "documentations/log/log-v2.md, session 4 decisions (user, 2026-09-19)",
@@ -1199,7 +1434,35 @@ def main(argv=None):
                 "before": "until this decision the slit was listed as a known ambiguity and the "
                           "mask counted it as inside the hand",
             }],
-            "known_ambiguities": [],
+            "known_ambiguities": [{
+                "what": "where exactly the left thumb ENDS. The thumb's end and its nail are drawn "
+                        "as one stroke, and the ring finger emerges from behind it, so the tip is "
+                        "not a silhouette extreme. The stored point is the distal corner of the "
+                        "nail outline; the user's decision D2 quotes (548-559, 461), the lower-left "
+                        "of the same nail end. Both are on drawn ink and both are defensible "
+                        "readings; the stated uncertainty (8 px) is set by that choice of "
+                        "convention and covers the D2 range at k=2. The rule is also only as good "
+                        "as its hand-read window: widening it by 5-8 px picks up the ring finger's "
+                        "outline and the answer jumps 19.7-42.4 px.",
+                "open_question_for_the_user": "keypoints.json -> left.thumb_tip stores "
+                                              f"{thumb_sens['chosen_px']}, which is "
+                                              f"{min(thumb_sens['distance_to_decision_D2_range_px']):.1f}-"
+                                              f"{max(thumb_sens['distance_to_decision_D2_range_px']):.1f} px "
+                                              "from the range decision D2 quotes. D2 settled WHICH "
+                                              "digit is the thumb, not the sub-pixel reading of its "
+                                              "end, so this script did not treat the change as "
+                                              "settled by D2 -- but the user has not confirmed it "
+                                              "either. Nothing gates on it (it has no tip_rule and "
+                                              "pose files' *_tip joints are skipped), so it affects "
+                                              "step-2 pose reading only. To go back to the D2 "
+                                              "reading, set K['thumb_tip'] to a kp([548, 461], "
+                                              "'read', ...) in left_keypoints().",
+                "chosen_px": thumb_sens["chosen_px"],
+                "decision_D2_range_px": [[548, 461], [559, 461]],
+                "distance_to_decision_D2_range_px": thumb_sens["distance_to_decision_D2_range_px"],
+                "measured": "left.hand_read_choices.thumb_tip_sensitivity (window, axis and grey "
+                            "sweeps, in this file)",
+            }],
             "ignore": f"x < {LEFT_CUT_X}: the drawing's forearm contours start at x~38-42; the app's arm "
                       "leaves the frame there, which the drawing does not show",
             "area_px": int(L.sum()),
@@ -1211,6 +1474,7 @@ def main(argv=None):
             "sigma_px": RIGHT_SIGMA, "level_particles_per_1000px2": RIGHT_LEVEL,
             "binary_smooth_px": RIGHT_SMOOTH, "edge_shrink_px": RIGHT_EDGE_SHRINK,
             "seeds_read_by_eye": RIGHT_SEEDS,
+            "bridge_dorsal_bays": bool(RIGHT_BRIDGE_DORSAL_BAYS),
             "edge_to_nearest_particle_px": edge_particle_stats(R, dots, ign_r),
             "particles_detected": len(cents),
             "forearm_axis_deg": round(axis_deg, 2),
@@ -1221,16 +1485,27 @@ def main(argv=None):
                     "rule": f"keep pixels with (p - point) . normal <= 0; the line is perpendicular "
                             f"to the forearm axis, {RIGHT_CUT_PAST_WRIST} px past the wrist centre"},
             "hand_traced_parts": "none (seeds, used only to pick components, are read by eye)",
-            "known_ambiguities": [{
+            "user_decisions": [],
+            "known_ambiguities": [] if RIGHT_BRIDGE_DORSAL_BAYS else [{
                 "what": "bays of the density silhouette along the dorsal contour of the index "
                         "finger and the knuckles (x ~867-1008, y ~441-514): the particles there "
                         "are sparse and the iso-line dips between them, while the particles and "
                         "the thin lines joining them run almost straight. The mask follows the "
                         "density rule as documented; it is not corrected by hand. A render whose "
                         "dorsal contour runs straight across the bays is charged for them "
-                        "(bays_filled_vs_mask). Open question for the user.",
-                "measured": right_dorsal_bays(R, ign_r, fR),
+                        "(bays_filled_vs_mask).",
+                "open_question_for_the_user": "should the reference bridge the bays, so that the "
+                                              "dorsal contour is a hand shape? ink_evidence below "
+                                              "says the bays are drawn-on area, and a hand's back "
+                                              "is not scalloped, so bridging them looks right -- "
+                                              "but it moves all four right-hand gates, so it is "
+                                              "the user's call, like D5 on the left. Not decided "
+                                              "by this script: run it with --bridge-bays to see "
+                                              "the other answer (both are measured side by side "
+                                              "in outputs/qa/reference/bays-bridged/).",
+                "measured": bays_report,
             }],
+            "dorsal_bays": bays_report,
             "area_px": int(R.sum()),
         },
         "negative_space": {
@@ -1248,7 +1523,8 @@ def main(argv=None):
         hole_px = np.zeros_like(L)
         for hm, *_ in holes.values():
             hole_px |= hm
-        sens = sensitivity(gray, L, R, ign_l, ign_r, fL, fR, K, rvars, hole_px)
+        sens = sensitivity(gray, L, R, ign_l, ign_r, fL, fR, K, rvars, hole_px,
+                           stroke_fwhm=stroke_fwhm, bays=bays_report)
         QA.mkdir(parents=True, exist_ok=True)
         (QA / "sensitivity.json").write_text(json.dumps(sens, indent=2) + "\n")
         th = derive_gates(sens, kp_doc)

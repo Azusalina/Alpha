@@ -16,8 +16,9 @@ hands, the digit whose nail faces the viewer is the thumb.
 | What | Command |
 |---|---|
 | Rebuild the reference data (masks, keypoints, QA crops) | `python3 scripts/reference_masks.py` |
-| … and re-derive the thresholds | `python3 scripts/reference_masks.py --sensitivity` (≈ 35–45 s) |
+| … and re-derive the thresholds | `python3 scripts/reference_masks.py --sensitivity` (≈ 30–45 s) |
 | Check that a fresh run reproduces the committed files | `python3 scripts/reference_masks.py --sensitivity --out /tmp/ref --qa /tmp/ref-qa`, then `cmp` each file with `assets-source/reference/` and `outputs/qa/reference/` |
+| Rebuild with the right hand's dorsal bays bridged (the open question in §2) | `python3 scripts/reference_masks.py --sensitivity --bridge-bays --out /tmp/refB --qa /tmp/refB-qa` — the result of that command is in `outputs/qa/reference/bays-bridged/` |
 | Score one render mask (white hand on black) | `python3 scripts/compare_silhouette.py --hand left --render outputs/qa/calib/left-mask.png --out <dir>` |
 | Score an ID-coloured render | `python3 scripts/compare_silhouette.py --hand right --render-rgb shot.png --id-color 0,0,255 --out <dir>` |
 | Also compare joints with a pose file | add `--render-keypoints assets-source/hands/pose-left.json` |
@@ -67,20 +68,22 @@ budget.
 |---|---|---|
 | `left-mask.png` | Drawn human hand and forearm | Live-wire tracing: 65 anchors were **read by eye** on 4–8× crops, plus 2 fixed extrapolation points on the frame edge. Between anchors the path is a minimum-cost path along the dark outline stroke, so it is algorithmic. Only the forearm from x ≈ 40 to the frame edge is extrapolated with straight lines, and that part is in the ignore zone. Construction lines, circles and rays are excluded. One hole, by the user's decision D5 (below): the slit between the thumb and the ring finger, traced the same way from 11 more anchors read by eye. |
 | `right-mask.png` | Particle hand, read as a hand | Particle density: compact dots are detected, then blur σ 7 px, threshold 6.5 particles / 1000 px², seeded component selection, hole fill, 4 px smoothing and a 2 px edge pull-in. The tail is cut at a line perpendicular to the forearm axis (23.4°), 40 px past the measured wrist. **Nothing is hand-traced.** |
-| `*-negative.png` | Gaps between digits | See §3, *negative space* |
+| `*-negative.png` | The concave space the digits enclose — **not only the slits between them** | Convex hull of (hand ∩ finger region), minus the hand, inside the finger region (§3). Each is dominated by one large wedge: left 19 748 px in 5 pieces, the largest 10 520 px (under the extended index finger, x 612–774, y 350–520); right 21 227 px in 4 pieces, the largest 12 795 px (between the index and middle bands, x 808–956, y 448–641). A digit that moves nowhere near a finger slit can still cost negative-space IoU. |
 | `*-finger-region.png` | Where gaps are counted | A documented polygon per hand: distal to a knuckle line across the palm, and below a line running inside the index finger |
 | `*-ignore.png` | Not scored | Left: x < 45, where the drawing's forearm lines start. Right: the arm past the wrist cut. |
-| `keypoints.json` | Fingertips, MCP/PIP/DIP, thumb chain, wrist, wrist axis, contact gap | Each entry is `measured` (computed) or `read` (by eye) and carries an uncertainty in px or degrees. The index, middle, ring and pinky tips also carry a `tip_rule` and a `mask_px`: the same tip measured on the silhouette, which is what a render is compared with. The thumb tips have neither, because neither is a silhouette extreme: the left one is measured on the drawn stroke of the thumb's end, the right one is read. |
+| `keypoints.json` | Fingertips, MCP/PIP/DIP, thumb chain, wrist, wrist axis, contact gap | Each entry is `measured` (computed) or `read` (by eye) and carries an uncertainty in px or degrees. The index, middle, ring and pinky tips also carry a `tip_rule` and a `mask_px`: the same tip measured on the silhouette, which is what a render is compared with. The thumb tips have neither, because neither is a silhouette extreme: the left one is measured on the drawn stroke of the thumb's end, the right one is read. The left thumb tip's 8 px uncertainty is a reading convention, not noise — see below. |
 | `thresholds.json` | The gates in §4 | Derived by `--sensitivity`. Never edit it by hand. |
-| `meta.json` | Every parameter, anchor and snap distance, plus the known ambiguities | |
+| `meta.json` | Every parameter, anchor and snap distance; what was chosen by eye (`left.hand_read_choices`, `left.hand_traced_parts`, `right.seeds_read_by_eye`); the user's decisions (`left.user_decisions`); the known ambiguities | |
 
 QA images are in `outputs/qa/reference/`: `masks-over-reference.png`, `masks-filled.png`,
-the `crop-*.png` crops (fingers, gaps, thumb, the D5 slit, wrist, contact region),
-`keypoints-{left,right}.png` and `right-particles.png`. Every file the script writes (the
-11 in `assets-source/reference/`, `sensitivity.json` and the 20 QA images) is
-byte-identical across repeated runs, also when written elsewhere with `--out` / `--qa`.
-`left-digit-readings.png` and `right-digit-readings.png` in the same folder are not script
-output: they are the pictures the user decided D1 and D2 from.
+the `crop-*.png` crops (fingers, gaps, thumb, the D5 slit, wrist, contact region, the dorsal
+bays), `keypoints-{left,right}.png` and `right-particles.png`. Every file the script writes
+(the 11 in `assets-source/reference/`, `sensitivity.json` and the 21 QA images) is
+byte-identical across repeated runs, also when written elsewhere with `--out` / `--qa`
+(checked again on 2026-09-20). Two files in the same folder are **not** script output:
+`left-digit-readings.png` and `right-digit-readings.png` are the pictures the user decided D1
+and D2 from, and `bays-bridged/` is the output of the `--bridge-bays` run below, kept for the
+user's decision.
 
 **Decision D5: the slit between the left thumb and the ring finger is a gap.** The bright
 slit at x 536–563, y 359–420 is paper seen through the hand, not a highlight (the user's
@@ -101,17 +104,80 @@ did not need to change. A render that leaves the slit closed scores IoU 0.993, c
 2.0 px contour-mean budget: the slit's 135 edge pixels lie up to 76 px from the nearest
 render edge.
 
-**Known limitation of the right mask: bays along the dorsal contour.** Along the back of
-the index finger and the knuckles (x 867–1008, y 441–514) the particles are sparse. The
-density iso-line dips into three bays between them (445, 359 and 1 409 px; the largest disks
-that fit inside are 17, 17 and 30 px across), while the particles and the thin lines joining
-them run almost straight. The mask follows the density rule and is not corrected by hand. A
-render whose dorsal contour runs straight across the bays is charged IoU 0.975, contour mean
-1.06 px and p95 8.1 px for that alone (`meta.json` → `right.known_ambiguities`). That is most
-of the right p95 budget of 10.2 px: the bay edges more than 3 px from the straight contour
-are 5.5 % of the pooled edge pixels that p95 is taken over, so they alone set it. Whether the
-reference should bridge the bays is an open question for the user. Until it is settled,
-read a right-hand p95 failure together with the overlay at the dorsal contour.
+### Open question for the user: the right hand's dorsal bays
+
+Along the back of the index finger and the knuckles (x 867–1008, y 441–514) the particles are
+sparse. The density iso-line dips into three bays between them (445, 359 and 1 409 px, 2 213 px
+in all; the largest disks that fit inside are 17, 17 and 30 px across), while the particles and
+the thin strokes joining them run almost straight. **The shipped mask is not a hand shape
+there**: the back of a hand is not scalloped. Look at
+`outputs/qa/reference/crop-right-dorsal-bays.png` — the shipped contour in blue, what bridging
+would add in orange.
+
+Two things say the bays should be bridged:
+
+- **The drawing is inked there.** The bays carry 7.3× the ink of the paper just outside the
+  dorsal hull, and 41 % of the ink inside the mask nearby (mean ink 0.043 against 0.006 and
+  0.105; 10.1 % of bay pixels are inked against 0.3 % of the paper). That ink is the thin
+  strokes joining the particles, which the density rule does not count — it counts compact
+  dots only. `meta.json` → `right.dorsal_bays.ink_evidence`.
+- **Bridging makes every right-hand gate stricter or equal**, because it removes a stretch of
+  contour that the density level moves a long way (see §4.2 for where these come from):
+
+  | | shipped (as drawn) | bridged | log reference point |
+  |---|---|---|---|
+  | IoU | ≥ 0.901 | **≥ 0.918** | ≥ 0.90 |
+  | Contour mean | ≤ 4.3 px | **≤ 3.7 px** | none |
+  | Contour p95 | ≤ 10.2 px | **≤ 8.9 px** | ≤ 8 px |
+  | Negative-space IoU | ≥ 0.825 | ≥ 0.825 (unchanged) | ≥ 0.85 |
+  | Right hand area | 85 577 px | 87 863 px (+2.7 %) | |
+
+  The tips and the contact gap do not move at all, and neither does the negative space: the
+  bays touch nothing but the dorsal edge (scoring the bridged mask against the shipped one
+  gives negative-space IoU 1.000 and all four tip offsets 0.0 px).
+
+**It is not decided here.** It changes what step 2 is asked to match, so it is the user's call,
+exactly like D5 on the left hand. One consequence should be stated plainly: the step-1
+acceptance condition *"the right mask is the shape of a hand, not of a blob"* **cannot be
+judged until this is answered**, so step 1 is not verified for the right hand. Every other
+right-hand check passes. Until it is settled the mask follows the density rule
+unchanged and is not corrected by hand, and the cost of leaving it is on record: a render whose
+dorsal contour runs straight across the bays is charged IoU 0.975, contour mean 1.06 px and
+p95 8.06 px for that alone — 79 % of the shipped p95 budget of 10.2 px before any real pose
+error. 7.8 % of the pooled edge pixels lie more than 3 px from the straight contour, and every
+one of the 178 pixels above that p95 is inside the dorsal window (x 866–1002, y 444–515), so
+the bays alone set it. Read a right-hand p95 failure together with the overlay at the dorsal
+contour.
+
+Everything needed to switch is built: `--bridge-bays` rebuilds the mask, the keypoints, the
+sensitivity study and the gates in one command (§1), and its full output is already in
+`outputs/qa/reference/bays-bridged/` for comparison. If the user says yes, make
+`RIGHT_BRIDGE_DORSAL_BAYS` true in `scripts/reference_masks.py`, re-run
+`python3 scripts/reference_masks.py --sensitivity`, record it in `meta.json` →
+`right.user_decisions` the way D5 is recorded on the left, and copy the new gates into
+`docs/CONTRACTS.md` §8.
+
+**Left thumb tip** (`keypoints.json` → `left.thumb_tip`, (562, 458), uncertainty 8 px). The
+thumb's end is drawn as one stroke with its nail outline, and the point is the core pixel of
+that stroke furthest along the thumb's axis inside a **window read by eye**,
+(540, 440)–(572, 468). Inside that window the answer is stable: the axis over 30–60° moves it
+≤ 5 px and the grey level over 60–160 moves it ≤ 3.6 px. The window itself is load-bearing —
+widening it by 5–8 px finds the next stroke down-right, which belongs to the ring finger, and
+the answer jumps 19.7 px; widening it by 28 px on the right, 42.4 px. The stated 8 px is a **reading
+convention**, not measurement noise: this point is the distal corner of the nail outline,
+while the user's D2 reading (548–559, 461) marks the lower-left of the same nail end, 4.2 px
+away at its near end and 14.3 px at its far end, which k = 2 covers. Nothing gates on it (pose
+files' `*_tip` joints are skipped and it has no `tip_rule`), so it matters for step-2 pose
+reading, not for a pass/fail.
+
+**This one is not settled.** D2 fixed *which digit* is the left thumb; it was not a ruling on
+the sub-pixel reading of the thumb's end, so replacing the stored (548, 461) with the measured
+(562, 458) was this script's choice and **the user has not confirmed it**. It is logged as such
+in `meta.json` → `left.known_ambiguities`, which also says how to go back (one `kp(...)` call in
+`left_keypoints`). The whole sweep is in `meta.json` →
+`left.hand_read_choices.thumb_tip_sensitivity`, which also lists the other left-hand choices
+made by eye: the thumb window, axis and grey level, the ignore cut and the finger-region
+polygon.
 
 Right-hand wrist (`keypoints.json` → `right.wrist`): this is the centre of the narrowest
 cross-section of the density silhouette. Across the forearm axis it is good to about 5 px.
@@ -131,7 +197,7 @@ mask.
 | **IoU** | overlap ÷ union of the two silhouettes | Overall agreement. A uniform edge offset of *d* px costs about 2.0 % IoU per px on the left hand and 2.1–2.3 % on the right (table in §4.3). |
 | **precision / recall** | overlap ÷ render, overlap ÷ reference | Diagnostic only. Precision < recall means the render is too fat or spills out of the reference; recall < precision means it is too thin or a digit is missing. |
 | **contour distance** mean / p95 / max | For every edge pixel of each silhouette, the distance to the nearest edge pixel of the other, taken from Euclidean distance transforms and pooled symmetrically | The typical edge error (mean), the error almost all of the outline stays within (p95), and the single worst place (max). The max is not gated: one bad pixel run should be looked at in the overlay, not averaged away. |
-| **negative-space IoU** | IoU of the gaps between digits. Gaps = convex hull of (silhouette ∩ finger region), minus the silhouette, inside the finger region, opened 3 × 3, with components ≥ 40 px kept. The reference and the render use exactly the same definition and region. | Whether the fingers are separated in the same places. This is the most pose-sensitive silhouette metric: it falls about three times faster than IoU. |
+| **negative-space IoU** | IoU of the concave space the digits enclose = convex hull of (silhouette ∩ finger region), minus the silhouette, inside the finger region, opened 3 × 3, with components ≥ 40 px kept. The reference and the render use exactly the same definition and region. | Whether the fingers are separated in the same places. Read it as the *shape of the hollow*, not as "the slits between fingertips": most of each hand's negative space is one large wedge closed off by a hull chord (§2), so a digit that moves anywhere on the hull boundary moves this number. It is the most pose-sensitive silhouette metric: it falls about three times faster than IoU. |
 | **silhouette tips** | Each measured fingertip on the render mask, using the reference's own rule: the mask pixel furthest along the distal direction within 25 px of the reference tip. Offset = distance to the reference `mask_px`. | Where the fingers end. Needs no render keypoints. `at_search_edge` means the render finger runs past the search circle, so the real error is larger (this counts as a fail). |
 | **keypoints** (optional) | Render joint positions from `--render-keypoints` compared with `keypoints.json`. A pose file is accepted as-is, and only for its own hand (`"hand"` field). Its `*_tip` joints are skipped, because they are fingertip **sphere centres** while the reference tips are silhouette extremes (and, for the left thumb, the extreme of the drawn end stroke). | Joint placement: MCP / PIP / DIP, the thumb chain, the wrist. |
 | **contact gap** (`overlay_check.py`) | Distance between the two index tips, both measured with the tip rule | The "almost touching" gap. Reference: 30.4 px on the masks (28.3 px between particle and drawn tips). |
@@ -155,9 +221,36 @@ moving one choice by one step at a time, and scoring each alternative against th
 mask with the same metrics (`outputs/qa/reference/sensitivity.json`):
 
 - **Left** (drawn outline):
-  - The outline stroke is 1.75 px wide (FWHM, median over the outline; p90 2.75 px). The
-    tracer follows its centre line, but the inner or outer edge would be equally valid, so
-    the mask was dilated and eroded by 1 px.
+  - The mask was dilated and eroded by 1 px: the tracer follows the centre line of the drawn
+    outline stroke, but its inner or outer edge would be equally valid. This is the largest
+    left-hand noise source — it alone sets all four left gates — so the 1 px is measured
+    rather than asserted. `stroke_width_fwhm` in `scripts/reference_masks.py` takes the full
+    width at half maximum of the ink profile across the outline (sampled every 0.25 px along
+    the path normal) at every traced path pixel: **1 971 profiles, median 1.64 px, mean
+    1.77 px, p25 1.49, p75 1.90, p90 2.14 px**. The measurement is written to `meta.json` →
+    `left.stroke_width_fwhm_px` and to `sensitivity.json` → `left.stroke_width_fwhm_px`. Half
+    the median is **0.82 px**, so a typical stroke edge lies about 0.8 px from the centre line
+    and ±1 px covers it with room to spare. The widest tenth of the stroke is **not** covered:
+    half the p90 width is 1.07 px, just outside the ±1 px variant, so on those stretches the
+    variant understates the reference's own uncertainty slightly. The margin is 0.18 px at the
+    median, not the 0.28 px this page claimed before 2026-09-20.
+
+    One bias is known and is in the safe direction: the half level is taken from the largest
+    *sample* rather than an interpolated peak, which widens each profile by up to half a
+    sampling step (0.125 px). These numbers therefore err wide — against the ±1 px variant,
+    not for it.
+
+    *History of this paragraph.* Until 2026-09-20 it quoted 1.75 px median / 2.75 px p90,
+    which no script computed and no output file recorded. It was then replaced by a measured
+    1.44 px median / 1.98 px p90 — but that measurement extrapolated the near-side half-crossing
+    in the wrong direction (`cross(lo, lo-1)` returned `i0 + f` where it must return `i0 - f`)
+    and so ran 12–14 % small; the discarded 1.75 px was in fact nearer the truth. The sign was
+    fixed on 2026-09-20 and the numbers above come from the fixed code, checked two ways: on a
+    synthetic triangular profile of known FWHM 1.5 px the old formula returns 1.20–1.26 px and
+    the fixed one 1.60–1.62 px (the residual +0.1 px is the sampled-peak bias above), and four
+    slices measured by hand across the drawn forearm stroke give 1.53–1.87 px. Nothing else
+    moved: `left-mask.png`, `keypoints.json` and `thresholds.json` are byte-identical either
+    way, because the FWHM is reported and never fed into a computation.
   - The cost-map blur was set to 0 and to 1.2 px (chosen value 0.7).
   - The cost-map gamma was set to 2 and to 6 (chosen value 4).
   - Every hand-read anchor (outline and D5 hole) was jittered by up to ±2 px, three times.
@@ -204,9 +297,9 @@ than 8 px and a smooth hand would not have them.
 | Keypoints (joints) | stated uncertainty *u* | **≤ 2 *u*** | stated uncertainty *u* | **≤ 2 *u*** | within *u* |
 | Contact gap | tips 1.5 px (left) and 3.0 px (right), combined 3.4 px | **\|Δgap\| ≤ 6.8 px** (reference 30.4 px) | | | none |
 
-**Pose matches** when both hands pass every gate, the contact gap is within tolerance and
-there are no stray pixels. `overlay_check.py` reports this as `pose_matches`.
-`compare_silhouette.py` reports `acceptance.pass` for one hand.
+**Pose matches** when both hands pass every gate, the contact gap is within tolerance and the
+screenshot has **at most 50 stray pixels** (§1; 50 passes, 51 fails, checked). `overlay_check.py`
+reports this as `pose_matches`. `compare_silhouette.py` reports `acceptance.pass` for one hand.
 
 **Stricter than the log:** every left-hand gate, and the right IoU (0.901 against 0.90).
 The left reference is a drawn line known to about 1 px. The log's left IoU of 0.93 lies
@@ -224,10 +317,14 @@ gates to be hard: the current Blender mesh scores IoU 0.901 and p95 13 px (§6).
    that sits where the level-7.5 mask sits and adds 3 px of its own error. The right
    silhouette cannot resolve edge errors below about 5 px. Precise right-hand pose
    information comes from the tips (≤ 6–8 px, from tip shifts of ≤ 3.2 px) and the
-   contact gap (±6.8 px), not from the edge metrics.
+   contact gap (±6.8 px), not from the edge metrics. Part of this gap to the log is the
+   dorsal bays (§2): bridging them would bring p95 to 8.9 px, k = 1.79 against the log's 8.
+   That decision is the user's and has not been made.
 2. **Right negative-space IoU ≥ 0.825 (log: 0.85).** The gaps between the curled particle
    digits are also set by the density level. Level 5.5 alone changes the right gap mask by
-   8.7 % IoU, so 2 × noise gives 0.826. A gate of 0.85 would be k = 1.72.
+   8.702 % IoU, so 1 − 2 × 0.08702 = 0.82596, which `derive_gates` floors to three decimals
+   and ships as **0.825** (`thresholds.json` → `gates.right.negative_space_iou_min`). A gate
+   of 0.85 would be k = 1.72.
 3. **Keypoints and tips at 2 × uncertainty (log: 1 ×).** An exact render would fail about
    60 % of 1-σ checks from the reference's own scatter alone (see "Why k = 2" above).
 
@@ -269,7 +366,9 @@ confirmed this rule as decision D6 in `documentations/log/log-v2.md`.)
 These outputs are in `outputs/qa/reference/selftest/`: `selftest.json` for
 `compare_silhouette.py` and `overlay/overlay-selftest.json` for `overlay_check.py`.
 Both pass (exit code 0). Re-run on 2026-09-19 after decision D5: only the left-hand numbers
-changed (the slit adds edges and negative space); the right-hand ones are identical.
+changed (the slit adds edges and negative space); the right-hand ones are identical. Re-run
+again on 2026-09-20 after the fixes of that date: every number is unchanged, only the text of
+`stray_rule` differs.
 
 **Mask against itself.** Both hands give IoU 1.0, contour mean / p95 / max 0 / 0 / 0,
 negative-space IoU 1.0, every tip offset 0, and all gates passed.
@@ -295,7 +394,8 @@ exactly (255, 0, 0) (4 127 left, 2 967 right). Render-only pixels are exactly (0
 Overlap is exactly (0, 0, 0) and the rest is exactly (255, 255, 255), with no other values.
 
 **Refusals.** 1280 × 720, 3288 × 1914 (DPR 2 hint), 1643 × 957 and 1644 × 956 all exit
-with code 2.
+with code 2. The two self-tests split those sizes between them; all four were also run
+through **both** tools by hand on 2026-09-20, and 1644 × 957 passes in both.
 
 **ID split.** A synthetic screenshot built per CONTRACTS §9 from the reference masks, with
 a 50 %-coverage antialiased rim, is detected as silhouette mode. It splits back to both
@@ -304,6 +404,13 @@ pixels and a contact gap of 30.41 px (Δ 0). `pose_matches` is true. The same sc
 with the right hand moved 5 px down and a 2 × 600 px grey line drawn in gives: left IoU
 1.0, right IoU 0.916, gap 34.2 px (within tolerance), and 1 200 stray pixels, so
 `pose_matches` is false.
+
+**The stray-pixel threshold.** A synthetic silhouette screenshot with a 1 × 50 px grey line
+drawn on the background gives `stray_px` 50, `contract.ok` true and `pose_matches` true; with
+1 × 51 px it gives 51, `contract.ok` false and `pose_matches` false. The rule is "more than 50
+fails", and it now says so in §1, in §4.2, in `contract.stray_rule`, in `pose_matches_rule`
+and in the code (`overlay_check.STRAY_MAX_PX`). Until 2026-09-20 §4.2 and `pose_matches_rule`
+said "no stray pixels", which contradicted §1 and the implementation.
 
 **Full mode.** The reference against itself gives a pure grey overlay (R = G = B
 everywhere). Against a copy moved 5 px, it gives 9 088 pure-red and 8 801 pure-blue pixels,

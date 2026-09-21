@@ -76,6 +76,7 @@ DEFAULT_OUT = ROOT / "outputs" / "qa" / "overlay"
 WHITE_MIN = 255 - ID_TOLERANCE       # "white ground": every channel >= 231
 SILHOUETTE_MIN_FRACTION = 0.98
 STRAY_DISTANCE_PX = 3                # non-ID pixels further than this from a hand = stray content
+STRAY_MAX_PX = 50                    # more than this many fails the screenshot (docs/ACCEPTANCE.md)
 
 ZOOMS = {  # (box, scale): hands and the contact region, reference-frame px
     "left": ((0, 20, 820, 560), 1),
@@ -180,8 +181,9 @@ def run_silhouette(rgb: np.ndarray, out: Path, render_kps: dict | None, use_igno
         "stray_px": int(stray.sum()),
         "stray_rule": f"pixels that are neither white (all channels >= {WHITE_MIN}) nor an ID colour "
                       f"and are more than {STRAY_DISTANCE_PX} px from a hand: construction lines, "
-                      "particles, text or tone-mapped shading left on in silhouette mode",
-        "ok": bool(stray.sum() <= 50),
+                      f"particles, text or tone-mapped shading left on in silhouette mode. More "
+                      f"than {STRAY_MAX_PX} of them fails the screenshot",
+        "ok": bool(stray.sum() <= STRAY_MAX_PX),
     }
     save_mask(out / "render-mask-left.png", c["left"])
     save_mask(out / "render-mask-right.png", c["right"])
@@ -228,8 +230,9 @@ def run_silhouette(rgb: np.ndarray, out: Path, render_kps: dict | None, use_igno
         "hands": {h: summary(per_hand[h]) for h in ("left", "right")},
         "contact": gap,
         "pose_matches": overall,
-        "pose_matches_rule": "both hands pass every gate in thresholds.json, the index-tip gap is "
-                             "within its tolerance, and no stray pixels (docs/ACCEPTANCE.md)",
+        "pose_matches_rule": f"both hands pass every gate in thresholds.json, the index-tip gap is "
+                             f"within its tolerance, and at most {STRAY_MAX_PX} stray pixels "
+                             f"(docs/ACCEPTANCE.md)",
         "files": ["overlay-two-ink.png", "overlay-two-ink-scored.png", "overlay-on-drawing.png", *zooms, "render-mask-left.png",
                   "render-mask-right.png", "left/", "right/"],
     }

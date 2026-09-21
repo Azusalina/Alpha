@@ -55,7 +55,7 @@
       "right_px": 85577,
       "antialiased_edge_px": 4169,
       "stray_px": 0,
-      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
+      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode. More than 50 of them fails the screenshot",
       "ok": true
     },
     "pose_matches": true,
@@ -115,7 +115,7 @@
       "right_px": 85577,
       "antialiased_edge_px": 0,
       "stray_px": 1200,
-      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode",
+      "stray_rule": "pixels that are neither white (all channels >= 231) nor an ID colour and are more than 3 px from a hand: construction lines, particles, text or tone-mapped shading left on in silhouette mode. More than 50 of them fails the screenshot",
       "ok": false
     },
     "pose_matches": false,

@@ -2111,24 +2111,24 @@
         690
       ]
     },
-    "bridge_dorsal_bays": false,
+    "bridge_dorsal_bays": true,
     "edge_to_nearest_particle_px": {
       "median": 3.61,
       "p25": 2.24,
       "p75": 5.0,
-      "p95": 7.07
+      "p95": 6.71
     },
     "particles_detected": 1409,
     "forearm_axis_deg": 23.41,
     "wrist_centre_px": [
-      1282.1,
-      709.5
+      1282.7,
+      710.2
     ],
-    "wrist_width_px": 115.0,
+    "wrist_width_px": 115.1,
     "cut": {
       "point_px": [
-        1318.8,
-        725.4
+        1319.4,
+        726.0
       ],
       "normal_unit": [
         0.9177,
@@ -2138,86 +2138,7 @@
     },
     "hand_traced_parts": "none (seeds, used only to pick components, are read by eye)",
     "user_decisions": [],
-    "known_ambiguities": [
-      {
-        "what": "bays of the density silhouette along the dorsal contour of the index finger and the knuckles (x ~867-1008, y ~441-514): the particles there are sparse and the iso-line dips between them, while the particles and the thin lines joining them run almost straight. The mask follows the density rule as documented; it is not corrected by hand. A render whose dorsal contour runs straight across the bays is charged for them (bays_filled_vs_mask).",
-        "open_question_for_the_user": "should the reference bridge the bays, so that the dorsal contour is a hand shape? ink_evidence below says the bays are drawn-on area, and a hand's back is not scalloped, so bridging them looks right -- but it moves all four right-hand gates, so it is the user's call, like D5 on the left. Not decided by this script: run it with --bridge-bays to see the other answer (both are measured side by side in outputs/qa/reference/bays-bridged/).",
-        "measured": {
-          "window": [
-            840,
-            415,
-            1010,
-            520
-          ],
-          "bays": [
-            {
-              "px": 445,
-              "bbox_px": [
-                867,
-                441,
-                918,
-                460
-              ],
-              "largest_disk_diameter_px": 17.2
-            },
-            {
-              "px": 359,
-              "bbox_px": [
-                916,
-                457,
-                942,
-                482
-              ],
-              "largest_disk_diameter_px": 17.1
-            },
-            {
-              "px": 1409,
-              "bbox_px": [
-                947,
-                476,
-                1008,
-                514
-              ],
-              "largest_disk_diameter_px": 30.0
-            }
-          ],
-          "total_px": 2213,
-          "bridged": false,
-          "ink_evidence": {
-            "rule": "ink = clip((paper 247 - grey) / 247, 0, 1); 'inked' = ink > 0.10",
-            "bays": {
-              "what": "bays (dorsal hull minus mask)",
-              "px": 2213,
-              "mean_ink": 0.0432,
-              "frac_ink_gt_0.10": 0.1008,
-              "frac_ink_gt_0.45": 0.0258
-            },
-            "mask_inside_window": {
-              "what": "mask inside the dorsal window",
-              "px": 5350,
-              "mean_ink": 0.1046,
-              "frac_ink_gt_0.10": 0.2536,
-              "frac_ink_gt_0.45": 0.0753
-            },
-            "paper_outside_hull": {
-              "what": "paper in the window, >8 px outside the hull",
-              "px": 7927,
-              "mean_ink": 0.0059,
-              "frac_ink_gt_0.10": 0.0032,
-              "frac_ink_gt_0.45": 0.0016
-            },
-            "reading": "the bays carry 7.3x the ink of the paper just outside the hull and 41 % of the ink inside the mask nearby: they are drawn-on area, not paper. The ink there is the thin lines joining the particles, which the dot-only density rule does not count."
-          },
-          "bays_filled_vs_mask": {
-            "iou": 0.97479,
-            "contour_mean_px": 1.062,
-            "contour_p95_px": 8.062,
-            "contour_max_px": 28.018,
-            "negative_space_iou": 1.0
-          }
-        }
-      }
-    ],
+    "known_ambiguities": [],
     "dorsal_bays": {
       "window": [
         840,
@@ -2225,74 +2146,19 @@
         1010,
         520
       ],
-      "bays": [
-        {
-          "px": 445,
-          "bbox_px": [
-            867,
-            441,
-            918,
-            460
-          ],
-          "largest_disk_diameter_px": 17.2
-        },
-        {
-          "px": 359,
-          "bbox_px": [
-            916,
-            457,
-            942,
-            482
-          ],
-          "largest_disk_diameter_px": 17.1
-        },
-        {
-          "px": 1409,
-          "bbox_px": [
-            947,
-            476,
-            1008,
-            514
-          ],
-          "largest_disk_diameter_px": 30.0
-        }
-      ],
-      "total_px": 2213,
-      "bridged": false,
-      "ink_evidence": {
-        "rule": "ink = clip((paper 247 - grey) / 247, 0, 1); 'inked' = ink > 0.10",
-        "bays": {
-          "what": "bays (dorsal hull minus mask)",
-          "px": 2213,
-          "mean_ink": 0.0432,
-          "frac_ink_gt_0.10": 0.1008,
-          "frac_ink_gt_0.45": 0.0258
-        },
-        "mask_inside_window": {
-          "what": "mask inside the dorsal window",
-          "px": 5350,
-          "mean_ink": 0.1046,
-          "frac_ink_gt_0.10": 0.2536,
-          "frac_ink_gt_0.45": 0.0753
-        },
-        "paper_outside_hull": {
-          "what": "paper in the window, >8 px outside the hull",
-          "px": 7927,
-          "mean_ink": 0.0059,
-          "frac_ink_gt_0.10": 0.0032,
-          "frac_ink_gt_0.45": 0.0016
-        },
-        "reading": "the bays carry 7.3x the ink of the paper just outside the hull and 41 % of the ink inside the mask nearby: they are drawn-on area, not paper. The ink there is the thin lines joining the particles, which the dot-only density rule does not count."
-      },
+      "bays": [],
+      "total_px": 0,
+      "bridged": true,
+      "ink_evidence": null,
       "bays_filled_vs_mask": {
-        "iou": 0.97479,
-        "contour_mean_px": 1.062,
-        "contour_p95_px": 8.062,
-        "contour_max_px": 28.018,
+        "iou": 1.0,
+        "contour_mean_px": 0.0,
+        "contour_p95_px": 0.0,
+        "contour_max_px": 0.0,
         "negative_space_iou": 1.0
       }
     },
-    "area_px": 85577
+    "area_px": 87863
   },
   "negative_space": {
     "definition": "compare_silhouette.negative_space: convex hull of (mask AND finger region) minus the mask, inside the finger region, opened with 3x3, components >= 40 px",

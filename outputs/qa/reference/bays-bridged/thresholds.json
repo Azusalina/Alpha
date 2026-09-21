@@ -1,0 +1,100 @@
+{
+  "derivation": "gate = k x the reference's own noise, k = 2: the worst difference between the chosen reference mask and an equally defensible alternative (see outputs/qa/reference/sensitivity.json and docs/ACCEPTANCE.md). IoU gates floored to 3 decimals, px gates rounded to 0.1 px. Keypoints and silhouette tips: distance <= k x their stated uncertainty.",
+  "generator": "scripts/reference_masks.py --sensitivity",
+  "log_reference_points": {
+    "iou_min": {
+      "left": 0.93,
+      "right": 0.9
+    },
+    "contour_p95_max_px": 8,
+    "negative_space_iou_min": 0.85,
+    "keypoints": "within stated uncertainty (k=1)"
+  },
+  "gates": {
+    "left": {
+      "iou_min": 0.96,
+      "contour_mean_max_px": 2.0,
+      "contour_p95_max_px": 2.0,
+      "negative_space_iou_min": 0.865,
+      "keypoint_k": 2.0,
+      "noise": {
+        "iou_loss": [
+          0.01977,
+          "stroke_inner_1px"
+        ],
+        "contour_mean_px": [
+          1.002,
+          "stroke_outer_1px"
+        ],
+        "contour_p95_px": [
+          1.0,
+          "stroke_outer_1px"
+        ],
+        "negative_space_iou_loss": [
+          0.06739,
+          "stroke_inner_1px"
+        ],
+        "tip_shift_px": {
+          "index_tip": 1.0,
+          "middle_tip": 1.0,
+          "ring_tip": 1.0,
+          "pinky_tip": 1.0
+        }
+      }
+    },
+    "right": {
+      "iou_min": 0.918,
+      "contour_mean_max_px": 3.7,
+      "contour_p95_max_px": 8.9,
+      "negative_space_iou_min": 0.825,
+      "keypoint_k": 2.0,
+      "noise": {
+        "iou_loss": [
+          0.0406,
+          "level7.5"
+        ],
+        "contour_mean_px": [
+          1.867,
+          "level5.5"
+        ],
+        "contour_p95_px": [
+          4.472,
+          "level7.5"
+        ],
+        "negative_space_iou_loss": [
+          0.08702,
+          "level5.5"
+        ],
+        "tip_shift_px": {
+          "index_tip": 2.0,
+          "middle_tip": 3.16,
+          "ring_tip": 2.24,
+          "pinky_tip": 3.16
+        }
+      }
+    }
+  },
+  "contact": {
+    "index_tip_gap_px": {
+      "value": 28.32,
+      "method": "measured",
+      "uncertainty_px": 3.5,
+      "note": "distance between left index_tip and right index_tip; the uncertainty is dominated by the particle tip (3 px)"
+    },
+    "mask_tip_gap_px": {
+      "value": 30.41,
+      "method": "measured",
+      "uncertainty_px": 3.4,
+      "left_px": [
+        786,
+        416
+      ],
+      "right_px": [
+        807,
+        438
+      ],
+      "note": "distance between the two index tips measured on the silhouette masks with the tip rule; this is the gap a silhouette render is compared with"
+    },
+    "gap_tolerance_px": 6.8
+  }
+}

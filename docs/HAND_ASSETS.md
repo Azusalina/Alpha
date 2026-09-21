@@ -14,12 +14,14 @@ Interfaces: [`docs/CONTRACTS.md`](CONTRACTS.md) §1–6. Round status:
 |---|---|
 | `assets-source/hands/pose-left.json`, `pose-right.json` | **Source of truth** for each pose (CONTRACTS §5). Edit these, then rebuild. |
 | `assets-source/hands/build_hands.py` | The builder (Blender 5.2, headless, deterministic). |
+| `assets-source/hands/check_contours.py` | Decision-D9 contour-coverage check (plain Python; also called by the builder). |
 | `assets-source/hands/hands.blend` | Editable snapshot: both hand meshes, the home camera, and a `<hand>_joint_graph` object per hand. |
 | `public/assets/hand-<hand>.glb` | The mesh the app loads. One shell, positions + normals, app world coordinates. |
 | `public/assets/hand-<hand>.contour.json` | Silhouette contour polylines from the home camera (source for the drawn outline). |
-| `outputs/qa/calib/<hand>-mask.png` | 1644 × 957 silhouette from the home camera, white on black. |
-| `outputs/qa/calib/<hand>-view-{home,yawm35,yawp35,above}.png` | Shaded plaster views: home camera, ±35° yaw, from above. |
-| `outputs/qa/calib/<hand>-mesh-report.json` | Topology, winding, bbox, fingertips measured on the mesh. |
+| `outputs/qa/calib/<hand>-mask.png` | 1644 × 957 silhouette from the home camera, white on black, no anti-aliasing. |
+| `outputs/qa/calib/<hand>-view-{home,yawm35,yawp35,above}.png` | Shaded plaster views: the home camera, then ±35° yaw and from above, framed on the in-frame part of that hand. |
+| `outputs/qa/calib/<hand>-mesh-report.json` | Topology, winding, triangle quality, bbox, fingertips measured on the mesh, D9 coverage. |
+| `outputs/qa/calib/<hand>-contour-coverage.png` | D9 picture: mask grey, boundary green, outer polylines blue, inner orange, uncovered boundary red. |
 | `outputs/qa/calib/compare-<hand>/` | `scripts/compare_silhouette.py` output against the reference mask. |
 
 ## Rebuild
@@ -32,14 +34,14 @@ blender -b --factory-startup -P assets-source/hands/build_hands.py -- \
   --report-dir outputs/qa/calib --blend assets-source/hands/hands.blend --views
 ```
 
-About 35 s per hand for the mesh, plus a few seconds of Workbench rendering;
-roughly 70–100 s for both hands with `--views`. Options:
+Measured 2026-09-20: 32.5 s (left) and 27.2 s (right) for the meshes, ~3 s for
+the ten Workbench renders, 64 s wall clock for the whole command. Options:
 
 | Flag | Effect |
 |---|---|
 | `--hand left\|right\|both` | Which hand(s). Default `both`. |
 | `--out DIR` | GLB and contour JSON directory. Default `public/assets`. |
-| `--masks DIR` | Also render `<hand>-mask.png` into DIR. |
+| `--masks DIR` | Also render `<hand>-mask.png` into DIR **and run the D9 contour check** (prints `[d9] …`, and stores it in the mesh report). |
 | `--views` | Also render the four shaded views (into the `--masks` directory, default `outputs/qa/calib`). |
 | `--report-dir DIR` | Where `<hand>-mesh-report.json` goes. Default `outputs/qa/calib`. |
 | `--blend PATH` | Save the editable `.blend`. With `--hand left` only the left hand is in it. |
@@ -51,7 +53,16 @@ The console prints one line
 from Blender's glTF add-on. It is harmless: the add-on probes an optional
 compression library that this export does not use.
 
-Then compare against the reference (per hand):
+### Checking the result
+
+D9 contour coverage, without Blender (the builder runs the same code when
+`--masks` is given):
+
+```bash
+python3 assets-source/hands/check_contours.py --hand both --out outputs/qa/calib
+```
+
+Against the reference silhouette (per hand):
 
 ```bash
 python3 scripts/compare_silhouette.py --hand left \
@@ -78,10 +89,9 @@ control over *where* parts blend. Metaballs blend everything with everything.
 whose radius `k` is chosen per join: large at the forearm→wrist→palm (soft
 transitions), medium inside the palm block and at every finger root (a fillet
 into the palm, not a stuck-on tube), small between phalanges (soft knuckle
-turns), and almost hard for the nail plates. **Digits are never blended with
-each other**, only with the palm block, so curled fingers that pass close to
-each other stay separate instead of webbing together. A single global voxel
-remesh cannot make that distinction.
+turns). **Digits are never blended with each other**, only with the palm block,
+so curled fingers that pass close to each other stay separate instead of
+webbing together. A single global voxel remesh cannot make that distinction.
 
 **Construction, per hand** (`build_primitives`):
 
@@ -105,21 +115,35 @@ remesh cannot make that distinction.
   first dorsal interosseous web between the thumb MCP and the index metacarpal.
 - *Fingers.* Elliptical phalanges with a slight waist between joints, a palmar
   pad on each phalanx, dorsal knuckles over PIP/DIP, and a rounded tip cap whose
-  end lands exactly on the pose's tip px. The nail plate sits on the dorsal side
-  of the distal phalanx and its free edge stops inside the tip cap (this round's
-  fix: before, the plate overhung the tip by 5–10 px, which gave notched,
-  claw-like tips and a ~10 px fingertip overshoot).
+  end lands exactly on the pose's tip px.
+- *Nails.* A nail plate is **not** a separate solid. It is a band-limited
+  relief: the digit's field is lowered by `nail_relief · h` over the plate
+  footprint, with a soft border `nail_edge` wide (≈ 1.7 voxels), so the grid
+  resolves the edge instead of aliasing it. The plate runs from the nail fold
+  (`nail_start` of the distal phalanx) and fades out inside the rounded tip cap
+  (`nail_tip`), so there is no overhang and no free-edge step. Round 2
+  session 3 hard-unioned an ellipsoid whose relief was under one voxel; that is
+  what produced the nail-edge creases, dimples and notches the verifier found,
+  and they are gone with the relief form (checked at 6× zoom on all four tips
+  that were called out).
 
 **Surface finishing.** Two Laplacian smoothing passes (volume preserving), then
-Blender's Decimate (collapse) to the triangle budget, triangulate, recompute
-normals, smooth shading. The final counts are always 28 854 triangles /
-14 429 vertices: that is the decimation target (29 000 × 0.995), not a
-coincidence.
+Blender's Decimate (collapse, ratio `budget / raw × 0.995`) with
+triangulation, then `cleanup_iters` passes of quality edge flips and tangential
+relaxation with every moved vertex projected back onto the dense pre-decimation
+surface, then smooth shading. Both hands land on 28 854 triangles /
+14 429 vertices: the ratio sets that, not the shape. The cleanup changes no
+counts and no topology — it removes the decimation slivers that used to show as
+a bright slash on the back of the left hand (triangles with a corner over 150°
+go from 1 717 to 0, min-angle 1st percentile from 3.2° to 29.8°; the slash is
+gone from the home and ±35° views, checked at 5× zoom).
 
 **Verification built in.** The builder counts non-manifold / boundary edges and
 shells on the Blender mesh, then **reads back the exported GLB** and checks
 winding against the stored normals and edge topology again (after welding by
 position), so a problem introduced by the exporter would show up in the report.
+With `--masks` it also runs the D9 contour-coverage check against the mask it
+just rendered and stores the result in the report.
 
 ## Parameters
 
@@ -129,24 +153,29 @@ All in `PARAMS` at the top of `build_hands.py` (world units unless noted;
 | Parameter | Value | What it does |
 |---|---|---|
 | `voxel` | 0.0036 | SDF grid spacing (~1.7 px). Smaller = finer and slower. |
+| `band`, `sdf_chunk` | 3.0, 48 | Narrow-band half width in voxels; x-planes per evaluation slab (memory only). |
 | `k_arm`, `k_body`, `k_thenar` | 0.060, 0.045, 0.040 | Smooth-union radii: arm chain, palm block, thenar/web. |
 | `k_root[digit]` | 0.022–0.040 | Finger-root fillet into the palm (thumb largest). |
 | `k_joint`, `k_pad`, `k_ipk`, `k_knuckle` | 0.016, 0.014, 0.010, 0.018 | Phalanx joints, pads, dorsal IP knuckles, MCP knuckles. |
-| `k_nail` | 0.0025 | Nearly hard union so the nail edge reads. |
-| `meta_*` | — | Metacarpal fan: where it starts, how much it spreads, width, thickness, head size. |
+| `meta_*` | 0.30, 0.45, 1.05, 0.80, 1.12 | Metacarpal fan: where it starts, how much spread it keeps at the wrist, width, thickness, head size. |
 | `knuckle_size`, `knuckle_lift` | 0.62, 0.50 | MCP knuckle bumps. |
+| `ip_knuckle_size`, `ip_knuckle_lift` | 0.62, 0.62 | Dorsal knuckles over PIP/DIP. |
 | `thumb_roll_deg` | 72 | Thumbnail orientation. |
 | `thenar_size`, `thenar_pull`, `thenar_drop` | 1.30, 0.30, 0.30 | Thenar mass size and placement. |
 | `web_thick` | 0.42 | First dorsal interosseous web thickness. |
 | `pad_size`, `pad_drop` | 0.78, 0.30 | Finger pads. |
 | `tip_cap` | 1.10 | Tip cap length vs tip thickness. |
-| `nail_start`, `nail_tip_inset` | 0.40, 0.85 | Nail from 40 % of the distal phalanx to 85 % of the tip cap's reach at nail height. |
+| `nail` | True | Build the nail relief at all. |
+| `nail_start`, `nail_tip` | 0.40, 0.80 | Plate from 40 % of the distal phalanx; faded out by 80 % of the tip cap. |
+| `nail_width`, `nail_relief`, `nail_edge` | 0.72, 0.12, 0.0030 | Plate half-width (× the section), height (× tip half-thickness), soft border half-width (world). |
 | `waist` | 0.07 | Phalanges narrow slightly between joints. |
 | `section_clamp` | (0.75, 2.2) | Limits on 3D half-width vs projected half-width (foreshortened bones). |
 | `arm_extend` | 0.60 | Forearm length past the off-frame forearm joint. |
 | `smooth_iters`, `smooth_factor` | 2, 0.45 | Laplacian smoothing. |
 | `tri_budget` | 29 000 | Decimation target (≤ 30k). |
-| `contour_min_px`, `contour_step_px`, `contour_smooth_iters`, `contour_side_px` | 14, 3, 6, 3 | Contour export (below). |
+| `cleanup_iters`, `cleanup_relax` | 4, 0.5 | Post-decimation quality flips + tangential relaxation. |
+| `contour_min_px`, `contour_step_px`, `contour_smooth_px` | 14, 3, 1.0 | Contour export: shortest kept *inner* piece, resampling step, smoothing sigma. |
+| `contour_probe_px`, `contour_edge_px`, `contour_join_px` | 0.15…2.5, 0.35, 2.0 | Outer/inner/hidden probes, fold test, piece joining. |
 
 Pose-level controls are in the pose files: joint `px`, `z`, `r`, `flat`, and
 `dorsal`. Calibration (log-v2 step 2) edits only those.
@@ -167,78 +196,141 @@ Pose-level controls are in the pose files: joint `px`, `z`, `r`, `flat`, and
   coordinates**, with no node transform (the single node has none). Load the GLB
   and put it in the scene as is.
 - Blender home camera: location `(0, −D, 0)`, rotation `(π/2, 0, 0)`,
-  `sensor_fit = VERTICAL`, `angle_y = 22°`, 1644 × 957.
+  `sensor_fit = VERTICAL`, `angle_y = 22°`, 1644 × 957, pixel aspect 1.
 - `joint_graph` objects in the `.blend` are in Blender coordinates (same
-  mapping).
+  mapping), one vertex per pose joint (23 each).
 
 ## Output formats
 
-**GLB**: one mesh, one primitive, `POSITION` + `NORMAL` + indices, triangles,
-no material (the app supplies it). Winding is outward (counter-clockwise seen
-from outside), so the app can render `FrontSide`.
+**GLB**: one node with no transform, one mesh, one primitive, `POSITION` +
+`NORMAL` + indices, triangles, no material (the app supplies it). Winding is
+outward (counter-clockwise seen from outside), so the app can render
+`FrontSide`.
+
+**Mask PNG**: Workbench, flat white on a black world, anti-aliasing **off**, so
+a pixel is hand or background with no grey fringe; threshold at > 127.
 
 **Contour JSON** (`hand-<hand>.contour.json`):
 
 ```jsonc
 {
   "hand": "left",
+  "source": "assets-source/hands/build_hands.py",
+  "units": "app world (Y up, +Z toward camera)",
   "camera": { "type": "perspective", "fovYDeg": 22, "position": [0, 0, 5.144554], … },
   "definition": "…", "stepPx": 3,
-  "polylines": [[[x, y, z], …], …],      // app world, longest first
-  "meta": [{ "kind": "outer", "inFrame": 1.0 }, …],   // meta[i] describes polylines[i]
-  "metaDefinition": "…"
+  "metaDefinition": "…",
+  "polylines": [[[x, y, z], …], …],                            // app world, longest first
+  "meta": [{ "kind": "outer", "inFrame": 1.0, "closed": false }, …]   // meta[i] describes polylines[i]
 }
 ```
 
-Polylines are the mesh's silhouette edges from the home camera (edges between a
-camera-facing and a back-facing triangle), chained, with occluded parts removed
-by ray casting, smoothed, resampled every 3 px, and chains shorter than 14 px
-discarded. That definition includes **occluding contours inside the
-silhouette** (a finger passing in front of another), so each polyline is
-labelled:
+The curve is the **contour generator of the smooth-shaded surface**: the zero
+set of `n · (camera − p)` with the GLB's vertex normals interpolated over each
+triangle (Hertzmann & Zorin 2000). Every triangle with a sign change holds one
+segment and every crossed edge is shared by two of them, so the raw curve is a
+set of disjoint closed loops with no branches — unlike a mesh-edge silhouette,
+which zig-zags and branches. Then: parts hidden behind nearer parts are dropped
+by ray casting; grazing-angle folds are dropped; the remaining pieces are
+smoothed (Gaussian, sigma 1 px along the arc) and resampled every 3 px; *inner*
+pieces shorter than 14 px are discarded, while *outer* pieces are kept down to
+1 px (they are the edges of the narrow gaps between digits — discarding them is
+what used to leave holes in the outline); pieces of one kind that meet end to
+end are joined.
 
-- `kind: "outer"`: borders the background, i.e. the hand's outline and the
-  edges of the gaps between digits. These are the outer contour for the drawn
-  construction layer. Measured: within 3.2 px of the mask boundary everywhere
-  (mean 0.7 px).
-- `kind: "inner"`: an interior occluding contour.
+Each polyline carries one label:
+
+- `kind: "outer"`: borders the background — the hand's outline and the edges of
+  the gaps between digits. **The construction layer draws these.**
+- `kind: "inner"`: an occluding contour inside the silhouette, where one part
+  passes in front of another.
 - `inFrame`: fraction of the polyline inside the frame at the reference aspect.
-  The arm's off-frame part is kept (`inFrame` 0), because wider windows pull the
-  camera back and can show more of it.
+  The arm's off-frame part is kept (`inFrame` 0.41 / 0.48 for the arm
+  polylines), because wider windows pull the camera back and can show more of
+  it.
+- `closed`: the polyline is a closed loop (last point = first point).
 
-Polylines are split where the label changes, so each polyline has one kind.
-`meta` and `metaDefinition` extend the CONTRACTS §6 shape without changing it.
+Counts now: left 22 polylines (14 outer, 8 inner), 1 482 points; right 20
+(12 outer, 8 inner), 1 558 points.
+
+**Decision D9 (outer polylines must cover the mask boundary).** Measured by
+`check_contours.py` at tolerance 3 px, and independently re-measured on
+2026-09-20 with a separate implementation, which agreed to the pixel:
+
+| Hand | Boundary px (4-/8-conn) | Covered | Largest uncovered run | Boundary → outer: mean / p95 / max | Boundary covered only by `inner` |
+|---|---|---|---|---|---|
+| left | 2 234 / 3 124 | 100 % / 100 % | 0 px | 0.43 / 0.88 / 2.39 px | 0 |
+| right | 2 485 / 3 502 | 100 % / 100 % | 0 px | 0.42 / 0.85 / 2.23 px | 0 |
+
+Outer-polyline precision (each in-frame outer point to the nearest boundary
+pixel): mean 0.53 px, max 2.51 px (left) and mean 0.53, max 2.46 (right); no
+point is further than 3 px. `inner_points_on_background` is 0 for both hands.
+
+Two definitions matter for reproducing these numbers:
+
+- *In-frame boundary pixel.* A hand pixel with a background 4-neighbour (or
+  8-neighbour) **inside the image**. Where the arm runs off the frame the mask
+  simply stops; those pixels (217 on the left at x = 0, y 46–262; 153 on the
+  right at x = 1643, y 761–913) are a cut, not an outline, and are excluded, as
+  D9's wording "in-frame boundary pixels" requires. Counting them instead gives
+  91.3 % / 94.4 % with one uncovered run of 214 / 149 px — that is the same
+  measurement with the wrong boundary set, not a regression.
+- *Where a gap closes, the outline becomes an inner contour.* On the left hand
+  one 6-point `inner` polyline (px 564,404 → 558,418, 15 px long) runs between
+  the tip of the thin background slit above it and the tip of the wedge below
+  it. Its two ends sit on the outline at those tips and its interior points are
+  1–5 px from the nearest boundary pixel. It is a **legitimate
+  tangency, not a mislabel**: in that stretch the mask is solid — the surface
+  behind the edge is the hand, not the background, and every outward probe
+  hits the mesh — so by the definition above it cannot be `outer`. Nothing in
+  the outline depends on it: the outer polylines already cover 100 % of the
+  boundary there, and no boundary pixel is covered by an inner polyline alone.
 
 **Mesh report** (`<hand>-mesh-report.json`): vertex / triangle counts, shells,
-non-manifold and boundary edges (Blender mesh), `glb_check` (read back from the
-GLB: winding agreement, welded boundary / non-manifold edges),
+non-manifold and boundary edges (Blender mesh), `raw_extraction` (the dense
+level set before decimation), `triangle_quality` (angle statistics after
+decimation, after cleanup, and for in-frame triangles only), `glb_check` (read
+back from the GLB: winding agreement, welded boundary / non-manifold edges),
 `winding_agreement_pct`, signed volume (positive = outward), surface area,
-`bbox_app`, contour counts, the full `params`, and `fingertips`: for each digit
-the mesh vertex furthest along the distal bone direction (within 2.5 × the DIP
-radius of the bone axis), projected to px and compared with the pose's tip px.
+`bbox_app`, `params`, contour counts, `contour_coverage_d9`, and `fingertips`:
+for each digit the mesh vertex furthest along the distal bone direction
+(within 2.5 × the DIP radius of the bone axis), projected to px and compared
+with the pose's tip px.
 
-## Current state (2026-09-19)
+## Current state (2026-09-20)
 
-| Hand | Triangles | Shells | Non-manifold | Boundary | Winding | Fingertip Δ vs pose (px) |
+| Hand | Triangles | Vertices | Shells | Non-manifold | Boundary | Winding | Fingertip Δ vs pose (px) |
+|---|---|---|---|---|---|---|---|
+| left | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.08–1.61 |
+| right | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.36–1.98 |
+
+Checked independently of the builder on 2026-09-20 (own GLB reader in numpy,
+not the build script's): one node with no transform, one primitive, POSITION +
+NORMAL only, no material; 1 connected component; 0 boundary and 0 non-manifold
+edges after welding by position; no directed edge used twice; normals unit to
+1.4e-7; 100 % winding agreement; signed volume positive. GLB triangles
+projected with the contract-3 formula and rasterised match the Blender mask
+almost exactly — 3 differing pixels of 114 639 hand pixels (left) and 2 of
+75 582 (right), each on the mask edge — so the Blender, glTF and app
+conventions agree.
+
+Rebuilding into a scratch directory on 2026-09-20 reproduced the committed
+outputs exactly: both GLBs and both contour JSONs byte-identical, all masks,
+views and coverage images pixel-identical (the mask/view PNG *files* differ only
+in metadata bytes), the mesh reports identical apart from the output paths.
+
+Against the reference masks (`compare_silhouette.py`, **before calibration**;
+the left reference mask changed with decision D5, so these numbers are
+provisional until the reference round finishes):
+
+| Hand | IoU | Precision | Recall | Contour mean / p95 / max (px) | Negative-space IoU | Silhouette tips (px) |
 |---|---|---|---|---|---|---|
-| left | 28 854 | 1 | 0 | 0 | 100 % | 0.1–1.7 |
-| right | 28 854 | 1 | 0 | 0 | 100 % | 0.1–1.9 |
+| left | 0.894 | 0.918 | 0.972 | 5.4 / 12.1 / 43.0 | 0.783 | 2.0–3.2 |
+| right | 0.803 | 0.949 | 0.839 | 10.2 / 29.3 / 68.2 | 0.703 | 2.2–9.2 |
 
-Against the reference masks (`compare_silhouette.py`, before calibration):
-
-| Hand | IoU | Precision | Recall | Contour mean / p95 / max (px) | Negative-space IoU | Fingertip keypoints mean / max (px) |
-|---|---|---|---|---|---|---|
-| left | 0.901 | 0.925 | 0.972 | 6.8 / 13.0 / 69.0 | 0.815 | 4.0 / 11.8 (thumb) |
-| right | 0.803 | 0.949 | 0.839 | 10.2 / 29.0 / 68.2 | 0.704 | 3.4 / 6.2 |
-
-Also checked independently of the builder (own GLB reader in numpy, not the
-build script's): 1 connected component, 0 boundary / 0 non-manifold edges,
-every directed edge used once, 100 % winding agreement, unit normals, no node
-transform. GLB triangles projected with the contract-3 formula and rasterised
-match the Blender mask to IoU 0.990, and every differing pixel is within 2 px of
-the mask edge, so the Blender, glTF and app conventions agree. Two full
-rebuilds give byte-identical GLBs and contour JSON, and pixel-identical masks and
-views (the PNG files differ only in metadata bytes).
+Both hands fail the derived gates in `docs/ACCEPTANCE.md` on IoU, contour
+distance and negative space, as expected before step 2: the form is not
+calibrated yet.
 
 ## Provenance
 
@@ -260,15 +352,20 @@ views (the PNG files differ only in metadata bytes).
 - **Not calibrated yet** (log-v2 step 2). The right hand's fingers, palm and
   forearm are thinner than the particle cloud (recall 0.84, most red in the
   overlay is along the digits); the left forearm band and wrist underside differ
-  by a few px; the left thumb tip is 11.8 px right of the reference keypoint
-  (pose px, not a builder error).
+  by a few px; several hidden left joints (pinky MCP/PIP, thumb CMC, middle MCP)
+  are 40–78 px from the reference readings, and the right wrist is 89 px off.
+  Those are pose numbers, not builder errors.
+- **The right pose's depth profile was not reconstructed independently**: `z`,
+  `flat` and `dorsal` are within ±0.01 of the left pose at every joint. A
+  step-2 item (the verifier's finding; poses are frozen until then).
+- **The left thumb does not yet show D2's large viewer-facing nail.** The nail
+  relief is deliberately shallow (0.12 × tip half-thickness); making that thumb
+  read as the reference does is a step-2/3 shaping question, not a defect of the
+  surface.
 - **Stepped "cuff" on the off-frame forearm** where the arm extension meets the
   forearm capsule, visible in the ±35° and top views, invisible from the home
-  camera. Scheduled for log-v2 step 3 (builder fixes), before the camera is
-  allowed to move.
-- A very shallow smooth-union crease on the back of the left hand (≈ px 482,
-  251) catches a thin highlight in the home view; it is invisible at an oblique
-  angle. Also for step 3.
+  camera (it is outside the frame). Scheduled for log-v2 step 3, before the
+  camera is allowed to move.
 - Depth is a reconstruction. The ±35° and top views are volumetric (no
   cut-outs), but the depth ordering of the curled digits is inferred from the
   drawn overlaps only.
@@ -277,5 +374,6 @@ views (the PNG files differ only in metadata bytes).
 - The `.blend` holds the **baked** meshes. To change the form, edit the pose
   JSON or `PARAMS` and rebuild; editing the mesh in the `.blend` does not flow
   back into the GLB.
-- Determinism is verified for this Blender build (5.2.2 LTS, bundled OpenVDB).
-  Another Blender version may extract or decimate slightly differently.
+- Determinism is verified for this Blender build (5.2.2 LTS, bundled OpenVDB),
+  repeatedly, most recently on 2026-09-20. Another Blender version may extract
+  or decimate slightly differently.

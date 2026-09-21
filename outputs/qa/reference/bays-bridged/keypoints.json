@@ -488,8 +488,8 @@
     },
     "wrist": {
       "px": [
-        1282.1,
-        709.5
+        1282.7,
+        710.2
       ],
       "method": "measured",
       "uncertainty_px": 35.0,
