@@ -41,6 +41,24 @@ function AssetsReady({ onReady }: { onReady: () => void }) {
   return null;
 }
 
+/**
+ * Plaster lighting, tuned with the Canvas `flat` (no tone mapping), so these
+ * numbers set the on-screen tone directly. Review B2: a soft key from the upper
+ * left (the reference's implied light) and a weak fill, so knuckles and
+ * metacarpals read; the lit planes stay a step below the paper and the turned
+ * planes go clearly darker, so the hand never flattens into one grey.
+ */
+const LIGHT = {
+  sky: '#ffffff',
+  ground: '#8f8a80',
+  hemisphere: 0.45,
+  keyFrom: [-3.2, 2.2, 2.0] as [number, number, number],
+  key: 3.0,
+  fillFrom: [2.2, -1.4, 1.6] as [number, number, number],
+  fill: 0.35,
+  ambient: 0.1,
+};
+
 /** The composition plane; the pointer is projected onto it for particle hover. */
 const COMPOSITION_PLANE = new Plane(new Vector3(0, 0, 1), 0);
 
@@ -100,10 +118,10 @@ export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
         reference's implied light, a cool fill to keep the shadow side readable,
         and a low ambient so the plaster never goes fully black.
       */}
-      <hemisphereLight args={[PALETTE.sculptureLight, PALETTE.sculptureShadow, 0.9]} />
-      <directionalLight position={[-2.4, 2.8, 3.2]} intensity={2.0} color="#ffffff" />
-      <directionalLight position={[2.2, -1.4, 1.6]} intensity={0.4} color={PALETTE.paperDeep} />
-      <ambientLight intensity={0.35} />
+      <hemisphereLight args={[LIGHT.sky, LIGHT.ground, LIGHT.hemisphere]} />
+      <directionalLight position={LIGHT.keyFrom} intensity={LIGHT.key} color="#ffffff" />
+      <directionalLight position={LIGHT.fillFrom} intensity={LIGHT.fill} color={PALETTE.paperDeep} />
+      <ambientLight intensity={LIGHT.ambient} />
 
       <Suspense fallback={null}>
         <HumanHand />
