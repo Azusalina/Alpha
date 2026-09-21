@@ -30,12 +30,31 @@ DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here
 - D13 The left thumb tip keypoint is the measured (562, 458), uncertainty 8 px.
 - D14 The left gates stay as derived (the +-1 px stroke variant); they are strict on purpose.
 - D16 Joints (MCP/PIP/DIP, thumb chain, wrist) are gated at 3 x their stated uncertainty (joint_k in thresholds.json), silhouette tips at 2 x (tip_k): 16 joint checks per hand would otherwise fail an exact pose most of the time. compare_silhouette.py applies both.
+- Any later D-number in log-v2.md has the same standing.
+
+NEW DECISIONS BELONG TO THE USER. Editing the pose (joint px, z, r, flat, dorsal) to match the reference is your job, not a decision. But if you reach a choice the decisions above do not settle — reading the reference differently from the masks, keypoints or D-decisions; an ambiguous depth or overlap reading; trading anatomy against pixels beyond the constraints; anything about the gates or their derivation; two sources that disagree — do not settle it and do not work around it silently. Put it in decisionsForUser (the question, the options, the evidence with image paths, your recommendation), finish the work that does not depend on it, and return; if it blocks the main structure, return early. The main session asks the user and records the answer as the next D-number. Builder-only changes go in builderRequests (step 3), not here. Leave decisionsForUser empty when there is nothing to ask.
 
 ENVIRONMENT:
 - Blender 5.2.2 LTS headless: blender -b --factory-startup -P script.py -- args (about 35-55 s per hand). Python 3.14 with numpy, Pillow, scipy only (no OpenCV, no scikit-image, no trimesh; do not pip install anything).
 - Do NOT run npm install / npm ci. Do not git commit, push, stash, or change branches.
 - Another agent is calibrating the OTHER hand in the same checkout at the same time, and the main session is editing the app (src/, tests/) in parallel. Edit only the files in your ownership list. Use your own scratch directory as stated in your task, never a shared /tmp path.
 - Verify by looking: render, save PNGs, Read them, crop and zoom into fingers, finger gaps, wrist and the contact region before claiming anything. Report honestly what you did not achieve.`
+
+const DECISIONS = {
+  type: 'array',
+  description: 'Choices only the user can make (see NEW DECISIONS BELONG TO THE USER); empty if none. Any entry pauses this hand until the user answers.',
+  items: {
+    type: 'object',
+    properties: {
+      question: { type: 'string' },
+      options: { type: 'array', items: { type: 'string' } },
+      evidence: { type: 'string', description: 'image paths (crops/overlays) and numbers that show the problem' },
+      recommendation: { type: 'string' },
+      blocks: { type: 'string', description: 'what is on hold until it is answered' },
+    },
+    required: ['question', 'options', 'evidence', 'recommendation', 'blocks'],
+  },
+}
 
 const CALIB = {
   type: 'object',
@@ -82,8 +101,9 @@ const CALIB = {
     files: { type: 'array', items: { type: 'string' } },
     builderRequests: { type: 'array', items: { type: 'string' }, description: 'Changes only build_hands.py could make (step 3), with evidence' },
     openIssues: { type: 'array', items: { type: 'string' } },
+    decisionsForUser: DECISIONS,
   },
-  required: ['hand', 'allGatesPass', 'summary', 'rebuilds', 'metrics', 'gates', 'residuals', 'anatomy', 'meshReport', 'files', 'openIssues'],
+  required: ['hand', 'allGatesPass', 'summary', 'rebuilds', 'metrics', 'gates', 'residuals', 'anatomy', 'meshReport', 'files', 'openIssues', 'decisionsForUser'],
 }
 
 const VERIFY = {
@@ -105,8 +125,9 @@ const VERIFY = {
         required: ['severity', 'description', 'evidence'],
       },
     },
+    decisionsForUser: DECISIONS,
   },
-  required: ['passed', 'gatesAllPass', 'plateauGenuine', 'checked', 'issues'],
+  required: ['passed', 'gatesAllPass', 'plateauGenuine', 'checked', 'issues', 'decisionsForUser'],
 }
 
 function calibratePrompt(hand) {
@@ -125,6 +146,7 @@ LOOP:
 2. Rebuild: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand ${hand} --out public/assets --masks outputs/qa/calib --report-dir outputs/qa/calib
 3. Score: python3 scripts/compare_silhouette.py --hand ${hand} --render outputs/qa/calib/${hand}-mask.png --render-keypoints assets-source/hands/pose-${hand}.json --out outputs/qa/calib/compare-${hand}
 4. Look at the overlays in outputs/qa/calib/compare-${hand}/ (red = reference only, blue = render only, black = both); crop and zoom wherever there is colour; then choose the next edit. Use precision vs recall and the tip offsets to tell pose errors from thickness errors (ACCEPTANCE.md section 3). Fix the big structures first (wrist and forearm band, palm and back-of-hand outline, each digit's axis), thickness second, tips last.
+5. Append one line per rebuild to /tmp/calib-${hand}/iterations.md (what you changed -> IoU, contour mean/p95, negative-space IoU, failing gates). The run can be cut off by the account's usage limit at any point (the last attempt was, after ~22 min, with nothing saved); a resumed run starts from this log and the pose file on disk.
 
 GATES: the ${hand} entries of assets-source/reference/thresholds.json (docs/ACCEPTANCE.md section 4): IoU, contour mean and p95, negative-space IoU, silhouette tips (2 x their stated uncertainty), and joints within 3 x their stated uncertainty (D16; the pose file is passed as render keypoints). The index-tip contact gap needs both hands; the main session checks it afterwards, so keep your index tip on its reference tip.
 
@@ -149,7 +171,7 @@ YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of the ${hand.toUpperCase()} hand cal
 - If gates fail: is the residual report complete and honest (value, location, cause, what was tried)? Is anything labelled builder-limited actually fixable in the pose?
 - Anatomy: digit identity per D1/D2, judged by eye against zoomed reference crops; bone lengths and tapering plausible; no digit passing through another; the +-35 deg and above views volumetric, not paper-thin.
 - A1 numbers in the fresh mesh report: 1 shell, 0 non-manifold, 0 boundary, winding > 99.5 %, <= 30k triangles.
-Set passed=true only if (every gate passes, or the failing gates are a genuine plateau with an accurate residual report) and there is no blocker or major issue — with evidence you produced yourself.
+Set passed=true only if (every gate passes, or the failing gates are a genuine plateau with an accurate residual report) and there is no blocker or major issue — with evidence you produced yourself. A question only the user can decide (see NEW DECISIONS BELONG TO THE USER) goes in decisionsForUser, not in issues: a fixer must not settle it. If the calibrator settled such a question itself, report that as a major issue AND put the question in decisionsForUser.
 
 For reference, the calibrator reported (do not trust it — check):
 ${JSON.stringify(calib, null, 2)}`
@@ -165,12 +187,20 @@ ${JSON.stringify(issues, null, 2)}`
 const ONLY = Array.isArray(args?.only) ? args.only : null
 const HANDS = ['left', 'right'].filter((h) => !ONLY || ONLY.includes(h))
 const RESUME_NOTE = args?.resume === true
-  ? '\n\nRESUMING: an earlier run of this step was stopped part-way. Read documentations/log/log-v2.md, inspect the pose file and the latest compare output on disk, keep what is good, and continue from there. Do not start over.'
+  ? '\n\nRESUMING: an earlier run of this step was stopped part-way. Read documentations/log/log-v2.md (new D-numbers may have been added since), inspect the pose file, your scratch directory\'s iterations.md if it exists, and the latest compare output on disk; keep what is good and continue from there. Do not start over.'
   : ''
+
+// A hand with an open question for the user stops here; the main session asks,
+// records the answer as the next D-number and resumes that hand alone.
+function pause(hand, stage, decisions, rest) {
+  log(`${hand}: paused after ${stage} — ${decisions.length} question(s) for the user`)
+  return { hand, pausedForUser: true, stage, decisionsForUser: decisions, ...rest }
+}
 
 async function runHand(hand) {
   let calib = await agent(`${calibratePrompt(hand)}${RESUME_NOTE}`, { label: `calibrate:${hand}`, phase: 'Calibrate', schema: CALIB })
   if (!calib) return { hand, error: 'calibrator returned nothing' }
+  if (calib.decisionsForUser.length) return pause(hand, 'calibrate', calib.decisionsForUser, { calib })
   const history = []
   for (let round = 1; round <= 3; round++) {
     const verdict = await agent(verifyPrompt(hand, calib), { label: `verify:${hand}#${round}`, phase: 'Verify', schema: VERIFY })
@@ -178,10 +208,12 @@ async function runHand(hand) {
     history.push({ round, passed: verdict.passed, gatesAllPass: verdict.gatesAllPass, plateauGenuine: verdict.plateauGenuine, issues: verdict.issues })
     const serious = verdict.issues.filter((i) => i.severity !== 'minor')
     log(`${hand} round ${round}: passed=${verdict.passed}, gates=${verdict.gatesAllPass ? 'all pass' : 'some fail'}, plateau=${verdict.plateauGenuine}, ${serious.length} blocker/major`)
+    if (verdict.decisionsForUser.length) return pause(hand, `verify#${round}`, verdict.decisionsForUser, { calib, verdict, history })
     if (verdict.passed && serious.length === 0) return { hand, calib, verdict, history }
     if (round === 3) return { hand, calib, verdict, history, unresolved: true }
     const next = await agent(fixPrompt(hand, verdict.issues), { label: `fix:${hand}#${round}`, phase: 'Fix', schema: CALIB })
     if (next) calib = next
+    if (next && next.decisionsForUser.length) return pause(hand, `fix#${round}`, next.decisionsForUser, { calib, history })
   }
   return { hand, calib, history }
 }
