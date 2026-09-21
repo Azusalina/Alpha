@@ -69,13 +69,15 @@ pointer-disturbance pair. Needs the dev server running:
 npm run qa:capture
 ```
 
-Reference alignment — re-measures the landmarks and compares a render against
-`aes-ref/alpha-white-geom.PNG`, writing an overlay, a marked-up landmark image
-and a JSON offset report to `outputs/qa/`:
+Reference alignment — scores the app against `aes-ref/alpha-white-geom.PNG`
+(thresholds and how to read them: `docs/ACCEPTANCE.md`). `npm run qa:overlay`
+draws the two-ink overlay of `outputs/qa/home.png`; a capture of the
+`silhouette` view mode (`window.__alpha.setViewMode('silhouette')`, dev server
+opened with `?tier=low`) gets the full per-hand scores:
 
 ```bash
-npm run qa:landmarks
 npm run qa:overlay
+python3 scripts/overlay_check.py outputs/qa/silhouette.png --out outputs/qa/overlay
 ```
 
 Runtime evidence — frame timing, isolated pointer disturbance and the

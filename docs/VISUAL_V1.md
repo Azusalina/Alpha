@@ -15,8 +15,10 @@ Two hands from *The Creation of Adam*: the human hand entering from the upper
 left, the particle hand from the lower right, index fingertips close but not
 touching.
 
-Measured from the reference by `scripts/measure_landmarks.py`
-(`outputs/qa/reference-landmarks.json`):
+Round-1 landmarks (the script that measured them is retired; the current
+reference keypoints, named per decisions D1/D2, are
+`assets-source/reference/keypoints.json` — see `docs/ACCEPTANCE.md`. This
+table is rewritten at the end of round 2):
 
 | Landmark | Normalised (x, y) | Reference px |
 |---|---|---|

@@ -9,7 +9,6 @@
     "dev": "vite",
     "preview": "vite preview",
     "qa:capture": "node scripts/capture-qa.mjs",
-    "qa:landmarks": "python3 scripts/measure_landmarks.py",
     "qa:overlay": "python3 scripts/overlay_check.py",
     "qa:runtime": "node scripts/check-runtime.mjs",
     "tauri": "tauri",
