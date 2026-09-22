@@ -408,9 +408,17 @@ returned nothing. Both calibrators hit the account's usage limit after about
     off the view axis (set by the shared `thumb_roll_deg`). The fix agent was
     cut off by the usage limit before changing anything; the loop was resumed
     in the same session (`resumeFromRunId`). State before it: `a24fac8`.
-- `/tmp` is tmpfs, and the machine rebooted twice during these runs, taking
-  the calibrators' scratch logs and the verifier's evidence images with it.
-  The residual crops above are in the repo.
+- The resumed right-hand fix (`fix:right#1`) died on "API Error: 529
+  Overloaded" after about 50 min, before changing any repo file. Rather than
+  run that verify/fix loop again, the main session folded it into the
+  recalibration after step 3: step 3 changes the shared builder, so the right
+  hand is recalibrated then anyway, and one verify/fix cycle is saved. The
+  verifier's findings (the kinked finger joints, the minors) are in
+  `outputs/qa/calib/reports/wf_56bea77e-ccd.verify_right-1.json`.
+- `/tmp` is tmpfs, and the machine rebooted three times during these runs,
+  taking the calibrators' scratch logs and the verifier's evidence images
+  with it. The residual crops above are in the repo; later workflows keep
+  their scratch in `outputs/qa/scratch/` (git-ignored locally).
 
 **Builder requests collected for step 3** (full text in the agents' reports,
 `outputs/qa/calib/reports/wf_56bea77e-ccd.*.json`):
@@ -470,22 +478,21 @@ Loop: edit pose → `build_hands.py --hand <h> --masks …` → `compare_silhoue
 IoU ≥ 0.93 left / ≥ 0.90 right, contour p95 ≤ 8 px, negative-space IoU ≥ 0.85,
 fingertip keypoints within their stated uncertainty. Keep bone lengths
 consistent; check the ±35° views stay volumetric. Thicken the fingers.
-**In progress** (session 5, see "Step 2 — calibration runs"): the right hand
-is in its verify/fix loop; the left hand waits for step 3 (D17), then is
-recalibrated with D18.
+**In progress** (session 5, see "Step 2 — calibration runs"): both hands are
+recalibrated after step 3 — the left with D17 and D18, the right with the
+fix for its kinked finger joints (verifier 1's major).
 
 **3. Builder fixes** (after calibration settles): remove the forearm cuff;
 keep all A1 acceptance numbers. With D17 and D19 the scope is every builder
 request listed under "Step 2 — calibration runs", in two stages (arm, then
-digits). Starts once the right hand's step-2 loop has ended (the builder is
-shared):
+digits). **Running** (session 5, 2026-09-22): `wf_75dad007-41f`.
 
 ```text
 Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js" })
 ```
 
-Afterwards step 2 recalibrates the left hand (D17, D18) and re-checks the
-right.
+Afterwards step 2 recalibrates both hands on the new builder
+(`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`).
 
 **4. Integrate into the app** (main session; files disjoint from step 2, so it
 can run in parallel with it):

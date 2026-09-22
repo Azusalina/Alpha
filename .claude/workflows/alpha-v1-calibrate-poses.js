@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-calibrate-poses',
   description: 'Step 2 of the Alpha v1 form round: calibrate each hand pose against the reference masks, then verify each hand independently',
-  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed). args: {only?: ["left","right"], resume?: true}. Invoke by scriptPath.',
+  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed; run again after step 3 widened the builder). args: {only?: ["left","right"], resume?: true}. Invoke by scriptPath.',
   phases: [
     { title: 'Calibrate', detail: 'one agent per hand; each edits only its own pose file and rebuilds its own hand' },
     { title: 'Verify', detail: 'independent, skeptical check of each hand' },
@@ -9,12 +9,17 @@ export const meta = {
   ],
 }
 
+// Git-ignored (.git/info/exclude). Not /tmp: it is tmpfs here and reboots wiped three runs' scratch.
+const SCRATCH = 'outputs/qa/scratch'
+const SCRATCH_ABS = `/home/a/Documents/Alpha/${SCRATCH}`
+
 const CONTEXT = `You are working in the Alpha repo at /home/a/Documents/Alpha (the main checkout, branch main — not a .claude/worktrees path). Alpha v1.0.0 is a React + TypeScript + Vite + three.js desktop-app front end. Its startup page shows two hands from The Creation of Adam: a sculptural human hand (LEFT) entering from the upper left, and a particle hand (RIGHT) entering from the lower right, index fingertips almost touching. The hands are built by a Blender script from one pose file per hand.
 
 Read first:
-- documentations/log/log-v2.md: decisions D1-D16, "Step 1 closed" and "Resume here" (this run is step 2).
-- docs/CONTRACTS.md (sections 1-8) and docs/ACCEPTANCE.md (how each metric is computed and read; the gates and why).
-- docs/HAND_ASSETS.md (how the builder turns a pose into a mesh; what each pose field does).
+- documentations/log/log-v2.md: decisions D1-D19, "Step 2 — calibration runs" and "Resume here" (this run is step 2 again, on the builder that step 3 widened).
+- The previous step-2 reports: outputs/qa/calib/reports/*.json (each calibrator's residuals, anatomy and builder requests; the right verifier's findings).
+- docs/CONTRACTS.md (sections 1-8; section 5 lists the optional per-hand builder fields that step 3 added to the pose format) and docs/ACCEPTANCE.md (how each metric is computed and read; the gates and why).
+- docs/HAND_ASSETS.md (how the builder turns a pose into a mesh; what each pose field does, including step 3's new controls).
 - aes-ref/alpha-white-geom.PNG — THE reference (1644x957). Crop and upscale it with Pillow, then Read the PNG, before judging anything.
 
 CONTRACTS (use exactly): reference frame 1644x957; app world Y up, +Z toward the camera; home camera perspective, vertical FOV 22 deg, at (0,0,D), D = 1/tan(11 deg) = 5.144554; projection s = D/(D-z), px = (x*s/FRAME_WIDTH + 0.5)*1644, py = (0.5 - y*s/FRAME_HEIGHT)*957 with FRAME_HEIGHT = 2, FRAME_WIDTH = 2*1644/957. A pose joint stores its projected px, its world depth z, its radius r in reference px (the half-width as drawn) and optionally flat (depth/width of the section); dorsal is the direction the back of the hand faces.
@@ -22,7 +27,7 @@ CONTRACTS (use exactly): reference frame 1644x957; app world Y up, +Z toward the
 DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here, and a verifier must treat them as correct, not as defects:
 - D1 Right (particle) hand digit names: INDEX reaches up-left to the contact point; MIDDLE is the long digit pointing left beneath the index (tip ~807,654); THUMB is the short digit whose nail outline faces the viewer (tip ~897,672); RING and PINKY are the two down-curled digits (tips ~901-906,755 and ~988-990,755).
 - D2 Left (human) hand digit names: THUMB is the digit with the large nail facing the viewer, coming diagonally out of the base of the palm (tip ~548-559,461); PINKY is the short leftmost digit curled under the palm, pointing back toward the wrist (tip ~437,441); middle and ring are the curled digits between. One rule for both hands: the digit whose nail faces the viewer is the thumb.
-- D3 Order: step 1 (reference data, measurement tools, continuous Blender meshes) is done and verified. THIS RUN IS STEP 2: pose calibration. Builder changes (assets-source/hands/build_hands.py) are step 3 and are NOT part of this run.
+- D3 Order: step 1 (reference data, measurement tools, continuous Blender meshes) is done and verified. THIS RUN IS STEP 2 again: pose calibration on the builder that step 3 widened (D17, D19). Builder changes (assets-source/hands/build_hands.py) are NOT part of this run.
 - D4 The gates are those in assets-source/reference/thresholds.json, derived in docs/ACCEPTANCE.md from the reference masks' own noise.
 - D5 The bright slit between the left thumb and ring finger (x 537-560, y 360-420) is paper seen through a gap: it is negative space, not hand.
 - D6 If calibration plateaus above a gate: record the residual (numbers + overlays) and bring it to the user. Never loosen a gate, never pick another k, never edit thresholds.json.
@@ -30,14 +35,18 @@ DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here
 - D13 The left thumb tip keypoint is the measured (562, 458), uncertainty 8 px.
 - D14 The left gates stay as derived (the +-1 px stroke variant); they are strict on purpose.
 - D16 Joints (MCP/PIP/DIP, thumb chain, wrist) are gated at 3 x their stated uncertainty (joint_k in thresholds.json), silhouette tips at 2 x (tip_k): 16 joint checks per hand would otherwise fail an exact pose most of the time. compare_silhouette.py applies both.
+- D17 Builder first: the left contour p95 had plateaued at 4.12 px (gate 2.0) on shapes the old builder could not make. Step 3 added them (knuckle prominence, wrist-to-back junction, wrist crease and palm heel, forearm sag and wrist prominence, a palm construction); this run recalibrates the left hand against the same gates, using them. If it plateaus again, D6 applies.
+- D18 Left curled middle and ring fingers: palmar flexion. Move their PIPs away from the camera (about 0.10-0.15 world units, flexion at the MCP) so that in 3D the proximal phalanx is about 1.4-1.6 x the middle one; the home silhouette stays within the gates; check the +-35 deg and above views and which digit hides which.
+- D19 Step 3's scope: every collected builder request. Per-hand builder settings live in the pose files as optional fields (CONTRACTS section 5), never as joints added to a chain.
 - Any later D-number in log-v2.md has the same standing.
 
-NEW DECISIONS BELONG TO THE USER. Editing the pose (joint px, z, r, flat, dorsal) to match the reference is your job, not a decision. But if you reach a choice the decisions above do not settle — reading the reference differently from the masks, keypoints or D-decisions; an ambiguous depth or overlap reading; trading anatomy against pixels beyond the constraints; anything about the gates or their derivation; two sources that disagree — do not settle it and do not work around it silently. Put it in decisionsForUser (the question, the options, the evidence with image paths, your recommendation), finish the work that does not depend on it, and return; if it blocks the main structure, return early. The main session asks the user and records the answer as the next D-number. Builder-only changes go in builderRequests (step 3), not here. Leave decisionsForUser empty when there is nothing to ask.
+NEW DECISIONS BELONG TO THE USER. Editing the pose (joint px, z, r, flat, dorsal, and the optional per-hand builder fields of CONTRACTS section 5) to match the reference is your job, not a decision. But if you reach a choice the decisions above do not settle — reading the reference differently from the masks, keypoints or D-decisions; an ambiguous depth or overlap reading; trading anatomy against pixels beyond the constraints; anything about the gates or their derivation; two sources that disagree — do not settle it and do not work around it silently. Put it in decisionsForUser (the question, the options, the evidence with image paths, your recommendation), finish the work that does not depend on it, and return; if it blocks the main structure, return early. The main session asks the user and records the answer as the next D-number. Builder-only changes go in builderRequests (step 3), not here. Leave decisionsForUser empty when there is nothing to ask.
 
 ENVIRONMENT:
 - Blender 5.2.2 LTS headless: blender -b --factory-startup -P script.py -- args (about 35-55 s per hand). Python 3.14 with numpy, Pillow, scipy only (no OpenCV, no scikit-image, no trimesh; do not pip install anything).
 - Do NOT run npm install / npm ci. Do not git commit, push, stash, or change branches.
-- Another agent is calibrating the OTHER hand in the same checkout at the same time, and the main session is editing the app (src/, tests/) in parallel. Edit only the files in your ownership list. Use your own scratch directory as stated in your task, never a shared /tmp path.
+- Another agent is calibrating the OTHER hand in the same checkout at the same time; the main session does not touch the builder or the poses during this run. Edit only the files in your ownership list.
+- Scratch goes in your own directory under ${SCRATCH}/ (git-ignored), as stated in your task — never /tmp: it is tmpfs here, and reboots wiped the scratch of three earlier runs.
 - Verify by looking: render, save PNGs, Read them, crop and zoom into fingers, finger gaps, wrist and the contact region before claiming anything. Report honestly what you did not achieve.`
 
 const DECISIONS = {
@@ -132,21 +141,25 @@ const VERIFY = {
 
 function calibratePrompt(hand) {
   const other = hand === 'left' ? 'right' : 'left'
-  const depthNote = hand === 'right'
-    ? `- Depth: the right pose's z, flat and dorsal are within +-0.01 of the left pose's for every joint — the depth profile was copied, not reconstructed (last verifier's finding). Reconstruct the right hand's depth from what the particle image shows (which digits pass in front of which, the thumb crossing in front of the palm, the down-curled ring and pinky), and say how you read it.`
-    : `- Depth: change z / flat / dorsal only where the silhouette, the drawn overlaps or the side views call for it, and say why.`
+  const handNotes = hand === 'right'
+    ? `- Depth: the previous run reconstructed the right hand's depth (the palm faces the camera and downward; dorsal (0.459, 0.669, -0.585)). Keep it unless the new builder or the fixes below call for a change, and say why.
+- The last verifier failed the right pose on one major (outputs/qa/calib/reports/wf_56bea77e-ccd.verify_right-1.json): the middle and little fingers bend sideways at their interphalangeal joints, which are hinges — the middle DIP bend of 50 deg is about 49 deg sideways, the little finger's PIP (55 deg) and DIP (63 deg) bends are about 50 and 62 deg sideways and in nearly opposite senses, so the finger zigzags. Put each finger's PIP and DIP bends in that finger's MCP flexion plane, within every gate, and report each bend's flexion and sideways parts before and after. Its minors that step 3 addressed in the builder (the carpus knob and crease, the thumb-root crevice, the wrist collar, the thumbnail orientation): check them again on the new builder.
+- The new builder changes the right hand's shape (palm construction, thumb roll and nail, IP knuckles, wrist): the previous passing state is only a starting point. Re-check every gate and keep the back of the index straight (D12).`
+    : `- D17: use the controls step 3 added (CONTRACTS section 5, HAND_ASSETS.md) to draw what the old builder could not: the index-knuckle bump and its step with the index MCP at its reading (592, 306), the straight wrist-to-back line, the wrist crease and palm heel, the forearm's sag and the dorsal wrist bump. The previous residuals, region by region: outputs/qa/calib/reports/wf_56bea77e-ccd.calibrate_left.json and outputs/qa/calib/compare-left/residual-*.png.
+- D18: flex the middle and ring fingers toward the palm (their PIPs away from the camera) so that P1 is about 1.4-1.6 x P2 in 3D, as described above; report their 3D bone lengths and ratios before and after.
+- Depth: otherwise change z / flat / dorsal only where the silhouette, the drawn overlaps or the side views call for it, and say why.`
   return `${CONTEXT}
 
 YOUR TASK: calibrate the ${hand.toUpperCase()} hand's pose (log-v2 step 2) so that its home-camera silhouette matches the reference mask.
 
-OWNERSHIP — edit only: assets-source/hands/pose-${hand}.json. Your rebuilds also regenerate public/assets/hand-${hand}.glb, public/assets/hand-${hand}.contour.json, outputs/qa/calib/${hand}-* and outputs/qa/calib/compare-${hand}/**; that is expected. Everything else is read-only, in particular assets-source/hands/build_hands.py (shared by both hands; builder changes are step 3), assets-source/reference/**, scripts/*, docs/*. Never pass --blend to the builder (hands.blend holds both hands; the main session re-saves it) and never touch the ${other} hand's files. Scratch directory: /tmp/calib-${hand}/.
+OWNERSHIP — edit only: assets-source/hands/pose-${hand}.json. Your rebuilds also regenerate public/assets/hand-${hand}.glb, public/assets/hand-${hand}.contour.json, outputs/qa/calib/${hand}-* and outputs/qa/calib/compare-${hand}/**; that is expected. Everything else is read-only, in particular assets-source/hands/build_hands.py (shared by both hands; builder changes are not part of this run), assets-source/reference/**, scripts/*, docs/*. Never pass --blend to the builder (hands.blend holds both hands; the main session re-saves it) and never touch the ${other} hand's files. Scratch directory: ${SCRATCH}/calib-${hand}/.
 
 LOOP:
-1. Edit pose-${hand}.json (joint px, z, r, flat; dorsal).
+1. Edit pose-${hand}.json (joint px, z, r, flat; dorsal; the optional per-hand builder fields of CONTRACTS section 5).
 2. Rebuild: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand ${hand} --out public/assets --masks outputs/qa/calib --report-dir outputs/qa/calib
 3. Score: python3 scripts/compare_silhouette.py --hand ${hand} --render outputs/qa/calib/${hand}-mask.png --render-keypoints assets-source/hands/pose-${hand}.json --out outputs/qa/calib/compare-${hand}
 4. Look at the overlays in outputs/qa/calib/compare-${hand}/ (red = reference only, blue = render only, black = both); crop and zoom wherever there is colour; then choose the next edit. Use precision vs recall and the tip offsets to tell pose errors from thickness errors (ACCEPTANCE.md section 3). Fix the big structures first (wrist and forearm band, palm and back-of-hand outline, each digit's axis), thickness second, tips last.
-5. Append one line per rebuild to /tmp/calib-${hand}/iterations.md (what you changed -> IoU, contour mean/p95, negative-space IoU, failing gates). The run can be cut off by the account's usage limit at any point (the last attempt was, after ~22 min, with nothing saved); a resumed run starts from this log and the pose file on disk.
+5. Append one line per rebuild to ${SCRATCH}/calib-${hand}/iterations.md (what you changed -> IoU, contour mean/p95, negative-space IoU, failing gates). The run can be cut off at any point — earlier runs were, by the account's usage limit and by server overloads; a resumed run starts from this log and the pose file on disk.
 
 GATES: the ${hand} entries of assets-source/reference/thresholds.json (docs/ACCEPTANCE.md section 4): IoU, contour mean and p95, negative-space IoU, silhouette tips (2 x their stated uncertainty), and joints within 3 x their stated uncertainty (D16; the pose file is passed as render keypoints). The index-tip contact gap needs both hands; the main session checks it afterwards, so keep your index tip on its reference tip.
 
@@ -154,20 +167,22 @@ CONSTRAINTS:
 - Digit identity stays as D1/D2 define it.
 - Stay anatomically plausible: consistent bone lengths (report each phalanx's projected and 3D length before and after; do not distort the proportions to chase pixels), radii tapering from base to tip, knuckles on a plausible arc, no digit passing through another.
 - Thicken the fingers where the reference is fuller: the last verifier found the fingers thin and skeletal, the right hand's especially.
-${depthNote}
+${handNotes}
 - Every rebuild must keep the A1 numbers in outputs/qa/calib/${hand}-mesh-report.json: 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement > 99.5 %, <= 30k triangles.
 - At least once midway and once at the end, rebuild with --views added and look at outputs/qa/calib/${hand}-view-{home,yawp35,yawm35,above}.png: the hand must stay volumetric from the side (review B1.5: no paper-thin cut-out).
 
 STOP when every gate passes, or when calibration plateaus: 4 consecutive rebuilds without improving the worst failing gate, or 40 rebuilds in total. Per D6 never loosen anything; for each failing gate record the residual: value vs gate, where it is (px region, which part of the hand), its cause (pose, thickness, reference ambiguity, or builder-limited = only a build_hands.py change could fix it), what you tried, and the overlay/crop that shows it. Leave the final state on disk built from the final pose (a --views rebuild as the last one), and return CALIB_RESULT.`
 }
 
-function verifyPrompt(hand, calib) {
+function verifyPrompt(hand, calib, round) {
+  const dir = `${SCRATCH_ABS}/verify-${hand}-${round}`
   return `${CONTEXT}
 
-YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of the ${hand.toUpperCase()} hand calibration (log-v2 step 2). Try to find what is wrong. Do not edit any file in the repo; write throwaway outputs only under /tmp/verify-${hand}/. Check at least:
-- Rebuild from the pose file into scratch: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand ${hand} --out /tmp/verify-${hand}/assets --masks /tmp/verify-${hand}/calib --report-dir /tmp/verify-${hand}/calib --views. The fresh mask must be pixel-identical to outputs/qa/calib/${hand}-mask.png (the committed GLB, contour and mask must come from the committed pose).
-- Score the fresh mask yourself: python3 scripts/compare_silhouette.py --hand ${hand} --render /tmp/verify-${hand}/calib/${hand}-mask.png --render-keypoints assets-source/hands/pose-${hand}.json --out /tmp/verify-${hand}/compare. The numbers must match the calibrator's report; check every gate against assets-source/reference/thresholds.json yourself.
-- Look at the overlays yourself (crop and zoom). Is there an obvious pose error left — a digit on the wrong axis, a gap in the wrong place, the palm or back-of-hand outline off, the wrist band off — that a further pose edit would clearly fix? If gates fail, try one or two such edits on COPIES: the builder reads pose-<hand>.json from its own directory, so copy assets-source/hands/build_hands.py and pose-${hand}.json into /tmp/verify-${hand}/exp/, edit the pose copy, and run the copied script with ABSOLUTE --out, --masks and --report-dir paths under /tmp/verify-${hand}/exp/ (relative paths would resolve against the copy's grandparent directory). Never touch the repo's pose file.
+YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of the ${hand.toUpperCase()} hand calibration (log-v2 step 2). Try to find what is wrong. Do not edit any file in the repo; write throwaway outputs only under ${dir}/ (git-ignored scratch). Check at least:
+- Rebuild from the pose file into scratch: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand ${hand} --out ${dir}/assets --masks ${dir}/calib --report-dir ${dir}/calib --views. The fresh mask must be pixel-identical to outputs/qa/calib/${hand}-mask.png (the committed GLB, contour and mask must come from the committed pose).
+- Score the fresh mask yourself: python3 scripts/compare_silhouette.py --hand ${hand} --render ${dir}/calib/${hand}-mask.png --render-keypoints assets-source/hands/pose-${hand}.json --out ${dir}/compare. The numbers must match the calibrator's report; check every gate against assets-source/reference/thresholds.json yourself.
+- Look at the overlays yourself (crop and zoom). Is there an obvious pose error left — a digit on the wrong axis, a gap in the wrong place, the palm or back-of-hand outline off, the wrist band off — that a further pose edit would clearly fix? If gates fail, try one or two such edits on COPIES: the builder reads pose-<hand>.json from its own directory, so copy assets-source/hands/build_hands.py and pose-${hand}.json into ${dir}/exp/, edit the pose copy, and run the copied script with ABSOLUTE --out, --masks and --report-dir paths under ${dir}/exp/ (relative paths would resolve against the copy's grandparent directory). Never touch the repo's pose file.
+- The finger joints are hinges: in 3D, each finger's PIP and DIP bends lie in its MCP flexion plane (no sideways zigzag); ${hand === 'left' ? 'D18: the middle and ring fingers are flexed toward the palm, P1 about 1.4-1.6 x P2 in 3D' : 'the previous verifier found the middle and little fingers bending sideways (outputs/qa/calib/reports/wf_56bea77e-ccd.verify_right-1.json); check that it is gone'}.
 - If gates fail: is the residual report complete and honest (value, location, cause, what was tried)? Is anything labelled builder-limited actually fixable in the pose?
 - Anatomy: digit identity per D1/D2, judged by eye against zoomed reference crops; bone lengths and tapering plausible; no digit passing through another; the +-35 deg and above views volumetric, not paper-thin.
 - A1 numbers in the fresh mesh report: 1 shell, 0 non-manifold, 0 boundary, winding > 99.5 %, <= 30k triangles.
@@ -203,7 +218,7 @@ async function runHand(hand) {
   if (calib.decisionsForUser.length) return pause(hand, 'calibrate', calib.decisionsForUser, { calib })
   const history = []
   for (let round = 1; round <= 3; round++) {
-    const verdict = await agent(verifyPrompt(hand, calib), { label: `verify:${hand}#${round}`, phase: 'Verify', schema: VERIFY })
+    const verdict = await agent(verifyPrompt(hand, calib, round), { label: `verify:${hand}#${round}`, phase: 'Verify', schema: VERIFY })
     if (!verdict) { history.push({ round, verdict: null }); break }
     history.push({ round, passed: verdict.passed, gatesAllPass: verdict.gatesAllPass, plateauGenuine: verdict.plateauGenuine, issues: verdict.issues })
     const serious = verdict.issues.filter((i) => i.severity !== 'minor')
