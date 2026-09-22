@@ -5,14 +5,14 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: IN PROGRESS — session 4** (repo root, `main`). Step 1 is closed
-(all three foundations verified); step 2 (calibration) is running; step 4 (the
-app on the Blender assets) is done in parallel. Step 3 and step 5 wait for
-step 2 (D3). Decisions D5–D15 were added
-during this session (below D1–D4). Earlier pauses: twice at the user's request,
-latest after the step-1 run in session 3. Pick up at "Resume here". A
-paste-ready prompt for a new chat session is in
-[`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md).
+**Status: IN PROGRESS — session 5** (repo root, `main`). Step 1 is closed
+(all three foundations verified); step 4 (the app on the Blender assets) is
+done. Step 2 (calibration): the right hand passes every gate and is in its
+verify/fix loop; the left hand stops at a contour-p95 plateau and, per D17,
+waits for the step-3 builder changes, then is recalibrated with D18.
+Decisions D1–D18 are below. Pick up at "Resume here".
+[`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
+predates step 1 closing).
 
 ---
 
