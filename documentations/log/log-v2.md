@@ -5,15 +5,17 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: PAUSED at the user's request — session 5, 2026-09-22 13:40**
+**Status: PAUSED at the user's request — session 5, 2026-09-22 21:10**
 (repo root, `main`). Step 1 is closed (all three foundations verified); step 4
-(the app on the Blender assets) is done. Step 2 (calibration) is waiting for
-step 3: the left hand stopped at a contour-p95 plateau (D17: builder first,
-then recalibrate with D18); the right hand passes every gate but has a
-verifier major (kinked finger joints) that the same recalibration fixes.
-Step 3 (builder, D19) was stopped in its first stage ("arm"), with a draft
-builder saved. Decisions D1–D19 are below. Pick up at "Resume here"; a
-paste-ready prompt is in [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md).
+(the app on the Blender assets) is done. Step 3 (builder, D19): the "arm"
+stage is done and verified; the "digits" stage is built and paused before
+verification on the question that became D20. Step 2 (calibration) is waiting
+for step 3 to finish: the left hand stopped at a contour-p95 plateau (D17:
+builder first, then recalibrate with D18); the right hand passes every gate
+but has a verifier major (kinked finger joints) that the same recalibration
+fixes. Decisions D1–D20 are below. Pick up at "Resume here"; a paste-ready
+prompt is in [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) (out of date —
+predates this pause).
 
 ---
 
@@ -188,6 +190,7 @@ standing as D1–D16.
 |---|---|---|
 | D17 | Left contour p95 (gate 2.0 px) plateaus at 4.12 px after 21 builds; every other left gate passes. The calibrator traces the residual mainly to shapes `build_hands.py` cannot make: the index-knuckle bump and its step (110 of the 245 edge px over 4 px), the wrist notch and bump, the wrist crease and palm heel, the forearm's sag. Builder first, or accept the residual? | **(a) Builder first.** Step 3 makes the left builder requests (knuckle prominence, wrist-to-back junction, forearm profile and dorsal wrist bump, wrist crease and palm heel, palm width decoupled from the fan base) together with the cuff; then step 2 recalibrates the left hand against the same gates. Reaching p95 ≤ 2 px is not guaranteed; if it plateaus again, D6 applies. `build_hands.py` is shared, so the right hand is re-checked after step 3 as well. |
 | D18 | Left curled middle and ring fingers: 3D P2/P1 = 0.87 / 0.94 (anatomically about 0.6–0.7), inherited from the start pose; one view does not settle their depth. Keep, flex toward the palm, or toward the camera? | **(b) Palmar flexion.** Move the middle and ring PIPs away from the camera (about 0.10–0.15 world units, flexion at the MCP) so that P1 ≈ 1.4–1.6 × P2 in 3D. The home silhouette must stay within the gates; check the ±35° and above views and which digit hides which. Done in the left recalibration after step 3. |
+| D20 | Step-3 digits builder: the right thumbnail is a crisp D in the mesh, but the app's particle sampler (local rim + area weights, 1.7 px voxel) cannot trace it at any relief tested (contrast ratio 1.5–1.75 vs skin 1.2–1.64; not clearly separated). Push the geometry further, refine the voxel locally, or leave it to step 5? | **(a) Leave the geometry as built.** Step 5 changes the particle sampler to weight an exported nail-outline curve; the builder adds that curve to the contour JSON, a small addition. Rejected: (b) more relief risks the claw-tip regression step 1 fixed and a silhouette ridge, for a change the sampler should be told, not shown; (c) a finer local SDF pass is the largest change and lengthens the build. |
 | D19 | Step-3 scope beyond D17: S1 defects (wrist collar, thumb-root crevice, the mesh report's fingertip search), S2 the right palm form, S3 per-hand thumbnail orientation and a legible nail, S4 per-hand dorsal IP knuckles? | **The user left it to the main session ("自由决定最优解"), which chose all four.** Both hands are recalibrated after step 3 anyway, so deferring S2 would cost a second builder-and-recalibration cycle later, and the left palm-width request and S2 are one limitation (a single carpus capsule sized by the palm joint). Two sequential stages, each built by one agent and verified independently: **arm** (palm construction for both hands, wrist-to-back junction, wrist crease and palm heel, forearm sag and wrist prominence, wrist collar, cuff), then **digits** (knuckle prominence, per-hand IP knuckles, per-hand thumb roll, nail relief, thumb-root crevice, fingertip search). Workflow: `.claude/workflows/alpha-v1-builder-step3.js`. Per-hand settings live in the pose files as optional fields (CONTRACTS §5), never as new chain joints (the app reads `chains.arm`'s first three names as forearm, wrist, palm). |
 
 ---
@@ -486,27 +489,32 @@ fix for its kinked finger joints (verifier 1's major).
 **3. Builder fixes** (after calibration settles): remove the forearm cuff;
 keep all A1 acceptance numbers. With D17 and D19 the scope is every builder
 request listed under "Step 2 — calibration runs", in two stages (arm, then
-digits). **Paused in the "arm" stage** (session 5, 2026-09-22). Runs:
-`wf_75dad007-41f` was stopped by a power-off (12:37); `wf_40e8bdb1-2e4`
-(`resume: true`) was stopped at the user's request (13:40). No repo file had
-been changed. The arm builder's draft — a new palm construction, five
-experiment builds r01–r05 that keep A1 on both hands — is in
-`outputs/qa/scratch/build-arm/` (git-ignored, local: `dev/build_hands.py`,
-`runs/`, `tools/`, `progress.md` with the scores) and, as a patch that applies
-to the committed builder, in `outputs/qa/calib/reports/step3-arm-wip.patch`.
-On the committed poses the drafts score lower (IoU left 0.963 → 0.943, right
-0.931 → 0.915) — expected, since the poses were calibrated on the old builder.
-Resume the stage with:
+digits). Runs `wf_75dad007-41f` (stopped by a power-off, 12:37) and
+`wf_40e8bdb1-2e4` (stopped at the user's request, 13:40) were followed by
+`wf_70a2775d-5a9` (`resume: true`, 16:31–20:36, commit `fe37dea`):
+
+- **arm stage: done, passed independent verification** (6 minor, no
+  blocker/major). One shared wrist section, the carpus capped at half the
+  knuckle span, an anatomical palm (metacarpal plate + hypothenar by default,
+  optional thenar/FDI/palm-heel masses), forearm sag and wrist-bump controls;
+  the wrist collar and cuff are gone. A1, D9 hold; ~1 min/hand.
+- **digits stage: built, not yet verified.** Items 1, 2, 3, 5, 6 done; item 4
+  (nail relief) partly — see D20. Every shape control resolves per hand (and
+  per digit where relevant) from the pose file's optional `"shape"` object.
+  Paused before `verify:digits#1` on the question that became D20.
+  Full reports: `outputs/qa/calib/reports/step3-{arm,digits}-final.json`.
+
+**Next**: run `verify:digits#1` (estimated over the user's 10 min / 5 %
+interruption budget, so not run in this turn):
 
 ```text
 Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js",
            args: { resume: true } })
 ```
 
-(The builder is told to read its `progress.md` and scratch; if the scratch
-directory is gone, apply the patch to a scratch copy first.) Power-offs stop a
-running workflow: the machine was powered off at 06:09, 09:23 and 12:37 on
-2026-09-22 (`journalctl --list-boots`), each time killing the running agent.
+Power-offs and user-requested stops both kill a running workflow; resume with
+the same command. `/tmp` is tmpfs and was wiped three times before scratch
+moved to `outputs/qa/scratch/` (git-ignored).
 
 Afterwards step 2 recalibrates both hands on the new builder
 (`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`).
