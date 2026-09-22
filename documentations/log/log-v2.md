@@ -5,14 +5,15 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: IN PROGRESS — session 5** (repo root, `main`). Step 1 is closed
-(all three foundations verified); step 4 (the app on the Blender assets) is
-done. Step 2 (calibration): the right hand passes every gate and is in its
-verify/fix loop; the left hand stops at a contour-p95 plateau and, per D17,
-waits for the step-3 builder changes, then is recalibrated with D18.
-Decisions D1–D18 are below. Pick up at "Resume here".
-[`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
-predates step 1 closing).
+**Status: PAUSED at the user's request — session 5, 2026-09-22 13:40**
+(repo root, `main`). Step 1 is closed (all three foundations verified); step 4
+(the app on the Blender assets) is done. Step 2 (calibration) is waiting for
+step 3: the left hand stopped at a contour-p95 plateau (D17: builder first,
+then recalibrate with D18); the right hand passes every gate but has a
+verifier major (kinked finger joints) that the same recalibration fixes.
+Step 3 (builder, D19) was stopped in its first stage ("arm"), with a draft
+builder saved. Decisions D1–D19 are below. Pick up at "Resume here"; a
+paste-ready prompt is in [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md).
 
 ---
 
@@ -485,11 +486,27 @@ fix for its kinked finger joints (verifier 1's major).
 **3. Builder fixes** (after calibration settles): remove the forearm cuff;
 keep all A1 acceptance numbers. With D17 and D19 the scope is every builder
 request listed under "Step 2 — calibration runs", in two stages (arm, then
-digits). **Running** (session 5, 2026-09-22): `wf_75dad007-41f`.
+digits). **Paused in the "arm" stage** (session 5, 2026-09-22). Runs:
+`wf_75dad007-41f` was stopped by a power-off (12:37); `wf_40e8bdb1-2e4`
+(`resume: true`) was stopped at the user's request (13:40). No repo file had
+been changed. The arm builder's draft — a new palm construction, five
+experiment builds r01–r05 that keep A1 on both hands — is in
+`outputs/qa/scratch/build-arm/` (git-ignored, local: `dev/build_hands.py`,
+`runs/`, `tools/`, `progress.md` with the scores) and, as a patch that applies
+to the committed builder, in `outputs/qa/calib/reports/step3-arm-wip.patch`.
+On the committed poses the drafts score lower (IoU left 0.963 → 0.943, right
+0.931 → 0.915) — expected, since the poses were calibrated on the old builder.
+Resume the stage with:
 
 ```text
-Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js" })
+Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js",
+           args: { resume: true } })
 ```
+
+(The builder is told to read its `progress.md` and scratch; if the scratch
+directory is gone, apply the patch to a scratch copy first.) Power-offs stop a
+running workflow: the machine was powered off at 06:09, 09:23 and 12:37 on
+2026-09-22 (`journalctl --list-boots`), each time killing the running agent.
 
 Afterwards step 2 recalibrates both hands on the new builder
 (`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`).
