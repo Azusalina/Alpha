@@ -177,6 +177,17 @@ correctly left them to the user):
 | D15 | The playwright-cli skill the user installed (`.claude/skills/playwright-cli/`, `.playwright/cli.config.json`, a `.gitignore` line) | Keep it only if it is useful, and never in the pushed repo. It works here (its own Chromium, WebGL 2, 1644 × 957 screenshots) and suits the step-4/5 screenshot loop, so it stays **local only**: the three paths are listed in `.git/info/exclude`, and the `.gitignore` line moved there. |
 | D16 | The joint gates are 16 separate 2 u checks per hand; an exact pose passes all of them only ≈ 10 % of the time (reference verifier, 2026-09-21). How to treat them? | **Correct for the number of checks: joints at 3 u** (all 16 pass ≈ 84 % of the time, the confidence of one 2-σ check). Tips stay at 2 u. `thresholds.json` carries `tip_k` 2 and `joint_k` 3; ACCEPTANCE §4.1/§4.2 and CONTRACTS §8 explain it. Baseline with D16: left fails 5 joints (pinky_pip, pinky_mcp, middle_mcp, thumb_cmc, pinky_dip), right none. |
 
+### Session 5 — decisions confirmed by the user (2026-09-22)
+
+Asked when the step-2 run paused the left hand with two questions (run
+`wf_56bea77e-ccd`, commit `a24fac8`; see "Step 2 — calibration runs"). Same
+standing as D1–D16.
+
+| # | Question | Decision |
+|---|---|---|
+| D17 | Left contour p95 (gate 2.0 px) plateaus at 4.12 px after 21 builds; every other left gate passes. The calibrator traces the residual mainly to shapes `build_hands.py` cannot make: the index-knuckle bump and its step (110 of the 245 edge px over 4 px), the wrist notch and bump, the wrist crease and palm heel, the forearm's sag. Builder first, or accept the residual? | **(a) Builder first.** Step 3 makes the left builder requests (knuckle prominence, wrist-to-back junction, forearm profile and dorsal wrist bump, wrist crease and palm heel, palm width decoupled from the fan base) together with the cuff; then step 2 recalibrates the left hand against the same gates. Reaching p95 ≤ 2 px is not guaranteed; if it plateaus again, D6 applies. `build_hands.py` is shared, so the right hand is re-checked after step 3 as well. |
+| D18 | Left curled middle and ring fingers: 3D P2/P1 = 0.87 / 0.94 (anatomically about 0.6–0.7), inherited from the start pose; one view does not settle their depth. Keep, flex toward the palm, or toward the camera? | **(b) Palmar flexion.** Move the middle and ring PIPs away from the camera (about 0.10–0.15 world units, flexion at the MCP) so that P1 ≈ 1.4–1.6 × P2 in 3D. The home silhouette must stay within the gates; check the ±35° and above views and which digit hides which. Done in the left recalibration after step 3. |
+
 ---
 
 ## Status after the step-1 run (2026-09-19, session 3)
@@ -367,6 +378,59 @@ Left for later steps: the seed digest and the in-browser GLB integrity check
 5–6); construction lines are 1 device px (`LineSegments`) — screen-constant
 widths (`Line2`) would be a later refinement (spec 6.2).
 
+## Step 2 — calibration runs (session 5, 2026-09-21 → 2026-09-22)
+
+Correction to "Step 4" above: the step-2 run named there (`wf_ed7d0e78-c57`)
+returned nothing. Both calibrators hit the account's usage limit after about
+22 min, before changing any file.
+
+- `wf_94f1bf4c-c1f`, a fresh run of the script as of `1b6b85d` (a hand pauses
+  when its calibrator or verifier returns `decisionsForUser`; one log line per
+  rebuild): cut off by the usage limit after about 92 min. Its progress was on
+  disk and is committed as `bedcba4`.
+- `wf_56bea77e-ccd` (`resume: true`):
+  - **left**, rebuild 6: IoU 0.963, contour mean 1.69 / p95 4.12 px, negative
+    space 0.915. Tips (index 0 px, the contact tip), all 16 joints (≤ 2.63 u),
+    A1 and D9 pass; only p95 fails. Plateau: 9 builds without a p95 gain.
+    Every 3D phalanx is within ±10 % of the start pose, except the index P2/P3
+    (they follow the keypoints) and the pinky's anatomical-ratio fix. Paused
+    with the two questions that became D17 and D18. Residual crops:
+    `outputs/qa/calib/compare-left/residual-*.png`.
+  - **right**, rebuild 7: IoU 0.930, contour mean 3.51 / p95 7.81 px, negative
+    space 0.868; every gate passes, and the three 1 px see-through holes
+    behind the 50.3 px contour max are closed. Depth reconstructed: the palm
+    faces the camera and downward, dorsal (0.459, 0.669, −0.585). Verifier 1
+    failed it on one major: the middle and little fingers bend sideways at
+    their interphalangeal joints, which are hinges; this calibration
+    introduced it. Four minors: a dorsal knob and crease at the carpus end cap,
+    a thumb-root crevice, a wrist collar, and the thumbnail facing about 51°
+    off the view axis (set by the shared `thumb_roll_deg`). The fix agent was
+    cut off by the usage limit before changing anything; the loop was resumed
+    in the same session (`resumeFromRunId`). State before it: `a24fac8`.
+- `/tmp` is tmpfs, and the machine rebooted twice during these runs, taking
+  the calibrators' scratch logs and the verifier's evidence images with it.
+  The residual crops above are in the repo.
+
+**Builder requests collected for step 3** (full text in the agents' reports,
+`outputs/qa/calib/reports/wf_56bea77e-ccd.*.json`):
+
+- *left*: knuckle prominence (the knuckle has to stand about 0.3–0.4 × N_head
+  beyond the metacarpal head, and/or a narrower proximal-phalanx base); the
+  wrist-to-back notch (blend the carpus's dorsal edge into the index
+  metacarpal line); the forearm profile (a mid-forearm control or sag) and a
+  dorsal wrist prominence (ulnar head); the wrist crease (a smaller underside
+  blend) and a palm-heel mass; palm width decoupled from the fan base; the
+  forearm cuff.
+- *right*: palm form (anatomical volumes instead of one oversized carpus
+  capsule; the palm is about 115 × 59 mm at mid-palm against about 80–85 ×
+  30 mm); the mesh report's fingertip search (it reports the middle fingertip
+  for the right thumb); the cuff; optional per-hand IP-knuckle bumps (the
+  right index back should be straight, D12); optional stronger thumbnail
+  relief.
+- *right verifier minors*: the thumb-root crevice; the wrist collar where the
+  forearm and carpus segments meet; the thumbnail orientation
+  (`thumb_roll_deg` 72, shared by both hands).
+
 ## Resume here
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
@@ -405,9 +469,16 @@ Loop: edit pose → `build_hands.py --hand <h> --masks …` → `compare_silhoue
 IoU ≥ 0.93 left / ≥ 0.90 right, contour p95 ≤ 8 px, negative-space IoU ≥ 0.85,
 fingertip keypoints within their stated uncertainty. Keep bone lengths
 consistent; check the ±35° views stay volumetric. Thicken the fingers.
+**In progress** (session 5, see "Step 2 — calibration runs"): the right hand
+is in its verify/fix loop; the left hand waits for step 3 (D17), then is
+recalibrated with D18.
 
-**3. Builder fixes** (single agent, after calibration settles): remove the
-forearm cuff; keep all A1 acceptance numbers.
+**3. Builder fixes** (after calibration settles): remove the forearm cuff;
+keep all A1 acceptance numbers. With D17 the scope grows to the builder
+requests listed under "Step 2 — calibration runs"; which right-hand and
+optional items to include is to be confirmed with the user when the right
+hand's loop ends. Afterwards step 2 recalibrates the left hand (D17, D18) and
+re-checks the right.
 
 **4. Integrate into the app** (main session; files disjoint from step 2, so it
 can run in parallel with it):
