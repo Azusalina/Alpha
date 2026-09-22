@@ -187,6 +187,7 @@ standing as D1–D16.
 |---|---|---|
 | D17 | Left contour p95 (gate 2.0 px) plateaus at 4.12 px after 21 builds; every other left gate passes. The calibrator traces the residual mainly to shapes `build_hands.py` cannot make: the index-knuckle bump and its step (110 of the 245 edge px over 4 px), the wrist notch and bump, the wrist crease and palm heel, the forearm's sag. Builder first, or accept the residual? | **(a) Builder first.** Step 3 makes the left builder requests (knuckle prominence, wrist-to-back junction, forearm profile and dorsal wrist bump, wrist crease and palm heel, palm width decoupled from the fan base) together with the cuff; then step 2 recalibrates the left hand against the same gates. Reaching p95 ≤ 2 px is not guaranteed; if it plateaus again, D6 applies. `build_hands.py` is shared, so the right hand is re-checked after step 3 as well. |
 | D18 | Left curled middle and ring fingers: 3D P2/P1 = 0.87 / 0.94 (anatomically about 0.6–0.7), inherited from the start pose; one view does not settle their depth. Keep, flex toward the palm, or toward the camera? | **(b) Palmar flexion.** Move the middle and ring PIPs away from the camera (about 0.10–0.15 world units, flexion at the MCP) so that P1 ≈ 1.4–1.6 × P2 in 3D. The home silhouette must stay within the gates; check the ±35° and above views and which digit hides which. Done in the left recalibration after step 3. |
+| D19 | Step-3 scope beyond D17: S1 defects (wrist collar, thumb-root crevice, the mesh report's fingertip search), S2 the right palm form, S3 per-hand thumbnail orientation and a legible nail, S4 per-hand dorsal IP knuckles? | **The user left it to the main session ("自由决定最优解"), which chose all four.** Both hands are recalibrated after step 3 anyway, so deferring S2 would cost a second builder-and-recalibration cycle later, and the left palm-width request and S2 are one limitation (a single carpus capsule sized by the palm joint). Two sequential stages, each built by one agent and verified independently: **arm** (palm construction for both hands, wrist-to-back junction, wrist crease and palm heel, forearm sag and wrist prominence, wrist collar, cuff), then **digits** (knuckle prominence, per-hand IP knuckles, per-hand thumb roll, nail relief, thumb-root crevice, fingertip search). Workflow: `.claude/workflows/alpha-v1-builder-step3.js`. Per-hand settings live in the pose files as optional fields (CONTRACTS §5), never as new chain joints (the app reads `chains.arm`'s first three names as forearm, wrist, palm). |
 
 ---
 
@@ -474,11 +475,17 @@ is in its verify/fix loop; the left hand waits for step 3 (D17), then is
 recalibrated with D18.
 
 **3. Builder fixes** (after calibration settles): remove the forearm cuff;
-keep all A1 acceptance numbers. With D17 the scope grows to the builder
-requests listed under "Step 2 — calibration runs"; which right-hand and
-optional items to include is to be confirmed with the user when the right
-hand's loop ends. Afterwards step 2 recalibrates the left hand (D17, D18) and
-re-checks the right.
+keep all A1 acceptance numbers. With D17 and D19 the scope is every builder
+request listed under "Step 2 — calibration runs", in two stages (arm, then
+digits). Starts once the right hand's step-2 loop has ended (the builder is
+shared):
+
+```text
+Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js" })
+```
+
+Afterwards step 2 recalibrates the left hand (D17, D18) and re-checks the
+right.
 
 **4. Integrate into the app** (main session; files disjoint from step 2, so it
 can run in parallel with it):
