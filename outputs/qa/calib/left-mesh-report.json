@@ -72,8 +72,8 @@
     "contour_join_px": 2.0
   },
   "raw_extraction": {
-    "vertices": 452352,
-    "faces": 904700,
+    "vertices": 453638,
+    "faces": 907272,
     "non_manifold_edges": 0,
     "boundary_edges": 0,
     "non_manifold_verts": 0
@@ -88,12 +88,12 @@
     "definition": "corner angles in degrees; in_frame = triangles whose centroid projects inside the 1644x957 frame",
     "after_decimation": {
       "triangles": 28854,
-      "max_angle_over_150": 1641,
-      "max_angle_over_165": 465,
-      "min_angle_under_5": 841,
-      "min_angle_under_2": 18,
-      "min_angle_p1": 3.51,
-      "min_angle_median": 30.66
+      "max_angle_over_150": 1588,
+      "max_angle_over_165": 382,
+      "min_angle_under_5": 799,
+      "min_angle_under_2": 20,
+      "min_angle_p1": 3.55,
+      "min_angle_median": 30.72
     },
     "final": {
       "triangles": 28854,
@@ -102,27 +102,27 @@
       "min_angle_under_5": 0,
       "min_angle_under_2": 0,
       "min_angle_p1": 30.01,
-      "min_angle_median": 47.89
+      "min_angle_median": 47.72
     },
     "final_in_frame": {
-      "triangles": 20715,
+      "triangles": 20851,
       "max_angle_over_150": 0,
       "max_angle_over_165": 0,
       "min_angle_under_5": 0,
       "min_angle_under_2": 0,
-      "min_angle_p1": 30.41,
-      "min_angle_median": 47.87
+      "min_angle_p1": 30.49,
+      "min_angle_median": 47.74
     },
     "cleanup_flips_per_pass": [
-      7606,
-      2779,
-      511,
-      49,
-      14
+      7538,
+      2728,
+      527,
+      65,
+      18
     ]
   },
-  "signed_volume": 0.395079,
-  "surface_area": 4.090889,
+  "signed_volume": 0.395965,
+  "surface_area": 4.09962,
   "glb_check": {
     "vertices": 14429,
     "triangles": 28854,
@@ -134,106 +134,106 @@
   "winding_agreement_pct": 100.0,
   "bbox_app": {
     "min": [
-      -2.81082,
-      -0.09261,
-      -0.32281
+      -2.81304,
+      -0.09226,
+      -0.32327
     ],
     "max": [
-      -0.07081,
-      1.0598,
-      0.32264
+      -0.07135,
+      1.05567,
+      0.32317
     ],
     "size": [
-      2.74001,
-      1.1524,
-      0.64546
+      2.7417,
+      1.14793,
+      0.64644
     ]
   },
   "fingertips": {
     "thumb": {
       "pose_tip_px": [
-        571.5,
-        466.0
+        570.5,
+        463.9
       ],
       "mesh_tip_px": [
-        571.1,
-        466.4
+        571.3,
+        463.0
       ],
-      "delta_px": 0.57,
+      "delta_px": 1.18,
       "mesh_tip_world": [
-        -0.49915,
-        0.02414,
-        0.24799
+        -0.49891,
+        0.03083,
+        0.24608
       ]
     },
     "index": {
       "pose_tip_px": [
-        785.7,
-        420.8
+        785.4,
+        419.9
       ],
       "mesh_tip_px": [
-        785.3,
-        421.2
+        785.0,
+        420.1
       ],
-      "delta_px": 0.54,
+      "delta_px": 0.48,
       "mesh_tip_world": [
-        -0.07475,
-        0.11678,
-        0.12896
+        -0.07553,
+        0.11908,
+        0.12566
       ]
     },
     "middle": {
       "pose_tip_px": [
-        599.4,
-        522.4
+        596.4,
+        522.1
       ],
       "mesh_tip_px": [
-        599.6,
-        522.3
+        595.8,
+        521.8
       ],
-      "delta_px": 0.27,
+      "delta_px": 0.63,
       "mesh_tip_world": [
-        -0.46303,
-        -0.09118,
-        0.01845
+        -0.47077,
+        -0.09016,
+        0.02038
       ]
     },
     "ring": {
       "pose_tip_px": [
-        527.0,
-        502.6
+        526.1,
+        501.7
       ],
       "mesh_tip_px": [
-        526.5,
-        502.4
+        525.3,
+        500.9
       ],
-      "delta_px": 0.5,
+      "delta_px": 1.15,
       "mesh_tip_world": [
-        -0.62767,
-        -0.05084,
-        -0.08479
+        -0.6308,
+        -0.04766,
+        -0.08838
       ]
     },
     "pinky": {
       "pose_tip_px": [
-        438.6,
-        445.4
+        439.3,
+        445.3
       ],
       "mesh_tip_px": [
-        438.9,
-        444.7
+        439.0,
+        444.2
       ],
-      "delta_px": 0.74,
+      "delta_px": 1.13,
       "mesh_tip_world": [
-        -0.82496,
-        0.07272,
-        -0.15649
+        -0.82526,
+        0.07386,
+        -0.15931
       ]
     }
   },
   "contour_polylines": 16,
-  "contour_points": 1456,
-  "build_seconds": 123.4,
+  "contour_points": 1459,
+  "build_seconds": 30.7,
   "contour_coverage_d9": {
     "hand": "left",
     "mask": "outputs/qa/calib/left-mask.png",
@@ -243,32 +243,32 @@
     "outer": 10,
     "inner": 6,
     "conn4": {
-      "boundary_px": 2203,
+      "boundary_px": 2200,
       "covered_pct": 100.0,
       "uncovered_px": 0,
       "largest_uncovered_run_px": 0,
       "uncovered_runs": [],
       "boundary_inner_only_px": 0,
-      "dist_to_outer_mean_px": 0.423,
-      "dist_to_outer_p95_px": 0.856,
-      "dist_to_outer_max_px": 2.597
+      "dist_to_outer_mean_px": 0.405,
+      "dist_to_outer_p95_px": 0.846,
+      "dist_to_outer_max_px": 2.278
     },
     "conn8": {
-      "boundary_px": 3138,
+      "boundary_px": 3137,
       "covered_pct": 100.0,
       "uncovered_px": 0,
       "largest_uncovered_run_px": 0,
       "uncovered_runs": [],
       "boundary_inner_only_px": 0,
-      "dist_to_outer_mean_px": 0.613,
+      "dist_to_outer_mean_px": 0.596,
       "dist_to_outer_p95_px": 1.219,
-      "dist_to_outer_max_px": 2.78
+      "dist_to_outer_max_px": 2.846
     },
     "outer_precision": {
-      "mean_px": 0.539,
-      "p95_px": 0.879,
-      "max_px": 4.704,
-      "points_over_3px": 40
+      "mean_px": 0.522,
+      "p95_px": 0.867,
+      "max_px": 2.599,
+      "points_over_3px": 0
     },
     "inner_points_in_frame": 139,
     "inner_points_on_background": 0,
