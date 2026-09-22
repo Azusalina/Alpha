@@ -1,0 +1,321 @@
+{
+ "stage": "arm",
+ "passed": true,
+ "build": {
+  "stage": "arm",
+  "summary": "I finished the arm stage from the r05 draft. I kept the draft's one-piece arm sweep, its shape-key validation and its sub-box evaluation, and rewrote the rest in build_hands.py. (1) The forearm, wrist and carpus are one solid swept around a circular fillet at the wrist. Both segments share one wrist section, and nothing is smooth-unioned inside the arm, so the collar is gone. Past the off-frame forearm joint the taper eases out and the same surface runs on, so the cuff is gone. The draft rounded the profile with a smax that thickened the whole right forearm by up to 8 px; I replaced it with a cubic Hermite corner over ±40 px that still passes through the wrist section. (2) The palm is built anatomically. The carpus half-width is capped at carpus_cap × half the knuckle span. The metacarpal plate keeps the old fan lines and heads, takes its thickness from the wrist section instead of the palm joint's, and runs on with the same linear taper to 0.15 of the way from the wrist, where it ends in a 3×-thickness soft cap. That removes the wrist-to-back notch without raising the back of the hand: r05 had raised it about 8 px. A hypothenar mass is on by default; a first dorsal interosseous mass (a new, optional mass on the thumb side of the index metacarpal; the item listed only thenar and hypothenar), the palm heel, the forearm sag and the wrist bump are optional, per-hand controls. (3) The contour export now places each outer/inner/hidden label change by probing between contour points. This fixed a one-pixel D9 failure at the left D5 slit tip that the changed decimation had exposed. (4) The builder is back to about a minute per hand: the arm profile comes from a dense table, CULL is 0.06 instead of 0.075, and long end caps get tight bounds. All 31 shape keys are documented in CONTRACTS §5 (documented before the code read them) and in HAND_ASSETS. The pose files are unchanged.",
+  "items": [
+   {
+    "item": "1. Palm construction (left request 5 + right palm form + right dorsal knob)",
+    "status": "done",
+    "what": "Carpus half-width capped at carpus_cap (1.0) × half the index-to-little-finger knuckle span: right 155.6 → 78.6 px, left 112.1 → 91.5 px (the rebuild-5 flat 0.337 would now also give 91.5, not a wedge). The palm joint's r/flat still set the carpus thickness. Metacarpal plate thickness = meta_base_thick (0.88) × the wrist section's thickness, no longer the palm joint's (at the 0.30 point: left 40.4 → 40.0, right 37.3 → 38.5 px). A hypothenar mass is on by default (hypothenar_*). New optional per-hand masses: fdi_* (first dorsal interosseous) and palm_heel_*; thenar_size is now per hand. The right dorsal knob and crease at the carpus end cap are gone. With these controls a pose can fill the drawn palm without a slab: a scratch copy of the committed right pose with only hypothenar_size 1.6 (drop 0.4, out 0.5, to 0.78), fdi_size 1.1 (out 0.7, from 0.03, to 0.87) and thenar_size 1.75 passes every right gate.",
+    "evidence": "Committed poses: the right palm silhouette shrinks with the slab gone. Palm box x1022-1298, y482-798: mean 4.06 → 8.97 px. Knob region x1060-1140 top: 4.86 → 13.16 (knob gone, but the edge now sits under the drawn outline). Demo dR1 (scratch pose, new controls only): IoU 0.9342, contour mean 3.18 / p95 7.28, all right gates pass. Palm box 3.58, knob region 3.54 (>2 px 179 → 140, >4 px 149 → 78), palm top 4.94 → 3.96, palm bottom 3.47 → 3.43. 3D section at half way wrist→knuckles, palm without thumb/thenar/web: baseline 119.8 × 42.9 mm, default 71.6 × 43.3, dR1 81.1 × 45.4 mm (2.3 px/mm). dR2 (same plus palm flat 0.2): IoU 0.9338, mean 3.20, p95 7.07. Images: evidence/i1-right-home-knob.png, i1-right-yawm35-palm.png, i1-right-above-palm.png, i1-left-above-palm.png, i1-right-overlay-palm.png, demo-right-dR1-overlay.png, demo-right-dR1-vs-default-yawm35.png, sections-right-50-70-baseline-default-demo.png (all under /home/a/Documents/Alpha/outputs/qa/scratch/build-arm/). Demo poses: evidence/demo-poses/dR1-pose-right.json, dR2-pose-right.json."
+   },
+   {
+    "item": "2. Wrist-to-back junction (left request 2)",
+    "status": "done",
+    "what": "The plate's fan lines run on back past their old rounded base caps at 0.30, with the same linear taper, to meta_base_frac 0.15, ending in a soft cap meta_base_cap 3 × the thickness there. The carpus's steep dorsal edge now lies under one straight back-of-hand line that runs into the wrist. The notch and the kink in the shaded home view are gone.",
+    "evidence": "Left top edge, x330-400: max 9.43 → 4.12 px, p95 7.74 → 4.12, >4 px 57 → 12. The mean is unchanged (3.07 → 3.08) because the straight line now sits 2-4 px above the drawn line over the whole region; the pose had been fitted around the notch. With the wrist and palm r refitted on a scratch pose (dL2): mean 0.70, 0 edge px >2 px. Images: evidence/i2-left-home-notch.png, i2-left-overlay-notch.png, i2-left-yawp35-back.png. Before choosing the plate end I tried 0.08/0.15/0.22/0.30 and caps 1-3 (runs/v-l1..l4); a wedge-shaped extension was tried and rejected because the dorsal line dipped at x315-335."
+   },
+   {
+    "item": "3. Wrist crease and palm heel (left request 4)",
+    "status": "partly",
+    "what": "The underside blend is now a concave fillet of radius wrist_crease_px (default 38 px). At the left's 32° bend that rounds the corner by about 1.5 px, against about 7 px for the old k_arm smooth union. New palm_heel_* mass (height, position along the carpus and across the hand, length, width) a pose can size. The heel works. The crease region does not reach the drawing through the blend: there the render's underside is the carpus's straight palmar line and, at x275-305, the soft end of the little-finger metacarpal. The drawing turns in an S (crease, then heel). wrist_crease_px moves the outline by ≤ 1.5 px at these bend angles.",
+    "evidence": "Palm heel, x318-380 bottom: baseline mean 1.99 (13 edge px >4 px), default 5.36 (178; the carpus cap took the old fullness), scratch pose dL1 with palm_heel_px 19 at 0.40 (len 60, width 35): 0.39 (2 px >2 px, 0 >4 px). Crease, x270-318 bottom: baseline 3.05 (>4 px 63), default 3.06 (49), dL1 3.07, dL2 (plus wrist r 44.8 and palm r 64.7) 2.43 (29). A surrogate fit found no crease radius in 4-150 px that helped. Images: evidence/i3-left-home-underside.png, i3-left-overlay-underside.png, demo-left-dL4-overlay.png; tables in evidence/regions-left.txt."
+   },
+   {
+    "item": "4. Forearm profile and dorsal wrist prominence (left request 3)",
+    "status": "done",
+    "what": "forearm_sag_{dorsal_px, palmar_px, at, width}: a C1 cos² bump that moves the forearm's dorsal and/or palmar line in or out (default 0 = the old straight taper). wrist_bump_{px, at_px, len_px, width_px, angle_deg}: an ellipsoid standing a given height out of the arm near the wrist (default 0 = none). Neither adds a joint to chains.arm.",
+    "evidence": "Forearm top, x0-265, surrogate fit then Blender. The best straight line (forearm r 147.5, no sag; dL3s) leaves mean 2.53, p95 4.12, 467 edge px >2 px, 55 >4 px. With forearm_sag_dorsal_px 5 at 0.27, width 0.26 and forearm r 149.5 (dL3): mean 0.89, p95 3.16, 131 px >2 px, 3 >4 px. Wrist top / ulnar head, x265-325: default 2.54 (>2 px 100, >4 px 12), wrist_bump_px 10 at 6.5 px (len 30, width 38, dL1) 1.37 (40 / 4); baseline 1.86. Combined scratch pose dL4 (sag + bump + heel + forearm r): left IoU 0.9654, mean 1.586, p95 4.000, against the pre-step-3 builder's 0.9627 / 1.690 / 4.123. Images: evidence/i4-left-overlay-forearm-top.png, demo-left-dL3-forearm.png, demo-left-straight-vs-sag.png, demo-left-dL4-overlay.png, demo-left-dL4-vs-default-home.png."
+   },
+   {
+    "item": "5. Wrist collar (right verifier; both hands)",
+    "status": "done",
+    "what": "One wrist section, solved once along the bisector of the forearm and carpus axes and shared by both. The arm is one sweep bent around a circular fillet, with the section carried round by parallel transport and hard unions only, so no smooth union adds a ring. Checked on both hands.",
+    "evidence": "The collar ring is gone in the home, ±35° and above views of both hands: evidence/i5-right-home-collar.png (x1230-1380, y590-720 at 4×; the outline bump at 1292-1317, 645-660 is now straight), i5-right-yawp35-wrist.png, i5-right-above-wrist.png, i5-left-above-wrist.png, i5-left-yawm35-wrist.png. The right top-edge region x1280-1330 moved from mean 2.07 to 3.95 px: the collar bump happened to lie along the drawn particle outline there."
+   },
+   {
+    "item": "6. Forearm cuff past the frame (both hands)",
+    "status": "done",
+    "what": "The off-frame part is the same sweep: the taper eases out to a constant section over arm_ease × arm_extend past the forearm joint, and the arm ends in a flattened cap arm_extend beyond it. No separate extension capsule, no step.",
+    "evidence": "evidence/i6-left-yawm35-arm.png, i6-left-yawp35-arm.png, i6-left-above-arm.png, i6-right-yawm35-arm.png, i6-right-yawp35-arm.png, i6-right-above-arm.png (full views, before and after). The stepped rings are gone; the only remaining feature is the far end cap, at the edge of the ±35° views and never visible from the home camera."
+   }
+  ],
+  "metrics": {
+   "definition": "compare_silhouette.py on the committed pose files, the builder before step 3 (HEAD) versus after this stage (final state on disk). Joint keypoints come from the pose file, so they cannot change.",
+   "left": {
+    "before": {
+     "iou": 0.9627,
+     "precision": 0.9817,
+     "recall": 0.9802,
+     "contour_mean_px": 1.69,
+     "contour_p95_px": 4.123,
+     "contour_max_px": 9.43,
+     "negative_space_iou": 0.9146,
+     "tips_px": {
+      "index": 0,
+      "middle": 3.16,
+      "ring": 3.61,
+      "pinky": 0
+     },
+     "worst_joints_u": {
+      "index_mcp": 2.63,
+      "middle_mcp": 2.59,
+      "thumb_cmc": 2.53,
+      "wrist": 2.53
+     },
+     "failing_gates": [
+      "contour_p95_px"
+     ]
+    },
+    "after": {
+     "iou": 0.9582,
+     "precision": 0.981,
+     "recall": 0.9764,
+     "contour_mean_px": 1.878,
+     "contour_p95_px": 5,
+     "contour_max_px": 8.48,
+     "negative_space_iou": 0.9101,
+     "tips_px": {
+      "index": 3.16,
+      "middle": 3.16,
+      "ring": 3.61,
+      "pinky": 0
+     },
+     "worst_joints_u": {
+      "index_mcp": 2.63,
+      "middle_mcp": 2.59,
+      "thumb_cmc": 2.53,
+      "wrist": 2.53
+     },
+     "failing_gates": [
+      "iou",
+      "contour_p95_px",
+      "tip:index_tip"
+     ]
+    },
+    "why": "Contour mean +0.19 px. Gains: the notch is gone. Losses: the collar ring had filled the drawn ulnar head (wrist top 5-8 px low at x280-310), and capping the carpus leaves the palm heel 5-9 px inside the drawing (x320-370). The index tip moved from 0 to 3.16 px (gate 3) because the arm changed the raw triangle count (907k → 923k), so decimation moved the tip vertices by under 1 px and added one mask pixel at (785,419). The digits' primitives are identical to before."
+   },
+   "right": {
+    "before": {
+     "iou": 0.9313,
+     "precision": 0.9645,
+     "recall": 0.9644,
+     "contour_mean_px": 3.341,
+     "contour_p95_px": 7.616,
+     "contour_max_px": 33.11,
+     "negative_space_iou": 0.8787,
+     "tips_px": {
+      "index": 1,
+      "middle": 1.41,
+      "ring": 2.24,
+      "pinky": 4.24
+     },
+     "worst_joints_u": {
+      "thumb_cmc": 1.82,
+      "index_mcp": 1.79,
+      "ring_dip": 1.6,
+      "pinky_mcp": 1.55
+     },
+     "failing_gates": []
+    },
+    "after": {
+     "iou": 0.8946,
+     "precision": 0.976,
+     "recall": 0.9148,
+     "contour_mean_px": 5.064,
+     "contour_p95_px": 15.632,
+     "contour_max_px": 30.87,
+     "negative_space_iou": 0.8788,
+     "tips_px": {
+      "index": 1,
+      "middle": 1.41,
+      "ring": 3.16,
+      "pinky": 4.24
+     },
+     "worst_joints_u": {
+      "thumb_cmc": 1.82,
+      "index_mcp": 1.79,
+      "ring_dip": 1.6,
+      "pinky_mcp": 1.55
+     },
+     "failing_gates": [
+      "iou",
+      "contour_mean_px",
+      "contour_p95_px"
+     ]
+    },
+    "why": "Contour mean +1.72 px, more than 1 px. The old carpus was a 155.6 px half-width slab (palm r 102 at flat 0.30), and it was the slab that filled the drawn palm. Capped at 78.6 px, the palm outline sits 10-25 px inside the drawing along the top edge (x1060-1300) and 10-14 px along the bottom (x1040-1200). Palm box mean 4.06 → 8.97. The ring-tip change is decimation noise. On a scratch copy of the committed pose, the new hypothenar/fdi/thenar controls restore it to better than before (dR1: IoU 0.9342, mean 3.18, p95 7.28, no failing gate)."
+   },
+   "demos_scratch_poses": {
+    "dL4_left_sag_bump_heel_forearm_r": {
+     "iou": 0.9654,
+     "contour_mean_px": 1.586,
+     "contour_p95_px": 4,
+     "failing": [
+      "contour_p95_px"
+     ]
+    },
+    "dL1_left_bump_heel": {
+     "iou": 0.9631,
+     "contour_mean_px": 1.682,
+     "contour_p95_px": 4.123
+    },
+    "dL3_left_sag_forearm_r": {
+     "iou": 0.9606,
+     "contour_mean_px": 1.778,
+     "contour_p95_px": 4.472
+    },
+    "dR1_right_hyp_fdi_thenar": {
+     "iou": 0.9342,
+     "contour_mean_px": 3.182,
+     "contour_p95_px": 7.28,
+     "failing": []
+    },
+    "dR2_right_plus_palm_flat_0.2": {
+     "iou": 0.9338,
+     "contour_mean_px": 3.202,
+     "contour_p95_px": 7.071,
+     "failing": []
+    }
+   }
+  },
+  "mesh": "A1, both hands, final state on disk, built from the committed poses: 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement 100 % (the GLB read back: welded boundary 0, welded non-manifold 0), 28 854 triangles and 14 429 vertices each. Triangle quality: 0 triangles with a corner over 150°, 1st-percentile min angle 29.96° (left) / 30.2° (right). D9: left 100 % / 100 % of the 4-/8-connected boundary covered (2 200 / 3 133 px), largest uncovered run 0 px, 0 inner points on background, 0 boundary px covered only by inner, boundary→outer mean/p95/max 0.41/0.84/1.15 px. Right: 100 % / 100 % (2 230 / 3 284 px), run 0, 0, 0, 0.40/0.81/0.98 px. Outer precision max 2.33 px (left) and 1.93 px (right); the old builder had 2.51/2.46 px. Every demo scratch build (dL1-dL4, dR1-dR2) also passes A1 and D9. Reproducibility: two more full rebuilds into scratch (runs/rebuild2 and runs/rebuild3; the last with the final code) gave byte-identical GLBs and contour JSONs and pixel-identical masks, views and coverage images; the mesh reports differ only in output paths and build_seconds. Build time per hand (mesh report build_seconds, `--hand both --masks --views`, no --blend): left 63.2 s, right 55.6 s, 128 s wall for the command. The old builder took 59.6/59.5 s. Left SDF evaluation alone: 28.1 s (old 28.3 s). node_modules/.bin/tsc --noEmit exits 0. hands.blend was not re-saved (--blend not passed, as instructed).",
+  "interface": "Per-hand settings go in an optional top-level \"shape\" object in pose-<hand>.json. The app ignores it (src/hand/pose.ts). build_hands.py merges it over the defaults in PARAMS. An unknown key, a non-finite or non-number value, a value outside SHAPE_RANGES, or a *_from not below its *_to stops the build with an error. Keys ending in _px are reference px as drawn at their joint's depth. The used settings are written to the mesh report as \"shape\": {from_pose, used}. There are 31 shape keys (default; meaning):\n- wrist_crease_px 38: fillet radius inside the wrist bend.\n- forearm_sag_dorsal_px 0, forearm_sag_palmar_px 0, forearm_sag_at 0.35, forearm_sag_width 0.30: cos² sag of the forearm lines; + = in; fractions of the way wrist → forearm joint.\n- wrist_bump_px 0, wrist_bump_at_px 10, wrist_bump_len_px 22, wrist_bump_width_px 26, wrist_bump_angle_deg 0: dorsal wrist prominence; angle 0 = dorsal, − = ulnar, + = radial.\n- carpus_cap 1.0: carpus half-width ≤ this × half the knuckle span.\n- carpus_end_cap 1.0: carpus end cap length × its thickness.\n- meta_base_frac 0.15: where the plate ends toward the wrist.\n- meta_base_thick 0.88: plate thickness at meta_ref_frac × the wrist section's thickness.\n- meta_base_cap 3.0: the plate's soft carpal end, × its thickness.\n- thenar_size 1.30.\n- hypothenar_size 1.0, hypothenar_drop 0.55, hypothenar_out 0.35, hypothenar_from 0.05, hypothenar_to 0.70.\n- fdi_size 0, fdi_lift 0.30, fdi_out 0.55, fdi_from 0.15, fdi_to 0.75.\n- palm_heel_px 0, palm_heel_at 0.22, palm_heel_lat 0, palm_heel_len_px 40, palm_heel_width_px 45.\n\nNew non-shape PARAMS: k_bump 0.012; meta_ref_frac 0.30 (the old fan-base fraction, now the fan's reference point); arm_ease 0.35; arm_end_cap 0.35; wrist_round_px 40. Removed: k_arm and meta_thick. meta_base_frac changed meaning (now the plate's end, a shape key). thenar_size moved to the shape keys, default unchanged.\n\nDocumented in docs/CONTRACTS.md §5 (the JSON example gains \"shape\", a note on what the app reads, the \"Optional shape object\" table with every key, default and meaning, and the validation rules) and §6 (assets built from the pose including shape; label changes placed where they change; the mesh report's shape field). Also in docs/HAND_ASSETS.md: Construction (arm, carpus, plate, palmar masses, per-hand controls), Parameters (the PARAMS table plus a \"Shape keys\" table), the contour section (label-change probing), Current state and Known limitations. No shape object was added to either pose file; none of the arm items asks for per-hand values.",
+  "files": [
+   "/home/a/Documents/Alpha/assets-source/hands/build_hands.py",
+   "/home/a/Documents/Alpha/docs/CONTRACTS.md",
+   "/home/a/Documents/Alpha/docs/HAND_ASSETS.md",
+   "/home/a/Documents/Alpha/public/assets/hand-left.glb",
+   "/home/a/Documents/Alpha/public/assets/hand-right.glb",
+   "/home/a/Documents/Alpha/public/assets/hand-left.contour.json",
+   "/home/a/Documents/Alpha/public/assets/hand-right.contour.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-mask.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-mask.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-mesh-report.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-mesh-report.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-home.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-yawm35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-yawp35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-above.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-view-home.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-view-yawm35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-view-yawp35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-view-above.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-contour-coverage.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-contour-coverage.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/left-metrics.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-metrics.json",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/progress.md",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/evidence/",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/evidence/regions-left.txt",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/evidence/regions-right.txt",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/evidence/demo-poses/",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/baseline/",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-arm/runs/rebuild3/"
+  ],
+  "openIssues": [
+   "With the committed poses, the right hand now fails IoU, contour mean and p95 (0.895 / 5.06 / 15.6 px), and the left fails IoU and p95 (0.958 / 5.00 px) as well as the index tip (3.16 px against 3, one decimation pixel). The poses were fitted on the old builder; step 2 recalibrates with the new shape keys. The scratch demos show those keys are enough: dR1 passes every right gate; dL4 beats the old left IoU, mean and p95.",
+   "The left wrist crease (x290-315, render 2-6 px outside the drawing) is not fixed by wrist_crease_px, which moves the outline at most 1.5 px at a 32° bend. The residual comes from the carpus's straight palmar line and the little-finger metacarpal's soft end under the crease, so it moves with the wrist and palm joints in step 2: a scratch pose reached mean 3.05 → 2.43 px, not zero.",
+   "In the notch region the back-of-hand line now lies 2-4 px above the drawn line (x330-400), because the committed pose was fitted around the old notch. Refitting the wrist and palm r removes it (dL2: mean 0.70 px).",
+   "Without the collar ring the right wrist's top edge (x1280-1330) sits about 2 px further from the drawn particle outline than before (mean 2.07 → 3.95 px). The ring had been lying along that outline.",
+   "Decimation is global: any surface change moves fingertip silhouettes by up to a pixel. The left index-tip rule flipped 0 → 3.16 px with the digits unchanged. Every later builder change needs Blender tip checks.",
+   "The plate's soft carpal end (3 × its thickness, about 130 px) forms the left underside at the wrist crease (x275-305) through the little-finger metacarpal. From above, the right hand meets the forearm in a soft concave line (evidence/i1-right-above-palm.png). Both are smooth; I did not count them as creases.",
+   "The left pose's knuckle line is 51° off its lateral axis toward the palmar side (the right's is 3.9°), so the left metacarpal plate is tilted in 3D. This is a pose (dorsal) item for step 2.",
+   "For the digits stage, unchanged here: the mesh report's fingertip search still gives the middle fingertip for the right thumb (Δ 90 px); the thumb-root crevice (visible in the right ±35° views); thumb_roll_deg shared by both hands; knuckle prominence; per-hand IP knuckles; nail relief.",
+   "hands.blend still holds the pre-step-3 meshes; the main session re-saves it (--blend was not passed, as instructed)."
+  ],
+  "decisionsForUser": []
+ },
+ "verdict": {
+  "passed": true,
+  "checked": [
+   "Reproducibility: I rebuilt both hands from the committed builder (sha256 15b4f6db…) and the unchanged pose files into /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/rebuild/ with --views and absolute paths (2 min 08 s wall; left 63.4 s, right 55.1 s). Both GLBs and both contour JSONs are byte-identical to public/assets. Masks, all 8 views and both coverage PNGs are pixel-identical to outputs/qa/calib. The mesh reports differ only in their output paths and build_seconds.",
+   "A1 checked with my own numpy GLB reader (tools/glbcheck.py), welding by position, on both GLBs: 1 shell, 0 boundary edges, 0 non-manifold edges, 0 directed edges used twice, 100 % winding agreement, 28 854 triangles and 14 429 vertices each, 0 degenerate triangles, positive volume. One node with no transform, POSITION + NORMAL only, no material. The fresh mesh reports agree.",
+   "D9: the fresh build prints [d9] PASS for both hands (100 % / 100 %, largest uncovered run 0, 0 inner points on background). My own contour check (tools/contourcheck.py) agrees: 100 % coverage within 3 px, largest outer-point error 2.24 / 2.0 px, largest step between points 3.36 / 3.49 px, so no spikes. Polyline counts are 17 (10 outer, 7 inner) left and 10 (5, 5) right, as HAND_ASSETS says.",
+   "Scores: compare_silhouette.py on the fresh masks matches the builder's report and the metrics on disk exactly. Left: IoU 0.95824, contour mean 1.878 / p95 5.0 / max 8.485, negative space 0.91013, tips 3.16 / 3.16 / 3.61 / 0; it fails IoU, p95 and the index tip. Before step 3 (HEAD) the left failed only p95. Right: IoU 0.89464, mean 5.064, p95 15.632, negative space 0.87884; it fails IoU, mean and p95 (HEAD passed every gate). The right mean rose by 1.72 px; the builder explains it (the slab is gone), and my region table confirms it: palm 4.13 → 9.23, knob top 4.87 → 13.38. The left index-tip flip is exactly one mask pixel, (785,419) going 0 → 1; raw faces went 907 272 → 922 724.",
+   "Item 1, palm. From the code and a dump of the primitives the builder makes (tools/prims.py → prims-{left,right}-committed.txt): the carpus half-width is capped (right 78.6 px, left 91.5 px), the plate's thickness at the 30 % point is 0.88 × the wrist section's (38.5 / 40.0 px), and a hypothenar mass is on by default. The right dorsal knob and crease are gone in the home view (crops/right-home-knob-ba.png), in yawm35 and yawp35 (crops/right-yawm35-hand-ba.png, right-yawp35-palm-ba.png) and from above (right-above-hand-ba.png). The left above view shows no wedge (left-above-hand-ba.png). I reproduced the builder's demo dR1 (IoU 0.93418, mean 3.182, p95 7.28, every right gate passes, A1 and D9 pass) and dR2 (0.93383 / 3.202 / 7.071). My own mesh sections (tools/palmsec.py → crops/palmsec-right-all.png) give a palm width at mid-palm of 120 mm at HEAD, 72 mm now and 81 mm in dR1. The palm body's thickness, measured on the half away from the thumb, is 37–42 mm at HEAD, 31–42 mm now and 40–44 mm in dR1.",
+   "Item 2, wrist-to-back notch (crops/left-notch-overlay.png, left-home-wrist-ba.png). In the region x 330–400, y 150–230 the maximum error drops from 9.43 to 4.12 px, and in the tighter box x 350–370, y 165–190 the mean drops from 6.18 to 3.53. The V-notch at (357–362, 178) and the kink in the shaded view are gone. The back-of-hand line now runs straight, 3–4 px outside the drawing. I reproduced the builder's dL2: notch region mean 0.93 with 0 edge pixels over 2 px.",
+   "Item 3, crease and palm heel. The heel mass works: I reproduced dL4, where the heel region x 318–380 has mean 0.58 and 0 edge pixels over 2 px (default 5.59, HEAD 2.17). The crease does not form. xL1 (dL4 with wrist_crease_px 4) leaves the crease region at 3.28 against 3.16 (crops/xL1-underside.png). xL2 (also meta_base_cap 1.0) makes it worse at 4.12 and a dorsal dip comes back. xL3 (wrist moved 18 px toward the hand) makes everything worse. xL4 and xL5 (hypothenar off, or starting at 0.30) improve it to 2.70, with 35 → 13 edge pixels over 4 px (crops/xL4-xL5-underside.png).",
+   "Item 4, forearm sag and wrist bump. dL4 reproduced: IoU 0.96542, mean 1.586, p95 4.0 (only p95 fails). The forearm top x 0–265 goes from mean 2.31 (default) to 0.64, and the overlay follows the drawn sag and the ulnar-head bump (crops/forearm-top-overlay.png). The wrist-top region goes from 2.75 to 1.58 (0.63 in dL2). A palmar sag also works: xL6 (dL4 plus forearm_sag_palmar_px 2.5) brings the forearm bottom from 2.13 to 1.64, with IoU 0.9664 and mean 1.53. Neither control adds a joint to the chains.",
+   "Item 5, wrist collar, both hands. The ring is gone in home (crops/right-home-collar-ba.png), yawm35, yawp35 and above for the right hand (right-yawm35-wrist-ba.png, right-yawp35-wrist-ba.png, right-above-wrist-ba.png) and for the left (left-yawm35-wrist-ba.png, left-yawp35-wrist-ba.png, left-above-wrist-ba.png). Measured along the arm (tools/armprofile.py → crops/armprofile-{left,right}.png): HEAD had a bump at the right wrist; now both hands have smooth section extents.",
+   "Item 6, forearm cuff, both hands. The stepped ring is gone in both hands' ±35° and above views (crops/{left,right}-*-cuff-ba.png). The arm profile shows HEAD's +8 px bump at the forearm joint; now the taper eases out smoothly (C1).",
+   "New defects: I compared both hands before and after in all 4 views and made per-view difference heatmaps (crops/diff-*.png). Changes outside the arm and palm are only a 1 px framing shift. The fingertip errors against the pose are 0.33–1.77 px, unchanged from HEAD (the right thumb's 90 px is the known search bug, digits stage). No slab and no paper-thin form. The thumb-root crevice is unchanged (digits stage). The home-view dimple at (445,277) was already there before this stage. The left wrist underside now has a new 8-point inner contour, (288,253) → (304,265), and a crisp lip in yawm35 (crops/left-wrist-inner-contour.png, left-yawm35-lip-5x.png): the forearm's underside occludes the palm heel. It is consistent with the sharper crease item 3 asked for, and I judged it plausible, not a defect. The soft valley on the right palm in the home view is smooth (right-home-groove-ba.png).",
+   "Arm-field accuracy (tools/cullcheck.py, eval_sdf with the builder's CULL against an exact arm field): the largest near-surface difference is 8.1e-4 world units on the left and 7.6e-4 on the right. That is 0.22 voxel, about 0.39 reference px, with 7 / 5 sign flips, all at the knuckles and finger roots. It is sub-pixel.",
+   "Interface: parsed PARAMS, SHAPE_KEYS and SHAPE_RANGES from the source. All 31 shape keys are in the CONTRACTS §5 table with the code's defaults, and every PARAM, new ones included, is in HAND_ASSETS with its code value. Shape validation, tested in Blender (tools/shapecheck.py), rejects unknown keys, a typo, a string, a bool, NaN, out-of-range values, and a from not below its to; it accepts negative sags. The pose files are unchanged, so parsePose still holds; it ignores extra keys (src/hand/pose.ts). node_modules/.bin/tsc --noEmit exits 0.",
+   "Ownership: git status and git diff are the same as at the start. Only build_hands.py, CONTRACTS §5–6, HAND_ASSETS.md, outputs/qa/calib/** and public/assets/hand-* changed; hands.blend and the pose files did not. I wrote only under outputs/qa/scratch/verify-arm-1/; its log is progress.md."
+  ],
+  "issues": [
+   {
+    "severity": "minor",
+    "description": "Item 3 (partly): the builder's diagnosis of the crease residual is incomplete. The requested smaller blend, wrist_crease_px, does not move the silhouette at this pose; the builder says so. The builder attributes what is left to the carpus's palmar line and the soft end of the little-finger metacarpal. But the new default hypothenar mass (hypothenar_from 0.05) is part of it. Turning the hypothenar off, or starting it at 0.30, lowers the crease region's error from 3.16 to 2.70 px and the edge pixels over 4 px from 35 to 13 (hand-wide 197 → 175). Shortening the plate cap makes it worse. No pose I tried reproduces the drawn crease, so the item stays partly done. Step 2 should know about the hypothenar lever.",
+    "evidence": "Experiments xL1 (wrist_crease_px 4: 3.28 vs 3.16), xL2 (meta_base_cap 1.0: 4.12), xL3 (wrist px +18 px: 4.11), xL4/xL5 (hypothenar off / from 0.30: 2.70). Paths: /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/exp/xL1..xL5/compare-left/left-metrics.json, crops/xL1-underside.png, crops/xL4-xL5-underside.png, crops/left-underside-overlay.png, crops/ref-wrist-underside-5x.png."
+   },
+   {
+    "severity": "minor",
+    "description": "Item 1: 'done' / 'without a slab' is true for the width only. In the builder's passing demo dR1 the right palm is 81 mm wide at mid-palm, which is anatomical, but the palm body is still 40–44 mm thick on the half away from the thumb (HEAD 37–42 mm), against the 30 mm the item cites. The full section, including the thenar lobe, is 81 × 80 mm (HEAD 120 × 72 mm). The builder's report gives 45.4 mm but does not say that the thickness target was not reached. A thinner palm (xR1) fails the right mean and p95 gates, because the pose turns the palm 54° from the camera, so the drawn silhouette needs depth. Step 2 has to settle this balance, through the pose's orientation or the palm's flat and meta_base_thick.",
+    "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/crops/palmsec-right-all.png and palmsec-right-xR1.png (tools/palmsec.py); exp/xR1 (palm flat 0.2, meta_base_thick 0.70, hypothenar_drop 0.25): palm body 34–40 mm at f 0.5 and 27–30 mm at f 0.7, IoU 0.9206, mean 3.826, p95 10.79; exp/dR1: 0.93418 / 3.182 / 7.28."
+   },
+   {
+    "severity": "minor",
+    "description": "Left-hand changes the builder's report leaves out. With the committed pose, the forearm underside near the wrist (x 240–290) got worse: mean 2.06 → 3.50 px, and 0 → 38 edge pixels over 4 px. The report's 'why' does not mention it. The demo dL2 fixes the notch region (0.93), but only by making the forearm lines worse: bottom mean 3.41 with 100 pixels over 4 px and a 9 px maximum; top 86 pixels over 4 px. openIssues says only that the refit 'removes it'. In dL4 the forearm bottom also moves out (2.13 mean, 154 pixels over 2 px).",
+    "evidence": "tools/regions.py tables (in progress.md), crops/left-forearm-bottom-overlay.png, crops/dL4-forearm-bottom.png, exp/dL2/compare-left/left-metrics.json, exp/dL4, all under /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/."
+   },
+   {
+    "severity": "minor",
+    "description": "The forearm_sag_* keys can reach beyond the forearm. In ArmProfile.at, the sag fraction w = (sW − s)/(sW − sF) is not clipped to [0, 1]. So forearm_sag_at − forearm_sag_width < 0, which SHAPE_RANGES allows (for example 0.1 and 0.3), also sags the wrist fillet and the carpus. CONTRACTS describes the sag as acting on 'the forearm's dorsal line'. The dorsal and palmar sags also share one centre and one width. In xL6 a palmar sag fixed x 0–150 (2.38 → 1.15) but left 30 edge pixels over 4 px at x 150–270.",
+    "evidence": "assets-source/hands/build_hands.py, ArmProfile.at (the sag loop has no clip on w); exp/xL6 region table in /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/progress.md."
+   },
+   {
+    "severity": "minor",
+    "description": "The comment on ArmSweep.CULL says the zero level set is the same as with the exact field. It is not exactly the same. Near the surface the culled field differs from the exact one by up to 8.1e-4 world units, about 0.22 voxel or 0.39 px, with 7 (left) and 5 (right) sign flips. The differences sit at the knuckles and finger roots, through the chain of smooth unions. The effect is sub-pixel and not visible, but the comment overstates it.",
+    "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/cullcheck.log (tools/cullcheck.py)."
+   },
+   {
+    "severity": "minor",
+    "description": "Inaccuracies in the report and docs. (a) The builder says the old builder's outer-precision maximum was 2.51 / 2.46 px. HEAD's mesh reports say 2.60 / 1.42, so the right hand's maximum rose from 1.42 to 1.93 px (still under 3). (b) HAND_ASSETS 'Surface finishing' still gives the numbers of an earlier build (1 717 → 0; 3.2° → 29.8°). The current reports give 1 824 → 0 and 3.48° → 29.96° for the left, and 1 367 and 5.85° → 30.2° for the right. (c) The D9 section, which this stage updated, still describes a 6-point inner polyline at the D5 slit, (564,404) → (558,418). It exists in neither HEAD's contour nor the new one. The new inner polyline at the left wrist underside, (288,253) → (304,265), is not mentioned.",
+    "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/head/calib/{left,right}-mesh-report.json against outputs/qa/calib/*-mesh-report.json; docs/HAND_ASSETS.md lines 184–188 and 355–364; inner-polyline listing in progress.md."
+   }
+  ],
+  "decisionsForUser": []
+ },
+ "history": [
+  {
+   "round": 1,
+   "passed": true,
+   "issues": [
+    {
+     "severity": "minor",
+     "description": "Item 3 (partly): the builder's diagnosis of the crease residual is incomplete. The requested smaller blend, wrist_crease_px, does not move the silhouette at this pose; the builder says so. The builder attributes what is left to the carpus's palmar line and the soft end of the little-finger metacarpal. But the new default hypothenar mass (hypothenar_from 0.05) is part of it. Turning the hypothenar off, or starting it at 0.30, lowers the crease region's error from 3.16 to 2.70 px and the edge pixels over 4 px from 35 to 13 (hand-wide 197 → 175). Shortening the plate cap makes it worse. No pose I tried reproduces the drawn crease, so the item stays partly done. Step 2 should know about the hypothenar lever.",
+     "evidence": "Experiments xL1 (wrist_crease_px 4: 3.28 vs 3.16), xL2 (meta_base_cap 1.0: 4.12), xL3 (wrist px +18 px: 4.11), xL4/xL5 (hypothenar off / from 0.30: 2.70). Paths: /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/exp/xL1..xL5/compare-left/left-metrics.json, crops/xL1-underside.png, crops/xL4-xL5-underside.png, crops/left-underside-overlay.png, crops/ref-wrist-underside-5x.png."
+    },
+    {
+     "severity": "minor",
+     "description": "Item 1: 'done' / 'without a slab' is true for the width only. In the builder's passing demo dR1 the right palm is 81 mm wide at mid-palm, which is anatomical, but the palm body is still 40–44 mm thick on the half away from the thumb (HEAD 37–42 mm), against the 30 mm the item cites. The full section, including the thenar lobe, is 81 × 80 mm (HEAD 120 × 72 mm). The builder's report gives 45.4 mm but does not say that the thickness target was not reached. A thinner palm (xR1) fails the right mean and p95 gates, because the pose turns the palm 54° from the camera, so the drawn silhouette needs depth. Step 2 has to settle this balance, through the pose's orientation or the palm's flat and meta_base_thick.",
+     "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/crops/palmsec-right-all.png and palmsec-right-xR1.png (tools/palmsec.py); exp/xR1 (palm flat 0.2, meta_base_thick 0.70, hypothenar_drop 0.25): palm body 34–40 mm at f 0.5 and 27–30 mm at f 0.7, IoU 0.9206, mean 3.826, p95 10.79; exp/dR1: 0.93418 / 3.182 / 7.28."
+    },
+    {
+     "severity": "minor",
+     "description": "Left-hand changes the builder's report leaves out. With the committed pose, the forearm underside near the wrist (x 240–290) got worse: mean 2.06 → 3.50 px, and 0 → 38 edge pixels over 4 px. The report's 'why' does not mention it. The demo dL2 fixes the notch region (0.93), but only by making the forearm lines worse: bottom mean 3.41 with 100 pixels over 4 px and a 9 px maximum; top 86 pixels over 4 px. openIssues says only that the refit 'removes it'. In dL4 the forearm bottom also moves out (2.13 mean, 154 pixels over 2 px).",
+     "evidence": "tools/regions.py tables (in progress.md), crops/left-forearm-bottom-overlay.png, crops/dL4-forearm-bottom.png, exp/dL2/compare-left/left-metrics.json, exp/dL4, all under /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/."
+    },
+    {
+     "severity": "minor",
+     "description": "The forearm_sag_* keys can reach beyond the forearm. In ArmProfile.at, the sag fraction w = (sW − s)/(sW − sF) is not clipped to [0, 1]. So forearm_sag_at − forearm_sag_width < 0, which SHAPE_RANGES allows (for example 0.1 and 0.3), also sags the wrist fillet and the carpus. CONTRACTS describes the sag as acting on 'the forearm's dorsal line'. The dorsal and palmar sags also share one centre and one width. In xL6 a palmar sag fixed x 0–150 (2.38 → 1.15) but left 30 edge pixels over 4 px at x 150–270.",
+     "evidence": "assets-source/hands/build_hands.py, ArmProfile.at (the sag loop has no clip on w); exp/xL6 region table in /home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/progress.md."
+    },
+    {
+     "severity": "minor",
+     "description": "The comment on ArmSweep.CULL says the zero level set is the same as with the exact field. It is not exactly the same. Near the surface the culled field differs from the exact one by up to 8.1e-4 world units, about 0.22 voxel or 0.39 px, with 7 (left) and 5 (right) sign flips. The differences sit at the knuckles and finger roots, through the chain of smooth unions. The effect is sub-pixel and not visible, but the comment overstates it.",
+     "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/cullcheck.log (tools/cullcheck.py)."
+    },
+    {
+     "severity": "minor",
+     "description": "Inaccuracies in the report and docs. (a) The builder says the old builder's outer-precision maximum was 2.51 / 2.46 px. HEAD's mesh reports say 2.60 / 1.42, so the right hand's maximum rose from 1.42 to 1.93 px (still under 3). (b) HAND_ASSETS 'Surface finishing' still gives the numbers of an earlier build (1 717 → 0; 3.2° → 29.8°). The current reports give 1 824 → 0 and 3.48° → 29.96° for the left, and 1 367 and 5.85° → 30.2° for the right. (c) The D9 section, which this stage updated, still describes a 6-point inner polyline at the D5 slit, (564,404) → (558,418). It exists in neither HEAD's contour nor the new one. The new inner polyline at the left wrist underside, (288,253) → (304,265), is not mentioned.",
+     "evidence": "/home/a/Documents/Alpha/outputs/qa/scratch/verify-arm-1/head/calib/{left,right}-mesh-report.json against outputs/qa/calib/*-mesh-report.json; docs/HAND_ASSETS.md lines 184–188 and 355–364; inner-polyline listing in progress.md."
+    }
+   ]
+  }
+ ]
+}

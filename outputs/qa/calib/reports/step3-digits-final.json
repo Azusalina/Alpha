@@ -1,0 +1,211 @@
+{
+ "stage": "digits",
+ "pausedForUser": true,
+ "step": "build",
+ "decisionsForUser": [
+  {
+   "question": "The right thumbnail outline (D1's defining feature) is now a crisp D in the rendered mesh, but the app's particle sampler cannot trace it: its weights use only the local rim and area terms, and at the builder's 1.7 px voxel size the nail's free-edge step never rises above the ordinary skin texture around the plate. How should the particle hand show the thumbnail?",
+   "options": [
+    "A) Accept the geometry as it is: the nail reads in the solid renders and in the mask, and step 5 changes the particle sampler to weight an exported nail-outline curve (the builder would also export the outline, a small addition to the contour JSON).",
+    "B) Push the relief further in the builder (nail_relief above 0.35 and/or a deeper free-edge groove) until the sampler traces it with today's weights - risks the claw-like tips fixed in step 1 and a visible ridge in the silhouette; the contrast scan says it would need roughly twice the tested relief.",
+    "C) Refine the voxel size locally at the nail (a second, finer SDF pass around the distal phalanx) so the edge is sharp enough for the current sampler - the largest builder change of the three, and it lengthens the build."
+   ],
+   "evidence": "Contrast measurements with the app's own weights: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/tools/nailband.py - outline vs plate interior / vs skin ratios 1.28 (baseline), 1.32-1.57 (roll 115), 1.39-1.59 (relief 0.20 + outline 1), 1.50-1.72 (relief 0.30 + outline 1), 1.54-1.75 (relief 0.35 soft), against a plain-skin ring of 1.2-1.64 just outside the plate. Particle preview: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/particles-thumb.png and particles-hand.png. The geometry as delivered: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/verify/R-thumbnail-5x.png, crops/nail-right-home-8x.png; reference crops/ref/right-thumbnail-6x.png.",
+   "recommendation": "A - keep the geometry (tips stay within 1 px of the pose tips, no silhouette cost) and let step 5 read an exported nail outline; B and C pay in shape quality or build time for something the sampler should be told, not shown.",
+   "blocks": "Nothing in this stage: items 1-3, 5 and 6 are finished and the builder, poses and docs on disk are final. It blocks only how the particle hand will render the right thumbnail in step 5 (and whether the builder should export the nail outline)."
+  }
+ ],
+ "build": {
+  "stage": "digits",
+  "summary": "Step 3, digits stage is complete on disk (this run resumed a stopped run and verified/finished it; no work was redone). build_hands.py now resolves every shape control per hand from the pose file's optional \"shape\" object, with a per-digit form (value = number or {digit: number}) for the digit controls, validated against SHAPE_RANGES so a typo fails loudly. New controls: knuckle_rise, head_back and phalanx_base (per finger) let a pose draw a real MCP knuckle prominence and the step down to the finger while keeping the MCP at its reading; ip_knuckle_size/ip_knuckle_lift, nail_relief and the new nail_outline became per-digit; thumb_roll_deg became per hand; thumb_root_cap (default 3.0) fixes the thumb-root crevice on both hands; and the mesh report's fingertip search is now capped along the distal bone and tested against the nearest bone, so a short digit's search cannot land on another digit's tip. Every new control defaults to the pre-step-3 shape; the committed poses set only the thumb roll, thumb nail relief/outline and the right index ip_knuckle_size, exactly as the items asked. Both hands rebuild from the committed poses with 1 shell, 0 non-manifold/boundary edges, 100 % winding, 28854 tris, D9 100 %, and reproduce byte-identically.",
+  "items": [
+   {
+    "item": "1 Knuckle prominence (left request 1)",
+    "status": "done",
+    "what": "Three new per-finger controls: knuckle_rise (the knuckle stands this far beyond the metacarpal head's own dorsal surface, x the head half-thickness), head_back (the head centre and with it the knuckle sit this far behind the MCP joint) and phalanx_base (the proximal phalanx's section where it leaves the knuckle, x the MCP section = the step down). A pose can now keep the index MCP at its reading (592,306) and still draw the bump proximal of it and the step to the finger. Defaults 0/0/1.0 = the pre-step-3 shape (field comparison identical), so the committed poses are unchanged here; step 2 tunes them.",
+    "evidence": "Blender demo on scratch poses (left, --views): kdemo0 = index MCP (592,306) + PIP (682,344) readings with no controls -> knuckle region x520-640 y215-310: 221 edge px >2 px, 190 >4 px, hand IoU .9542 mean 2.058 p95 6.083. kdemo1 = same readings + index MCP r 32, head_back 1.0, knuckle_rise 0.3, phalanx_base 0.8 -> region mean 1.97 p95 5.39, 82 >2 px, 50 >4 px, hand IoU .9618 mean 1.717 p95 4.657, index tip 0.0, only p95 failing (committed baseline in that region: 208 >2 / 114 >4 of 247). Crops /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/knuckle-overlay-kdemo0.png, knuckle-overlay-base-vs-kdemo1.png, knuckle-home.png, knuckle-above.png, knuckle-yawm35.png, knuckle-yawp35.png; reference crop crops/ref/left-knuckle-4x.png."
+   },
+   {
+    "item": "2 Dorsal IP knuckles per hand (D19 S4)",
+    "status": "done",
+    "what": "ip_knuckle_size and ip_knuckle_lift are per-digit shape keys (size 0 = no dorsal bump, a straight back). pose-right.json sets ip_knuckle_size {\"index\": 0}, so the back of the right index runs straight per D12.",
+    "evidence": "Dorsal profile of the right index (tools/dorsal.py): PIP 25.12 -> 24.25 px and DIP 21.10 -> 20.33 px above the bone axis; the bumps are gone in the +35 deg view, crops/final-right-index-yawp35.png, crops/final-right-index-home.png. The silhouette's top line is NOT changed by this (6.34 px above its own straight line at x915, reference rms 1.11) because that residual is the pose's 13.8 deg PIP bend, not the ipk: a scratch pose moving index_pip 473 -> 479 px (0.9 u) gives top-line rms 3.07 -> 1.85 px and max 6.34 -> 4.21 px with every gate as before. That pose fix belongs to step 2."
+   },
+   {
+    "item": "3 Thumbnail orientation per hand (D19 S3)",
+    "status": "done",
+    "what": "thumb_roll_deg is a per-hand shape key. Right set to 115 (was the shared 72), left kept at 72, both chosen against the reference thumbnail.",
+    "evidence": "tools/nails.py on the final build: right nail normal 10.5 deg off the home view axis (baseline 51.3 deg, normal (0.08,0.82,0.57)), nail centre 2.8 px above the thumb axis = the reference D centre (673 vs axis 675.8); left nail 8.9 deg off the axis, offset -2.2 px (reference -1.5..-2). Roll scan: right optimum 126 (3.3 deg), 115 chosen because it also keeps the silhouette (IoU .8948 vs .8946). Crops crops/verify/R-thumbnail-5x.png, crops/verify/L-thumbnail-5x.png, crops/thumbnail-home-variants-4x.png, reference crops/ref/right-thumbnail-6x.png."
+   },
+   {
+    "item": "4 Nail relief (D19 S3)",
+    "status": "partly",
+    "what": "nail_relief is per-digit and a new per-digit nail_outline (0 = today's soft fade, 1 = a crisp rounded free edge at nail_free 0.6 of the tip cap, so the plate's outline closes as a D) was added. Poses: right thumb relief 0.3 + outline 1, left thumb relief 0.2 + outline 1. The D-shaped nail now reads clearly in the rendered home and -35 deg views, and the tips stay within the 2 px rule (right thumb mesh-vs-pose 0.97 px, left 1.33 px). What is NOT achieved: the outline is still not legible to the app's particle sampler.",
+    "evidence": "crops/verify/R-thumbnail-5x.png and L-thumbnail-5x.png (both nails read face-on as D plates), crops/nail-right-home-8x.png, crops/nail-left-home.png, crops/thumbnail-proximal-edge-8x.png. Particle contrast (tools/nailband.py with the app's rim+area weights): outline-vs-plate-interior / outline-vs-skin ratios baseline 1.28, r115 1.32-1.57, relief .20+outline 1.39-1.59, relief .30 1.50-1.72, relief .35 soft 1.54-1.75, against a skin ring of 1.2-1.64 outside the plate - the outline never rises out of the surrounding skin at the 1.7 px voxel size. Particle preview crops/particles-thumb.png, crops/particles-hand.png. See decisionsForUser."
+   },
+   {
+    "item": "5 Thumb-root crevice (right verifier)",
+    "status": "done",
+    "what": "New shape key thumb_root_cap (default 3.0, was a rounded cap of 1.0 x its thickness): the thumb metacarpal's carpal end is now a long soft cap that fades into the palm, so the capsule no longer stands proud with a groove around it. Applies to both hands.",
+    "evidence": "Right home groove box (1160,688)-(1188,724): min grey 39 -> 86, pixels < 90 grey 31.3 % -> 0.3 %. Right -35 deg groove box (773,450)-(826,497): min 45 -> 52, < 90: 29.7 % -> 16.6 % (the remaining line is the thenar/palm boundary, not the capsule). Crops crops/base-right-thumbroot-home-4x.png vs crops/verify/R-thumbroot-6x.png, crops/final-thumbroot-home.png, crops/final-thumbroot-yawm35.png. Left checked too: its CMC sits at the palm joint so the metacarpal end was already buried (thumb-root boxes min grey 82-92 before and after; crops/final-thumbroot-left-home.png, crops/final-thumbroot-left-yawm35.png) - no crevice there to fix."
+   },
+   {
+    "item": "6 Mesh-report fingertip search (tooling bug)",
+    "status": "done",
+    "what": "measure_fingertips() now caps the search along the distal axis at 1.3 x the distal bone and keeps only vertices whose nearest bone is that digit's distal bone, so the search stays inside the digit.",
+    "evidence": "On the unchanged baseline GLBs (tools/tiptest.py): right thumb mesh_tip_px (810.7,645.8) delta 90.16 px (the middle fingertip) -> (897.0,671.9) delta 0.14 px; every other tip unchanged. Final report on disk: right thumb delta 0.97 px, all ten tips 0.33-1.82 px."
+   }
+  ],
+  "metrics": {
+   "note": "Both hands, committed poses, scored with scripts/compare_silhouette.py against outputs/qa/calib/<h>-mask.png. 'before' = the arm-stage final (this stage's baseline), 'after' = the final state on disk. Nothing moved by more than 0.02 px in contour mean; the committed poses set only the thumb roll, thumb nail relief/outline and the right index ip_knuckle_size, and all new knuckle controls stay at their pre-step-3 defaults, so the silhouettes are essentially unchanged by design. Step 2 recalibrates.",
+   "left_before": {
+    "iou": 0.9582,
+    "contour_mean_px": 1.878,
+    "contour_p95_px": 5,
+    "contour_max_px": 8.485,
+    "negative_space_iou": 0.9101,
+    "tips_px": {
+     "index": 3.16,
+     "middle": 3.16,
+     "ring": 3.61,
+     "pinky": 0
+    },
+    "failing_gates": [
+     "iou",
+     "contour_p95_px",
+     "tip:index_tip"
+    ]
+   },
+   "left_after": {
+    "iou": 0.95822,
+    "contour_mean_px": 1.878,
+    "contour_p95_px": 5,
+    "contour_max_px": 8.485,
+    "negative_space_iou": 0.91004,
+    "tips_px": {
+     "index": 3.16,
+     "middle": 3.16,
+     "ring": 3.61,
+     "pinky": 0
+    },
+    "failing_gates": [
+     "iou",
+     "contour_p95_px",
+     "tip:index_tip"
+    ],
+    "keypoints_worst_px": {
+     "index_mcp": 26.29,
+     "ring_mcp": 26.48,
+     "middle_mcp": 25.95,
+     "index_pip": 13.34
+    }
+   },
+   "right_before": {
+    "iou": 0.8946,
+    "contour_mean_px": 5.064,
+    "contour_p95_px": 15.632,
+    "contour_max_px": 30.871,
+    "negative_space_iou": 0.8788,
+    "tips_px": {
+     "index": 1,
+     "middle": 1.41,
+     "ring": 3.16,
+     "pinky": 4.24
+    },
+    "failing_gates": [
+     "iou",
+     "contour_mean_px",
+     "contour_p95_px"
+    ]
+   },
+   "right_after": {
+    "iou": 0.89485,
+    "contour_mean_px": 5.045,
+    "contour_p95_px": 15.625,
+    "contour_max_px": 30.871,
+    "negative_space_iou": 0.8792,
+    "tips_px": {
+     "index": 1,
+     "middle": 1.41,
+     "ring": 3.16,
+     "pinky": 4.24
+    },
+    "failing_gates": [
+     "iou",
+     "contour_mean_px",
+     "contour_p95_px"
+    ],
+    "keypoints_worst_px": {
+     "thumb_cmc": 45.54,
+     "index_mcp": 21.47,
+     "index_pip": 15.03
+    }
+   },
+   "mesh_tip_delta_px_after": {
+    "left": {
+     "thumb": 1.33,
+     "index": 0.62,
+     "middle": 0.33,
+     "ring": 1.14,
+     "pinky": 1.13
+    },
+    "right": {
+     "thumb": 0.97,
+     "index": 1.82,
+     "middle": 0.51,
+     "ring": 0.7,
+     "pinky": 1.51
+    }
+   },
+   "knuckle_region_left_x520_640_y215_310_edge_px": {
+    "total": 247,
+    "committed_pose_over_2px": 208,
+    "committed_pose_over_4px": 114,
+    "demo_with_new_controls_over_2px": 82,
+    "demo_with_new_controls_over_4px": 50
+   }
+  },
+  "mesh": "A1, both hands from the committed poses (outputs/qa/calib/<h>-mesh-report.json): left and right each 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement 100.0 %, 14429 verts / 28854 triangles (gate <= 30k). D9 (printed by the builder): left covered 100.0 % / 100.0 % (4/8-boundary), largest uncovered run 0 / 0 px, 0 inner labels on background, PASS; right identical, PASS. Byte-identical rebuild: a second full build from the committed poses (outputs/qa/scratch/build-digits/runs/rebuild2) gives hand-left.glb, hand-right.glb, hand-left.contour.json and hand-right.contour.json byte-identical to public/assets, and all ten calib PNGs pixel-identical (max channel difference 0; only PNG metadata bytes differ). Build time: left 61.9 s, right 51.8 s (119 s wall for both in one Blender run with --views). node_modules/.bin/tsc --noEmit is clean.",
+  "interface": "New/changed shape keys, all resolved per hand from the pose file's optional top-level \"shape\" object (documented in docs/CONTRACTS.md section 5 with defaults and ranges, and in docs/HAND_ASSETS.md \"Parameters\" -> \"Shape keys\"); a key in DIGIT_KEYS takes either a number (all digits) or an object {digit: number}, and SHAPE_RANGES rejects unknown keys, non-finite values and out-of-range values. thumb_root_cap default 3.0, range 0.2-6.0 (thumb metacarpal carpal end: soft cap length x its thickness there; both hands, item 5). thumb_roll_deg default 72, range -180..180 (per hand; thumb frame rolled from dorsal toward the radial side = the thumbnail's orientation). knuckle_rise default 0, range -0.5..1.5, per finger (MCP knuckle's rise beyond the head's own dorsal surface, x the head half-thickness). head_back default 0, range -0.5..2.0, per finger (the head centre and knuckle set back behind the MCP joint, same unit). phalanx_base default 1.0, range 0.5..1.5, per finger (the proximal phalanx's section where it leaves the knuckle, x the MCP section = the step down). ip_knuckle_size default 0.62, range 0..2, per digit (0 = no dorsal PIP/DIP bump, a straight back). ip_knuckle_lift default 0.62, range 0..2, per digit. nail_relief default 0.12, range 0..0.6, per digit (plate height x the tip's half-thickness). nail_outline default 0, range 0..1, per digit (0 = soft fade over the fingertip, 1 = crisp rounded free edge, a closed D outline; values between blend). Pose values actually set: pose-left.json \"shape\" = {thumb_roll_deg 72, nail_relief {thumb 0.2}, nail_outline {thumb 1}}; pose-right.json \"shape\" = {thumb_roll_deg 115, nail_relief {thumb 0.3}, nail_outline {thumb 1}, ip_knuckle_size {index 0}}. Joints, dorsal, chains, hand and notes are untouched, so src/hand/pose.ts parses both files exactly as before (tsc clean). The mesh report gains a \"shape\" object ({from_pose, used} with per-digit keys resolved per digit) and its fingertips are now searched inside each digit (CONTRACTS section 6).",
+  "files": [
+   "/home/a/Documents/Alpha/assets-source/hands/build_hands.py",
+   "/home/a/Documents/Alpha/assets-source/hands/pose-left.json",
+   "/home/a/Documents/Alpha/assets-source/hands/pose-right.json",
+   "/home/a/Documents/Alpha/docs/HAND_ASSETS.md",
+   "/home/a/Documents/Alpha/docs/CONTRACTS.md",
+   "/home/a/Documents/Alpha/public/assets/hand-left.glb",
+   "/home/a/Documents/Alpha/public/assets/hand-right.glb",
+   "/home/a/Documents/Alpha/public/assets/hand-left.contour.json",
+   "/home/a/Documents/Alpha/public/assets/hand-right.contour.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-mesh-report.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/right-mesh-report.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/left-metrics.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-metrics.json",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/progress.md",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/verify/",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/tools/"
+  ],
+  "openIssues": [
+   "Item 4 is only partly achieved: the thumbnail outline is legible in the rendered views but not to the app's particle sampler (rim + area weights) at the 1.7 px voxel size - see decisionsForUser.",
+   "Item 2: taking the dorsal knuckles off the right index does not move the silhouette's top line; the remaining 6.3 px bow there is the pose's 13.8 deg PIP bend (index_pip 473 -> 479 px, 0.9 u, gives top-line rms 3.07 -> 1.85 px). That belongs to step 2.",
+   "The committed poses still use the pre-step-3 knuckle shape (knuckle_rise 0, head_back 0, phalanx_base 1.0 everywhere), so the left knuckle residual and the 26 px index/middle/ring MCP offsets are unchanged on disk; step 2 must set these controls and move the MCPs back to their readings.",
+   "Left index_tip (3.16 px vs 3.0 gate), left IoU and p95, and all three right gates still fail on the committed poses; this stage deliberately did not recalibrate.",
+   "The right thumb_cmc keypoint is 45.5 px off its reading (gate 75). thumb_root_cap buried the capsule but the CMC placement itself is a step-2 pose question.",
+   "hands.blend is not written by these runs (no --blend was passed); the main session re-saves it."
+  ],
+  "decisionsForUser": [
+   {
+    "question": "The right thumbnail outline (D1's defining feature) is now a crisp D in the rendered mesh, but the app's particle sampler cannot trace it: its weights use only the local rim and area terms, and at the builder's 1.7 px voxel size the nail's free-edge step never rises above the ordinary skin texture around the plate. How should the particle hand show the thumbnail?",
+    "options": [
+     "A) Accept the geometry as it is: the nail reads in the solid renders and in the mask, and step 5 changes the particle sampler to weight an exported nail-outline curve (the builder would also export the outline, a small addition to the contour JSON).",
+     "B) Push the relief further in the builder (nail_relief above 0.35 and/or a deeper free-edge groove) until the sampler traces it with today's weights - risks the claw-like tips fixed in step 1 and a visible ridge in the silhouette; the contrast scan says it would need roughly twice the tested relief.",
+     "C) Refine the voxel size locally at the nail (a second, finer SDF pass around the distal phalanx) so the edge is sharp enough for the current sampler - the largest builder change of the three, and it lengthens the build."
+    ],
+    "evidence": "Contrast measurements with the app's own weights: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/tools/nailband.py - outline vs plate interior / vs skin ratios 1.28 (baseline), 1.32-1.57 (roll 115), 1.39-1.59 (relief 0.20 + outline 1), 1.50-1.72 (relief 0.30 + outline 1), 1.54-1.75 (relief 0.35 soft), against a plain-skin ring of 1.2-1.64 just outside the plate. Particle preview: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/particles-thumb.png and particles-hand.png. The geometry as delivered: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/verify/R-thumbnail-5x.png, crops/nail-right-home-8x.png; reference crops/ref/right-thumbnail-6x.png.",
+    "recommendation": "A - keep the geometry (tips stay within 1 px of the pose tips, no silhouette cost) and let step 5 read an exported nail outline; B and C pay in shape quality or build time for something the sampler should be told, not shown.",
+    "blocks": "Nothing in this stage: items 1-3, 5 and 6 are finished and the builder, poses and docs on disk are final. It blocks only how the particle hand will render the right thumbnail in step 5 (and whether the builder should export the nail outline)."
+   }
+  ]
+ }
+}

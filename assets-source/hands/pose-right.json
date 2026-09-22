@@ -34,5 +34,11 @@
     "middle": ["middle_mcp",  "middle_pip",  "middle_dip",  "middle_tip"],
     "ring":   ["ring_mcp",  "ring_pip",  "ring_dip",  "ring_tip"],
     "pinky":  ["pinky_mcp",  "pinky_pip",  "pinky_dip",  "pinky_tip"]
+  },
+  "shape": {
+    "thumb_roll_deg": 115,
+    "nail_relief": { "thumb": 0.3 },
+    "nail_outline": { "thumb": 1 },
+    "ip_knuckle_size": { "index": 0 }
   }
 }

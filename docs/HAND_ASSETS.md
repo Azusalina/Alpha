@@ -34,8 +34,10 @@ blender -b --factory-startup -P assets-source/hands/build_hands.py -- \
   --report-dir outputs/qa/calib --blend assets-source/hands/hands.blend --views
 ```
 
-Measured 2026-09-20: 32.5 s (left) and 27.2 s (right) for the meshes, ~3 s for
-the ten Workbench renders, 64 s wall clock for the whole command. Options:
+Measured 2026-09-22 (after log-v2 step 3, digits stage; `--hand both --masks
+--views`, no `--blend`): 61.9 s (left) and 51.8 s (right) per hand as the mesh
+report's `build_seconds`, 123 s wall clock for the whole command (the
+2026-09-20 builder: 59.6 / 59.5 s). Options:
 
 | Flag | Effect |
 |---|---|
@@ -86,12 +88,15 @@ followed by Voxel Remesh gives the same kind of closed surface but gives no
 control over *where* parts blend. Metaballs blend everything with everything.
 
 **Selective smooth unions.** Parts are fused with a polynomial smooth minimum
-whose radius `k` is chosen per join: large at the forearm→wrist→palm (soft
-transitions), medium inside the palm block and at every finger root (a fillet
-into the palm, not a stuck-on tube), small between phalanges (soft knuckle
-turns). **Digits are never blended with each other**, only with the palm block,
-so curled fingers that pass close to each other stay separate instead of
-webbing together. A single global voxel remesh cannot make that distinction.
+whose radius `k` is chosen per join: medium where the palm's parts meet the
+arm and each other and at every finger root (a fillet into the palm, not a
+stuck-on tube), small between phalanges (soft knuckle turns). The forearm,
+wrist and carpus are one swept solid, so no blend acts inside the arm (a
+smooth union of overlapping capsules adds material where they overlap: that
+was the collar at the wrist and the cuff past the frame). **Digits are never
+blended with each other**, only with the palm block, so curled fingers that
+pass close to each other stay separate instead of webbing together. A single
+global voxel remesh cannot make that distinction.
 
 **Construction, per hand** (`build_primitives`):
 
@@ -104,24 +109,95 @@ webbing together. A single global voxel remesh cannot make that distinction.
   parallel transport, so sections do not twist; the thumb's frame is rolled
   `thumb_roll_deg` toward the radial side so its nail faces away from the
   palm plane.
-- *Arm.* Forearm → wrist → carpus: tapering elliptical capsules; the forearm
-  continues `arm_extend` past the off-frame `forearm` joint and ends in a soft
-  cap far outside the frame, so the home view never shows a cut end.
-- *Palm block.* Four flattened metacarpal sweeps fanned from the carpus to the
-  four knuckles (narrower at the wrist, broader across the knuckles), with
-  knuckle prominences on the dorsal side of each metacarpal head — the palm is
-  not a single tube.
-- *Thumb.* Metacarpal wrapped in a thenar mass on the palmar side, plus the
-  first dorsal interosseous web between the thumb MCP and the index metacarpal.
+- *Arm* (`ArmSweep`, `ArmProfile`; log-v2 step 3). Forearm → wrist → carpus is
+  **one swept solid**. Its spine is the forearm axis (forearm joint → wrist), a
+  circular arc around the wrist, and the carpus axis (wrist → palm joint); the
+  elliptical section is carried round the arc without twisting (parallel
+  transport) and changes with arc length. The sections are the ones the pose
+  gives at the forearm joint, at the wrist (solved **once**, along the
+  bisector of the two axes, and shared by forearm and carpus: no collar) and
+  at the palm joint, linear in between; the corner of that profile at the
+  wrist is rounded over ± `wrist_round_px` by a cubic that still passes through
+  the wrist section. The arc's radius is the section's reach toward the inside
+  of the bend plus `wrist_crease_px`, so the inside of the wrist is a concave
+  fillet of that radius. Past the off-frame forearm joint the forearm's taper
+  eases out to a constant section over `arm_ease × arm_extend` and the same
+  surface runs on for `arm_extend`, ending in a flattened cap far outside the
+  frame (no cuff). The pieces are hard-unioned; at the arc's ends they share
+  section, frame and tangent, so the surface is smooth.
+  Optional per hand: `forearm_sag_*` moves the forearm's dorsal and/or palmar
+  line in or out by a smooth cos² bump (a sag the straight taper cannot draw),
+  and `wrist_bump_*` adds a dorsal wrist prominence (the ulnar head), an
+  ellipsoid standing `wrist_bump_px` out of the arm's surface near the wrist.
+- *Carpus.* The arm's last piece, from the wrist to the palm joint. Its section
+  there comes from the palm joint's `r` and `flat` as before, but its
+  half-width is capped at `carpus_cap` × half the knuckle span (index to
+  little-finger MCP), so fitting the drawn palm no longer turns it into a
+  flared wedge (left) or a slab (right); it ends in a rounded cap
+  `carpus_end_cap` × its thickness long.
+- *Metacarpal plate.* Four flattened metacarpal sweeps on the pre-step-3 fan
+  lines (from each knuckle through `meta_ref_frac` of the way wrist →
+  knuckles, keeping `meta_base_spread` of the knuckle spread there). Their
+  thickness there is `meta_base_thick` × the **wrist** section's thickness
+  (not the palm joint's section); from there to the heads it tapers linearly,
+  and the plate runs on back along the same lines, with the same taper, to
+  `meta_base_frac` of the way from the wrist, ending in a soft cap
+  `meta_base_cap` × its thickness long that fades into the wrist. So the back
+  of the hand is one straight run from the knuckles into the wrist, and the
+  rounded base caps half way down the hand, whose junction with the carpus
+  was the wrist-to-back notch, are gone.
+- *Knuckles (MCP).* Each metacarpal ends in its head — the section at the MCP
+  joint, `meta_head` larger — with a knuckle prominence on its dorsal side.
+  Three per-finger controls shape the knuckle the drawing shows (log-v2
+  step 3, digits stage): `head_back` puts the head's centre, and with it the
+  prominence, that far behind the joint (× the head's half-thickness), so the
+  knuckle can be drawn behind a joint read where the finger leaves it;
+  `knuckle_rise` lifts the prominence out of the head (0 = the pre-step-3
+  bump, which reaches about the head's own surface); `phalanx_base` narrows
+  the proximal phalanx where it leaves the knuckle, which is the step down
+  from the knuckle to the finger. All three default to the pre-step-3 shape.
+- *Thumb metacarpal.* One sweep from the CMC to the MCP, rolled with the rest
+  of the thumb by `thumb_roll_deg` (per hand). Its carpal end is a long soft
+  cap, `thumb_root_cap` × its thickness there, that fades into the palm: with
+  the rounded end it had before (a cap as long as its own thickness) the end
+  stood proud of the palm with a dark groove around it and the thumb read as
+  plugged onto the palm.
+- *Palmar masses.* The thenar (the thumb metacarpal wrapped in a mass on the
+  palmar side, `thenar_size`), the **hypothenar** (an ellipsoid along the
+  little-finger metacarpal on its palmar-ulnar side, `hypothenar_*`), and two
+  optional masses a pose can size: the **first dorsal interosseous** on the
+  thumb side of the index metacarpal (`fdi_*`) and the **palm heel** standing
+  out of the carpus's palmar surface (`palm_heel_*`). Plus, as before, the
+  first dorsal interosseous web between the thumb MCP and the index
+  metacarpal (`web_thick`).
+- *Per-hand shape controls.* The shape keys (the second table under
+  "Parameters") may be set per hand in the pose file's optional `shape`
+  object (CONTRACTS §5);
+  a pose without it builds with the defaults. The step-3 defaults keep the
+  old shape where a control is new (sag, wrist bump, first dorsal
+  interosseous and palm heel are off; knuckle rise, head set-back and nail
+  outline are off, the phalanx base is the MCP section); the collar, cuff,
+  notch, palm construction and the thumb's carpal end are fixes and apply to
+  both hands. Some keys may also be set **per digit**, as an object naming
+  digits (CONTRACTS §5).
 - *Fingers.* Elliptical phalanges with a slight waist between joints, a palmar
-  pad on each phalanx, dorsal knuckles over PIP/DIP, and a rounded tip cap whose
-  end lands exactly on the pose's tip px.
+  pad on each phalanx, dorsal knuckles over PIP/DIP (`ip_knuckle_size` and
+  `ip_knuckle_lift`, per digit; size 0 leaves the back of that digit
+  straight), and a rounded tip cap whose end lands exactly on the pose's
+  tip px.
 - *Nails.* A nail plate is **not** a separate solid. It is a band-limited
   relief: the digit's field is lowered by `nail_relief · h` over the plate
   footprint, with a soft border `nail_edge` wide (≈ 1.7 voxels), so the grid
   resolves the edge instead of aliasing it. The plate runs from the nail fold
-  (`nail_start` of the distal phalanx) and fades out inside the rounded tip cap
-  (`nail_tip`), so there is no overhang and no free-edge step. Round 2
+  (`nail_start` of the distal phalanx) to its free edge, and its height and
+  its distal end are per-digit pose settings. With `nail_outline` 0 it fades
+  out softly inside the rounded tip cap (`nail_tip`), so there is no overhang
+  and no free-edge step; with `nail_outline` 1 it ends in a crisp rounded free
+  edge at `nail_free` of the cap, with the same soft border as its sides, so
+  the plate's outline is a closed **D** — the nail fold its straight side —
+  which is how the reference draws both thumbnails (D1, D2). The free edge
+  lies far enough back on the cap that the raised plate never reaches past the
+  fingertip: the mesh tips stay within 1.4 px of the pose tips. Round 2
   session 3 hard-unioned an ellipsoid whose relief was under one voxel; that is
   what produced the nail-edge creases, dimples and notches the verifier found,
   and they are gone with the relief form (checked at 6× zoom on all four tips
@@ -154,31 +230,53 @@ All in `PARAMS` at the top of `build_hands.py` (world units unless noted;
 |---|---|---|
 | `voxel` | 0.0036 | SDF grid spacing (~1.7 px). Smaller = finer and slower. |
 | `band`, `sdf_chunk` | 3.0, 48 | Narrow-band half width in voxels; x-planes per evaluation slab (memory only). |
-| `k_arm`, `k_body`, `k_thenar` | 0.060, 0.045, 0.040 | Smooth-union radii: arm chain, palm block, thenar/web. |
+| `k_body`, `k_thenar`, `k_bump` | 0.045, 0.040, 0.012 | Smooth-union radii: metacarpal plate onto the arm; thenar / hypothenar / first dorsal interosseous / palm heel / web; wrist prominence. |
 | `k_root[digit]` | 0.022–0.040 | Finger-root fillet into the palm (thumb largest). |
 | `k_joint`, `k_pad`, `k_ipk`, `k_knuckle` | 0.016, 0.014, 0.010, 0.018 | Phalanx joints, pads, dorsal IP knuckles, MCP knuckles. |
-| `meta_*` | 0.30, 0.45, 1.05, 0.80, 1.12 | Metacarpal fan: where it starts, how much spread it keeps at the wrist, width, thickness, head size. |
-| `knuckle_size`, `knuckle_lift` | 0.62, 0.50 | MCP knuckle bumps. |
-| `ip_knuckle_size`, `ip_knuckle_lift` | 0.62, 0.62 | Dorsal knuckles over PIP/DIP. |
-| `thumb_roll_deg` | 72 | Thumbnail orientation. |
-| `thenar_size`, `thenar_pull`, `thenar_drop` | 1.30, 0.30, 0.30 | Thenar mass size and placement. |
+| `meta_ref_frac`, `meta_base_spread` | 0.30, 0.45 | The plate's fan lines pass through this fraction of the way wrist → knuckles, keeping this share of the knuckle spread there (the pre-step-3 fan base). |
+| `meta_width`, `meta_head` | 1.05, 1.12 | Metacarpal half-width (× half the knuckle spacing); head size (× the finger base section). |
+| `knuckle_size`, `knuckle_lift` | 0.62, 0.50 | MCP knuckle bumps (their rise out of the head and the head's set-back are shape keys). |
+| `thenar_pull`, `thenar_drop` | 0.30, 0.30 | Thenar placement (size: `thenar_size`, a shape key). |
 | `web_thick` | 0.42 | First dorsal interosseous web thickness. |
 | `pad_size`, `pad_drop` | 0.78, 0.30 | Finger pads. |
 | `tip_cap` | 1.10 | Tip cap length vs tip thickness. |
 | `nail` | True | Build the nail relief at all. |
-| `nail_start`, `nail_tip` | 0.40, 0.80 | Plate from 40 % of the distal phalanx; faded out by 80 % of the tip cap. |
-| `nail_width`, `nail_relief`, `nail_edge` | 0.72, 0.12, 0.0030 | Plate half-width (× the section), height (× tip half-thickness), soft border half-width (world). |
+| `nail_start`, `nail_tip`, `nail_free` | 0.40, 0.80, 0.60 | Plate from 40 % of the distal phalanx; the soft form has faded out by 80 % of the tip cap, the crisp form (`nail_outline`) ends at 60 % of it. |
+| `nail_width`, `nail_edge` | 0.72, 0.0030 | Plate half-width (× the section) and soft border half-width (world; height and outline are shape keys). |
 | `waist` | 0.07 | Phalanges narrow slightly between joints. |
 | `section_clamp` | (0.75, 2.2) | Limits on 3D half-width vs projected half-width (foreshortened bones). |
-| `arm_extend` | 0.60 | Forearm length past the off-frame forearm joint. |
+| `arm_extend`, `arm_ease`, `arm_end_cap` | 0.60, 0.35, 0.35 | The arm runs on this far (world) past the off-frame forearm joint; its taper eases out over `arm_ease × arm_extend`; its far end is a cap `arm_end_cap` × its thickness long. |
+| `wrist_round_px` | 40 | The section profile's corner at the wrist is rounded over ± this (reference px). |
 | `smooth_iters`, `smooth_factor` | 2, 0.45 | Laplacian smoothing. |
 | `tri_budget` | 29 000 | Decimation target (≤ 30k). |
 | `cleanup_iters`, `cleanup_relax` | 4, 0.5 | Post-decimation quality flips + tangential relaxation. |
 | `contour_min_px`, `contour_step_px`, `contour_smooth_px` | 14, 3, 1.0 | Contour export: shortest kept *inner* piece, resampling step, smoothing sigma. |
 | `contour_probe_px`, `contour_edge_px`, `contour_join_px` | 0.15…2.5, 0.35, 2.0 | Outer/inner/hidden probes, fold test, piece joining. |
 
-Pose-level controls are in the pose files: joint `px`, `z`, `r`, `flat`, and
-`dorsal`. Calibration (log-v2 step 2) edits only those.
+**Shape keys** (defaults in `PARAMS`; a pose may set any of them in its
+optional `shape` object, CONTRACTS §5, where each one is defined; `_px` =
+reference px as drawn):
+
+| Key | Default | What it does |
+|---|---|---|
+| `wrist_crease_px` | 38 | Radius of the concave fillet inside the wrist bend. At the committed poses' bends (32° left, 16° right) the fillet only rounds the corner by 1–2 px; the crease's depth is set by the forearm's and carpus's palmar lines (the wrist and palm joints). |
+| `forearm_sag_dorsal_px`, `forearm_sag_palmar_px`, `forearm_sag_at`, `forearm_sag_width` | 0, 0, 0.35, 0.30 | Mid-forearm sag of the dorsal / palmar line (+ in, − out), its centre and half-width as fractions of the way wrist → forearm joint. |
+| `wrist_bump_px`, `wrist_bump_at_px`, `wrist_bump_len_px`, `wrist_bump_width_px`, `wrist_bump_angle_deg` | 0, 10, 22, 26, 0 | Dorsal wrist prominence: height, position toward the elbow, half-length, half-width, angle around the arm (0 dorsal, − ulnar, + radial). |
+| `carpus_cap`, `carpus_end_cap` | 1.0, 1.0 | Carpus half-width cap (× half the knuckle span); length of its end cap (× its thickness). |
+| `meta_base_frac`, `meta_base_thick`, `meta_base_cap` | 0.15, 0.88, 3.0 | Where the plate ends toward the wrist; its thickness at `meta_ref_frac` (× the wrist section's); its soft end cap (× its thickness). |
+| `thenar_size` | 1.30 | Thenar mass (× the thumb CMC section). |
+| `hypothenar_size`, `hypothenar_drop`, `hypothenar_out`, `hypothenar_from`, `hypothenar_to` | 1.0, 0.55, 0.35, 0.05, 0.70 | Hypothenar mass: size (× the little-finger metacarpal's section; 0 = none), palmar and ulnar offsets, extent along wrist → little-finger knuckle. |
+| `fdi_size`, `fdi_lift`, `fdi_out`, `fdi_from`, `fdi_to` | 0, 0.30, 0.55, 0.15, 0.75 | First dorsal interosseous mass on the index metacarpal's thumb side: size (0 = none), dorsal and radial offsets, extent along wrist → index knuckle. |
+| `palm_heel_px`, `palm_heel_at`, `palm_heel_lat`, `palm_heel_len_px`, `palm_heel_width_px` | 0, 0.22, 0, 40, 45 | Palm-heel mass: height out of the carpus's palmar surface (0 = none), position along the carpus and across the hand, half-length, half-width. |
+| `thumb_root_cap` | 3.0 | The thumb metacarpal's carpal end: a soft cap this long (× its thickness there) that fades into the palm. |
+| `thumb_roll_deg` | 72 | The thumb's frame rolled this far from `dorsal` toward the radial side (the thumbnail's orientation). |
+| `knuckle_rise`, `head_back`, `phalanx_base` | 0, 0, 1.0 | **Per finger.** The MCP knuckle's rise out of the head (× the head's half-thickness), the head's set-back behind the joint (same unit), and the proximal phalanx's section where it leaves the knuckle (× the MCP section). |
+| `ip_knuckle_size`, `ip_knuckle_lift` | 0.62, 0.62 | **Per digit.** Dorsal knuckles over PIP/DIP; size 0 = none (a straight back). |
+| `nail_relief`, `nail_outline` | 0.12, 0 | **Per digit.** Nail-plate height (× the tip's half-thickness) and how its distal end is formed: 0 = a soft fade over the fingertip, 1 = a crisp rounded free edge (a D-shaped outline). |
+
+Pose-level controls are in the pose files: joint `px`, `z`, `r`, `flat`,
+`dorsal`, and (from step 3) the optional `shape` object. Calibration (log-v2
+step 2) edits those.
 
 ## Coordinate conventions
 
@@ -236,7 +334,14 @@ smoothed (Gaussian, sigma 1 px along the arc) and resampled every 3 px; *inner*
 pieces shorter than 14 px are discarded, while *outer* pieces are kept down to
 1 px (they are the edges of the narrow gaps between digits — discarding them is
 what used to leave holes in the outline); pieces of one kind that meet end to
-end are joined.
+end are joined. Where a loop's label changes (outer → inner at a closing gap,
+outer → hidden where the outline passes behind a nearer part), the two pieces
+meet at the point where the label changes, found by probing 16 points between
+the last contour point of one run and the first of the next (log-v2 step 3).
+Where the mesh is coarse the contour points can be 4 px apart, and a piece that
+simply ended on its last point stopped short of a slit's tip: after step 3
+changed the decimation, that left one mask-boundary pixel at the tip of the
+left hand's D5 slit uncovered and failed D9.
 
 Each polyline carries one label:
 
@@ -250,20 +355,23 @@ Each polyline carries one label:
   it.
 - `closed`: the polyline is a closed loop (last point = first point).
 
-Counts now: left 22 polylines (14 outer, 8 inner), 1 482 points; right 20
-(12 outer, 8 inner), 1 558 points.
+Counts now (2026-09-22, committed poses, after the digits stage): left 17
+polylines (10 outer, 7 inner), 1 483 points; right 10 (5 outer, 5 inner),
+1 527 points.
 
 **Decision D9 (outer polylines must cover the mask boundary).** Measured by
-`check_contours.py` at tolerance 3 px, and independently re-measured on
-2026-09-20 with a separate implementation, which agreed to the pixel:
+`check_contours.py` at tolerance 3 px (the builder prints it as `[d9]`); the
+2026-09-20 numbers were independently re-measured with a separate
+implementation, which agreed to the pixel. Now (2026-09-22, after step 3's
+digits stage, committed poses):
 
 | Hand | Boundary px (4-/8-conn) | Covered | Largest uncovered run | Boundary → outer: mean / p95 / max | Boundary covered only by `inner` |
 |---|---|---|---|---|---|
-| left | 2 234 / 3 124 | 100 % / 100 % | 0 px | 0.43 / 0.88 / 2.39 px | 0 |
-| right | 2 485 / 3 502 | 100 % / 100 % | 0 px | 0.42 / 0.85 / 2.23 px | 0 |
+| left | 2 201 / 3 133 | 100 % / 100 % | 0 px | 0.41 / 0.84 / 1.15 px | 0 |
+| right | 2 234 / 3 290 | 100 % / 100 % | 0 px | 0.40 / 0.82 / 0.98 px | 0 |
 
 Outer-polyline precision (each in-frame outer point to the nearest boundary
-pixel): mean 0.53 px, max 2.51 px (left) and mean 0.53, max 2.46 (right); no
+pixel): mean 0.54 px, max 2.33 px (left) and mean 0.52, max 1.99 (right); no
 point is further than 3 px. `inner_points_on_background` is 0 for both hands.
 
 Two definitions matter for reproducing these numbers:
@@ -292,47 +400,104 @@ level set before decimation), `triangle_quality` (angle statistics after
 decimation, after cleanup, and for in-frame triangles only), `glb_check` (read
 back from the GLB: winding agreement, welded boundary / non-manifold edges),
 `winding_agreement_pct`, signed volume (positive = outward), surface area,
-`bbox_app`, `params`, contour counts, `contour_coverage_d9`, and `fingertips`:
+`bbox_app`, `params`, `shape` (the pose's `shape` object and the resolved
+per-hand shape settings the build used), contour counts,
+`contour_coverage_d9`, and `fingertips`:
 for each digit the mesh vertex furthest along the distal bone direction
 (within 2.5 × the DIP radius of the bone axis), projected to px and compared
 with the pose's tip px.
 
-## Current state (2026-09-20)
+## Current state (2026-09-22, after log-v2 step 3's digits stage)
+
+Built from the committed pose files. Each now carries a `shape` object with
+the settings the digits stage chose (everything else is at its default):
+left `thumb_roll_deg` 72, `nail_relief` thumb 0.2, `nail_outline` thumb 1;
+right `thumb_roll_deg` 115, `nail_relief` thumb 0.3, `nail_outline` thumb 1,
+`ip_knuckle_size` index 0.
 
 | Hand | Triangles | Vertices | Shells | Non-manifold | Boundary | Winding | Fingertip Δ vs pose (px) |
 |---|---|---|---|---|---|---|---|
-| left | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.08–1.61 |
-| right | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.36–1.98 |
+| left | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.33–1.33 |
+| right | 28 854 | 14 429 | 1 | 0 | 0 | 100 % | 0.51–1.82 |
 
-Checked independently of the builder on 2026-09-20 (own GLB reader in numpy,
-not the build script's): one node with no transform, one primitive, POSITION +
-NORMAL only, no material; 1 connected component; 0 boundary and 0 non-manifold
-edges after welding by position; no directed edge used twice; normals unit to
-1.4e-7; 100 % winding agreement; signed volume positive. GLB triangles
-projected with the contract-3 formula and rasterised match the Blender mask
-almost exactly — 3 differing pixels of 124 219 hand pixels (left) and 2 of
-122 990 (right; mask value > 127, forearm to the frame edge included), each on
-the mask edge — so the Blender, glTF and app conventions agree.
+Rebuilding into a scratch directory on 2026-09-22 reproduced these outputs
+exactly: both GLBs and both contour JSONs byte-identical, all masks, views and
+coverage images pixel-identical, the mesh reports identical apart from the
+output paths and `build_seconds`. (Checked independently of the builder on
+2026-09-20, for the earlier builder: own GLB reader in numpy — one node with no
+transform, one primitive, POSITION + NORMAL only, no material, 1 connected
+component, 0 boundary / 0 non-manifold edges after welding, no directed edge
+used twice, 100 % winding agreement, signed volume positive — and the GLB
+triangles rasterised with the contract-3 projection matched the Blender mask
+to within 3 edge pixels, so the Blender, glTF and app conventions agree.)
 
-Rebuilding into a scratch directory on 2026-09-20 reproduced the committed
-outputs exactly: both GLBs and both contour JSONs byte-identical, all masks,
-views and coverage images pixel-identical (the mask/view PNG *files* differ only
-in metadata bytes), the mesh reports identical apart from the output paths.
+Against the reference masks (`compare_silhouette.py`, gates in
+`docs/ACCEPTANCE.md`), the committed poses through step 3. The poses were
+calibrated on the pre-step-3 builder (step 2); step 2 recalibrates both hands
+on this one.
 
-Against the reference masks (`compare_silhouette.py`, **before calibration**;
-the left reference mask changed with decision D5, so these numbers are
-provisional until the reference round finishes):
-
-| Hand | IoU | Precision | Recall | Contour mean / p95 / max (px) | Negative-space IoU | Silhouette tips (px) |
+| Hand | Builder | IoU | Contour mean / p95 / max (px) | Negative-space IoU | Silhouette tips (px) | Failing gates |
 |---|---|---|---|---|---|---|
-| left | 0.894 | 0.918 | 0.972 | 5.4 / 12.1 / 43.0 | 0.783 | 2.0–3.2 |
-| right | 0.803 | 0.949 | 0.839 | 10.2 / 29.3 / 68.2 | 0.703 | 2.2–9.2 |
+| left | before step 3 | 0.963 | 1.69 / 4.12 / 9.4 | 0.915 | 0 / 3.2 / 3.6 / 0 | p95 |
+| left | after the arm stage | 0.958 | 1.88 / 5.00 / 8.5 | 0.910 | 3.2 / 3.2 / 3.6 / 0 | IoU, p95, index tip |
+| right | before step 3 | 0.931 | 3.34 / 7.62 / 33.1 | 0.879 | 1.0 / 1.4 / 2.2 / 4.2 | — |
+| left | after the digits stage | 0.958 | 1.88 / 5.00 / 8.5 | 0.910 | 3.2 / 3.2 / 3.6 / 0 | IoU, p95, index tip |
+| right | after the arm stage | 0.895 | 5.06 / 15.63 / 30.9 | 0.879 | 1.0 / 1.4 / 3.2 / 4.2 | IoU, mean, p95 |
+| right | after the digits stage | 0.895 | 5.05 / 15.63 / 30.9 | 0.879 | 1.0 / 1.4 / 3.2 / 4.2 | IoU, mean, p95 |
 
-Both hands fail the derived gates in `docs/ACCEPTANCE.md` on IoU, contour
-distance and negative space, and the right hand also fails the middle-tip gate
-(9.2 px against 8.0), as expected before step 2: the form is not calibrated
-yet. The left hand also fails several keypoint gates on hidden joints (see
-below).
+(Tips in the order index / middle / ring / pinky.) The digits stage leaves the
+silhouettes where the arm stage left them: the left is unchanged to three
+decimals, and on the right the thumb's roll, its nail and its carpal end move
+the contour mean by 0.02 px. What the digits stage does change is inside the
+outline (the thumbnails, the thumb root, the right index's back) and what a
+pose can now ask for (the knuckle controls). Why the earlier numbers moved:
+
+- *Right palm.* The old carpus capsule was a 155.6 px half-width slab (the
+  palm joint's `r` 102 solved with `flat` 0.30), and it was that slab that
+  filled the drawn palm. Capped at half the knuckle span (78.6 px), the palm
+  outline sits 10–25 px inside the drawn one along its top edge (x 1060–1300)
+  and 10–14 px along its bottom edge (x 1040–1200). The new controls fill it
+  back anatomically: on a scratch copy of the committed right pose, only
+  `hypothenar_size` 1.6 (`drop` 0.4, `out` 0.5, `to` 0.78), `fdi_size` 1.1
+  (`out` 0.7, `from` 0.03, `to` 0.87) and `thenar_size` 1.75 give IoU 0.934,
+  contour mean 3.18 / p95 7.28 px, every right gate passing, with the palm
+  (without the thumb, thenar and web) 81 × 45 mm at half way wrist →
+  knuckles instead of 120 × 43 mm.
+- *Left wrist.* The notch between the carpus and the index metacarpal is gone
+  (in x 330–400 of the top edge: max 9.4 → 4.1 px, 57 → 12 edge px over 4 px);
+  the back of the hand runs straight into the wrist 2–4 px above the drawn
+  line, where the pose had been fitted around the notch. Without the old
+  collar ring the wrist's top is 5–8 px under the drawn ulnar head (x 280–310),
+  and with the carpus capped the palm heel is 5–9 px inside the drawing
+  (x 320–370): the new `wrist_bump_*` and `palm_heel_*` controls draw both
+  (scratch pose: palm-heel region mean 5.36 → 0.39 px).
+- *Left index tip.* One mask pixel, (785, 419): the arm changed the raw
+  triangle count, so the decimation moved the tip's vertices by < 1 px and the
+  tip rule, which jumps by whole pixels, went from 0 to 3.16 px (gate 3). The
+  digits' primitives are unchanged.
+
+What the new digit controls can draw, measured on scratch copies of the poses
+(the committed poses do not use them; step 2 does):
+
+- *The left index knuckle.* With the index MCP at its reading (592, 306) and
+  the PIP at its own (682, 344) — where the committed pose has them 26 px and
+  13 px away, because only the rounded end of the metacarpal head could stand
+  in for the drawn knuckle — the old builder scores 221 of 246 edge px over
+  2 px and 190 over 4 px in x 520–640, y 215–310 (whole hand: IoU 0.954,
+  contour mean 2.06, p95 6.08). With `head_back` 1.0, `knuckle_rise` 0.3,
+  `phalanx_base` 0.8 on the index and its MCP `r` 32, the same region gives
+  82 over 2 px and 50 over 4 px, mean 1.97 px (the committed pose on this
+  builder: 208 and 114, mean 3.98), and the whole hand IoU 0.962, contour mean
+  1.72, p95 4.66, index tip 0 px — only p95 still fails. The drawn knuckle
+  bump and its ~25 px drop to the finger are both there (`outputs/qa/scratch/
+  build-digits/crops/knuckle-*.png`).
+- *The right index's back.* `ip_knuckle_size` 0 takes the dorsal knuckles off
+  the index (PIP 25.1 → 24.3 px, DIP 21.1 → 20.3 px above the bone axis), but
+  the top outline keeps its 6.3 px bow, which is the pose: the PIP sits 15 px
+  above its reading and the finger turns 14° there. Moving the PIP 6 px down,
+  to 0.9 × its stated uncertainty, straightens it (deviation from its own
+  straight line: rms 3.07 → 1.85 px, max 6.34 → 4.21; the reference mask's own
+  line is 1.11 px rms) with every gate as before.
 
 ## Provenance
 
@@ -351,33 +516,51 @@ below).
 
 ## Known limitations
 
-- **Not calibrated yet** (log-v2 step 2). The right hand's fingers, palm and
-  forearm are thinner than the particle cloud (recall 0.84, most red in the
-  overlay is along the digits); the left forearm band and wrist underside differ
-  by a few px; several hidden left joints (pinky MCP/PIP, thumb CMC, middle MCP)
-  are 40–78 px from the reference readings, and the right wrist is 89 px off.
-  Those are pose numbers, not builder errors.
-- **The right pose's depth profile was not reconstructed independently**: `z`
-  is within 0.02 of the left pose at every hand joint (the off-frame forearm
-  differs by 0.05), `flat` within 0.05, and `dorsal` differs by 0.02 per
-  component. A
-  step-2 item (the verifier's finding; poses are frozen until then).
+- **The committed poses were calibrated on the pre-step-3 builder** (log-v2
+  step 2, D17). With the step-3 arm-stage builder the right palm is slimmer
+  than the drawing and several gates fail (see "Current state"); step 2
+  recalibrates both hands on this builder, with the new shape keys.
+- **`wrist_crease_px` hardly moves the silhouette at these poses.** The arm
+  bends 32° (left) and 16° (right) at the wrist, and a fillet of radius R
+  rounds a corner of that angle by only R × (1 / cos(θ/2) − 1): 1.5 px at the
+  default 38 px on the left. The left render still lies 2–6 px outside the
+  drawn crease at x 290–315: there the underside is the carpus's straight
+  palmar line and, at x 275–305, the soft carpal end of the little-finger
+  metacarpal, while the drawing turns in an S (crease, then the palm heel).
+  The palm heel is a control (`palm_heel_*`); the rest moves with the wrist
+  and palm joints (a scratch pose with wrist `r` 44.8 and palm `r` 64.7:
+  crease-region mean 3.05 → 2.43 px).
+- **The plate's carpal end is long and soft** (`meta_base_cap` 3 × its
+  thickness, about 130 px): each metacarpal fades into the wrist along its own
+  fan line. The back of the hand then runs straight into the forearm (no
+  notch, no step), but on the left the little-finger metacarpal's end forms
+  the underside at the wrist crease (x 275–305), and from above the right
+  hand meets the forearm in a soft concave line.
+- **Decimation is global.** Any change of the surface anywhere changes the
+  collapse order everywhere, so fingertip silhouettes can move by a pixel: the
+  left index tip rule went from 0 to 3.16 px (gate 3) with the digits
+  themselves unchanged. Check the tips in Blender after every builder change.
+- **The mesh report's fingertip search** reports the middle fingertip for the
+  right thumb (Δ 90 px; the capped measurement is 0.4 px). Scheduled for the
+  step-3 digits stage, as are the thumb-root crevice and the thumbnail
+  orientation (`thumb_roll_deg`, shared by both hands).
 - **The left thumb does not yet show D2's large viewer-facing nail.** The nail
-  relief is deliberately shallow (0.12 × tip half-thickness); making that thumb
-  read as the reference does is a step-2/3 shaping question, not a defect of the
-  surface.
-- **Stepped "cuff" on the off-frame forearm** where the arm extension meets the
-  forearm capsule, visible in the ±35° and top views, invisible from the home
-  camera (it is outside the frame). Scheduled for log-v2 step 3, before the
-  camera is allowed to move.
+  relief is deliberately shallow (0.12 × tip half-thickness); step 3's digits
+  stage adds per-hand nail relief and thumb roll.
+- **The left pose's knuckle line and `dorsal` disagree**: the index-to-little
+  finger MCP line is about 50° off the lateral axis, toward the palmar side,
+  so the metacarpal plate is tilted in 3D (its cross-section is thick along
+  the dorsal axis). A step-2 (pose) item.
 - Depth is a reconstruction. The ±35° and top views are volumetric (no
   cut-outs), but the depth ordering of the curled digits is inferred from the
   drawn overlaps only.
 - The particle hand's tail past the wrist is not modelled; the forearm is a
-  plain continuation that leaves the frame.
+  plain continuation that leaves the frame, ending in a flattened cap
+  `arm_extend` past the forearm joint (visible at the edge of the ±35° views,
+  never from the home camera).
 - The `.blend` holds the **baked** meshes. To change the form, edit the pose
-  JSON or `PARAMS` and rebuild; editing the mesh in the `.blend` does not flow
-  back into the GLB.
+  JSON (including its `shape` object) or `PARAMS` and rebuild; editing the
+  mesh in the `.blend` does not flow back into the GLB.
 - Determinism is verified for this Blender build (5.2.2 LTS, bundled OpenVDB),
-  repeatedly, most recently on 2026-09-20. Another Blender version may extract
+  repeatedly, most recently on 2026-09-22. Another Blender version may extract
   or decimate slightly differently.

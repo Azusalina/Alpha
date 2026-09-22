@@ -13,17 +13,25 @@ What it does, per hand:
      home camera (shared contract 3), so the pose is calibrated in the main view
      by construction and depth is a documented reconstruction.
   2. Builds a signed distance field (SDF) of the hand on a regular grid:
+       - the forearm, wrist and carpus as ONE elliptical sweep whose spine bends
+         around the wrist on a circular fillet: one shared wrist section, no
+         collar at the wrist and no cuff where the arm runs on past the frame
+         (optional forearm sag and dorsal wrist prominence),
        - elliptical, tapering capsules for every bone, oriented by a frame that
          carries the hand's dorsal direction down each chain (parallel transport),
-       - a palm block built from four flattened metacarpal sweeps fanned from the
-         carpus to the knuckles, plus knuckle prominences, a thenar mass and the
-         first dorsal interosseous web between thumb and index,
+       - a palm built anatomically: the carpus (its half-width capped near half
+         the knuckle span), a plate of four flattened metacarpal sweeps fanned
+         from the knuckles back into the wrist (thickness from the wrist
+         section, not the palm joint's), knuckle prominences, thenar and
+         hypothenar masses, the first dorsal interosseous web between thumb and
+         index, and optional first-dorsal-interosseous and palm-heel masses,
        - finger pads and rounded fingertip caps that end on the pose's tip px,
          with a nail plate on each distal phalanx as a soft relief of the
          field (no separate solid, so no creases; it fades out inside the cap).
      Parts are fused with *selective* smooth unions: every digit is filleted into
      the palm, but digits are never blended with each other, so the curled
-     fingers stay separate instead of webbing together.
+     fingers stay separate instead of webbing together. Per-hand shape controls
+     come from the pose file's optional "shape" object (CONTRACTS section 5).
   3. Extracts the zero level set with OpenVDB (the same library Blender's Voxel
      Remesh uses) -> one closed, 2-manifold surface; light Laplacian smoothing;
      Decimate (collapse) to the triangle budget; then quality edge flips and
@@ -86,10 +94,10 @@ PARAMS = {
     "voxel": 0.0036,            # SDF grid spacing (~1.7 reference px)
     "band": 3.0,                # narrow-band half width, in voxels
     "sdf_chunk": 48,            # x-planes per evaluation slab (bounds peak memory; no effect on the result)
-    "k_body": 0.045,            # smooth-union radius inside the palm block
-    "k_arm": 0.060,             # forearm -> wrist -> palm
+    "k_body": 0.045,            # smooth-union radius inside the palm block (metacarpal plate onto the arm)
+    "k_bump": 0.012,            # wrist prominence onto the arm
     "k_knuckle": 0.018,         # knuckle prominences onto the palm block
-    "k_thenar": 0.040,          # thenar mass + interosseous web onto the palm
+    "k_thenar": 0.040,          # thenar / hypothenar / palm-heel masses + interosseous web onto the palm
     "k_joint": 0.016,           # between phalanges of one digit (soft knuckles)
     "k_pad": 0.014,             # finger pads onto their phalanx
     "k_ipk": 0.010,             # dorsal knuckles over the finger joints
@@ -100,30 +108,73 @@ PARAMS = {
         "ring": 0.022,
         "pinky": 0.022,
     },
-    "meta_base_frac": 0.30,     # carpal end of the metacarpal fan, as a fraction wrist -> knuckles
-    "meta_base_spread": 0.45,   # knuckle spread kept at the carpal end of the fan
+    "meta_ref_frac": 0.30,      # the fan lines pass through this fraction wrist -> knuckles (the pre-step-3 fan base)
+    "meta_base_spread": 0.45,   # knuckle spread kept at that point
     "meta_width": 1.05,         # metacarpal half-width as a fraction of half the knuckle spacing
-    "meta_thick": 0.80,         # metacarpal thickness relative to the palm joint thickness
     "meta_head": 1.12,          # metacarpal head size relative to the finger base section
     "knuckle_size": 0.62,       # knuckle bump size relative to the finger base section
     "knuckle_lift": 0.50,       # how far the bump sits toward the dorsal surface
-    "thumb_roll_deg": 72.0,     # thumbnail faces this far from the dorsal toward the radial side
-    "thenar_size": 1.30,        # thenar mass relative to the thumb CMC section
     "thenar_pull": 0.30,        # thenar centre pulled from the thumb metacarpal toward the palm
     "thenar_drop": 0.30,        # thenar centre offset to the palmar side (x palm thickness)
-    "arm_extend": 0.60,         # forearm continues this far past the forearm joint
+    "arm_extend": 0.60,         # the arm sweep runs on this far past the forearm joint (world)
+    "arm_ease": 0.35,           # past the forearm joint the taper eases out over this fraction of arm_extend
+    "arm_end_cap": 0.35,        # cap at the far end of the arm, x its section thickness
+    "wrist_round_px": 40.0,     # the section profile's corner at the wrist is rounded over +- this (ref px)
+    # ---- per-hand shape controls: a pose file may override these in its
+    # optional "shape" object (CONTRACTS section 5, SHAPE_KEYS below); *_px
+    # are reference px as drawn, converted to world like a joint's r
+    "wrist_crease_px": 38.0,    # radius of the concave fillet inside the wrist bend (ref px)
+    "forearm_sag_dorsal_px": 0.0,   # the dorsal line of the forearm dips this far at the sag centre (+ = inward)
+    "forearm_sag_palmar_px": 0.0,   # the palmar line likewise (+ = inward, - = a bulge)
+    "forearm_sag_at": 0.35,     # sag centre, as a fraction wrist (0) -> forearm joint (1)
+    "forearm_sag_width": 0.30,  # sag half-width, same fraction (a C1 cos^2 bump)
+    "wrist_bump_px": 0.0,       # dorsal wrist prominence (ulnar head): height above the arm surface (0 = none)
+    "wrist_bump_len_px": 22.0,  # its half-length along the arm
+    "wrist_bump_width_px": 26.0,    # its half-width around the arm
+    "wrist_bump_at_px": 10.0,   # its centre, measured from the wrist toward the elbow
+    "wrist_bump_angle_deg": 0.0,    # its position around the section: 0 = dorsal, - = ulnar, + = radial
+    "carpus_cap": 1.0,          # carpus half-width <= carpus_cap x half the knuckle span (index-pinky MCP)
+    "carpus_end_cap": 1.0,      # the carpus ends in a rounded cap past the palm joint, x its end thickness
+    "meta_base_frac": 0.15,     # the metacarpal plate runs back to this fraction wrist -> knuckles
+    "meta_base_thick": 0.88,    # plate thickness at meta_ref_frac, x the wrist section's thickness
+    "meta_base_cap": 3.0,       # the plate's carpal end: a long soft cap, x its thickness there
+    "thenar_size": 1.30,        # thenar mass relative to the thumb CMC section
+    "hypothenar_size": 1.0,     # hypothenar mass relative to the little-finger metacarpal's section (0 = none)
+    "hypothenar_drop": 0.55,    # its axis sits this far to the palmar side, x the metacarpal's thickness
+    "hypothenar_out": 0.35,     # ... and this far to the ulnar side, x the metacarpal's half-width
+    "hypothenar_from": 0.05,    # it spans this fraction of the way wrist -> little-finger knuckle ...
+    "hypothenar_to": 0.70,      # ... to this one
+    "fdi_size": 0.0,            # first dorsal interosseous mass on the index metacarpal's radial side (0 = none)
+    "fdi_lift": 0.30,           # its axis sits this far to the dorsal side, x the metacarpal's thickness
+    "fdi_out": 0.55,            # ... and this far to the thumb side, x the metacarpal's half-width
+    "fdi_from": 0.15,           # it spans this fraction of the way wrist -> index knuckle ...
+    "fdi_to": 0.75,             # ... to this one
+    "palm_heel_px": 0.0,        # palm-heel mass: how far it stands out of the carpus's palmar surface (0 = none)
+    "palm_heel_len_px": 40.0,   # its half-length along the hand
+    "palm_heel_width_px": 45.0, # its half-width across the hand
+    "palm_heel_at": 0.22,       # its centre, as a fraction wrist -> knuckles
+    "palm_heel_lat": 0.0,       # ... and across the hand: -1 = little-finger edge, +1 = thumb edge (x half the span)
+    # digits (log-v2 step 3, digits stage); the keys in DIGIT_KEYS may also be
+    # set per digit in the pose's "shape" object
+    "thumb_root_cap": 3.0,      # the thumb metacarpal's carpal end: a long soft cap that fades into the palm, x its thickness
+    "thumb_roll_deg": 72.0,     # thumbnail faces this far from the dorsal toward the radial side
+    "knuckle_rise": 0.0,        # MCP knuckle stands this far beyond the metacarpal head, x the head's half-thickness
+    "phalanx_base": 1.0,        # proximal phalanx section where it leaves the knuckle, x the MCP joint's section
+    "head_back": 0.0,           # the head's centre (and its knuckle) sits this far behind the MCP joint, x N_head
+    "ip_knuckle_size": 0.62,    # dorsal knuckle over PIP/DIP, relative to the section (0 = none)
+    "ip_knuckle_lift": 0.62,    # ... and how far it sits toward the dorsal surface, x the section's half-thickness
+    "nail_relief": 0.12,        # nail plate height as a fraction of the tip half-thickness
+    "nail_outline": 0.0,        # 0 = the plate fades out over the fingertip; 1 = a crisp rounded free edge (a D outline)
     "web_thick": 0.42,          # first dorsal interosseous web thickness vs thumb MCP
     "pad_size": 0.78,           # finger pad size relative to the phalanx section
     "pad_drop": 0.30,           # pad offset toward the palmar side (fraction of thickness)
     "tip_cap": 1.10,            # fingertip cap length relative to tip thickness
     "waist": 0.07,              # phalanges narrow slightly between the joints
-    "ip_knuckle_size": 0.62,    # dorsal knuckle over PIP/DIP, relative to the section
-    "ip_knuckle_lift": 0.62,
     "nail": True,
     "nail_start": 0.40,         # nail fold, as a fraction of the distal phalanx from the DIP
     "nail_tip": 0.80,           # the plate has faded out by this fraction of the tip cap's length
+    "nail_free": 0.60,          # with a crisp outline (nail_outline) the free edge lies this far along the tip cap
     "nail_width": 0.72,         # nail half-width as a fraction of the section half-width
-    "nail_relief": 0.12,        # plate height as a fraction of the tip half-thickness
     "nail_edge": 0.0030,        # half-width of the soft plate border (world; ~0.8 voxel)
     "section_clamp": (0.75, 2.2),  # 3D half-width / projected half-width limits
     "smooth_iters": 2,          # Laplacian smoothing passes on the extracted surface
@@ -268,11 +319,18 @@ class Seg:
         self.name = name
 
     def bounds(self):
-        r0 = max(self.A0, self.N0, self.c0)
-        r1 = max(self.A1, self.N1, self.c1)
-        lo = np.minimum(self.P0 - r0, self.P1 - r1)
-        hi = np.maximum(self.P0 + r0, self.P1 + r1)
-        return lo, hi
+        r0, r1 = max(self.A0, self.N0), max(self.A1, self.N1)
+        pts, rs = [self.P0, self.P1], [r0, r1]
+        # an end cap no longer than the section is inside a ball of the
+        # section's size; a longer one (the metacarpal plate's soft carpal
+        # end) reaches along the axis only
+        for P, c, r, sgn in ((self.P0, self.c0, r0, -1.0), (self.P1, self.c1, r1, 1.0)):
+            if c <= r:
+                continue
+            pts.append(P + sgn * self.T * c)
+            rs.append(r)
+        pts, rs = np.array(pts), np.array(rs)[:, None]
+        return (pts - rs).min(axis=0), (pts + rs).max(axis=0)
 
     def sdf(self, X, Y, Z):
         dx, dy, dz = X - self.P0[0], Y - self.P0[1], Z - self.P0[2]
@@ -349,13 +407,20 @@ class NailRelief:
     the verifier found.)
 
     Footprint, in the distal segment's frame (T along the digit, b lateral, n
-    dorsal): from the nail fold at u0 = nail_start * L to the free edge at
-    u1 = L + nail_tip * cap (inside the rounded tip cap), |v_b| < nail_width *
-    A(u), dorsal side only (v_n from 0.25 N to 0.6 N)."""
+    dorsal): from the nail fold at u0 = nail_start * L, |v_b| < nail_width *
+    A(u), dorsal side only (v_n from 0.25 N to 0.6 N). Its distal end is a
+    blend (`outline`, 0..1) of two forms: 0 = the plate fades out softly over
+    the tip cap, from L - 0.2 cap to u1 = L + nail_tip * cap (no step, no
+    overhang); 1 = it ends in a crisp rounded free edge at u_free = L +
+    nail_free * cap, a half-ellipse as wide as the plate, with the same soft
+    border as its sides, so the plate's outline is a closed D (the nail fold
+    its straight side) that a sampler or a light can pick out. u_free lies
+    far enough back on the rounded cap that the raised plate never reaches
+    past the fingertip (no claw)."""
 
     kind = "relief"
 
-    def __init__(self, seg, A0, N0, A1, N1, cap, name=""):
+    def __init__(self, seg, A0, N0, A1, N1, cap, relief, outline=0.0, name=""):
         P = PARAMS
         self.P0, self.T, self.b, self.n = seg.P0, seg.T, seg.b, seg.n
         self.L = seg.L
@@ -364,12 +429,15 @@ class NailRelief:
         self.cap = cap
         self.u1 = self.L + P["nail_tip"] * cap
         self.e = P["nail_edge"]
-        self.h = P["nail_relief"] * N1
+        self.h = relief * N1
+        self.c = float(outline)
+        self.u_free = self.L + P["nail_free"] * cap
+        self.a_free = 0.9 * P["nail_width"] * A1         # the rounded end's semi-axis along the digit
         self.name = name
 
     def bounds(self):
         r = max(self.A0, self.N0, self.A1, self.N1) + self.h + self.e
-        P1 = self.P0 + self.T * self.u1
+        P1 = self.P0 + self.T * max(self.u1, self.u_free)
         return np.minimum(self.P0, P1) - r, np.maximum(self.P0, P1) + r
 
     def relief(self, X, Y, Z):
@@ -382,13 +450,316 @@ class NailRelief:
         A = self.A0 + (self.A1 - self.A0) * s
         N = self.N0 + (self.N1 - self.N0) * s
         e = self.e
-        # sharp-ish rise at the nail fold; long, soft fade over the tip cap so
-        # the plate merges into the rounded tip (no step, no overhang)
-        su = _smoothstep(self.u0 - e, self.u0 + e, u) * (1.0 - _smoothstep(self.L - 0.2 * self.cap, self.u1, u))
         wb = PARAMS["nail_width"] * A
-        sb = 1.0 - _smoothstep(wb - e, wb + e, np.abs(vb))
         sn = _smoothstep(0.25 * N, 0.60 * N, vn)
-        return (self.h * su * sb * sn).astype(np.float32)
+        # sharp-ish rise at the nail fold
+        sp = _smoothstep(self.u0 - e, self.u0 + e, u)
+        # the soft form: a long fade over the tip cap, so the plate merges into
+        # the rounded tip (no step, no overhang)
+        soft_u = 1.0 - _smoothstep(self.L - 0.2 * self.cap, self.u1, u)
+        soft_b = 1.0 - _smoothstep(wb - e, wb + e, np.abs(vb))
+        if self.c <= 0.0:
+            return (self.h * (sp * soft_u) * soft_b * sn).astype(np.float32)
+        # the crisp form: inside the D where q < 1; (q - 1) * wb is about the
+        # distance to its border (exact on the sides)
+        du = np.maximum(u - (self.u_free - self.a_free), 0.0) / self.a_free
+        q = np.sqrt(du * du + (vb / wb) ** 2)
+        crisp = 1.0 - _smoothstep(-e, e, (q - 1.0) * wb)
+        form = (1.0 - self.c) * soft_u * soft_b + self.c * crisp
+        return (self.h * sp * form * sn).astype(np.float32)
+
+
+def _hermite(t, p0, m0, p1, m1):
+    """Cubic Hermite on t in [0, 1] (m0, m1: derivatives with respect to t)."""
+    t2 = t * t
+    t3 = t2 * t
+    return (2 * t3 - 3 * t2 + 1) * p0 + (t3 - 2 * t2 + t) * m0 + (3 * t2 - 2 * t3) * p1 + (t3 - t2) * m1
+
+
+class ArmProfile:
+    """Section of the arm sweep as a function of its arc length s: half-width
+    A (lateral), half-thickness N (dorsal) and a shift On of the section
+    centre along the dorsal axis. Stations: the forearm joint sF, the wrist sW
+    (the middle of the wrist fillet) and the carpus end sC, each with the
+    section the pose gives there. Between the stations A and N are linear,
+    the tapers of the pre-step-3 forearm and carpus capsules. Around the wrist
+    the corner between the two tapers is rounded by a cubic Hermite over
+    +- w_round that still passes through the wrist section, flat there when
+    the wrist is a waist (no crease ring, no bulge: the pre-step-3 forearm and
+    carpus capsules, smooth-unioned with k = 0.06, added a ring of about 7 px,
+    the collar). Past the forearm joint
+    (s < sF, off the frame) the taper eases out to a constant section over
+    ease_len, so the forearm runs on as the same surface. Optional sags
+    (forearm_sag_*) move the dorsal and palmar lines of the forearm piece."""
+
+    def __init__(self, sF, sW, sC, F, W, C, w_round, ease_len, sags=()):
+        self.sF, self.sW, self.sC = float(sF), float(sW), float(sC)
+        self.F, self.W, self.C = F, W, C          # (A, N) at the three stations
+        self.w0 = min(float(w_round), 0.5 * (self.sW - self.sF))
+        self.w1 = min(float(w_round), 0.5 * (self.sC - self.sW))
+        self.U = max(float(ease_len), 1e-6)
+        self.sags = list(sags)                    # (w_centre, w_half, e_dorsal, e_palmar) on the forearm piece
+
+    def _v(self, s, i):
+        s = np.asarray(s, np.float64)
+        sF, sW, sC, w0, w1, U = self.sF, self.sW, self.sC, self.w0, self.w1, self.U
+        vF, vW, vC = float(self.F[i]), float(self.W[i]), float(self.C[i])
+        g0 = (vW - vF) / (sW - sF)                # slope along s, forearm joint -> wrist
+        g1 = (vC - vW) / (sC - sW)                # slope along s, wrist -> carpus end
+        # slope at the wrist: 0 at a waist (or a peak), else the harmonic
+        # mean of the two (keeps the rounding monotone, as in Fritsch-Carlson)
+        mW = 0.0 if g0 * g1 <= 0 else 2.0 * g0 * g1 / (g0 + g1)
+        u = np.maximum(sF - s, 0.0)               # distance past the forearm joint
+        past = vF - g0 * np.where(u < U, u - u * u / (2.0 * U), 0.5 * U)
+        lin0 = vW + g0 * (s - sW)
+        lin1 = vW + g1 * (s - sW)
+        ta = np.clip((s - (sW - w0)) / w0, 0.0, 1.0)
+        tb = np.clip((s - sW) / w1, 0.0, 1.0)
+        h0 = _hermite(ta, vW - g0 * w0, g0 * w0, vW, mW * w0)
+        h1 = _hermite(tb, vW, mW * w1, vW + g1 * w1, g1 * w1)
+        return np.where(s < sF, past,
+                        np.where(s < sW - w0, lin0,
+                                 np.where(s < sW, h0, np.where(s < sW + w1, h1, lin1))))
+
+    def at(self, s):
+        s = np.asarray(s, np.float64)
+        A = self._v(s, 0)
+        N = self._v(s, 1)
+        On = np.zeros_like(A)
+        for wc, wh, ed, ep in self.sags:
+            # fraction along the forearm piece: 0 at the wrist, 1 at the forearm joint
+            w = (self.sW - s) / (self.sW - self.sF)
+            x = np.clip((w - wc) / wh, -1.0, 1.0)
+            g = np.cos(0.5 * np.pi * x) ** 2     # C1 bump, 1 at the centre, 0 at +-wh
+            # the dorsal line moves in by ed * g, the palmar line by ep * g
+            N = N - 0.5 * (ed + ep) * g
+            On = On + 0.5 * (ep - ed) * g
+        return A.astype(np.float32), N.astype(np.float32), On.astype(np.float32)
+
+    def radius(self, s):
+        """Upper bound of the section's reach from the spine at s (culling
+        and bounds): the ellipse's larger half-axis plus the shift of its
+        centre."""
+        A, N, On = self.at(np.asarray(s, np.float64))
+        return np.maximum(A, N) + np.abs(On)
+
+
+class ArmSweep:
+    """Forearm, wrist and carpus as ONE swept solid (log-v2 step 3, items 5-6).
+
+    Spine: a straight piece E -> T0 along the forearm axis t0, a circular
+    fillet of radius Rb around the wrist joint W, and a straight piece T1 -> C
+    along the carpus axis t1. The section frame (n dorsal, b lateral) is
+    carried rigidly around the fillet (parallel transport), and the elliptical
+    section (ArmProfile) is a function of the arc length. The solid is the
+    union (hard min) of the three pieces' swept sections: at the tangent
+    points T0 and T1 neighbouring pieces share section, frame and tangent, so
+    the surface runs on smoothly, and no smooth union adds material where two
+    capsules would overlap. That overlap was the raised ring at the wrist (two
+    capsules, each with its own wrist section) and the stepped cuff where the
+    forearm met its off-frame extension. The ends: a soft flattened cap far
+    outside the frame at E, and a rounded cap at the carpus end C."""
+
+    kind = "sweep"
+
+    def __init__(self, E, W, C, n0, prof, Rb, capE, capC, name="arm"):
+        self.name = name
+        self.E, self.W, self.C = (np.asarray(v, float) for v in (E, W, C))
+        self.t0 = unit(self.W - self.E)
+        self.t1 = unit(self.C - self.W)
+        self.prof = prof
+        self.capE, self.capC = float(capE), float(capC)
+        self.n0 = ortho(np.asarray(n0, float), self.t0)
+        self.b0 = unit(np.cross(self.t0, self.n0))
+        cth = float(np.clip(self.t0 @ self.t1, -1.0, 1.0))
+        self.theta = math.acos(cth)
+        self.Rb = float(Rb)
+        if self.theta < 1e-4:
+            self.theta = 0.0
+            self.d = 0.0
+            self.T0 = self.T1 = self.W.copy()
+            self.k_ax = self.b0.copy()
+            self.u0 = self.n0.copy()
+            self.Cc = self.W.copy()
+        else:
+            self.k_ax = unit(np.cross(self.t0, self.t1))
+            m = unit(self.t1 - cth * self.t0)     # toward the inside of the bend
+            self.d = self.Rb * math.tan(0.5 * self.theta)
+            self.T0 = self.W - self.t0 * self.d
+            self.T1 = self.W + self.t1 * self.d
+            self.u0 = -m
+            self.Cc = self.T0 + m * self.Rb
+        self.alpha = float(self.n0 @ self.u0)
+        self.gamma = float(self.n0 @ self.k_ax)
+        e_th = self.u0 * math.cos(self.theta) + self.t0 * math.sin(self.theta)
+        self.n1 = unit(self.alpha * e_th + self.gamma * self.k_ax) if self.theta else self.n0.copy()
+        self.b1 = unit(np.cross(self.t1, self.n1))
+        self.L0 = float(np.linalg.norm(self.T0 - self.E))
+        self.La = self.Rb * self.theta
+        self.L1 = float(np.linalg.norm(self.C - self.T1))
+
+    def frame_at(self, s):
+        """Spine point, tangent and dorsal axis at arc length s (for placing
+        features on the arm)."""
+        s = float(s)
+        if s <= self.L0:
+            return self.E + self.t0 * s, self.t0, self.n0
+        if s <= self.L0 + self.La and self.theta:
+            ph = (s - self.L0) / self.Rb
+            e = self.u0 * math.cos(ph) + self.t0 * math.sin(ph)
+            T = -self.u0 * math.sin(ph) + self.t0 * math.cos(ph)
+            return self.Cc + self.Rb * e, T, unit(self.alpha * e + self.gamma * self.k_ax)
+        return self.T1 + self.t1 * (s - self.L0 - self.La), self.t1, self.n1
+
+    def _table(self):
+        """Upper bound of the section's reach, tabulated along the spine (a
+        cheap stand-in for the profile when culling)."""
+        if not hasattr(self, "_tab"):
+            L = self.L0 + self.La + self.L1
+            s = np.linspace(0.0, L, 1025)
+            r = self.prof.radius(s)
+            # a max filter over neighbouring samples keeps it an upper bound
+            # between the samples as well
+            r = np.maximum(r, np.maximum(np.concatenate([r[:1], r[:-1]]), np.concatenate([r[1:], r[-1:]])))
+            self._tab = (s, (r * 1.05 + 1e-3).astype(np.float64))
+        return self._tab
+
+    def sub_bounds(self, nseg=10):
+        """Boxes covering the solid piece by piece (the arm is long and
+        diagonal: one box around all of it would be mostly empty)."""
+        s_tab, r_tab = self._table()
+        L = self.L0 + self.La + self.L1
+        cuts = np.unique(np.concatenate([np.linspace(0.0, self.L0, nseg + 1),
+                                         np.linspace(self.L0, self.L0 + self.La, 3),
+                                         np.linspace(self.L0 + self.La, L, max(nseg // 2, 2) + 1)]))
+        out = []
+        for a, b in zip(cuts[:-1], cuts[1:]):
+            ss = np.linspace(a, b, 9)
+            pts = np.array([self.frame_at(v)[0] for v in ss])
+            r = float(np.interp(ss, s_tab, r_tab).max())
+            if a == 0.0:
+                pts = np.vstack([pts, self.E - self.t0 * self.capE])
+            if b == L:
+                pts = np.vstack([pts, self.C + self.t1 * self.capC])
+            out.append((pts.min(axis=0) - r, pts.max(axis=0) + r))
+        return out
+
+    def bounds(self):
+        bs = self.sub_bounds()
+        return np.min([b[0] for b in bs], axis=0), np.max([b[1] for b in bs], axis=0)
+
+    def _prof(self, s):
+        """The profile at arc lengths s, interpolated in a dense table (8193
+        samples along the spine: the profile is smooth, so the error is below
+        1e-6 world, far under a voxel; evaluating it exactly per voxel was
+        most of the arm's cost)."""
+        if not hasattr(self, "_ptab"):
+            L = self.L0 + self.La + self.L1
+            ss = np.linspace(0.0, L, 8193)
+            A, N, On = self.prof.at(ss)
+            self._ptab = (ss, A.astype(np.float64), N.astype(np.float64), On.astype(np.float64))
+        ss, A, N, On = self._ptab
+        s = np.asarray(s, np.float64)
+        return (np.interp(s, ss, A).astype(np.float32), np.interp(s, ss, N).astype(np.float32),
+                np.interp(s, ss, On).astype(np.float32))
+
+    def _piece(self, vb, vn, vt, s, cap):
+        A, N, On = self._prof(s)
+        return _ellipsoid_dist(vb, vn - On, vt, A, N, cap)
+
+    # the exact field is only needed near the surface: farther than this, a
+    # lower bound (>= CULL) is returned. CULL exceeds the largest smooth-union
+    # radius that can act on the arm's field (k_body 0.045) plus the narrow
+    # band (3 voxels), so wherever the hand's field is within the band of zero
+    # every smooth union involving the arm returns the other operand exactly,
+    # and the zero level set is the same as with the exact field.
+    CULL = 0.06
+
+    def _line(self, X, Y, Z, O, t, n, b, L, s0, cap_lo, cap_hi, s_tab, r_tab):
+        """One straight piece O -> O + t L: distance, exact where it can be
+        near the surface and a lower bound elsewhere (X, Y, Z broadcastable).
+        A free end (cap > 0) is closed by an ellipsoidal cap; the end where
+        the piece joins the wrist fillet (cap None) is cut by the plane there
+        (an intersection with a half-space: max of the two distances), which
+        is exactly the plane that bounds the fillet piece."""
+        f32 = np.float32
+        dx, dy, dz = X - f32(O[0]), Y - f32(O[1]), Z - f32(O[2])     # small, broadcastable
+        raw = dx * f32(t[0]) + dy * f32(t[1]) + dz * f32(t[2])
+        r2 = dx * dx + dy * dy + dz * dz
+        s = np.clip(raw, 0.0, L)
+        vt = raw - s
+        ds = np.sqrt(np.maximum(r2 - raw * raw, 0.0) + vt * vt)
+        s = s + f32(s0)
+        out = ds - np.interp(s, s_tab, r_tab).astype(f32)
+        m = out < self.CULL
+        if np.any(m):
+            shape = out.shape
+            Xm, Ym, Zm = (np.broadcast_to(v, shape)[m] for v in (dx, dy, dz))
+            vn = Xm * f32(n[0]) + Ym * f32(n[1]) + Zm * f32(n[2])
+            vb = Xm * f32(b[0]) + Ym * f32(b[1]) + Zm * f32(b[2])
+            vtm, rawm, sm = vt[m], raw[m], s[m]
+            A, N, On = self._prof(sm)
+            vn = vn - On
+            d = _ellipsoid_dist(vb, vn, np.zeros_like(vn), A, N, f32(1.0))     # the section alone (2D)
+            for beyond, cap in ((rawm < 0, cap_lo), (rawm > L, cap_hi)):
+                if not np.any(beyond):
+                    continue
+                if cap is None:
+                    d = np.where(beyond, np.maximum(d, np.abs(vtm)), d)
+                else:
+                    dc = _ellipsoid_dist(vb, vn, vtm, A, N, f32(cap))
+                    d = np.where(beyond, dc, d)
+            out[m] = d
+        return out
+
+    def _near(self, X, Y, Z, P0, P1, r):
+        """Can the box spanned by X, Y, Z come within CULL of the capsule
+        P0-P1 of radius r? (A box-to-box test: cheap and conservative.)"""
+        lo = np.array([X.min(), Y.min(), Z.min()], float)
+        hi = np.array([X.max(), Y.max(), Z.max()], float)
+        clo = np.minimum(P0, P1) - r - self.CULL
+        chi = np.maximum(P0, P1) + r + self.CULL
+        return bool(np.all(hi >= clo) and np.all(lo <= chi))
+
+    def sdf(self, X, Y, Z):
+        f32 = np.float32
+        s_tab, r_tab = self._table()
+        rmax = float(r_tab.max())
+        shape = np.broadcast_shapes(np.shape(X), np.shape(Y), np.shape(Z))
+        D = np.full(shape, 1.0, dtype=f32)
+        # line 0: E -> T0 (forearm, including its extension past the frame)
+        if self._near(X, Y, Z, self.E - self.t0 * self.capE, self.T0, rmax):
+            D = np.minimum(D, self._line(X, Y, Z, self.E, self.t0, self.n0, self.b0, self.L0, 0.0,
+                                         self.capE, None, s_tab, r_tab))
+        # line 1: T1 -> C (carpus)
+        if self._near(X, Y, Z, self.T1, self.C + self.t1 * self.capC, rmax):
+            D = np.minimum(D, self._line(X, Y, Z, self.T1, self.t1, self.n1, self.b1, self.L1, self.L0 + self.La,
+                                         None, self.capC, s_tab, r_tab))
+        if self.theta and self._near(X, Y, Z, self.T0, self.T1, rmax + self.Rb):
+            # the wrist fillet, in the rotating frame (e_rho, T, k)
+            dx, dy, dz = X - f32(self.Cc[0]), Y - f32(self.Cc[1]), Z - f32(self.Cc[2])
+            u, t, k = self.u0, self.t0, self.k_ax
+            xu = dx * f32(u[0]) + dy * f32(u[1]) + dz * f32(u[2])
+            xt = dx * f32(t[0]) + dy * f32(t[1]) + dz * f32(t[2])
+            ph = np.arctan2(xt, xu)
+            inside = (ph >= 0.0) & (ph <= self.theta)
+            rho = np.sqrt(xu * xu + xt * xt)
+            r2 = dx * dx + dy * dy + dz * dz
+            xk2 = np.maximum(r2 - rho * rho, 0.0)
+            sa = f32(self.L0) + f32(self.Rb) * np.clip(ph, 0.0, self.theta)
+            lb = np.sqrt((rho - f32(self.Rb)) ** 2 + xk2) - np.interp(sa, s_tab, r_tab).astype(f32)
+            m = inside & (lb < self.CULL) & (lb < D)
+            if np.any(m):
+                shape = lb.shape
+                xum, xtm = xu[m], xt[m]
+                xk = np.broadcast_to(dx, shape)[m] * f32(k[0]) + np.broadcast_to(dy, shape)[m] * f32(k[1]) \
+                    + np.broadcast_to(dz, shape)[m] * f32(k[2])
+                dr = rho[m] - f32(self.Rb)
+                vn = f32(self.alpha) * dr + f32(self.gamma) * xk
+                vb = f32(self.gamma) * dr - f32(self.alpha) * xk
+                Da = self._piece(vb, vn, np.zeros_like(vn), sa[m], f32(1.0))
+                D[m] = np.minimum(D[m], Da)
+        return D.astype(np.float32)
 
 
 # --------------------------------------------------------------------------
@@ -396,11 +767,113 @@ class NailRelief:
 # --------------------------------------------------------------------------
 
 
+SHAPE_KEYS = (
+    "wrist_crease_px",
+    "forearm_sag_dorsal_px", "forearm_sag_palmar_px", "forearm_sag_at", "forearm_sag_width",
+    "wrist_bump_px", "wrist_bump_len_px", "wrist_bump_width_px", "wrist_bump_at_px", "wrist_bump_angle_deg",
+    "carpus_cap", "carpus_end_cap", "meta_base_frac", "meta_base_thick", "meta_base_cap",
+    "thenar_size", "hypothenar_size", "hypothenar_drop", "hypothenar_out", "hypothenar_from", "hypothenar_to",
+    "fdi_size", "fdi_lift", "fdi_out", "fdi_from", "fdi_to",
+    "palm_heel_px", "palm_heel_len_px", "palm_heel_width_px", "palm_heel_at", "palm_heel_lat",
+    "thumb_root_cap", "thumb_roll_deg", "knuckle_rise", "head_back", "phalanx_base",
+    "ip_knuckle_size", "ip_knuckle_lift", "nail_relief", "nail_outline",
+)
+
+# keys that may be set per digit: in the pose's "shape" object the value is
+# either a number (every digit listed here) or an object {digit: number}
+# (digits left out keep the default); resolved to {digit: value}
+DIGIT_KEYS = {
+    "knuckle_rise": FINGERS,
+    "phalanx_base": FINGERS,
+    "head_back": FINGERS,
+    "ip_knuckle_size": DIGITS,
+    "ip_knuckle_lift": DIGITS,
+    "nail_relief": DIGITS,
+    "nail_outline": DIGITS,
+}
+
+
+# allowed ranges of the shape keys (inclusive); a key not listed may take any
+# finite value
+SHAPE_RANGES = {
+    "thumb_root_cap": (0.2, 6.0), "thumb_roll_deg": (-180.0, 180.0),
+    "knuckle_rise": (-0.5, 1.5), "phalanx_base": (0.5, 1.5), "head_back": (-0.5, 2.0),
+    "ip_knuckle_size": (0.0, 2.0), "ip_knuckle_lift": (0.0, 2.0), "nail_relief": (0.0, 0.6),
+    "nail_outline": (0.0, 1.0),
+    "wrist_crease_px": (0.0, 400.0),
+    "forearm_sag_at": (0.0, 1.0), "forearm_sag_width": (0.02, 1.0),
+    "wrist_bump_px": (0.0, 100.0), "wrist_bump_len_px": (1.0, 200.0), "wrist_bump_width_px": (1.0, 200.0),
+    "wrist_bump_angle_deg": (-180.0, 180.0),
+    "carpus_cap": (0.2, 3.0), "carpus_end_cap": (0.2, 4.0),
+    "meta_base_frac": (0.0, 0.9), "meta_base_thick": (0.2, 3.0), "meta_base_cap": (0.2, 6.0),
+    "thenar_size": (0.0, 4.0),
+    "hypothenar_size": (0.0, 4.0), "hypothenar_from": (0.0, 1.0), "hypothenar_to": (0.0, 1.0),
+    "fdi_size": (0.0, 4.0), "fdi_from": (0.0, 1.0), "fdi_to": (0.0, 1.0),
+    "palm_heel_px": (0.0, 100.0), "palm_heel_len_px": (1.0, 300.0), "palm_heel_width_px": (1.0, 300.0),
+    "palm_heel_at": (0.0, 1.0), "palm_heel_lat": (-1.0, 1.0),
+}
+
+
+def shape_settings(pose):
+    """PARAMS merged with the pose file's optional "shape" object (per-hand
+    shape controls, CONTRACTS section 5). An unknown key, a value that is not a
+    finite number or one outside SHAPE_RANGES is an error, so a typo in a pose
+    file fails loudly instead of being ignored."""
+    S = {k: ({d: float(PARAMS[k]) for d in DIGIT_KEYS[k]} if k in DIGIT_KEYS else PARAMS[k]) for k in SHAPE_KEYS}
+    over = pose.get("shape") or {}
+    if not isinstance(over, dict):
+        raise ValueError('pose "shape" must be an object')
+    bad = sorted(set(over) - set(SHAPE_KEYS))
+    if bad:
+        raise ValueError(f'pose "shape": unknown keys {bad}; allowed: {list(SHAPE_KEYS)}')
+
+    def number(name, v):
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v):
+            raise ValueError(f'pose "shape".{name} must be a number')
+        lo, hi = SHAPE_RANGES.get(name.split(".")[0], (-math.inf, math.inf))
+        if not lo <= v <= hi:
+            raise ValueError(f'pose "shape".{name} = {v} is outside [{lo}, {hi}]')
+        return float(v)
+
+    for k, v in over.items():
+        if k in DIGIT_KEYS and isinstance(v, dict):
+            bad = sorted(set(v) - set(DIGIT_KEYS[k]))
+            if bad:
+                raise ValueError(f'pose "shape".{k}: unknown digits {bad}; allowed: {list(DIGIT_KEYS[k])}')
+            for d, x in v.items():
+                S[k][d] = number(f"{k}.{d}", x)
+        elif k in DIGIT_KEYS:
+            x = number(k, v)
+            S[k] = {d: x for d in DIGIT_KEYS[k]}
+        else:
+            S[k] = number(k, v)
+    for a, b in (("hypothenar_from", "hypothenar_to"), ("fdi_from", "fdi_to")):
+        if S[a] >= S[b]:
+            raise ValueError(f'pose "shape": {a} must be smaller than {b}')
+    return S
+
+
+def px_world(px, z):
+    """A length in reference px as drawn at depth z -> world (like a joint's r)."""
+    return float(px) * PX * (D - z) / D
+
+
+def surface_bump(C, T, n, reach, height, half_len, half_width, name):
+    """An ellipsoid that stands `height` out of a surface: the surface point is
+    C + n * reach (C a section centre, n the outward direction, reach the
+    section's extent that way); the ellipsoid is round in its own depth
+    (depth = half_width) and sunk so only `height` of it shows."""
+    depth = max(half_width, height)
+    c = C + n * (reach + height - depth)
+    return Ell(c, T, n, at=half_len, ab=half_width, an=depth, name=name)
+
+
 def build_primitives(pose, J):
     """Return (body, digits, axes): body is a list of (prim, k) fused into the
     palm block; digits maps name -> (list of (prim, k), root blend radius,
     list of reliefs applied to the digit's field before it joins the palm)."""
     P = PARAMS
+    S = shape_settings(pose)
     hand = pose["hand"]
     dorsal = unit(pose["dorsal"])
     ch = pose["chains"]
@@ -411,76 +884,206 @@ def build_primitives(pose, J):
     axis = unit(knuckle_c - wrist.p)  # hand's long axis
     # lateral axis, pointing from the little-finger side to the thumb side
     lat = unit(np.cross(axis, dorsal) if hand == "left" else np.cross(dorsal, axis))
+    span = float(np.linalg.norm(mcp["index"].p - mcp["pinky"].p))   # knuckle span, index to little finger MCP
+    L_hand = float(np.linalg.norm(knuckle_c - wrist.p))
 
     body = []
 
-    # ---- forearm -> wrist -> palm core -------------------------------------
+    # ---- forearm -> wrist -> carpus: one swept solid (ArmSweep) -----------
     t0 = unit(wrist.p - forearm.p)
     n0 = ortho(dorsal, t0)
-    Af, Nf = solve_section(forearm, t0, n0)
-    Aw0, Nw0 = solve_section(wrist, t0, n0)
-    body.append((Seg(forearm.p, wrist.p, n0, Af, Nf, Aw0, Nw0, c0=Nf * 0.5, name="forearm"), P["k_arm"]))
-    # the arm carries on past the forearm joint so it always leaves the frame,
-    # ending in a soft, flattened cap far outside it (no bulb, no cut face)
-    ext = forearm.p - t0 * P["arm_extend"]
-    body.append((Seg(ext, forearm.p, n0, Af * 0.97, Nf * 0.97, Af, Nf, c0=Nf * 0.35, c1=Nf * 0.5,
-                     name="forearm_ext"), P["k_arm"]))
-
     t1 = unit(palm.p - wrist.p)
-    n1 = ortho(dorsal, t1)
-    Aw1, Nw1 = solve_section(wrist, t1, n1)
+    E = forearm.p - t0 * P["arm_extend"]
+    theta = math.acos(float(np.clip(t0 @ t1, -1.0, 1.0)))
+    if theta > 1e-4:
+        k_ax = unit(np.cross(t0, t1))
+        t_mid = unit(t0 + t1)
+        n_mid = ortho(rotate_about(n0, k_ax, 0.5 * theta), t_mid)
+        m_mid = unit(t1 - t0)                     # toward the inside of the bend at the wrist
+        n1 = ortho(rotate_about(n0, k_ax, theta), t1)
+    else:
+        theta = 0.0
+        t_mid, n_mid, m_mid, n1 = t0, n0, -n0, n0
+    Af, Nf = solve_section(forearm, t0, n0)
+    Aw, Nw = solve_section(wrist, t_mid, n_mid)   # ONE wrist section, shared by forearm and carpus
     Ap, Np = solve_section(palm, t1, n1)
-    body.append((Seg(wrist.p, palm.p, n1, Aw1, Nw1, Ap, Np, name="carpus"), P["k_arm"]))
+    # the carpus is capped near half the knuckle span: the palm joint's
+    # section no longer widens it into a flared wedge or a slab; the palm's
+    # breadth is the metacarpal plate's, its fullness the palmar masses'
+    Ac = min(Ap, S["carpus_cap"] * 0.5 * span)
+    Nc = Np
+    # the spine bends around the wrist on a circle of radius Rb: the section's
+    # reach toward the inside of the bend plus the crease radius, so the
+    # inside of the bend is a concave fillet of radius wrist_crease
+    b_mid = unit(np.cross(t_mid, n_mid))
+    h_in = math.hypot(Aw * float(b_mid @ m_mid), Nw * float(n_mid @ m_mid))
+    Rb = h_in + max(px_world(S["wrist_crease_px"], wrist.z), P["voxel"])
+    L_fw = float(np.linalg.norm(wrist.p - forearm.p))
+    L_wp = float(np.linalg.norm(palm.p - wrist.p))
+    if theta > 0:
+        # the fillet's tangent points must stay on the two straight pieces
+        Rb = min(Rb, 0.45 * min(L_fw, L_wp) / math.tan(0.5 * theta))
+    d_fil = Rb * math.tan(0.5 * theta)
+    sF = P["arm_extend"]
+    sW = sF + L_fw - d_fil + 0.5 * Rb * theta
+    sC = sF + L_fw - d_fil + Rb * theta + (L_wp - d_fil)
+    sags = []
+    ed, ep = S["forearm_sag_dorsal_px"], S["forearm_sag_palmar_px"]
+    if ed or ep:
+        zf = 0.5 * (wrist.z + forearm.z)
+        sags.append((S["forearm_sag_at"], S["forearm_sag_width"], px_world(ed, zf), px_world(ep, zf)))
+    prof = ArmProfile(sF, sW, sC, (Af, Nf), (Aw, Nw), (Ac, Nc), px_world(P["wrist_round_px"], wrist.z),
+                      P["arm_ease"] * P["arm_extend"], sags=sags)
+    arm = ArmSweep(E, wrist.p, palm.p, n0, prof, Rb, capE=Nf * P["arm_end_cap"], capC=Nc * S["carpus_end_cap"],
+                   name="arm")
+    # the first body part: nothing to blend with yet (and a sub-box primitive
+    # is hard-unioned, see eval_sdf)
+    body.append((arm, 0.0))
 
-    # ---- metacarpal fan: palm block broader across the knuckles ------------
+    # ---- dorsal wrist prominence (the ulnar head), optional ----------------
+    if S["wrist_bump_px"] > 0:
+        s_b = sW - px_world(S["wrist_bump_at_px"], wrist.z)
+        Cb, Tb, nb = arm.frame_at(s_b)
+        bb = unit(np.cross(Tb, nb))
+        if float(bb @ lat) < 0:                   # + angles turn toward the thumb side
+            bb = -bb
+        a = math.radians(S["wrist_bump_angle_deg"])
+        dirb = unit(math.cos(a) * nb + math.sin(a) * bb)
+        A_, N_, On_ = (float(v[0]) for v in prof.at(np.array([s_b])))
+        cb, cn = float(dirb @ bb), float(dirb @ nb)
+        reach = 1.0 / math.sqrt((cb / A_) ** 2 + (cn / N_) ** 2)   # section boundary along dirb
+        body.append((surface_bump(Cb + nb * On_, Tb, dirb, reach, px_world(S["wrist_bump_px"], wrist.z),
+                                  px_world(S["wrist_bump_len_px"], wrist.z),
+                                  px_world(S["wrist_bump_width_px"], wrist.z), "wrist_bump"), P["k_bump"]))
+
+    # ---- metacarpal plate: four flattened sweeps fanned toward the wrist ---
+    # Each fan line runs from its knuckle through the point meta_ref_frac of
+    # the way knuckles -> wrist (with the knuckle spread meta_base_spread
+    # kept there): the pre-step-3 fan. The plate's thickness there is
+    # meta_base_thick x the wrist section's (no longer the palm joint's
+    # section); from there to the heads it tapers linearly, and it runs on
+    # back along the same lines, with the same taper, to meta_base_frac of the
+    # way from the wrist, where it ends in a soft cap inside the wrist. So the
+    # back of the hand is one straight run from the knuckles into the wrist
+    # (no rounded base caps half way down the hand, whose junction with the
+    # carpus was the wrist-to-back notch), the heads, knuckles and finger
+    # frames are exactly as before, and the palm joint sets only the carpus.
     spacing = np.mean([np.linalg.norm(mcp[a].p - mcp[b].p)
                        for a, b in zip(FINGERS[:-1], FINGERS[1:])])
-    base_c = wrist.p + (knuckle_c - wrist.p) * P["meta_base_frac"]
+    ref_c = wrist.p + (knuckle_c - wrist.p) * P["meta_ref_frac"]
+    N_ref = S["meta_base_thick"] * Nw
+    A_ref = 0.5 * spacing * P["meta_width"] * 0.9
     meta = {}
     for f in FINGERS:
         m = mcp[f]
-        base = base_c + (m.p - knuckle_c) * P["meta_base_spread"]
-        t = unit(m.p - base)
+        b_ref = ref_c + (m.p - knuckle_c) * P["meta_base_spread"]
+        t = unit(m.p - b_ref)
         n = ortho(dorsal, t)
         Am, Nm = solve_section(m, t, n)
         A_head = max(Am * P["meta_head"], 0.5 * spacing * P["meta_width"])
         N_head = Nm * P["meta_head"]
-        A_base = 0.5 * spacing * P["meta_width"] * 0.9
-        N_base = Np * P["meta_thick"]
-        seg = Seg(base, m.p, n, A_base, N_base, A_head, N_head, c1=N_head * 0.9, name=f"meta_{f}")
+        dm = float((m.p - b_ref) @ axis)          # how far the reference point lies behind the knuckle
+        lam = (float((m.p - wrist.p) @ axis) - L_hand * S["meta_base_frac"]) / max(dm, 1e-9)
+        lam = max(lam, 0.25)
+        base = m.p + (b_ref - m.p) * lam
+        A0 = max(A_head + (A_ref - A_head) * lam, 0.5 * A_ref)
+        N0 = max(N_head + (N_ref - N_head) * lam, 0.5 * N_head)
+        # the head (and its knuckle) may sit back from the joint centre, so the
+        # knuckle and the drop to the finger can both be drawn at a joint read
+        # where the finger leaves the knuckle
+        head_c = m.p - t * N_head * S["head_back"][f]
+        seg = Seg(base, head_c, n, A0, N0, A_head, N_head, c0=N0 * S["meta_base_cap"], c1=N_head * 0.9,
+                  name=f"meta_{f}")
         body.append((seg, P["k_body"]))
-        meta[f] = (t, n, A_head, N_head)
+        # the fan line and its linear section, by the fraction u of the way
+        # from the wrist station (0) to the knuckle (1)
+        lam_w = float((m.p - wrist.p) @ axis) / max(dm, 1e-9)
+        meta[f] = dict(t=t, n=n, A_head=A_head, N_head=N_head, seg=seg, head_c=head_c,
+                       line=(lambda u, m=m.p, b=b_ref, lw=lam_w: m + (b - m) * lw * (1.0 - u)),
+                       sec=(lambda u, Ah=A_head, Nh=N_head, lw=lam_w: (Ah + (A_ref - Ah) * lw * (1.0 - u),
+                                                                        Nh + (N_ref - Nh) * lw * (1.0 - u))),
+                       len_w=float(np.linalg.norm(m.p - b_ref)) * lam_w)
+
+    # ---- hypothenar: the fleshy ulnar border of the palm ------------------
+    # an ellipsoid along the little finger's metacarpal, on its palmar and
+    # ulnar side, from hypothenar_from to hypothenar_to of the way wrist ->
+    # little-finger knuckle; it thins out toward both ends (no cap, no rim)
+    if S["hypothenar_size"] > 0:
+        mp = meta["pinky"]
+        t, n = mp["t"], mp["n"]
+        ul = -ortho(lat, t)                        # toward the little-finger edge
+        u0, u1 = S["hypothenar_from"], S["hypothenar_to"]
+        uc = 0.5 * (u0 + u1)
+        A_, N_ = mp["sec"](uc)
+        c = mp["line"](uc) - n * N_ * S["hypothenar_drop"] + ul * A_ * S["hypothenar_out"]
+        g = S["hypothenar_size"]
+        body.append((Ell(c, t, n, at=0.5 * (u1 - u0) * mp["len_w"], ab=A_ * 0.8 * g, an=N_ * 0.8 * g,
+                         name="hypothenar"), P["k_thenar"]))
+
+    # ---- first dorsal interosseous, optional: the muscle mass on the thumb
+    # side of the index metacarpal (it bulges when the thumb is drawn in) ---
+    if S["fdi_size"] > 0:
+        mi = meta["index"]
+        t, n = mi["t"], mi["n"]
+        rd = ortho(lat, t)                         # toward the thumb side
+        u0, u1 = S["fdi_from"], S["fdi_to"]
+        uc = 0.5 * (u0 + u1)
+        A_, N_ = mi["sec"](uc)
+        c = mi["line"](uc) + n * N_ * S["fdi_lift"] + rd * A_ * S["fdi_out"]
+        g = S["fdi_size"]
+        body.append((Ell(c, t, n, at=0.5 * (u1 - u0) * mi["len_w"], ab=A_ * 0.8 * g, an=N_ * 0.8 * g,
+                         name="fdi"), P["k_thenar"]))
+
+    # ---- palm heel, optional: the proximal palmar mass over the carpus -----
+    if S["palm_heel_px"] > 0:
+        s_h = min(max(sW + L_hand * S["palm_heel_at"], sW), sC)
+        Ch, Th, nh = arm.frame_at(s_h)
+        A_, N_, On_ = (float(v[0]) for v in prof.at(np.array([s_h])))
+        bh = ortho(lat, Th)
+        x = S["palm_heel_lat"] * 0.5 * span
+        reach = N_ * math.sqrt(max(1.0 - (x / A_) ** 2, 0.05))   # the carpus's palmar surface there
+        body.append((surface_bump(Ch + nh * On_ + bh * x, Th, -nh, reach, px_world(S["palm_heel_px"], palm.z),
+                                  px_world(S["palm_heel_len_px"], palm.z),
+                                  px_world(S["palm_heel_width_px"], palm.z), "palm_heel"), P["k_thenar"]))
 
     # ---- thumb metacarpal wrapped in the thenar mass -----------------------
     th = [J[k] for k in ch["thumb"]]
     t_meta = unit(th[1].p - th[0].p)
     L_meta = float(np.linalg.norm(th[1].p - th[0].p))
     # the thumbnail faces away from the dorsal, rolled toward the radial side
-    roll = math.radians(P["thumb_roll_deg"])
+    roll = math.radians(S["thumb_roll_deg"])
     n_thumb0 = ortho(math.cos(roll) * dorsal + math.sin(roll) * lat, t_meta)
-    Ac, Nc = solve_section(th[0], t_meta, n_thumb0)
+    Acm, Ncm = solve_section(th[0], t_meta, n_thumb0)
     Am1, Nm1 = solve_section(th[1], t_meta, n_thumb0)
-    body.append((Seg(th[0].p, th[1].p, n_thumb0, Ac, Nc, Am1 * 0.95, Nm1 * 0.95, c1=Nm1 * 0.8,
+    # the metacarpal's carpal end is a long soft cap that fades into the palm:
+    # a rounded end (cap = its own thickness) stood proud of the palm with a
+    # dark groove around it, the thumb "plugged onto" the palm (log-v2 step 3)
+    body.append((Seg(th[0].p, th[1].p, n_thumb0, Acm, Ncm, Am1 * 0.95, Nm1 * 0.95,
+                     c0=Ncm * S["thumb_root_cap"], c1=Nm1 * 0.8,
                      name="thumb_meta"), P["k_thenar"]))
     # thenar eminence: the soft mass between the thumb metacarpal and the palm,
     # on the palmar side
     thenar_c = (th[0].p * 0.55 + th[1].p * 0.45) * (1 - P["thenar_pull"]) + palm.p * P["thenar_pull"] \
-        - dorsal * Np * P["thenar_drop"]
-    body.append((Ell(thenar_c, t_meta, n_thumb0, at=L_meta * 0.62,
-                     ab=Ac * P["thenar_size"], an=Nc * P["thenar_size"] * 0.95,
-                     name="thenar"), P["k_thenar"]))
+        - dorsal * Nc * P["thenar_drop"]
+    if S["thenar_size"] > 0:
+        body.append((Ell(thenar_c, t_meta, n_thumb0, at=L_meta * 0.62,
+                         ab=Acm * S["thenar_size"], an=Ncm * S["thenar_size"] * 0.95,
+                         name="thenar"), P["k_thenar"]))
     # first dorsal interosseous: web from the thumb MCP to the index metacarpal
-    idx_t, idx_n, idx_A, idx_N = meta["index"]
+    idx_t, idx_A, idx_N = meta["index"]["t"], meta["index"]["A_head"], meta["index"]["N_head"]
     w0 = th[1].p * 0.75 + th[0].p * 0.25
-    w1 = mcp["index"].p - idx_t * np.linalg.norm(mcp["index"].p - base_c) * 0.35
+    w1 = mcp["index"].p - idx_t * np.linalg.norm(mcp["index"].p - ref_c) * 0.35
     web = Seg(w0, w1, dorsal, Am1 * 0.8, Nm1 * P["web_thick"], idx_A * 0.7, idx_N * P["web_thick"] * 1.2,
               name="web")
     body.append((web, P["k_thenar"]))
 
     # ---- knuckle prominences (dorsal side of each metacarpal head) ---------
+    # knuckle_rise lifts the prominence out of the head: its top stands that
+    # far (x N_head) beyond where it stands by default, about the head's own
+    # dorsal surface
     for f in FINGERS:
-        t, n, A_head, N_head = meta[f]
-        c = mcp[f].p + n * N_head * P["knuckle_lift"] - t * N_head * 0.15
+        t, n, A_head, N_head = meta[f]["t"], meta[f]["n"], meta[f]["A_head"], meta[f]["N_head"]
+        c = meta[f]["head_c"] + n * N_head * (P["knuckle_lift"] + S["knuckle_rise"][f]) - t * N_head * 0.15
         s_ = P["knuckle_size"]
         body.append((Ell(c, t, n, at=A_head * s_ * 0.9, ab=A_head * s_, an=N_head * s_ * 0.8,
                          name=f"knuckle_{f}"), P["k_knuckle"]))
@@ -496,7 +1099,7 @@ def build_primitives(pose, J):
             t_prev, n_prev = t_meta, n_thumb0
             seq = js[1:]
         else:
-            t_prev, n_prev = meta[f][0], meta[f][1]
+            t_prev, n_prev = meta[f]["t"], meta[f]["n"]
             seq = js
         nseg = len(seq) - 1
         segs = []
@@ -506,6 +1109,10 @@ def build_primitives(pose, J):
             n = ortho(transport(n_prev, t_prev, t), t)
             A0, N0 = solve_section(a, t, n)
             A1, N1 = solve_section(b_, t, n)
+            if i == 0 and f != "thumb":
+                # the proximal phalanx leaves the knuckle this much narrower
+                # than the MCP section (the head is meta_head x that section)
+                A0, N0 = A0 * S["phalanx_base"][f], N0 * S["phalanx_base"][f]
             last = i == nseg - 1
             if last:
                 # the tip joint is the extremity: end the capsule so that its
@@ -532,7 +1139,8 @@ def build_primitives(pose, J):
                 # phalanx (see NailRelief). Its free edge stays inside the
                 # rounded tip cap, so the fingertip is one rounded end that
                 # reaches the pose's tip px (no overhanging "claw").
-                reliefs.append(NailRelief(seg, A0, N0, A1, N1, cap, name=f"{f}_nail"))
+                reliefs.append(NailRelief(seg, A0, N0, A1, N1, cap, S["nail_relief"][f], S["nail_outline"][f],
+                                          name=f"{f}_nail"))
             t_prev, n_prev = t, n
         # dorsal knuckles over the interphalangeal joints
         for i in range(1, len(segs)):
@@ -540,11 +1148,13 @@ def build_primitives(pose, J):
             jn = unit(s0.n + s1.n)
             jt = unit(s0.T + s1.T)
             A_j, N_j = s1.A0, s1.N0
-            c = s1.P0 + jn * N_j * P["ip_knuckle_lift"]
-            prims.append((Ell(c, jt, jn, at=N_j * 0.55, ab=A_j * P["ip_knuckle_size"],
+            if S["ip_knuckle_size"][f] <= 0:
+                continue                          # no dorsal knuckle: the back of the digit runs straight
+            c = s1.P0 + jn * N_j * S["ip_knuckle_lift"][f]
+            prims.append((Ell(c, jt, jn, at=N_j * 0.55, ab=A_j * S["ip_knuckle_size"][f],
                               an=N_j * 0.45, name=f"{f}_ipk{i}"), P["k_ipk"]))
         digits[f] = (prims, P["k_root"][f], reliefs)
-    return body, digits, dict(axis=axis, lat=lat, dorsal=dorsal)
+    return body, digits, dict(axis=axis, lat=lat, dorsal=dorsal, shape=S)
 
 
 def eval_sdf(body, digits, window=None):
@@ -594,6 +1204,29 @@ def eval_sdf(body, digits, window=None):
 
     B = np.full(tuple(n), big, dtype=np.float32)
     for prim, k in body:
+        if hasattr(prim, "sub_bounds"):
+            # a long, diagonal primitive: per slab of x-planes, only the y/z
+            # range its pieces can reach there is evaluated (each voxel once)
+            subs = prim.sub_bounds()
+            plo, phi = prim.bounds()
+            for sl, X, Y, Z in boxes(plo, phi, margin):
+                x_lo, x_hi = float(X.min()), float(X.max())
+                near = [(a, b) for a, b in subs if a[0] - margin <= x_hi and b[0] + margin >= x_lo]
+                if not near:
+                    continue
+                ylo = min(a[1] for a, _ in near) - margin
+                yhi = max(b[1] for _, b in near) + margin
+                zlo = min(a[2] for a, _ in near) - margin
+                zhi = max(b[2] for _, b in near) + margin
+                j0 = max(int(np.floor((ylo - lo[1]) / h)), sl[1].start)
+                j1 = min(int(np.ceil((yhi - lo[1]) / h)) + 1, sl[1].stop)
+                k0 = max(int(np.floor((zlo - lo[2]) / h)), sl[2].start)
+                k1 = min(int(np.ceil((zhi - lo[2]) / h)) + 1, sl[2].stop)
+                if j1 <= j0 or k1 <= k0:
+                    continue
+                sub = (sl[0], slice(j0, j1), slice(k0, k1))
+                B[sub] = smin(B[sub], prim.sdf(X, ys[j0:j1][None, :, None], zs[k0:k1][None, None, :]), k)
+            continue
         plo, phi = prim.bounds()
         for sl, X, Y, Z in boxes(plo, phi, margin):
             B[sl] = smin(B[sl], prim.sdf(X, Y, Z), k)
@@ -1044,6 +1677,25 @@ def _probe_rays(bvh, P, Nn):
     return lab, q, dstar
 
 
+def _switch_point(bvh, pa, na, pb, nb, lab_a, samples=16):
+    """Where the outer / inner / hidden label changes between two consecutive
+    contour-generator points a (label lab_a) and b: probe `samples` points
+    evenly between them (position and normal interpolated linearly) and
+    return the middle of the interval where the label first stops being
+    lab_a."""
+    t = np.linspace(0.0, 1.0, samples + 2)[1:-1]
+    Pm = pa[None, :] + t[:, None] * (pb - pa)[None, :]
+    Nm = na[None, :] + t[:, None] * (nb - na)[None, :]
+    Nm /= np.maximum(np.linalg.norm(Nm, axis=1, keepdims=True), 1e-12)
+    lab, _, _ = _probe_rays(bvh, Pm, Nm)
+    k = 0
+    while k < samples and lab[k] == lab_a:
+        k += 1
+    lo = t[k - 1] if k > 0 else 0.0
+    hi = t[k] if k < samples else 1.0
+    return pa + 0.5 * (lo + hi) * (pb - pa)
+
+
 def _drop_folds(loops_lab):
     """Where the surface is seen at a grazing angle, small undulations fold the
     contour generator, leaving extra curves up to a couple of px inside the
@@ -1192,20 +1844,26 @@ def extract_contours(V, N, F):
     out = []
     loops = [(pts, nrm) for pts, nrm in contour_generator(V, N, F) if len(pts) >= 3]
     labelled = [_probe_rays(bvh, pts, nrm) for pts, nrm in loops]
+    raw = [lab.copy() for lab, _, _ in labelled]
     n_fold = _drop_folds(labelled)
     print(f"[contour] {len(loops)} generator loops, {sum(len(p) for p, _ in loops)} points, "
           f"{n_fold} fold points relabelled hidden")
-    for (pts, nrm), (lab, q, _) in zip(loops, labelled):
+    n_ref = 0
+    for (pts, nrm), (lab, q, _), lab_raw in zip(loops, labelled, raw):
         lab = _clean_labels(lab, q, closed=True)
         n = len(lab)
         if np.all(lab == lab[0]):
             if lab[0] == "H":
                 continue
-            pieces = [(np.arange(n + 1) % n, lab[0], True)]
+            pieces = [(pts[np.arange(n + 1) % n], lab[0], True)]
         else:
-            # rotate so the loop starts at a label change, then split into runs;
-            # each run also takes the next run's first point so that pieces
-            # meet end to end
+            # rotate so the loop starts at a label change, then split into
+            # runs; neighbouring pieces meet end to end at the point where the
+            # label changes, found by probing along the segment between the
+            # last point of one run and the first of the next (the contour
+            # points can be several px apart where the mesh is coarse, so a
+            # piece that simply ended on its last point could stop short of a
+            # slit's tip or of the point where it passes behind a nearer part)
             k0 = int(np.nonzero(lab != np.roll(lab, 1))[0][0])
             order = (np.arange(n) + k0) % n
             lab_r = lab[order]
@@ -1215,14 +1873,28 @@ def extract_contours(V, N, F):
                 if i == n or lab_r[i] != lab_r[s0]:
                     runs.append((s0, i - 1, lab_r[s0]))
                     s0 = i
-            pieces = []
+            sw = {}
             for (a, e, v), nxt in zip(runs, runs[1:] + runs[:1]):
+                i0, i1 = order[e], order[(e + 1) % n]
+                if lab_raw[i0] == v and lab_raw[i1] == nxt[2]:
+                    sw[e] = _switch_point(bvh, pts[i0], nrm[i0], pts[i1], nrm[i1], v)
+                    n_ref += 1
+                else:
+                    sw[e] = None
+            pieces = []
+            for k, ((a, e, v), nxt) in enumerate(zip(runs, runs[1:] + runs[:1])):
                 if v == "H":
                     continue
-                end = e + 1 if nxt[2] != "H" else e
-                pieces.append((order[np.arange(a, end + 1) % n], v, False))
-        for idx, v, closed in pieces:
-            poly = pts[idx]
+                prev_e = runs[k - 1][1]
+                seg = [pts[order[np.arange(a, e + 1) % n]]]
+                if sw[prev_e] is not None:
+                    seg.insert(0, sw[prev_e][None, :])
+                if sw[e] is not None:
+                    seg.append(sw[e][None, :])
+                elif nxt[2] != "H":
+                    seg.append(pts[order[(e + 1) % n]][None, :])
+                pieces.append((np.concatenate(seg), v, False))
+        for poly, v, closed in pieces:
             qq = project(poly)
             Lpx = float(_arc(qq)[-1])
             if v == "I" and Lpx < P["contour_min_px"]:
@@ -1232,6 +1904,7 @@ def extract_contours(V, N, F):
             res = _smooth_resample(poly[:-1] if closed else poly, closed)
             out.append((res, "outer" if v == "O" else "inner", bool(closed)))
     out = _join_pieces(out)
+    print(f"[contour] {n_ref} label changes placed by probing")
     final = []
     for res, kind, closed in out:
         qp = project(res)
@@ -1422,6 +2095,53 @@ def rel(p):
     return os.path.relpath(p, REPO_ROOT)
 
 
+def measure_fingertips(V_app, J, ch):
+    """Fingertips measured on the mesh: for each digit the vertex furthest
+    along its distal bone's direction, searched in the digit's own region
+    only: within 2.5 x the DIP radius of the distal bone's axis, at most
+    1.3 x the distal bone past the DIP, and nearer (surface distance to the
+    bone capsules, joint radii interpolated) to this digit's distal bone than
+    to any bone of another digit. (The earlier search, unbounded along the
+    axis, reached past the short right thumb to the middle fingertip, 90 px
+    away.) Returns {digit: {pose_tip_px, mesh_tip_px, delta_px,
+    mesh_tip_world} or None}."""
+    bones = {f: [(J[a].p, J[b].p, J[a].r, J[b].r) for a, b in zip(ch[f][:-1], ch[f][1:])] for f in DIGITS}
+
+    def bone_dist(X, bone):
+        a, b, ra, rb = bone
+        ab = b - a
+        t = np.clip(((X - a) @ ab) / max(float(ab @ ab), 1e-18), 0.0, 1.0)
+        return np.linalg.norm(X - (a + t[:, None] * ab[None, :]), axis=1) - (ra + (rb - ra) * t)
+
+    tips = {}
+    for f in DIGITS:
+        names = ch[f]
+        pd, pt = J[names[-2]].p, J[names[-1]].p
+        dvec = unit(pt - pd)
+        seg_len = np.linalg.norm(pt - pd)
+        rel_v = V_app - pd
+        along = rel_v @ dvec
+        radial = np.linalg.norm(rel_v - along[:, None] * dvec[None, :], axis=1)
+        sel = (along > -0.2 * seg_len) & (along < 1.3 * seg_len) & (radial < 2.5 * J[names[-2]].r)
+        cand = np.nonzero(sel)[0]
+        if len(cand):
+            own = bone_dist(V_app[cand], bones[f][-1])
+            other = np.min([bone_dist(V_app[cand], bn) for g in DIGITS if g != f for bn in bones[g]], axis=0)
+            sel[cand[own > other]] = False
+        if not np.any(sel):
+            tips[f] = None
+            continue
+        i = np.nonzero(sel)[0][np.argmax(along[sel])]
+        mp = project(V_app[i])
+        tips[f] = {
+            "pose_tip_px": [round(float(x), 1) for x in J[names[-1]].px],
+            "mesh_tip_px": [round(float(x), 1) for x in mp],
+            "delta_px": round(float(np.linalg.norm(mp - J[names[-1]].px)), 2),
+            "mesh_tip_world": [round(float(x), 5) for x in V_app[i]],
+        }
+    return tips
+
+
 def build_hand(hand, args):
     t_start = time.time()
     pose_path = os.path.join(SCRIPT_DIR, f"pose-{hand}.json")
@@ -1471,29 +2191,7 @@ def build_hand(hand, args):
     # signed volume (positive = outward winding)
     vol = float(np.einsum("ij,ij->i", V_app[F[:, 0]], np.cross(V_app[F[:, 1]], V_app[F[:, 2]])).sum() / 6.0)
 
-    # fingertip check: extreme vertex of each digit along its distal direction
-    tips = {}
-    ch = pose["chains"]
-    for f in DIGITS:
-        names = ch[f]
-        pd, pt = J[names[-2]].p, J[names[-1]].p
-        dvec = unit(pt - pd)
-        seg_len = np.linalg.norm(pt - pd)
-        rel_v = V_app - pd
-        along = rel_v @ dvec
-        radial = np.linalg.norm(rel_v - along[:, None] * dvec[None, :], axis=1)
-        sel = (along > -0.2 * seg_len) & (radial < 2.5 * J[names[-2]].r)
-        if not np.any(sel):
-            tips[f] = None
-            continue
-        i = np.nonzero(sel)[0][np.argmax(along[sel])]
-        mp = project(V_app[i])
-        tips[f] = {
-            "pose_tip_px": [round(float(x), 1) for x in J[names[-1]].px],
-            "mesh_tip_px": [round(float(x), 1) for x in mp],
-            "delta_px": round(float(np.linalg.norm(mp - J[names[-1]].px)), 2),
-            "mesh_tip_world": [round(float(x), 5) for x in V_app[i]],
-        }
+    tips = measure_fingertips(V_app, J, pose["chains"])
 
     # contours, from the mesh exactly as exported (GLB positions, normals and
     # triangles, welded by position so the loops close)
@@ -1540,6 +2238,7 @@ def build_hand(hand, args):
         "contour": rel(out_contour),
         "blender": bpy.app.version_string,
         "params": {k: v for k, v in PARAMS.items()},
+        "shape": {"from_pose": pose.get("shape") or {}, "used": axes["shape"]},
         "raw_extraction": {"vertices": len(V), "faces": len(faces), "non_manifold_edges": raw_nm,
                            "boundary_edges": raw_bd, "non_manifold_verts": raw_nmv},
         "vertices": len(ob.data.vertices),
