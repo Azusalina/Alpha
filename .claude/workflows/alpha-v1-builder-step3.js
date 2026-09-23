@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-builder-step3',
   description: 'Step 3 of the Alpha v1 form round: widen build_hands.py in two stages (forearm/wrist/palm, then digits), each built by one agent and verified independently',
-  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 3 (D17, D19), after the step-2 right-hand loop has ended. args: {only?: ["arm","digits"], resume?: true, answered?: {<stage>: "<the user\'s answer>"}}. Invoke by scriptPath.',
+  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 3 (D17, D19), after the step-2 right-hand loop has ended. args: {only?: ["arm","digits"], resume?: true, answered?: {<stage>: "<the user\'s answer>"}, answeredLater?: {<stage>: "<answer to a fixer\'s question>"}}. Invoke by scriptPath.',
   phases: [
     { title: 'Build', detail: 'one builder per stage; the stages run one after the other because build_hands.py is one shared file' },
     { title: 'Verify', detail: 'independent, skeptical check of each stage' },
@@ -179,7 +179,7 @@ function verifyPrompt(key, build, round) {
 YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of step 3, stage "${key}" (${STAGES[key].title}). Try to find what is wrong. Write only under ${dir}/ (git-ignored scratch); do not edit any other file in the repo.
 
 The stage's items:
-${itemList(key)}${answeredNote(key)}
+${itemList(key)}${answeredNote(key)}${laterNote(key, round)}
 
 Check at least:
 - Rebuild both hands from the committed builder and poses into your scratch directory: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand both --out <abs>/assets --masks <abs>/calib --report-dir <abs>/calib --views, with absolute paths under ${dir}/. The fresh masks must be pixel-identical to outputs/qa/calib/<hand>-mask.png and the fresh GLBs byte-identical to public/assets/hand-<hand>.glb: the files on disk must come from the builder and poses on disk.
@@ -195,8 +195,8 @@ For reference, the builder reported (do not trust it — check):
 ${JSON.stringify(build, null, 2)}`
 }
 
-function fixPrompt(key, issues) {
-  return `${buildPrompt(key)}${answeredNote(key)}
+function fixPrompt(key, issues, round) {
+  return `${buildPrompt(key)}${answeredNote(key)}${laterNote(key, round)}
 
 You are CONTINUING this stage; the current state is on disk (see your scratch log, ${SCRATCH}/build-${key}/progress.md, and git diff). An independent verifier found the problems below. Address every blocker and major (minors if cheap), keep the same constraints, and return BUILD_RESULT describing the FINAL state (not just the delta):
 ${JSON.stringify(issues, null, 2)}`
@@ -208,6 +208,17 @@ const ANSWERED = args?.answered && typeof args.answered === 'object' ? args.answ
 function answeredNote(key) {
   return ANSWERED[key]
     ? `\n\nANSWERED BY THE USER: the questions in this stage's builder report (decisionsForUser) have been answered, as recorded in documentations/log/log-v2.md. ${ANSWERED[key]} Treat the answer as settled: do not raise the question again, and judge the stage against it.`
+    : ''
+}
+
+// Answers to questions a fixer raised: args.answeredLater = {<stage>: '<the answer>'}. Told only to
+// the agents after the first fix (verify and fix rounds >= 2), so the prompts of the agents that
+// already ran, and with them the resume cache, stay unchanged; a fixer's questions do not pause
+// such a stage.
+const ANSWERED_LATER = args?.answeredLater && typeof args.answeredLater === 'object' ? args.answeredLater : {}
+function laterNote(key, round) {
+  return round >= 2 && ANSWERED_LATER[key]
+    ? `\n\nALSO ANSWERED: the questions a fixer raised in this stage have been answered, as recorded in documentations/log/log-v2.md. ${ANSWERED_LATER[key]} Treat the answer as settled: do not raise the question again, and judge the stage against it.`
     : ''
 }
 
@@ -241,9 +252,12 @@ async function runStage(key) {
     if (verdict.decisionsForUser.length) return pause(key, `verify#${round}`, verdict.decisionsForUser, { build, verdict, history })
     if (verdict.passed && serious.length === 0) return { stage: key, passed: true, build, verdict, history }
     if (round === 3) return { stage: key, unresolved: true, build, verdict, history }
-    const next = await agent(fixPrompt(key, verdict.issues), { label: `fix:${key}#${round}`, phase: 'Fix', schema: BUILD })
+    const next = await agent(fixPrompt(key, verdict.issues, round), { label: `fix:${key}#${round}`, phase: 'Fix', schema: BUILD })
     if (next) build = next
-    if (next && next.decisionsForUser.length) return pause(key, `fix#${round}`, next.decisionsForUser, { build, history })
+    if (next && next.decisionsForUser.length) {
+      if (!ANSWERED_LATER[key]) return pause(key, `fix#${round}`, next.decisionsForUser, { build, history })
+      log(`${key}: the fixer's question(s) were answered — continuing`)
+    }
   }
   return { stage: key, build, history }
 }
