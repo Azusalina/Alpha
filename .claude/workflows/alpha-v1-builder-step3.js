@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-builder-step3',
   description: 'Step 3 of the Alpha v1 form round: widen build_hands.py in two stages (forearm/wrist/palm, then digits), each built by one agent and verified independently',
-  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 3 (D17, D19), after the step-2 right-hand loop has ended. args: {only?: ["arm","digits"], resume?: true}. Invoke by scriptPath.',
+  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 3 (D17, D19), after the step-2 right-hand loop has ended. args: {only?: ["arm","digits"], resume?: true, answered?: {<stage>: "<the user\'s answer>"}}. Invoke by scriptPath.',
   phases: [
     { title: 'Build', detail: 'one builder per stage; the stages run one after the other because build_hands.py is one shared file' },
     { title: 'Verify', detail: 'independent, skeptical check of each stage' },
@@ -179,7 +179,7 @@ function verifyPrompt(key, build, round) {
 YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of step 3, stage "${key}" (${STAGES[key].title}). Try to find what is wrong. Write only under ${dir}/ (git-ignored scratch); do not edit any other file in the repo.
 
 The stage's items:
-${itemList(key)}
+${itemList(key)}${answeredNote(key)}
 
 Check at least:
 - Rebuild both hands from the committed builder and poses into your scratch directory: blender -b --factory-startup -P assets-source/hands/build_hands.py -- --hand both --out <abs>/assets --masks <abs>/calib --report-dir <abs>/calib --views, with absolute paths under ${dir}/. The fresh masks must be pixel-identical to outputs/qa/calib/<hand>-mask.png and the fresh GLBs byte-identical to public/assets/hand-<hand>.glb: the files on disk must come from the builder and poses on disk.
@@ -196,10 +196,19 @@ ${JSON.stringify(build, null, 2)}`
 }
 
 function fixPrompt(key, issues) {
-  return `${buildPrompt(key)}
+  return `${buildPrompt(key)}${answeredNote(key)}
 
 You are CONTINUING this stage; the current state is on disk (see your scratch log, ${SCRATCH}/build-${key}/progress.md, and git diff). An independent verifier found the problems below. Address every blocker and major (minors if cheap), keep the same constraints, and return BUILD_RESULT describing the FINAL state (not just the delta):
 ${JSON.stringify(issues, null, 2)}`
+}
+
+// Builder questions the user has already answered: args.answered = {<stage>: '<the answer, as recorded in log-v2.md>'}.
+// Such a stage does not pause on its builder's questions, and its verifier and fixer are told the answer.
+const ANSWERED = args?.answered && typeof args.answered === 'object' ? args.answered : {}
+function answeredNote(key) {
+  return ANSWERED[key]
+    ? `\n\nANSWERED BY THE USER: the questions in this stage's builder report (decisionsForUser) have been answered, as recorded in documentations/log/log-v2.md. ${ANSWERED[key]} Treat the answer as settled: do not raise the question again, and judge the stage against it.`
+    : ''
 }
 
 const ONLY = Array.isArray(args?.only) ? args.only : null
@@ -218,7 +227,10 @@ function pause(key, step, decisions, rest) {
 async function runStage(key) {
   let build = await agent(`${buildPrompt(key)}${resumeNote(key)}`, { label: `build:${key}`, phase: 'Build', schema: BUILD })
   if (!build) return { stage: key, error: 'builder returned nothing' }
-  if (build.decisionsForUser.length) return pause(key, 'build', build.decisionsForUser, { build })
+  if (build.decisionsForUser.length) {
+    if (!ANSWERED[key]) return pause(key, 'build', build.decisionsForUser, { build })
+    log(`${key}: the builder's question(s) were answered by the user — continuing`)
+  }
   const history = []
   for (let round = 1; round <= 3; round++) {
     const verdict = await agent(verifyPrompt(key, build, round), { label: `verify:${key}#${round}`, phase: 'Verify', schema: VERIFY })
