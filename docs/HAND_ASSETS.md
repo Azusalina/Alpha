@@ -177,11 +177,13 @@ global voxel remesh cannot make that distinction.
   `head_back` and `phalanx_base` are limited together to −0.5–1.0 and
   0.5–1.0, where every combination keeps the finger attached. Measured on the
   field (the joint's thinnest section as a fraction of the finger's own
-  thickness, over all eight fingers; `outputs/qa/scratch/build-digits/fix/
-  runs/neck-grid.txt`): 0.80 or more at `head_back` 0, 0.55 at the step-3
+  thickness, over all eight fingers; `outputs/qa/calib/evidence/step3/
+  neck-grid.txt`): 0.80 or more at `head_back` 0, 0.55 at the step-3
   demo (`head_back` 1.0, `phalanx_base` 0.8; 0.62 on the left index), 0.45
-  at the corner (1.0, 0.5), which still reads as a thin finger root rather
-  than a neck, and past the range 0.29–0.58 at 1.2, 0.04–0.44 at 1.5 and
+  at the corner (1.0, 0.5) — attached, but there the proximal phalanx
+  leaves the knuckle as a stalk about half as thick as the knuckle mass,
+  with a hard concave crease around it in the ±35° views, so a pose should
+  keep `phalanx_base` at 0.7 or more when the head is set back — and past the range 0.29–0.58 at 1.2, 0.04–0.44 at 1.5 and
   off the hand at 2.0 with 0.5. With the head set back, a `phalanx_base`
   near 1 shows the phalanx's own rounded base as a second, smaller bump
   behind the knuckle (a larger one above 1, which the range excludes);
@@ -291,7 +293,7 @@ All in `PARAMS` at the top of `build_hands.py` (world units unless noted;
 | `pad_size`, `pad_drop` | 0.78, 0.30 | Finger pads. |
 | `tip_cap` | 1.10 | Tip cap length vs tip thickness. |
 | `nail` | True | Build the nail relief at all. |
-| `nail_start`, `nail_tip`, `nail_free` | 0.40, 0.80, 0.60 | Plate from 40 % of the distal phalanx; the soft form has faded out by 80 % of the tip cap, the crisp form (`nail_outline`) ends at 60 % of it. |
+| `nail_tip`, `nail_free` | 0.80, 0.60 | The soft plate has faded out by 80 % of the tip cap, the crisp form (`nail_outline`) ends at 60 % of it. (Where the plate starts, `nail_start`, is a per-digit shape key.) |
 | `nail_width`, `nail_edge` | 0.72, 0.0030 | Plate half-width (× the section) and soft border half-width (world; height and outline are shape keys). |
 | `waist` | 0.07 | Phalanges narrow slightly between joints. |
 | `section_clamp` | (0.75, 2.2) | Limits on 3D half-width vs projected half-width (foreshortened bones). |
@@ -319,9 +321,10 @@ reference px as drawn):
 | `fdi_size`, `fdi_lift`, `fdi_out`, `fdi_from`, `fdi_to` | 0, 0.30, 0.55, 0.15, 0.75 | First dorsal interosseous mass on the index metacarpal's thumb side: size (0 = none), dorsal and radial offsets, extent along wrist → index knuckle. |
 | `palm_heel_px`, `palm_heel_at`, `palm_heel_lat`, `palm_heel_len_px`, `palm_heel_width_px` | 0, 0.22, 0, 40, 45 | Palm-heel mass: height out of the carpus's palmar surface (0 = none), position along the carpus and across the hand, half-length, half-width. |
 | `thumb_root_cap` | 3.0 | The thumb metacarpal's carpal end: a soft cap this long (× its half-thickness there) that fades into the palm. Range 0.2–6. |
-| `thumb_roll_deg` | 72 | The thumb's frame rolled this far from `dorsal` toward the radial side (the thumbnail's orientation). |
+| `thumb_roll_deg` | 72 | The thumb's frame rolled this far from `dorsal` toward the radial side (the thumbnail's orientation). Range −180–180. |
 | `knuckle_rise`, `head_back`, `phalanx_base` | 0, 0, 1.0 | **Per finger.** How far the MCP knuckle's top rises beyond the default bump's (× the head's half-thickness; the knuckle grows as a dome from its base inside the head), the head's set-back behind the joint (same unit), and the proximal phalanx's section where it leaves the knuckle (× the MCP section). Ranges −0.5–0.6, −0.5–1.0 and 0.5–1.0 (every combination keeps the finger attached). |
-| `ip_knuckle_size`, `ip_knuckle_lift` | 0.62, 0.62 | **Per digit.** Dorsal knuckles over PIP/DIP; size 0 = none (a straight back). |
+| `ip_knuckle_size`, `ip_knuckle_lift` | 0.62, 0.62 | **Per digit.** Dorsal knuckles over PIP/DIP; size 0 = none (a straight back). Ranges 0–2. |
+| `nail_start` | 0.40 | **Per digit.** The nail fold (the plate's straight side) as a fraction of the distal phalanx from the DIP; lower = a longer plate. Range 0.1–0.7. |
 | `nail_relief`, `nail_outline` | 0.12, 0 | **Per digit.** Nail-plate height (× the tip's half-thickness; range 0–0.35) and how its distal end is formed: 0 = a soft fade over the fingertip, 1 = a crisp rounded free edge (a D-shaped outline) — for nails that face the camera: on a digit seen side-on the crisp edge puts a corner in the silhouette from a relief of about 0.15. |
 
 Pose-level controls are in the pose files: joint `px`, `z`, `r`, `flat`,
@@ -554,8 +557,8 @@ What the new digit controls can draw, measured on scratch copies of the poses
   drawing to within 3 px and 1 px (mean 0.84 and 0.65 px). The knuckle reads as a
   dome grown out of the head in the ±35° views (the first version of
   `knuckle_rise`, a ball moved outward, gave the same silhouette, 50 over
-  4 px, but a ball with a valley around it; `outputs/qa/scratch/build-digits/
-  fix/crops/knuckle-*-committed-kL1-kA03-kA06.png`).
+  4 px, but a ball with a valley around it; `outputs/qa/calib/evidence/step3/
+  knuckle-{home,yawp35}-committed-kL1-kA03-kA06.png`).
 - *The right index's back.* `ip_knuckle_size` 0 takes the dorsal knuckles off
   the index (PIP 25.1 → 24.3 px, DIP 21.1 → 20.3 px above the bone axis), but
   the top outline keeps its 6.3 px bow, which is the pose: the PIP sits 15 px

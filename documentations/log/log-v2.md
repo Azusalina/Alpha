@@ -5,17 +5,14 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: PAUSED at the user's request — session 5, 2026-09-22 21:10**
-(repo root, `main`). Step 1 is closed (all three foundations verified); step 4
-(the app on the Blender assets) is done. Step 3 (builder, D19): the "arm"
-stage is done and verified; the "digits" stage is built and paused before
-verification on the question that became D20. Step 2 (calibration) is waiting
-for step 3 to finish: the left hand stopped at a contour-p95 plateau (D17:
-builder first, then recalibrate with D18); the right hand passes every gate
-but has a verifier major (kinked finger joints) that the same recalibration
-fixes. Decisions D1–D20 are below. Pick up at "Resume here"; a paste-ready
-prompt is in [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) (out of date —
-predates this pause).
+**Status: IN PROGRESS — session 5, 2026-09-23 20:20** (repo root, `main`).
+Steps 1, 3 and 4 are closed: the three foundations and both step-3 builder
+stages ("arm", "digits") passed independent verification, and the app runs on
+the Blender assets. Step 2 (calibration) now recalibrates both hands on the
+widened builder: the left with D17 and D18, the right with the fix for its
+kinked finger joints. Decisions D1–D22 are below. Pick up at "Resume here";
+[`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
+predates step 3 closing).
 
 ---
 
@@ -488,7 +485,8 @@ consistent; check the ±35° views stay volumetric. Thicken the fingers.
 recalibrated after step 3 — the left with D17 and D18, the right with the
 fix for its kinked finger joints (verifier 1's major).
 
-**3. Builder fixes** (after calibration settles): remove the forearm cuff;
+**3. Builder fixes** — ✅ **closed** (session 5, 2026-09-23). First planned
+for after calibration: remove the forearm cuff;
 keep all A1 acceptance numbers. With D17 and D19 the scope is every builder
 request listed under "Step 2 — calibration runs", in two stages (arm, then
 digits). Runs `wf_75dad007-41f` (stopped by a power-off, 12:37) and
@@ -500,26 +498,39 @@ digits). Runs `wf_75dad007-41f` (stopped by a power-off, 12:37) and
   knuckle span, an anatomical palm (metacarpal plate + hypothenar by default,
   optional thenar/FDI/palm-heel masses), forearm sag and wrist-bump controls;
   the wrist collar and cuff are gone. A1, D9 hold; ~1 min/hand.
-- **digits stage: built, not yet verified.** Items 1, 2, 3, 5, 6 done; item 4
-  (nail relief) partly — see D20. Every shape control resolves per hand (and
-  per digit where relevant) from the pose file's optional `"shape"` object.
-  Paused before `verify:digits#1` on the question that became D20.
-  Full reports: `outputs/qa/calib/reports/step3-{arm,digits}-final.json`.
+- **digits stage: done, passed independent verification in round 2**
+  (session 5, 2026-09-23; same run resumed). Every shape control resolves per
+  hand (and per digit where relevant) from the pose file's optional `"shape"`
+  object. The builder's question became D20 (and D21). `verify:digits#1`
+  failed it on one major — `knuckle_rise` moved a fixed ellipsoid, a ball on
+  the head at 0.3 and a separate shell from 1.25 — which `fix:digits#1` fixed
+  (a dome grown on a fixed base; ranges narrowed so every combination keeps
+  the finger on; the builder checks A1 itself and exits 1 on failure; its
+  first attempt was cut off by the weekly limit of the model the agents then
+  used, the retry ran on the session's current model). Its question became
+  D22. `verify:digits#2` passed it with three minors, fixed by the main
+  session: `nail_start` is now a per-digit shape key (the right thumb's plate
+  was 80–85 % of the drawn D and step 5 exports that outline, D21); the docs
+  describe the `head_back` ≈ 1 / `phalanx_base` ≈ 0.5 corner as it looks (a
+  stalk with a hard crease in the ±35° views) and give the missing ranges;
+  evidence the docs cite is copied from the git-ignored scratch into
+  `outputs/qa/calib/evidence/step3/`. The arm verifier's minors were fixed by
+  the main session too (a forearm sag window must end before the wrist; the
+  CULL comment; triangle-quality numbers read from the mesh report). After
+  each of these main-session changes both hands were rebuilt from the
+  committed poses: A1 and D9 pass, GLBs and contours byte-identical.
+  Reports: `outputs/qa/calib/reports/step3-{arm-final,digits-final,digits-verify1,digits-fix1,digits-verify2}.json`.
 
-**Next**: run `verify:digits#1` (estimated over the user's 10 min / 5 %
-interruption budget, so not run in this turn):
+The step-3 workflow learnt two resume arguments on the way: `answered` (the
+user's answer to a builder's question) and `answeredLater` (to a fixer's);
+both reach only agents that have not run yet, so a resume replays the finished
+agents from cache. Power-offs, user-requested stops, usage limits and server
+overloads all kill running agents; `/tmp` is tmpfs and was wiped three times
+before scratch moved to `outputs/qa/scratch/` (git-ignored).
 
-```text
-Workflow({ scriptPath: ".claude/workflows/alpha-v1-builder-step3.js",
-           args: { resume: true } })
-```
-
-Power-offs and user-requested stops both kill a running workflow; resume with
-the same command. `/tmp` is tmpfs and was wiped three times before scratch
-moved to `outputs/qa/scratch/` (git-ignored).
-
-Afterwards step 2 recalibrates both hands on the new builder
-(`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`).
+**Next — step 2 on the widened builder**
+(`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`; its
+prompts carry D20–D22 and each hand's handoff from the step-3 reports).
 
 **4. Integrate into the app** (main session; files disjoint from step 2, so it
 can run in parallel with it):

@@ -27,7 +27,8 @@ What it does, per hand:
          index, and optional first-dorsal-interosseous and palm-heel masses,
        - finger pads and rounded fingertip caps that end on the pose's tip px,
          with a nail plate on each distal phalanx as a soft relief of the
-         field (no separate solid, so no creases; it fades out inside the cap).
+         field (no separate solid, so no creases) that fades out over the tip
+         cap or, with nail_outline, ends in a crisp rounded free edge.
      Parts are fused with *selective* smooth unions: every digit is filleted into
      the palm, but digits are never blended with each other, so the curled
      fingers stay separate instead of webbing together. Per-hand shape controls
@@ -420,12 +421,12 @@ class NailRelief:
 
     kind = "relief"
 
-    def __init__(self, seg, A0, N0, A1, N1, cap, relief, outline=0.0, name=""):
+    def __init__(self, seg, A0, N0, A1, N1, cap, relief, outline=0.0, start=None, name=""):
         P = PARAMS
         self.P0, self.T, self.b, self.n = seg.P0, seg.T, seg.b, seg.n
         self.L = seg.L
         self.A0, self.N0, self.A1, self.N1 = A0, N0, A1, N1
-        self.u0 = P["nail_start"] * self.L
+        self.u0 = (P["nail_start"] if start is None else float(start)) * self.L
         self.cap = cap
         self.u1 = self.L + P["nail_tip"] * cap
         self.e = P["nail_edge"]
@@ -779,7 +780,7 @@ SHAPE_KEYS = (
     "fdi_size", "fdi_lift", "fdi_out", "fdi_from", "fdi_to",
     "palm_heel_px", "palm_heel_len_px", "palm_heel_width_px", "palm_heel_at", "palm_heel_lat",
     "thumb_root_cap", "thumb_roll_deg", "knuckle_rise", "head_back", "phalanx_base",
-    "ip_knuckle_size", "ip_knuckle_lift", "nail_relief", "nail_outline",
+    "ip_knuckle_size", "ip_knuckle_lift", "nail_relief", "nail_outline", "nail_start",
 )
 
 # keys that may be set per digit: in the pose's "shape" object the value is
@@ -793,6 +794,7 @@ DIGIT_KEYS = {
     "ip_knuckle_lift": DIGITS,
     "nail_relief": DIGITS,
     "nail_outline": DIGITS,
+    "nail_start": DIGITS,
 }
 
 
@@ -807,6 +809,7 @@ SHAPE_RANGES = {
     "thumb_root_cap": (0.2, 6.0), "thumb_roll_deg": (-180.0, 180.0),
     "knuckle_rise": (-0.5, 0.6), "phalanx_base": (0.5, 1.0), "head_back": (-0.5, 1.0),
     "ip_knuckle_size": (0.0, 2.0), "ip_knuckle_lift": (0.0, 2.0), "nail_relief": (0.0, 0.35),
+    "nail_start": (0.1, 0.7),
     "nail_outline": (0.0, 1.0),
     "wrist_crease_px": (0.0, 400.0),
     "forearm_sag_at": (0.0, 1.0), "forearm_sag_width": (0.02, 1.0),
@@ -1158,7 +1161,7 @@ def build_primitives(pose, J):
                 # rounded tip cap, so the fingertip is one rounded end that
                 # reaches the pose's tip px (no overhanging "claw").
                 reliefs.append(NailRelief(seg, A0, N0, A1, N1, cap, S["nail_relief"][f], S["nail_outline"][f],
-                                          name=f"{f}_nail"))
+                                          start=S["nail_start"][f], name=f"{f}_nail"))
             t_prev, n_prev = t, n
         # dorsal knuckles over the interphalangeal joints
         for i in range(1, len(segs)):
