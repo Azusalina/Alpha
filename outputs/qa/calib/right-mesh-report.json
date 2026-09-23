@@ -366,7 +366,11 @@
   },
   "contour_polylines": 10,
   "contour_points": 1527,
-  "build_seconds": 51.8,
+  "build_seconds": 50.8,
+  "a1": {
+    "pass": true,
+    "failures": []
+  },
   "contour_coverage_d9": {
     "hand": "right",
     "mask": "outputs/qa/calib/right-mask.png",

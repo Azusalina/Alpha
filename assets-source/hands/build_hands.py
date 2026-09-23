@@ -118,7 +118,7 @@ PARAMS = {
     "thenar_drop": 0.30,        # thenar centre offset to the palmar side (x palm thickness)
     "arm_extend": 0.60,         # the arm sweep runs on this far past the forearm joint (world)
     "arm_ease": 0.35,           # past the forearm joint the taper eases out over this fraction of arm_extend
-    "arm_end_cap": 0.35,        # cap at the far end of the arm, x its section thickness
+    "arm_end_cap": 0.35,        # cap at the far end of the arm, x its section's half-thickness
     "wrist_round_px": 40.0,     # the section profile's corner at the wrist is rounded over +- this (ref px)
     # ---- per-hand shape controls: a pose file may override these in its
     # optional "shape" object (CONTRACTS section 5, SHAPE_KEYS below); *_px
@@ -134,10 +134,10 @@ PARAMS = {
     "wrist_bump_at_px": 10.0,   # its centre, measured from the wrist toward the elbow
     "wrist_bump_angle_deg": 0.0,    # its position around the section: 0 = dorsal, - = ulnar, + = radial
     "carpus_cap": 1.0,          # carpus half-width <= carpus_cap x half the knuckle span (index-pinky MCP)
-    "carpus_end_cap": 1.0,      # the carpus ends in a rounded cap past the palm joint, x its end thickness
+    "carpus_end_cap": 1.0,      # the carpus ends in a rounded cap past the palm joint, x its end half-thickness
     "meta_base_frac": 0.15,     # the metacarpal plate runs back to this fraction wrist -> knuckles
     "meta_base_thick": 0.88,    # plate thickness at meta_ref_frac, x the wrist section's thickness
-    "meta_base_cap": 3.0,       # the plate's carpal end: a long soft cap, x its thickness there
+    "meta_base_cap": 3.0,       # the plate's carpal end: a long soft cap, x its half-thickness there
     "thenar_size": 1.30,        # thenar mass relative to the thumb CMC section
     "hypothenar_size": 1.0,     # hypothenar mass relative to the little-finger metacarpal's section (0 = none)
     "hypothenar_drop": 0.55,    # its axis sits this far to the palmar side, x the metacarpal's thickness
@@ -156,9 +156,9 @@ PARAMS = {
     "palm_heel_lat": 0.0,       # ... and across the hand: -1 = little-finger edge, +1 = thumb edge (x half the span)
     # digits (log-v2 step 3, digits stage); the keys in DIGIT_KEYS may also be
     # set per digit in the pose's "shape" object
-    "thumb_root_cap": 3.0,      # the thumb metacarpal's carpal end: a long soft cap that fades into the palm, x its thickness
+    "thumb_root_cap": 3.0,      # the thumb metacarpal's carpal end: a long soft cap that fades into the palm, x its half-thickness
     "thumb_roll_deg": 72.0,     # thumbnail faces this far from the dorsal toward the radial side
-    "knuckle_rise": 0.0,        # MCP knuckle stands this far beyond the metacarpal head, x the head's half-thickness
+    "knuckle_rise": 0.0,        # MCP knuckle's top rises this far beyond the default bump's (a taller dome on the same base), x the head's half-thickness
     "phalanx_base": 1.0,        # proximal phalanx section where it leaves the knuckle, x the MCP joint's section
     "head_back": 0.0,           # the head's centre (and its knuckle) sits this far behind the MCP joint, x N_head
     "ip_knuckle_size": 0.62,    # dorsal knuckle over PIP/DIP, relative to the section (0 = none)
@@ -671,8 +671,11 @@ class ArmSweep:
     # lower bound (>= CULL) is returned. CULL exceeds the largest smooth-union
     # radius that can act on the arm's field (k_body 0.045) plus the narrow
     # band (3 voxels), so wherever the hand's field is within the band of zero
-    # every smooth union involving the arm returns the other operand exactly,
-    # and the zero level set is the same as with the exact field.
+    # every smooth union involving the arm returns the other operand exactly.
+    # The zero level set is not bit-identical to the exact field's, though: the
+    # step-3 verifier measured differences up to 8.1e-4 world units (0.2 voxel,
+    # 0.4 px) with a few sign flips at the knuckles and finger roots, through
+    # the chain of smooth unions there — sub-pixel, not visible.
     CULL = 0.06
 
     def _line(self, X, Y, Z, O, t, n, b, L, s0, cap_lo, cap_hi, s_tab, r_tab):
@@ -794,11 +797,16 @@ DIGIT_KEYS = {
 
 
 # allowed ranges of the shape keys (inclusive); a key not listed may take any
-# finite value
+# finite value. The knuckle keys' ranges are chosen so that every combination
+# inside them keeps the finger on the hand: over all eight fingers the joint
+# between the metacarpal head and the proximal phalanx stays at least 0.45 x
+# as thick as the finger (at head_back 2 with phalanx_base 0.5 the finger came
+# off; with the head set back, a phalanx_base above 1 shows the phalanx's
+# rounded base as a second bump behind the knuckle)
 SHAPE_RANGES = {
     "thumb_root_cap": (0.2, 6.0), "thumb_roll_deg": (-180.0, 180.0),
-    "knuckle_rise": (-0.5, 1.5), "phalanx_base": (0.5, 1.5), "head_back": (-0.5, 2.0),
-    "ip_knuckle_size": (0.0, 2.0), "ip_knuckle_lift": (0.0, 2.0), "nail_relief": (0.0, 0.6),
+    "knuckle_rise": (-0.5, 0.6), "phalanx_base": (0.5, 1.0), "head_back": (-0.5, 1.0),
+    "ip_knuckle_size": (0.0, 2.0), "ip_knuckle_lift": (0.0, 2.0), "nail_relief": (0.0, 0.35),
     "nail_outline": (0.0, 1.0),
     "wrist_crease_px": (0.0, 400.0),
     "forearm_sag_at": (0.0, 1.0), "forearm_sag_width": (0.02, 1.0),
@@ -850,6 +858,12 @@ def shape_settings(pose):
     for a, b in (("hypothenar_from", "hypothenar_to"), ("fdi_from", "fdi_to")):
         if S[a] >= S[b]:
             raise ValueError(f'pose "shape": {a} must be smaller than {b}')
+    # ArmProfile.at measures the sag along the forearm piece (0 at the wrist)
+    # without clipping, so a window reaching past 0 would also sag the wrist
+    # fillet and the carpus
+    if (S["forearm_sag_dorsal_px"] or S["forearm_sag_palmar_px"]) and S["forearm_sag_at"] < S["forearm_sag_width"]:
+        raise ValueError('pose "shape": forearm_sag_at must be >= forearm_sag_width '
+                         '(the sag acts on the forearm and must end before the wrist)')
     return S
 
 
@@ -1056,7 +1070,7 @@ def build_primitives(pose, J):
     Acm, Ncm = solve_section(th[0], t_meta, n_thumb0)
     Am1, Nm1 = solve_section(th[1], t_meta, n_thumb0)
     # the metacarpal's carpal end is a long soft cap that fades into the palm:
-    # a rounded end (cap = its own thickness) stood proud of the palm with a
+    # a rounded end (cap = its own half-thickness) stood proud of the palm with a
     # dark groove around it, the thumb "plugged onto" the palm (log-v2 step 3)
     body.append((Seg(th[0].p, th[1].p, n_thumb0, Acm, Ncm, Am1 * 0.95, Nm1 * 0.95,
                      c0=Ncm * S["thumb_root_cap"], c1=Nm1 * 0.8,
@@ -1078,14 +1092,18 @@ def build_primitives(pose, J):
     body.append((web, P["k_thenar"]))
 
     # ---- knuckle prominences (dorsal side of each metacarpal head) ---------
-    # knuckle_rise lifts the prominence out of the head: its top stands that
-    # far (x N_head) beyond where it stands by default, about the head's own
-    # dorsal surface
+    # knuckle_rise grows the prominence out of the head: its top stands that
+    # far (x N_head) beyond where it stands by default (about the head's own
+    # dorsal surface) while its base stays where the default one sits, deep in
+    # the head. So a higher knuckle is a taller dome on the same footprint,
+    # never a ball lifted off the head on a neck (the step-3 first version
+    # translated a fixed ellipsoid: at knuckle_rise >= 1.25 it floated free).
     for f in FINGERS:
         t, n, A_head, N_head = meta[f]["t"], meta[f]["n"], meta[f]["A_head"], meta[f]["N_head"]
-        c = meta[f]["head_c"] + n * N_head * (P["knuckle_lift"] + S["knuckle_rise"][f]) - t * N_head * 0.15
+        rise = S["knuckle_rise"][f]
+        c = meta[f]["head_c"] + n * N_head * (P["knuckle_lift"] + 0.5 * rise) - t * N_head * 0.15
         s_ = P["knuckle_size"]
-        body.append((Ell(c, t, n, at=A_head * s_ * 0.9, ab=A_head * s_, an=N_head * s_ * 0.8,
+        body.append((Ell(c, t, n, at=A_head * s_ * 0.9, ab=A_head * s_, an=N_head * s_ * 0.8 + N_head * 0.5 * rise,
                          name=f"knuckle_{f}"), P["k_knuckle"]))
 
     # ---- digits -------------------------------------------------------------
@@ -2271,9 +2289,31 @@ def build_hand(hand, args):
         "contour_points": int(sum(len(p) for p in polys)),
         "build_seconds": None,
     }
+    report["a1"] = a1_check(report)
     make_joint_graph(hand, pose, J)
     report["build_seconds"] = round(time.time() - t_start, 1)
     return ob, report
+
+
+def a1_check(report):
+    """Review A1 on one built hand (CONTRACTS section 6): one shell, no
+    non-manifold and no boundary edges (on the Blender mesh and on the GLB read
+    back, welded by position), winding agreement > 99.5 %, <= 30k triangles.
+    Returns {"pass": bool, "failures": [...]}; main() exits with status 1 when
+    a hand fails, after writing every output, so the views show why."""
+    g = report["glb_check"]
+    fails = []
+    if report["shells"] != 1:
+        fails.append(f"{report['shells']} shells (a part came off the hand)")
+    if report["non_manifold_edges"] or g["welded_non_manifold_edges"]:
+        fails.append("non-manifold edges")
+    if report["boundary_edges"] or g["welded_boundary_edges"]:
+        fails.append("boundary edges")
+    if not report["winding_agreement_pct"] > 99.5:
+        fails.append(f"winding agreement {report['winding_agreement_pct']} %")
+    if report["triangles"] > 30000:
+        fails.append(f"{report['triangles']} triangles")
+    return {"pass": not fails, "failures": fails}
 
 
 def bmesh_islands(bm):
@@ -2378,6 +2418,10 @@ def main():
         print(json.dumps({k: report[k] for k in ("hand", "vertices", "triangles", "shells",
                                                    "non_manifold_edges", "boundary_edges",
                                                    "winding_agreement_pct", "build_seconds")}))
+        a1 = report["a1"]
+        print(f"[a1] {hand}: {report['shells']} shell(s), {report['non_manifold_edges']} non-manifold / "
+              f"{report['boundary_edges']} boundary edges, winding {report['winding_agreement_pct']} %, "
+              f"{report['triangles']} triangles: " + ("PASS" if a1["pass"] else "FAIL (" + "; ".join(a1["failures"]) + ")"))
     if args.masks_enabled or args.views:
         for hand, ob in built.items():
             others = [o for h, o in built.items() if h != hand]
@@ -2404,8 +2448,25 @@ def main():
         os.makedirs(os.path.dirname(args.blend), exist_ok=True)
         bpy.context.preferences.filepaths.save_version = 0  # no hands.blend1 backup next to the source
         bpy.ops.wm.save_as_mainfile(filepath=args.blend, compress=True)
+    failed = [h for h in hands if not reports[h]["a1"]["pass"]]
+    if failed:
+        # every output is written (so the views show what went wrong), but a
+        # mesh that fails review A1 must not pass for a finished build
+        print(f"[a1] FAILED for {', '.join(failed)}: the outputs above do not meet review A1 "
+              "(CONTRACTS section 6); exit status 1")
+        sys.exit(1)
     print("done")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException:
+        # Blender exits with status 0 after an uncaught error in a -P script:
+        # report it and exit 1, so a bad pose (or any failure) cannot pass for
+        # a finished build in a script
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

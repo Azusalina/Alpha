@@ -1,0 +1,229 @@
+{
+ "stage": "digits",
+ "summary": "This run finished the digits stage after verify-digits-1. The previous attempt was cut off during its doc edits. Its builder was already on disk and matches outputs/qa/scratch/build-digits/fix/src (sha1 ed6a4b0). I checked that builder, finished the docs, added evidence for the thumb-root fold, and rebuilt and scored both hands again from the committed poses.\n\nFix for the verifier's major finding: `knuckle_rise` now grows the MCP knuckle as a dome from a fixed base inside the metacarpal head. The centre moves out by rise/2 and the dorsal half-axis grows by rise/2 × N_head. The old version moved a fixed ellipsoid outward, which gave a ball with a valley at 0.3 and a separate shell from 1.25. The new shape is identical at rise 0, so the committed GLBs stay byte-identical. The ranges are narrower: `knuckle_rise` −0.5–0.6, `head_back` −0.5–1.0, `phalanx_base` 0.5–1.0. Every in-range combination stays attached: 64/64 corner cases, thinnest joint 0.45 × the finger's thickness. The builder now checks review A1 itself: an `[a1]` line and an `a1` field in the mesh report. It exits with status 1 when A1 fails or on any error; before, Blender exited 0 even after an error in the script.\n\nMinor findings:\n- `nail_relief` is capped at 0.35, and the docs say where it misbehaves on digits seen side-on: the crisp outline makes a corner, and a raised relief fills out the tip.\n- The docs are updated in HAND_ASSETS and CONTRACTS §5/§6: the fingertip search, the known limitations, the tip figures, and cap lengths now \"× its half-thickness\".\n- The right thumb-root fold is still there. Tracing the field from the home camera shows why: the long cap hangs over palm that lies 0.05–0.17 world units behind it, because the pose puts the CMC at z 0.24. The fuller right palm from step 2's scratch pose keeps the fold; moving the CMC back shortens it. So it is documented, and whether to keep it is a question for the user below.\n\nThe final state is on disk: A1 and D9 pass on both hands, the build is byte-identical to HEAD and to two earlier builds, and `tsc` is clean.",
+ "items": [
+  {
+   "item": "1 Knuckle prominence (left request 1), including verifier-major fix (knuckle_rise moved a fixed ball outward)",
+   "status": "done",
+   "what": "Three per-finger shape keys: head_back (the metacarpal head's centre and its knuckle sit this far behind the MCP joint, x N_head), knuckle_rise (the knuckle's top rises this far beyond the default bump, x N_head), phalanx_base (the proximal phalanx's section where it leaves the knuckle, x the MCP section; this makes the step down). knuckle_rise now GROWS the knuckle from a fixed base inside the head: Ell centre = head_c + n*N_head*(0.5 + rise/2) - t*0.15*N_head, dorsal half-axis = 0.496*N_head + rise/2*N_head. Its base stays at the head centre for every rise, so it cannot come off the hand; at rise 0 it is identical to the old bump. Ranges: knuckle_rise -0.5..0.6, head_back -0.5..1.0, phalanx_base 0.5..1.0 (every combination stays attached). A value out of range stops the build with exit 1. A GLB that fails A1 (for example more than one shell) now gives [a1] FAIL and exit 1, after all outputs are written. A pose can now keep the index MCP at its reading (592,306) and still draw the knuckle bump and the step down to the finger.",
+   "evidence": "Region x520-640 y215-310 (compare_silhouette boundary rule, tools/region.py). Committed pose: 247 edge px, 208 over 2 px, 114 over 4 px, mean 3.98. Index MCP/PIP at their readings with no controls (runs/v-kdemo0): 221 / 190 over 2/4 px, mean 6.95. Same readings with head_back 1.0, knuckle_rise 0.3, phalanx_base 0.8 and MCP r 32 (fix/runs/kA03, anchored construction): 82 / 62 over 2/4 px, mean 1.98. Whole hand: IoU 0.9618, contour mean 1.718, p95 5.00, max 7.81, index tip 0; only p95 fails. All 62 px over 4 px lie in x520-560, on the back of the hand behind the knuckle. Over the knuckle (x560-600) and the drop (x600-640) the means are 0.84 and 0.65 px. The old ball version (kL1) scored 82/50 but drew a ball with a valley. kA06 (rise 0.6): 134/101, which overshoots at this pose. Crops: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/fix/crops/knuckle-yawp35-committed-kL1-kA03-kA06.png, knuckle-home-committed-kL1-kA03-kA06.png, knuckle-overlay-kA03-vs-kL1-4x.png; 1x: /home/a/Documents/Alpha/outputs/qa/scratch/verify-digits-1/crops/L-yawp35-kL1-vs-kS03-1x.png (the same construction). Attachment scans: fix/runs/conn-knuckle-new-all.txt (new construction attached at every rise -0.5..1.5; the old one came off from 1.25); fix/runs/neck-corners.txt (64/64 range corners attached, thinnest joint 0.45 x the finger at right index hb1 pb.5); fix/runs/neck-grid.txt (outside the range: 0.29-0.58 at hb 1.2, 0.04-0.44 at 1.5, off the hand at 2.0 with pb <= 0.8). Blender corner builds cornerA (kr .6, hb 1, pb .5 on every finger, both hands) and cornerC: 1 shell each, A1 and D9 PASS. Crops for these: fix/crops/cornerA-left-4views.png, cornerA-right-4views.png, cornerC-left-home-yawp35.png, knuckle-yawp35-bounds-kA03-nB1-nB2.png, knuckle-yawp35-hb1-pb-scan.png. Exit status: fix/runs/a1fail (range check off, hb 2 pb .5): 2 shells, [a1] FAIL, rc 1, outputs written. resume/runs/rangefail2 (final builder, head_back.index 1.3): ValueError, rc 1. The committed poses do not set these keys, so their GLBs are byte-identical to HEAD."
+  },
+  {
+   "item": "2 Dorsal IP knuckles per hand (D19 S4)",
+   "status": "done",
+   "what": "ip_knuckle_size and ip_knuckle_lift are per-digit shape keys (defaults 0.62 / 0.62; size 0 = no dorsal PIP/DIP bump, so the back runs straight). pose-right.json sets ip_knuckle_size {index: 0}. The builder part is complete. The home silhouette's top line still bows, but that bow comes from the pose's PIP, not from the knuckle bumps.",
+   "evidence": "Right index dorsal profile (tools/dorsal.py), height above the bone axis: PIP 25.12 -> 24.25 px, DIP 21.10 -> 20.33 px. The bumps are gone in the +35 view: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/final-right-index-yawp35.png, final-right-index-home.png. The top outline keeps a 6.3 px bow because the pose's PIP sits 15 px above its reading with a 13.8 deg bend. A scratch pose with the PIP 6 px lower (0.9 u, runs/v-idemo) straightens it: rms 3.07 -> 1.85 px, max 6.34 -> 4.21 (the reference line itself is 1.11), every gate unchanged. That change is step 2's."
+  },
+  {
+   "item": "3 Thumbnail orientation per hand (D19 S3)",
+   "status": "done",
+   "what": "thumb_roll_deg is a per-hand shape key (default 72, range -180..180). Right pose: 115. Left pose: 72, the value already chosen against the reference.",
+   "evidence": "Nail normals on the final builder (tools/nails.py). Right: n = (+0.02, +0.25, +0.97), 10.5 deg off the home view axis (at 72 it was (+0.08, +0.82, +0.57), 51.3 deg). Plate centre px (926.6, 672.1), inside the reference D (903-950, 652-690). Left: n = (-0.04, -0.04, +1.00), 8.9 deg: D2's large nail faces the viewer. Crops: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/crops/nail-right-home-8x.png, nail-left-home.png, thumbnail-home-variants-4x.png; /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/final-R-home-2x.png, final-L-home-2x.png."
+  },
+  {
+   "item": "4 Nail relief (D19 S3; judged on geometry per D20), including the verifier minor on its range",
+   "status": "done",
+   "what": "nail_relief and nail_outline are per-digit shape keys. nail_outline 1 ends the plate in a crisp rounded free edge at nail_free (0.60) of the tip cap, so the outline is a closed D. Set in the poses: left thumb relief 0.2 + outline 1, right thumb 0.3 + outline 1. nail_relief range narrowed from 0..0.6 to 0..0.35. The docs (HAND_ASSETS Nails and Known limitations, CONTRACTS s5) say to leave digits seen side-on at the default relief and without the crisp outline.",
+   "evidence": "The D-shaped plates read in the solid home renders (crops as in item 3). Plate height: right 3.89 px (baseline 1.83), left 3.09 px. Mesh tips within 2 px of the pose tips, no claw: left 0.33-1.33 (thumb 1.33), right 0.51-1.82 (thumb 0.97). No ridge in the silhouette: left metrics unchanged, right contour mean 5.064 -> 5.045. Side-on limits: crisp outline on every right digit moves the middle tip from 1.41 px to 5.0 / 8.06 / 7.07 / 8.25 px at relief 0.15 / 0.20 / 0.25 / 0.35 (/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/fix/crops/nail-middletip-home-relief-scan-5x.png). Soft relief 0.35 on every right digit (resume/runs/soft35): 1 shell, A1 and D9 PASS, tips 0.52-1.66 px, but the middle tip goes 1.41 -> 5.0 px (gate 3) and each fingertip mask changes by 59-80 px, with no corner (/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/R-middletip-home-committed-soft35-outline35-5x.png)."
+  },
+  {
+   "item": "5 Thumb-root crevice (right verifier), including the verifier minor on the new line",
+   "status": "partly",
+   "what": "New shape key thumb_root_cap (default 3.0, both hands, range 0.2-6). The thumb metacarpal's carpal end is now a long soft cap, 3 x its half-thickness, that fades into the palm. Before it was a rounded end as long as its half-thickness. The proud capsule end, its groove, and the 'plugged-on' look are gone. On the right hand the long cap leaves a soft fold line (an occluding contour) along the thumb's underside, in the home view and the -35 view. It is documented in HAND_ASSETS Known limitations with both views and put to the user below. The left hand has no crevice and no fold.",
+   "evidence": "Home groove box (1160,688)-(1188,724): px below grey 90 31.3 % -> 0.3 %, darkest 39 -> 86. -35 box (773,450)-(826,497): 29.7 % -> 16.6 %. Residual line: inner polyline x1133-1193, y725-728 in hand-right.contour.json. Home box x1135-1211, y718-733: 13.6 % -> 35.3 %, darkest 44 -> 41. In the -35 view it is a slit x704-839, y487-502 (box 700-845 x 480-508: 40.6 % -> 57.9 %). Crops: /home/a/Documents/Alpha/outputs/qa/scratch/verify-digits-1/crops/R-thumbroot-home-boxes-4x.png, R-thumbroot-yawm35-base-vs-final-4x.png; /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/R-home-web-baseline-vs-final-3x.png. Sphere tracer of the builder field (/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/tools/rc.py) reproduces the line: x1127-1194, 135 samples at 2x. Near side z 0.25, palm behind z 0.08-0.19 (gap 0.05-0.17 world). Step 2's fuller right palm (resume/runs/fullpalm) keeps the same line: resume/crops/R-home-thumbroot-committed-vs-fullpalm-3x.png, R-yawm35-thumbroot-committed-vs-fullpalm-3x.png. Moving the CMC to z 0.20 / 0.16 shortens it from 67 px to 43 / 20 px: resume/crops/rc-committed-home.png, rc-cmcz0.2-home.png, rc-cmcz0.16-home.png. Tried and dropped earlier: blend k 0.06, caps 1-2 (the groove comes back), a cap sunk into the carpus (notch, hook). Left: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/L-home-thumbroot-3x.png, build-digits/crops/final-thumbroot-left-home.png."
+  },
+  {
+   "item": "6 Mesh-report fingertip search (tooling bug)",
+   "status": "done",
+   "what": "measure_fingertips searches only the digit's own region: within 2.5 x the DIP radius of the distal axis, at most 1.3 x the distal bone past the DIP, and nearer to this digit's distal bone (surface distance to the bone capsules) than to any bone of another digit.",
+   "evidence": "On the baseline GLB the right thumb went from (810.7, 645.8), delta 90.16 px (the middle fingertip), to (897.0, 671.9), delta 0.14 px (tools/tiptest.py); every other tip is unchanged. Final mesh report: right thumb (897.0, 673.0), delta 0.97; all tips 0.33-1.82 px."
+  },
+  {
+   "item": "Verifier minor: stale HAND_ASSETS / CONTRACTS text",
+   "status": "done",
+   "what": "HAND_ASSETS: the Mesh-report fingertip search now includes the 1.3 x distal cap and the nearest-bone test. Known limitations no longer list the fingertip search, the crevice or the shared thumb_roll_deg as open, and the old line saying the left thumb lacks D2's nail is gone. They now cover the thumb-root fold, nail settings on digits seen side-on, and knuckle_rise above 0.4. The tip claim now reads 0.33-1.33 / 0.51-1.82 px, and says the mesh-tip test cannot see a side-on corner. Cap lengths now read 'x its half-thickness' (thumb_root_cap, meta_base_cap, carpus_end_cap, arm_end_cap) in the PARAMS comments, CONTRACTS s5 and HAND_ASSETS, which matches the code (c0 = Ncm * thumb_root_cap). CONTRACTS s6 documents the mesh-report a1 field, the [a1] line and exit status 1. Build time and determinism dates are updated.",
+   "evidence": "/home/a/Documents/Alpha/docs/HAND_ASSETS.md (Construction: Knuckles, Thumb metacarpal, Nails; Parameters; Mesh report; Current state; Known limitations); /home/a/Documents/Alpha/docs/CONTRACTS.md s5 table and s6; git diff docs/."
+  }
+ ],
+ "metrics": {
+  "note": "Both hands from the committed poses, scored with scripts/compare_silhouette.py. 'before' = the arm-stage final (this stage's baseline, outputs/qa/scratch/build-digits/runs/baseline). 'after' = the final state on disk (outputs/qa/calib). No contour mean moved by more than 0.02 px. The committed poses set only the thumb roll, the thumb nails and the right index ip_knuckle_size, and the new knuckle construction is identical at its defaults. Joint keypoints come from the pose files and are unchanged; all are within their 3u gates. Step 2 recalibrates.",
+  "left_before": {
+   "iou": 0.9582,
+   "contour_mean_px": 1.878,
+   "contour_p95_px": 5,
+   "contour_max_px": 8.485,
+   "negative_space_iou": 0.9101,
+   "tips_px": {
+    "index": 3.16,
+    "middle": 3.16,
+    "ring": 3.61,
+    "pinky": 0
+   },
+   "failing_gates": [
+    "iou",
+    "contour_p95_px",
+    "tip:index_tip"
+   ]
+  },
+  "left_after": {
+   "iou": 0.95822,
+   "contour_mean_px": 1.878,
+   "contour_p95_px": 5,
+   "contour_max_px": 8.485,
+   "negative_space_iou": 0.91004,
+   "tips_px": {
+    "index": 3.16,
+    "middle": 3.16,
+    "ring": 3.61,
+    "pinky": 0
+   },
+   "failing_gates": [
+    "iou",
+    "contour_p95_px",
+    "tip:index_tip"
+   ],
+   "joints_worst": {
+    "thumb_cmc_px": 37.92,
+    "pinky_mcp_px": 29.68,
+    "ring_mcp_px": 26.48,
+    "index_mcp_px": 26.29,
+    "worst_in_units": "index_mcp 2.63u"
+   }
+  },
+  "right_before": {
+   "iou": 0.8946,
+   "contour_mean_px": 5.064,
+   "contour_p95_px": 15.632,
+   "contour_max_px": 30.871,
+   "negative_space_iou": 0.8788,
+   "tips_px": {
+    "index": 1,
+    "middle": 1.41,
+    "ring": 3.16,
+    "pinky": 4.24
+   },
+   "failing_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px"
+   ]
+  },
+  "right_after": {
+   "iou": 0.89485,
+   "contour_mean_px": 5.045,
+   "contour_p95_px": 15.625,
+   "contour_max_px": 30.871,
+   "negative_space_iou": 0.8792,
+   "tips_px": {
+    "index": 1,
+    "middle": 1.41,
+    "ring": 3.16,
+    "pinky": 4.24
+   },
+   "failing_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px"
+   ],
+   "joints_worst": {
+    "thumb_cmc_px": 45.54,
+    "pinky_mcp_px": 31,
+    "index_mcp_px": 21.47,
+    "ring_mcp_px": 18.38,
+    "worst_in_units": "thumb_cmc 1.82u"
+   }
+  },
+  "mesh_tip_delta_px_after": {
+   "left": {
+    "thumb": 1.33,
+    "index": 0.62,
+    "middle": 0.33,
+    "ring": 1.14,
+    "pinky": 1.13
+   },
+   "right": {
+    "thumb": 0.97,
+    "index": 1.82,
+    "middle": 0.51,
+    "ring": 0.7,
+    "pinky": 1.51
+   }
+  },
+  "knuckle_region_left_x520_640_y215_310": {
+   "committed_pose": {
+    "edge_px": 247,
+    "over_2px": 208,
+    "over_4px": 114,
+    "mean_px": 3.98
+   },
+   "readings_no_controls_kdemo0": {
+    "over_2px": 221,
+    "over_4px": 190,
+    "mean_px": 6.95
+   },
+   "readings_with_controls_anchored_kA03": {
+    "over_2px": 82,
+    "over_4px": 62,
+    "mean_px": 1.98,
+    "hand_iou": 0.9618,
+    "hand_mean": 1.718,
+    "hand_p95": 5,
+    "hand_fails": [
+     "contour_p95_px"
+    ]
+   },
+   "old_ball_version_kL1": {
+    "over_2px": 82,
+    "over_4px": 50,
+    "mean_px": 1.97
+   }
+  },
+  "right_fuller_palm_scratch_pose_for_step2": {
+   "shape": "hypothenar_size 1.6 (drop .4, out .5, to .78), fdi_size 1.1 (out .7, from .03, to .87), thenar_size 1.75",
+   "iou": 0.9333,
+   "contour_mean_px": 3.22,
+   "contour_p95_px": 7.616,
+   "failing_gates": []
+  }
+ },
+ "mesh": "A1, both hands from the committed poses (outputs/qa/calib/<hand>-mesh-report.json). Left and right each have 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement 100.0 %, 14 429 vertices / 28 854 triangles (gate ≤ 30k). The GLB read back gives the same: welded 0 boundary / 0 non-manifold edges, winding 1.0. The report's new `a1` field says pass and the builder prints `[a1] PASS` for each hand.\n\nD9, printed by the builder. Left: 100.0 % / 100.0 % covered (4/8-boundary, 2201 / 3133 px), largest uncovered run 0 / 0 px, 0 inner labels on background, PASS (10 outer, 7 inner polylines). Right: 100.0 % / 100.0 % (2234 / 3290 px), run 0 / 0, 0 inner on background, PASS (5 outer, 5 inner).\n\nByte-identical rebuild: the same builder (sha1 ed6a4b0) built both hands three times: at 18:44 into the repo, into fix/runs/rebuild-final, and again as this run's final build. In all three, hand-left.glb, hand-right.glb, hand-left.contour.json and hand-right.contour.json are byte-identical to each other and to HEAD, since the committed poses do not set the knuckle keys. All 12 calib PNGs are pixel-identical (max channel difference 0); only PNG metadata bytes differ. The mesh reports differ from HEAD only in build_seconds and the new a1 field.\n\nBuild time (--hand both --views, no --blend): left 58.5 s, right 50.8 s, 118 s wall. Earlier builds: 56.8 / 48.7 and 55.2 / 47.9 s.",
+ "interface": "Every per-hand setting is a key in the pose file's optional top-level \"shape\" object. The app ignores it: `node_modules/.bin/tsc --noEmit` is clean. A key in DIGIT_KEYS takes either one number (all the digits it covers) or {digit: number}. The knuckle keys cover the four fingers only. An unknown key or digit, a non-finite value, or a value outside SHAPE_RANGES stops the build with a ValueError and exit status 1.\n\nNew keys, with defaults and ranges:\n- `thumb_root_cap`: default 3.0, range 0.2-6. Both hands. Length of the thumb metacarpal's soft carpal cap, × its half-thickness.\n- `thumb_roll_deg`: default 72, range -180..180. Per hand. The thumbnail's orientation.\n- `knuckle_rise`: default 0, range -0.5..0.6. Per finger. How far the knuckle's top rises beyond the default bump, × N_head. It grows as a dome from a fixed base inside the head.\n- `head_back`: default 0, range -0.5..1.0. Per finger. How far the head and knuckle sit behind the MCP joint, × N_head.\n- `phalanx_base`: default 1.0, range 0.5..1.0. Per finger. The proximal phalanx's section where it leaves the knuckle, × the MCP section.\n- `ip_knuckle_size`: default 0.62, range 0..2. Per digit. 0 = no dorsal PIP/DIP bump.\n- `ip_knuckle_lift`: default 0.62, range 0..2. Per digit.\n- `nail_relief`: default 0.12, range 0..0.35. Per digit. Plate height × the tip's half-thickness.\n- `nail_outline`: default 0, range 0..1. Per digit. 0 = soft fade; 1 = crisp rounded free edge, a closed D outline.\n\nNew PARAMS global: `nail_free` 0.60, where the crisp free edge sits on the tip cap.\n\nValues the pose files set (unchanged in this run):\n- Left: thumb_roll_deg 72, nail_relief {thumb 0.2}, nail_outline {thumb 1}.\n- Right: thumb_roll_deg 115, nail_relief {thumb 0.3}, nail_outline {thumb 1}, ip_knuckle_size {index 0}.\n\nBuilder output:\n- The mesh report has a new `a1` field: {pass, failures}.\n- The builder prints one `[a1] <hand>: ... PASS|FAIL (...)` line per hand.\n- Exit status 1 when a hand fails A1 (after all outputs are written) or on any uncaught error.\n\nWhere it is documented:\n- docs/CONTRACTS.md s5: the \"Optional shape object\" table with defaults, ranges and caveats, and the per-digit syntax.\n- docs/CONTRACTS.md s6: the mesh-report a1 field and the fingertip search, plus the A1 paragraph with [a1] and exit 1.\n- docs/HAND_ASSETS.md: Rebuild (the [a1] line and exit status), Construction (Knuckles, Thumb metacarpal, Nails), Parameters (the shape-keys table), Mesh report, Current state, Known limitations.",
+ "files": [
+  "/home/a/Documents/Alpha/assets-source/hands/build_hands.py",
+  "/home/a/Documents/Alpha/docs/HAND_ASSETS.md",
+  "/home/a/Documents/Alpha/docs/CONTRACTS.md",
+  "/home/a/Documents/Alpha/assets-source/hands/pose-left.json (not changed in this run; its shape object is as committed in fe37dea)",
+  "/home/a/Documents/Alpha/assets-source/hands/pose-right.json (not changed in this run; its shape object is as committed in fe37dea)",
+  "/home/a/Documents/Alpha/public/assets/hand-left.glb (regenerated, byte-identical to HEAD)",
+  "/home/a/Documents/Alpha/public/assets/hand-right.glb (regenerated, byte-identical to HEAD)",
+  "/home/a/Documents/Alpha/public/assets/hand-left.contour.json (regenerated, byte-identical to HEAD)",
+  "/home/a/Documents/Alpha/public/assets/hand-right.contour.json (regenerated, byte-identical to HEAD)",
+  "/home/a/Documents/Alpha/outputs/qa/calib/ (masks, views, mesh reports with a1, contour coverage, compare-left/, compare-right/; regenerated)",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/progress.md (one line per experiment)",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/fix/ (verifier-fix experiments: runs/, crops/, tools/)",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/ (this run: tools/rc.py sphere tracer, runs/fullpalm, runs/soft35, runs/rangefail2, crops/, final-build.log)"
+ ],
+ "openIssues": [
+  "The right thumb-root soft fold (item 5) is still there: an occluding contour along the thumb's underside in the home view (x1127-1194, y725-727, ends in a dark point) and the -35 view (a slit x704-839, y487-502). It is a soft concave valley, not a sharp crease, where a thenar crease would be, and the app draws only outer contours. It is put to the user below.",
+  "The committed poses were calibrated on the pre-step-3 builder. They still fail: left IoU 0.958, p95 5.0 px, index tip 3.16 px; right IoU 0.895, contour mean 5.05, p95 15.6. Step 2 recalibrates. On the right, the existing palm controls already pass every right gate on a scratch pose (hypothenar 1.6, fdi 1.1, thenar 1.75: IoU 0.933, mean 3.22, p95 7.62; resume/runs/fullpalm).",
+  "Right index back (item 2): the knuckle bumps are gone, but the home top outline keeps a 6.3 px bow. The bow comes from the pose's PIP, 15 px above its reading. Moving the PIP 6 px down straightens it (rms 3.07 -> 1.85 px). That is a step-2 pose change.",
+  "Left knuckle (item 1) with the controls: the remaining edge px over 4 px are in x520-560, where the back of the hand behind the knuckle is 4-6 px under the drawn line. Step 2 can fix it with the pose and the plate/palm controls. knuckle_rise above about 0.4 reads as a separate round dome in the ±35 views. With head_back ≳ 0.8, a phalanx_base near 1 shows a second small bump. Both limits are documented; check both views when step 2 uses these keys.",
+  "Nail settings are for nails that face the camera. On a digit seen side-on, a relief above the default fills out the tip (soft 0.35: middle tip 1.41 -> 5.0 px, gate 3), and the crisp outline adds a corner from about 0.15. The committed poses raise the relief only on the thumbs.",
+  "Per D20, exporting the nail-outline curve for the particle sampler is step 5's job, together with its only consumer.",
+  "hands.blend was not re-saved (no --blend, as instructed). The main session re-saves it.",
+  "Carried over (step 2): the left pose's knuckle line and its dorsal vector disagree by about 50 deg."
+ ],
+ "decisionsForUser": [
+  {
+   "question": "Fixing item 5 changed the right hand in a way the requests did not ask for. The long thumb-root cap (thumb_root_cap 3) removed the proud capsule end and the groove around it, but it left a thin soft fold line along the right thumb's underside, toward the wrist. In the home view it runs x1127-1194, y725-727 and ends in a dark point about as dark as the old groove (grey 41 vs 39). In the -35 view it is a slit x704-839, y487-502. It is a soft concave valley where a thenar crease would be, not a sharp fold. The line is there because the thumb's base hangs over palm that lies 0.05-0.17 world units behind it: the pose puts the thumb CMC at z 0.24, 0.14 in front of the palm joint. Should the stage keep it?",
+   "options": [
+    "A) Keep the long cap and accept the line as a thenar crease. Step 2 may shorten it by moving the right thumb CMC back in depth where the reference allows: z 0.24 -> 0.20 / 0.16 shortens it from 67 px to 43 / 20 px. The app draws only outer contours, so the line appears only in the solid shading and, on the particle hand, wherever the sampler weights grazing surfaces.",
+    "B) Another builder change now: a thenar mass that fills the depth between the thumb's base and the palm behind it, so the underside runs smoothly into the palm. This changes the thumb base in every view, may move the right hand's lower outline by a few px, and needs its own verification.",
+    "C) Go back to the short rounded cap (thumb_root_cap 1). The line goes, but the proud capsule end and its groove come back (item 5 undone). A pose can already set this per hand."
+   ],
+   "evidence": "Before/after crops: /home/a/Documents/Alpha/outputs/qa/scratch/verify-digits-1/crops/R-thumbroot-home-boxes-4x.png, /home/a/Documents/Alpha/outputs/qa/scratch/verify-digits-1/crops/R-thumbroot-yawm35-base-vs-final-4x.png, /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/R-home-web-baseline-vs-final-3x.png. Home box x1135-1211, y718-733: px below grey 90 13.6 % -> 35.3 %. The old groove box (1160,688)-(1188,724): 31.3 % -> 0.3 %. The line persists with step 2's fuller palm: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/R-home-thumbroot-committed-vs-fullpalm-3x.png, R-yawm35-thumbroot-committed-vs-fullpalm-3x.png. Traced effect of the CMC depth: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/rc-committed-home.png, rc-cmcz0.2-home.png, rc-cmcz0.16-home.png (tool: resume/tools/rc.py). Builder variants already tried (blend k 0.06, caps 1-2, a cap sunk into the carpus): /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/fix/crops/thumbroot-home-committed-tK06c3-4x.png, thumbroot-yawm35-committed-vs-sink12-3x.png, /home/a/Documents/Alpha/outputs/qa/scratch/verify-digits-1/crops/R-thumbroot-home-tc1-15-2-3-4x.png. Left hand, no fold: /home/a/Documents/Alpha/outputs/qa/scratch/build-digits/resume/crops/L-home-thumbroot-3x.png.",
+   "recommendation": "A. The line is a soft valley where the hand has a crease, and it sits on the particle hand, whose outline draws only outer contours. Step 2 has a pose lever for it (the CMC depth). B would add a new form change and another verification cycle for a minor mark, and C undoes item 5.",
+   "blocks": "Nothing else in the digits stage: every other item is finished and on disk. Only B would need another builder change, and it would change the right hand's thumb base before step 2 recalibrates."
+  }
+ ]
+}

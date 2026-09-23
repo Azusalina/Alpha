@@ -106,10 +106,11 @@ is optional; a key left out takes its default from `PARAMS` in
 `build_hands.py` (the value below), so a pose without `shape` builds with the
 defaults. An unknown key, a value that is not a finite number, one outside
 its allowed range (`SHAPE_RANGES` in `build_hands.py`: sizes ≥ 0, fractions
-in [0, 1], lengths > 0, …) or a `_from` not below its `_to` stops the build
-with an error, so a typo cannot silently do nothing. Keys ending in
-`_px` are reference px as drawn, converted to world like a joint's `r` at the
-depth of the joint they belong to (the wrist for the wrist keys, the palm
+in [0, 1], lengths > 0, …; the digit keys' ranges are in the table) or a
+`_from` not below its `_to` stops the build with an error and exit status 1,
+so a typo cannot silently do nothing. Keys ending in `_px` are reference px
+as drawn, converted to world like a joint's `r` at the depth of the joint
+they belong to (the wrist for the wrist keys, the palm
 joint for the palm heel, the mean of wrist and forearm for the sag). What each
 control builds is described in `docs/HAND_ASSETS.md` ("Construction").
 
@@ -126,17 +127,17 @@ stops the build.
 | `forearm_sag_dorsal_px` | 0 | The forearm's dorsal line dips this far at the sag centre (− = bulges out). 0 = straight. |
 | `forearm_sag_palmar_px` | 0 | The same for the palmar line. |
 | `forearm_sag_at` | 0.35 | Sag centre, as a fraction of the way wrist (0) → forearm joint (1). |
-| `forearm_sag_width` | 0.30 | Sag half-width in the same fraction (a smooth cos² bump, zero outside it). |
+| `forearm_sag_width` | 0.30 | Sag half-width in the same fraction (a smooth cos² bump, zero outside it). When a sag is set, `forearm_sag_at` ≥ `forearm_sag_width`: the sag ends before the wrist (the builder refuses the pose otherwise). |
 | `wrist_bump_px` | 0 | Dorsal wrist prominence (the ulnar head): how far it stands out of the arm's surface. 0 = none. |
 | `wrist_bump_at_px` | 10 | Its centre, measured from the middle of the wrist bend toward the elbow. |
 | `wrist_bump_len_px` | 22 | Its half-length along the arm. |
 | `wrist_bump_width_px` | 26 | Its half-width around the arm. |
 | `wrist_bump_angle_deg` | 0 | Where around the arm: 0 = dorsal, − toward the little-finger side, + toward the thumb side. |
 | `carpus_cap` | 1.0 | The carpus's half-width is at most this × half the knuckle span (index to little-finger MCP). The palm joint's `r` and `flat` still give its section, so they set its thickness. |
-| `carpus_end_cap` | 1.0 | The carpus ends in a rounded cap past the palm joint, this × its thickness long. |
+| `carpus_end_cap` | 1.0 | The carpus ends in a rounded cap past the palm joint, this × its half-thickness long. |
 | `meta_base_frac` | 0.15 | The metacarpal plate runs back along its fan lines to this fraction of the way wrist → knuckles. |
 | `meta_base_thick` | 0.88 | Plate thickness where the fan lines pass 30 % of the way wrist → knuckles, × the wrist section's thickness (not the palm joint's). |
-| `meta_base_cap` | 3.0 | The plate's carpal end is a soft cap this × its thickness long. |
+| `meta_base_cap` | 3.0 | The plate's carpal end is a soft cap this × its half-thickness long. |
 | `thenar_size` | 1.30 | Thenar mass, × the thumb CMC section. |
 | `hypothenar_size` | 1.0 | Hypothenar mass along the little-finger metacarpal (the palm's ulnar-palmar border), × that metacarpal's section. 0 = none. |
 | `hypothenar_drop` | 0.55 | Its axis lies this far to the palmar side, × the metacarpal's thickness. |
@@ -151,15 +152,15 @@ stops the build.
 | `palm_heel_lat` | 0 | Across the hand: −1 = little-finger edge, +1 = thumb edge (× half the knuckle span). |
 | `palm_heel_len_px` | 40 | Its half-length along the hand. |
 | `palm_heel_width_px` | 45 | Its half-width across the hand. |
-| `thumb_root_cap` | 3.0 | The thumb metacarpal's carpal end is a soft cap this long (× its thickness there) that fades into the palm. Shorter values bring back the rounded end that stood proud of the palm with a groove around it. |
+| `thumb_root_cap` | 3.0 | The thumb metacarpal's carpal end is a soft cap this long (× its half-thickness there) that fades into the palm. Shorter values bring back the rounded end that stood proud of the palm with a groove around it. Range 0.2–6. |
 | `thumb_roll_deg` | 72 | How far the thumb's frame is rolled from the hand's `dorsal` toward the radial side, so the thumbnail faces away from the palm plane. Chosen per hand against the reference (the nail's normal against the home view axis). |
-| `knuckle_rise` | 0 | **Per digit** (fingers). The MCP knuckle stands this far beyond the metacarpal head's own dorsal surface, × the head's half-thickness. 0 = the pre-step-3 bump, which reaches about the head's surface. |
-| `head_back` | 0 | **Per digit** (fingers). The metacarpal head's centre — and with it the knuckle — sits this far behind the MCP joint, × the head's half-thickness, so a pose can keep the joint where the finger leaves the knuckle and still draw the knuckle behind it. |
-| `phalanx_base` | 1.0 | **Per digit** (fingers). The proximal phalanx's section where it leaves the knuckle, × the MCP joint's section (the head is `meta_head` × that section), i.e. the step down from the knuckle to the finger. |
+| `knuckle_rise` | 0 | **Per digit** (fingers). The MCP knuckle's top stands this far beyond the top of the pre-step-3 bump (which reaches about the metacarpal head's own dorsal surface), × the head's half-thickness. The knuckle grows as a taller dome on the same base, which stays inside the head, so it cannot come off the hand. 0 = the pre-step-3 bump. Range −0.5–0.6; above about 0.4 the dome reads as a separate round bump in the ±35° views. |
+| `head_back` | 0 | **Per digit** (fingers). The metacarpal head's centre — and with it the knuckle — sits this far behind the MCP joint, × the head's half-thickness, so a pose can keep the joint where the finger leaves the knuckle and still draw the knuckle behind it. Range −0.5–1.0: with `phalanx_base` in its range, every combination keeps the finger attached (the joint at least 0.45 × as thick as the finger; at 2 with `phalanx_base` 0.5 the finger came off the hand). |
+| `phalanx_base` | 1.0 | **Per digit** (fingers). The proximal phalanx's section where it leaves the knuckle, × the MCP joint's section (the head is `meta_head` × that section), i.e. the step down from the knuckle to the finger. Range 0.5–1.0; with the head set back (`head_back` ≳ 0.8) a value near 1 shows the phalanx's rounded base as a second, smaller bump behind the knuckle. |
 | `ip_knuckle_size` | 0.62 | **Per digit**. Dorsal knuckle over PIP/DIP, × the section's half-width; **0 = none**, so the back of that digit runs straight. |
 | `ip_knuckle_lift` | 0.62 | **Per digit**. How far that knuckle sits toward the dorsal surface, × the section's half-thickness. |
-| `nail_relief` | 0.12 | **Per digit**. Nail-plate height, × the tip's half-thickness. |
-| `nail_outline` | 0 | **Per digit**. 0 = the plate fades out softly over the fingertip; 1 = it ends in a crisp rounded free edge, so the plate's outline is a closed D (its straight side the nail fold). Values in between blend the two. |
+| `nail_relief` | 0.12 | **Per digit**. Nail-plate height, × the tip's half-thickness. Range 0–0.35. On a digit seen side-on a relief above the default fills out the tip's silhouette (0.35 on every right digit: the middle fingertip's silhouette tip 1.4 → 5.0 px from the reference tip, gate 3), so raise it on nails that face the camera. |
+| `nail_outline` | 0 | **Per digit**. 0 = the plate fades out softly over the fingertip; 1 = it ends in a crisp rounded free edge, so the plate's outline is a closed D (its straight side the nail fold). Values in between blend the two. The crisp edge is for a nail that faces the camera: on a digit seen side-on the free edge lies on the silhouette and puts a corner in it from a `nail_relief` of about 0.15 up. |
 
 A later builder stage may add keys; each is documented in this table before
 the builder reads it.
@@ -174,12 +175,15 @@ construction is described in `docs/HAND_ASSETS.md`.
 | `public/assets/hand-<hand>.glb` | One watertight, 2-manifold shell. +Y up, app world coordinates. Positions + normals only; the app supplies materials. ≤ 30k triangles. |
 | `public/assets/hand-<hand>.contour.json` | `{"polylines": [[[x, y, z], …], …], "meta": [{"kind", "inFrame", "closed"}, …], "metaDefinition", "camera": {…}, …}` — silhouette edges from the home camera, app world, longest polyline first. `meta[i]` describes `polylines[i]`: `kind: "outer"` borders the background (outline + edges of the gaps between digits); `kind: "inner"` is an occluding contour inside the silhouette (a finger in front of another). `inFrame` = fraction of points inside the frame; `closed` = the polyline is a loop. Where the label changes along the silhouette (a gap closing, a part passing behind a nearer one), the two pieces meet at the point where it changes. Source for the drawn outer contour. Coverage (decision D9): the `outer` polylines cover 100 % of the in-frame mask boundary on both hands, largest uncovered run 0 px (gate: ≥ 99.5 %, ≤ 6 px; "in-frame" excludes the pixels where the arm is cut by the frame edge). The builder prints this check as `[d9]`. |
 | `outputs/qa/calib/<hand>-mask.png` | 1644 × 957 silhouette from the home camera, white on black. |
-| `outputs/qa/calib/<hand>-mesh-report.json` | Counts, shells, non-manifold / boundary edges, winding agreement, bbox, projected fingertips vs pose (each searched in its own digit's region, so a short digit's search cannot reach another digit's tip), the D9 coverage, and `shape` (the pose's `shape` object and the resolved per-hand settings the build used, per-digit keys resolved to one value per digit). |
+| `outputs/qa/calib/<hand>-mesh-report.json` | Counts, shells, non-manifold / boundary edges, winding agreement, `a1` (the review-A1 check below: `pass` and its `failures`), bbox, projected fingertips vs pose (each searched in its own digit's region, so a short digit's search cannot reach another digit's tip), the D9 coverage, and `shape` (the pose's `shape` object and the resolved per-hand settings the build used, per-digit keys resolved to one value per digit). |
 | `outputs/qa/calib/<hand>-view-{home,yawp35,yawm35,above}.png` | Shaded views, incl. off-axis (review B1.5: no paper-thin cut-outs). |
 | `assets-source/hands/hands.blend` | Editable source, joint graph kept as its own object. |
 
 Acceptance for every GLB (review A1): 1 shell, 0 non-manifold edges, 0 boundary
-edges, winding agreement > 99.5 %, ≤ 30k triangles.
+edges, winding agreement > 99.5 %, ≤ 30k triangles. The builder prints this
+check per hand as `[a1]` and exits with status 1 when a hand fails it, after
+writing every output (so the views show what went wrong); any other error,
+such as a `shape` value it rejects, also ends it with status 1.
 
 Rebuild:
 
