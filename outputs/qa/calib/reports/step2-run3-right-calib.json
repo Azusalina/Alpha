@@ -1,0 +1,315 @@
+{
+ "hand": "right",
+ "allGatesPass": true,
+ "summary": "Resumed from the paused run's E1 (committed pose + the dR1 palm masses) and its planar-finger work, and finished the calibration on the step-3 builder. Every right gate passes on the final state on disk (R7, rebuilt with --views). The verifier's major is fixed: every finger's PIP and DIP bend now lies in that finger's MCP flexion plane, with sideways parts of 4 deg or less (little finger 46/-61 -> 0/0, middle DIP 40.7 -> 3.3). To do this I solved each finger's depths with a small side-bend tolerance and re-fitted its px and r. The thumb is now straight in projection: its IP is a pure 13.5 deg flexion (side 12.6 -> -0.2) and its MCP side bend went from -16 to -7 deg. The thumb CMC is set back to z 0.17 per D22 (home-view fold 74 -> 47 px), with the metacarpal kept at 49 mm. nail_start thumb = 0.22 puts the nail fold at x 950 (drawn 948-951). The palm was thinned with the step-3 controls (meta_base_thick 0.70 with wrist r 59, palm z .04 / flat .17, hypothenar moved from the palmar to the ulnar side, larger FDI and hypothenar masses): mid-palm is now 31-36 mm (was 31-43). Finger sections are rounder (flat .92/.92/.88/.82). This gives the same drawn width and clears the middle-ring and ring-little overlaps. The little finger's distal part is fuller where the reference is wider. The index PIP is at y 474, not the note's 479, because the drawn top line is curved and 474 fits it better. The index's hinge is now in depth (PIP z .115, DIP z .125), and its tip stays at (807,438), z 0.13. dorsal is unchanged: nothing in the new builder or the fixes needed a change. No D-numbers were added after D22.",
+ "rebuilds": 13,
+ "metrics": {
+  "iou": 0.93275,
+  "precision": 0.96212,
+  "recall": 0.96831,
+  "contour_mean_px": 3.289,
+  "contour_p95_px": 7.616,
+  "contour_max_px": 34.54,
+  "contour_max_where": "reference tail-cut dent (1322-1325, 692-706), outside the ignore zone, not gated; next largest render->ref 23.3 px at the middle/ring pocket (931,608)",
+  "negative_space_iou": 0.86387,
+  "silhouette_tips_px": {
+   "index_tip": 1,
+   "middle_tip": 1,
+   "ring_tip": 1.41,
+   "pinky_tip": 3.16
+  },
+  "tip_gates_px": {
+   "index_tip": 6,
+   "middle_tip": 8,
+   "ring_tip": 8,
+   "pinky_tip": 8
+  },
+  "keypoints_px_vs_gate": {
+   "index_mcp": [
+    21.47,
+    36
+   ],
+   "index_pip": [
+    14.04,
+    30
+   ],
+   "index_dip": [
+    10.63,
+    30
+   ],
+   "middle_mcp": [
+    8.54,
+    45
+   ],
+   "middle_pip": [
+    4.47,
+    30
+   ],
+   "middle_dip": [
+    3.16,
+    24
+   ],
+   "thumb_cmc": [
+    28.28,
+    75
+   ],
+   "thumb_mcp": [
+    13,
+    45
+   ],
+   "thumb_ip": [
+    8,
+    24
+   ],
+   "ring_mcp": [
+    18.38,
+    60
+   ],
+   "ring_pip": [
+    16.12,
+    45
+   ],
+   "ring_dip": [
+    10,
+    30
+   ],
+   "pinky_mcp": [
+    31,
+    60
+   ],
+   "pinky_pip": [
+    16,
+    36
+   ],
+   "pinky_dip": [
+    11.31,
+    30
+   ],
+   "wrist": [
+    0.51,
+    105
+   ]
+  },
+  "worst_joint_u": "index_mcp 1.79 u (gate 3 u)",
+  "start_state_committed_pose_new_builder": {
+   "iou": 0.8949,
+   "contour_mean_px": 5.045,
+   "contour_p95_px": 15.625,
+   "negative_space_iou": 0.8792,
+   "failing": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px"
+   ]
+  },
+  "per_rebuild": {
+   "R1": "IoU .9301 mean 3.374 p95 8.06 neg .8631",
+   "R2": "IoU .9313 mean 3.318 p95 8.06 neg .8616 (views)",
+   "R3": "IoU .9311 mean 3.330 p95 7.62 neg .8650",
+   "R4": "IoU .9322 mean 3.303 p95 7.62 neg .8650",
+   "R5": "IoU .9329 mean 3.281 p95 7.62 neg .8650",
+   "R6": "IoU .9327 mean 3.308 p95 7.62 neg .8643 (views)",
+   "R7": "IoU .9327 mean 3.289 p95 7.62 neg .8639 (views, final)"
+  }
+ },
+ "gates": [
+  {
+   "gate": "iou_min",
+   "value": 0.93275,
+   "threshold": 0.918,
+   "pass": true
+  },
+  {
+   "gate": "contour_mean_max_px",
+   "value": 3.289,
+   "threshold": 3.7,
+   "pass": true
+  },
+  {
+   "gate": "contour_p95_max_px",
+   "value": 7.616,
+   "threshold": 8.9,
+   "pass": true
+  },
+  {
+   "gate": "negative_space_iou_min",
+   "value": 0.86387,
+   "threshold": 0.825,
+   "pass": true
+  },
+  {
+   "gate": "tip:index_tip",
+   "value": 1,
+   "threshold": 6,
+   "pass": true
+  },
+  {
+   "gate": "tip:middle_tip",
+   "value": 1,
+   "threshold": 8,
+   "pass": true
+  },
+  {
+   "gate": "tip:ring_tip",
+   "value": 1.41,
+   "threshold": 8,
+   "pass": true
+  },
+  {
+   "gate": "tip:pinky_tip",
+   "value": 3.16,
+   "threshold": 8,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:index_mcp",
+   "value": 21.47,
+   "threshold": 36,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:index_pip",
+   "value": 14.04,
+   "threshold": 30,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:index_dip",
+   "value": 10.63,
+   "threshold": 30,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:middle_mcp",
+   "value": 8.54,
+   "threshold": 45,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:middle_pip",
+   "value": 4.47,
+   "threshold": 30,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:middle_dip",
+   "value": 3.16,
+   "threshold": 24,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:thumb_cmc",
+   "value": 28.28,
+   "threshold": 75,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:thumb_mcp",
+   "value": 13,
+   "threshold": 45,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:thumb_ip",
+   "value": 8,
+   "threshold": 24,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:ring_mcp",
+   "value": 18.38,
+   "threshold": 60,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:ring_pip",
+   "value": 16.12,
+   "threshold": 45,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:ring_dip",
+   "value": 10,
+   "threshold": 30,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:pinky_mcp",
+   "value": 31,
+   "threshold": 60,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:pinky_pip",
+   "value": 16,
+   "threshold": 36,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:pinky_dip",
+   "value": 11.31,
+   "threshold": 30,
+   "pass": true
+  },
+  {
+   "gate": "keypoint:wrist",
+   "value": 0.51,
+   "threshold": 105,
+   "pass": true
+  }
+ ],
+ "residuals": [],
+ "anatomy": "Before = the committed pose on the step-3 builder; after = final R7. Each bone is given as projected px / 3D px / mm at 2.3 px/mm. THUMB (CMC-MCP, MCP-IP, IP-tip): 115.3/113.5/49.3, 75.4/72.4/31.5, 60.3/56.8/24.7 -> 100.4/112.6/49.0, 67.0/63.9/27.8, 66.1/63.0/27.4. INDEX: 104.8/102.2/44.4, 58.2/56.7/24.7, 46.8/45.6/19.8 -> 104.3/101.7/44.2, 58.5/57.5/25.0, 46.8/45.7/19.9. MIDDLE: 79.6/103.5/45.0, 53.5/62.1/27.0, 64.4/61.2/26.6 -> 87.9/102.7/44.7, 54.6/62.2/27.1, 55.5/62.2/27.0. RING: 77.1/96.6/42.0, 56.0/59.8/26.0, 48.1/48.3/21.0 -> 89.1/97.8/42.5, 52.3/61.8/26.9, 43.3/48.6/21.1. LITTLE: 54.8/75.9/33.0, 46.3/46.3/20.1, 25.0/43.7/19.0 -> 57.0/74.6/32.4, 33.0/42.6/18.5, 37.3/46.5/20.2. Every 3D length is within 6 % of the start, except the thumb's proximal phalanx (-12 %; the IP moved to the nail base) and the thumb's distal (+11 %). BENDS, as flexion/sideways in deg, measured against each finger's MCP flexion plane in the builder's frames (before -> after): index PIP 11.3/8.1 -> 15.4/0.3, DIP -0.8/-0.5 -> -1.1/1.4. Middle PIP 0.1/5.7 -> 11.4/3.9, DIP 32.8/40.7 -> 25.1/3.3; its tip was 9.8 mm off the finger plane and is now 2.0. Ring PIP 23.4/16.5 -> 35.9/1.3, DIP 12.3/5.9 -> -0.4/2.0. Little PIP 32.8/46.4 -> 22.6/0.0, DIP -13.2/-61.4 -> 5.0/0.0 (the zigzag is gone). Thumb MCP 6.7/-16.2 -> 23.9/-6.8, IP 4.7/12.6 -> 13.5/-0.2. MCP flexion/abduction: index 1.7/-6.9 -> -0.4/-3.4, middle 59.9/-18.8 -> 53.3/-13.3, ring 80.4/-6.8 -> 74.5/4.7, little 104.9/-4.4 -> 103.7/-0.9. RADII: r is non-increasing along every chain. Thumb 32/27/27/19 -> 32/26.5/26.5/22; index unchanged 30/24.5/20.5/12.5; middle 28/23/20/13.5 -> 28/22/21.5/12; ring unchanged 28/25/22/13; little 26/19/17/12.5 -> 26/19/18/14. Finger flat 0.85/0.85/0.82/0.78 -> 0.92/0.92/0.88/0.82 (rounder sections, same drawn width). Drawn half-widths now match or exceed the reference everywhere except the index P1 top (reference 3.5 px higher); outputs/qa/scratch/calib-right/tools/xsec.py. KNUCKLES: MCPs unchanged. Spacing 25.9/22.3/21.7 mm; wrist-to-knuckle 133-140 mm. Arc in the hand frame, dorsal mm: index +1.3, middle -2.6, ring 0.0, little +1.2, a nearly straight line (see openIssues). CLEARANCE outside the palm (px): middle-ring -0.7 -> +3.3, ring-little +0.6 -> +0.9, index-middle 4.5 -> 5.4, thumb >= 25 from the middle. No digit passes through another. PALM section (ulnar -> radial, mm): at 0.5 of wrist -> knuckles 33.3/40.4/42.9/41.2/31.2 -> 33.7/35.4/32.9/31.6/30.8, width 71.6 -> 86.1; at 0.3: 31.6/41.6/42.4/40.8/27.9 -> 32.0/39.1/36.2/35.0/29.1. THUMBNAIL normal 10.2 -> 12.5 deg off the view axis. Nail fold x 950, y 653-689; free edge x 902 (drawn D 903-951, 652-690). DIGIT IDENTITY per D1, checked on the renders: the index reaches the contact point; the middle points left under it; the thumb's nail is the only one facing the viewer; the ring descends left of and behind the thumb tip; the little finger descends right of the thumbnail, behind the thumb. VIEWS (outputs/qa/calib/right-view-{home,yawp35,yawm35,above}.png, sheet outputs/qa/scratch/calib-right/crops/views/R7-4views.png): volumetric from every side, with rounded phalanges, knuckles and a full palm; no paper-thin cut-out. The carpus knob and crease and the wrist collar are gone. The thumb-root fold in the home view shrank from 74 to 47 px (D22).",
+ "meshReport": "outputs/qa/calib/right-mesh-report.json, final R7 build: A1 PASS. 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement 100.0 %, 28 854 triangles / 14 429 vertices (<= 30k). Final triangle quality: 0 corners over 150 deg, 1st-percentile minimum angle 30.1 deg. D9 PASS: 100 % / 100 % (4/8-connected), largest uncovered run 0 px, 0 inner points on the background. Mesh-vs-pose fingertips: thumb 2.46, index 1.68, middle 1.04, ring 1.07, little 0.47 px. Build time 64.7 s. Every repo rebuild R1-R7 passed A1 with 1 shell. One scratch pair (E3/E3b) failed A1 with 2 shells: a 1-voxel void in the ring/little root crotch at (966,645), z -0.029. A pinky depth change fixed it before anything reached the repo.",
+ "files": [
+  "/home/a/Documents/Alpha/assets-source/hands/pose-right.json",
+  "/home/a/Documents/Alpha/public/assets/hand-right.glb",
+  "/home/a/Documents/Alpha/public/assets/hand-right.contour.json",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-mask.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-mesh-report.json",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-contour-coverage.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-view-home.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-view-yawp35.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-view-yawm35.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/right-view-above.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-metrics.json",
+  "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-overlay.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-overlay-zoom.png",
+  "/home/a/Documents/Alpha/outputs/qa/calib/compare-right/right-overlay-annotated.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/iterations.md",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/hist/anat-final.json",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/hist/anat-HEAD.json",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/hist/regions-R7.json",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/hist/notes-final.txt",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/views/R7-4views.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/views/R7-home-thumbnail-5x.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/views/R7-yawm35-thumbroot-3x.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/views/HEAD-vs-R6-home-thumbroot.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/views/ref-vs-R2-fingers.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-hand.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-middle.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-ringpinky.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-thumb.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-index.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-palmtop.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/crops/R7-palmbottom.png",
+  "/home/a/Documents/Alpha/outputs/qa/scratch/calib-right/tools/"
+ ],
+ "openIssues": [
+  "Palm thickness is still above the note's ~30 mm near the wrist. At 0.5 of wrist -> knuckles it is 31-35 mm (was 31-43); at 0.3 it is 29-39 mm, up to 39 mm on the ulnar (hypothenar) side (was 28-42). The limit is the drawn palm band. With this depth reading (dorsal (0.459,0.669,-0.585)), the palm's thickness, not its width, fills the band's height. Every thinner variant dropped the dorsal top edge 15-20 px off the drawing: E3d, palm z .06 + meta .8 + fdi_lift .1, IoU 0.916, mean 4.06, fails gates; mb75, mean +0.27 px in the palm box. Going to ~30 mm would take a new orientation reading (the user's call) or a builder change. I did neither.",
+  "The MCP knuckles lie on a nearly straight line, not a convex arch: dorsal offsets index +1.3, middle -2.6, ring 0.0, little +1.2 mm. Arch variants cost 0.25 px mean in the middle/pocket region and left ring-little root voids plus overlaps of -1.1 to -1.8 px (exp-poses/A1.json, A2.json). The current state was kept.",
+  "The little finger's MCP flexion is 104 deg (was 105) against the builder's metacarpal frame. The drawing hangs the little finger straight down while the hand axis points up-left. Keeping MCP flexion <= 95 deg forced 30/17 mm phalanges and side bends. The 5th ray's CMC cupping is not modelled in the plate frame.",
+  "The middle finger's distal segment (DIP to tip, 27.0 mm) equals its middle phalanx (27.1 mm), P3/P1 0.60. The drawn distal segment is long, 55 px projected. The middle MCP is abducted -13 deg at 53 deg flexion.",
+  "Middle/ring pocket (x 905-932, y 605-636): the render leaves a narrow wedge reaching (931,608), while the reference draws a rounder pocket that ends near (915,625). 30 edge px are over 8 px; this is the largest render->ref error, 23.3 px. Root radii did not fix it: w1-w4 gave 0.02 px at most, and w2 made a void.",
+  "Contour max 34.5 px is the reference's tail-cut dent at (1322-1325, 692-706), just outside right-ignore.png; reported before. The wrist's r 55 -> 59 moved it from 30.9 to 34.5 px. The max is not gated.",
+  "Index top line: I set index_pip y to 474, not the step-3 note's 479. The drawn top line is itself curved (2.74 px rms about its own line). With 474 the render follows it at 3.31 px rms, max 5; with 479 it is straighter but 4.34 px rms, max 9 from the drawing. The MCP knuckle still stands 5-7 px above the drawn line at x 1000-1020, even with knuckle_rise index -0.5, and the P1 top is 3-5 px low at x 940-980.",
+  "yawm35 view: a dark concave palm hollow under the thumb base, plus the vertical crease at the thenar/index-metacarpal junction. The crease was already there at HEAD. The old slit-like fold is now a shaded hollow. Crops: crops/views/HEAD-vs-R6-yawm35-thumbroot.png, R7-yawm35-thumbroot-3x.png.",
+  "The thumb's mesh tip is 2.46 px from its pose tip (thumb tip r 22 with nail relief 0.3). That is just over the ~2 px HAND_ASSETS describes. Not gated.",
+  "hands.blend was not re-saved (no --blend, per the task). The main session re-saves it. The contact gap with the left hand is left to the main session; the right index tip stays at (807,438), z 0.13, silhouette tip 1.0 px."
+ ],
+ "builderRequests": [
+  "Enclosed sub-voxel voids between digits that almost touch near their roots. The field outside two nearly touching finger roots and the palm can close into a 1-2 voxel pocket. The level set then gets an extra shell and A1 fails. Evidence: scratch builds exp/E3 and exp/E3b failed A1 with 2 shells, a 3-vertex shell at px (966,645), z -0.029 (tools/shells.py). tools/voids.py finds the same pocket in the SDF, and new ones for ring_mcp r 29-30 (w2) and the arch variants A1/A2. Filling enclosed outside components of the grid before extraction (keep only the outside region connected to the grid border) would remove this failure mode. It would also let the pose put the knuckles on a convex arch (openIssues) without chasing voids.",
+  "The index MCP knuckle bump cannot go lower than knuckle_rise -0.5, the bottom of its range. The bump still stands 5-7 px above the reference's drawn back line at x 1000-1020 (tools/topline.py: deltas -5/-7/-4 px there). D12 reads that back as straight. A lower bound for knuckle_rise, or a way to shrink the dorsal knuckle ellipsoid itself, would let the pose draw it flat."
+ ],
+ "decisionsForUser": []
+}

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-calibrate-poses',
   description: 'Step 2 of the Alpha v1 form round: calibrate each hand pose against the reference masks, then verify each hand independently',
-  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed; run again after step 3 widened the builder). args: {only?: ["left","right"], resume?: true}. Invoke by scriptPath.',
+  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed; run again after step 3 widened the builder). args: {only?: ["left","right"], resume?: true, calibDone?: {<hand>: <repo path of a finished calibrator JSON report>}}. Invoke by scriptPath.',
   phases: [
     { title: 'Calibrate', detail: 'one agent per hand; each edits only its own pose file and rebuilds its own hand' },
     { title: 'Verify', detail: 'independent, skeptical check of each hand' },
@@ -194,7 +194,7 @@ YOU ARE AN INDEPENDENT, SKEPTICAL VERIFIER of the ${hand.toUpperCase()} hand cal
 Set passed=true only if (every gate passes, or the failing gates are a genuine plateau with an accurate residual report) and there is no blocker or major issue — with evidence you produced yourself. A question only the user can decide (see NEW DECISIONS BELONG TO THE USER) goes in decisionsForUser, not in issues: a fixer must not settle it. If the calibrator settled such a question itself, report that as a major issue AND put the question in decisionsForUser.
 
 For reference, the calibrator reported (do not trust it — check):
-${JSON.stringify(calib, null, 2)}`
+${calib.reportFile ? `the JSON report in ${calib.reportFile} (an earlier run's calibrator of this step; read it in full).` : JSON.stringify(calib, null, 2)}`
 }
 
 function fixPrompt(hand, issues) {
@@ -217,8 +217,13 @@ function pause(hand, stage, decisions, rest) {
   return { hand, pausedForUser: true, stage, decisionsForUser: decisions, ...rest }
 }
 
+// args.calibDone[hand]: the repo path of a finished calibrator's JSON report from an
+// earlier run whose resume did not replay it from cache; that hand goes straight to
+// verification, and its verifier reads the report from the file.
 async function runHand(hand) {
-  let calib = await agent(`${calibratePrompt(hand)}${RESUME_NOTE}`, { label: `calibrate:${hand}`, phase: 'Calibrate', schema: CALIB })
+  const done = args?.calibDone?.[hand]
+  if (done) log(`${hand}: calibration taken from ${done} — verifying it`)
+  let calib = done ? { hand, reportFile: done, decisionsForUser: [] } : await agent(`${calibratePrompt(hand)}${RESUME_NOTE}`, { label: `calibrate:${hand}`, phase: 'Calibrate', schema: CALIB })
   if (!calib) return { hand, error: 'calibrator returned nothing' }
   if (calib.decisionsForUser.length) return pause(hand, 'calibrate', calib.decisionsForUser, { calib })
   const history = []
