@@ -117,56 +117,88 @@
       },
       "nail_outline": {
         "thumb": 1
-      }
+      },
+      "forearm_sag_dorsal_px": 8.4536,
+      "forearm_sag_at": 0.2854,
+      "forearm_sag_width": 0.2854,
+      "wrist_bump_px": 10.3584,
+      "wrist_bump_at_px": 8.6768,
+      "wrist_bump_len_px": 35.0011,
+      "wrist_bump_width_px": 43.5375,
+      "palm_heel_px": 34.4517,
+      "palm_heel_at": 0.4096,
+      "palm_heel_len_px": 69.8093,
+      "palm_heel_width_px": 33.996,
+      "head_back": {
+        "index": 0.9015
+      },
+      "knuckle_rise": {
+        "index": 0.2758
+      },
+      "phalanx_base": {
+        "index": 0.7824
+      },
+      "fdi_size": 0.313,
+      "fdi_lift": 0.8615,
+      "fdi_out": 0.2513,
+      "fdi_from": 0.5157,
+      "fdi_to": 1,
+      "hypothenar_from": 0.3,
+      "forearm_sag_palmar_px": 6.0281,
+      "palm_heel_lat": -0.0179,
+      "hypothenar_size": 1.0002,
+      "hypothenar_to": 0.7,
+      "thenar_size": 1.1999,
+      "meta_base_thick": 0.7315
     },
     "used": {
       "wrist_crease_px": 38.0,
-      "forearm_sag_dorsal_px": 0.0,
-      "forearm_sag_palmar_px": 0.0,
-      "forearm_sag_at": 0.35,
-      "forearm_sag_width": 0.3,
-      "wrist_bump_px": 0.0,
-      "wrist_bump_len_px": 22.0,
-      "wrist_bump_width_px": 26.0,
-      "wrist_bump_at_px": 10.0,
+      "forearm_sag_dorsal_px": 8.4536,
+      "forearm_sag_palmar_px": 6.0281,
+      "forearm_sag_at": 0.2854,
+      "forearm_sag_width": 0.2854,
+      "wrist_bump_px": 10.3584,
+      "wrist_bump_len_px": 35.0011,
+      "wrist_bump_width_px": 43.5375,
+      "wrist_bump_at_px": 8.6768,
       "wrist_bump_angle_deg": 0.0,
       "carpus_cap": 1.0,
       "carpus_end_cap": 1.0,
       "meta_base_frac": 0.15,
-      "meta_base_thick": 0.88,
+      "meta_base_thick": 0.7315,
       "meta_base_cap": 3.0,
-      "thenar_size": 1.3,
-      "hypothenar_size": 1.0,
+      "thenar_size": 1.1999,
+      "hypothenar_size": 1.0002,
       "hypothenar_drop": 0.55,
       "hypothenar_out": 0.35,
-      "hypothenar_from": 0.05,
+      "hypothenar_from": 0.3,
       "hypothenar_to": 0.7,
-      "fdi_size": 0.0,
-      "fdi_lift": 0.3,
-      "fdi_out": 0.55,
-      "fdi_from": 0.15,
-      "fdi_to": 0.75,
-      "palm_heel_px": 0.0,
-      "palm_heel_len_px": 40.0,
-      "palm_heel_width_px": 45.0,
-      "palm_heel_at": 0.22,
-      "palm_heel_lat": 0.0,
+      "fdi_size": 0.313,
+      "fdi_lift": 0.8615,
+      "fdi_out": 0.2513,
+      "fdi_from": 0.5157,
+      "fdi_to": 1.0,
+      "palm_heel_px": 34.4517,
+      "palm_heel_len_px": 69.8093,
+      "palm_heel_width_px": 33.996,
+      "palm_heel_at": 0.4096,
+      "palm_heel_lat": -0.0179,
       "thumb_root_cap": 3.0,
       "thumb_roll_deg": 72.0,
       "knuckle_rise": {
-        "index": 0.0,
+        "index": 0.2758,
         "middle": 0.0,
         "ring": 0.0,
         "pinky": 0.0
       },
       "head_back": {
-        "index": 0.0,
+        "index": 0.9015,
         "middle": 0.0,
         "ring": 0.0,
         "pinky": 0.0
       },
       "phalanx_base": {
-        "index": 1.0,
+        "index": 0.7824,
         "middle": 1.0,
         "ring": 1.0,
         "pinky": 1.0
@@ -198,12 +230,19 @@
         "middle": 0.0,
         "ring": 0.0,
         "pinky": 0.0
+      },
+      "nail_start": {
+        "thumb": 0.4,
+        "index": 0.4,
+        "middle": 0.4,
+        "ring": 0.4,
+        "pinky": 0.4
       }
     }
   },
   "raw_extraction": {
-    "vertices": 461452,
-    "faces": 922900,
+    "vertices": 479134,
+    "faces": 958264,
     "non_manifold_edges": 0,
     "boundary_edges": 0,
     "non_manifold_verts": 0
@@ -218,12 +257,12 @@
     "definition": "corner angles in degrees; in_frame = triangles whose centroid projects inside the 1644x957 frame",
     "after_decimation": {
       "triangles": 28854,
-      "max_angle_over_150": 1830,
-      "max_angle_over_165": 448,
-      "min_angle_under_5": 889,
-      "min_angle_under_2": 28,
-      "min_angle_p1": 3.48,
-      "min_angle_median": 28.54
+      "max_angle_over_150": 1513,
+      "max_angle_over_165": 363,
+      "min_angle_under_5": 717,
+      "min_angle_under_2": 25,
+      "min_angle_p1": 3.68,
+      "min_angle_median": 28.37
     },
     "final": {
       "triangles": 28854,
@@ -231,28 +270,28 @@
       "max_angle_over_165": 0,
       "min_angle_under_5": 0,
       "min_angle_under_2": 0,
-      "min_angle_p1": 29.96,
-      "min_angle_median": 47.5
+      "min_angle_p1": 30.04,
+      "min_angle_median": 47.47
     },
     "final_in_frame": {
-      "triangles": 21607,
+      "triangles": 21913,
       "max_angle_over_150": 0,
       "max_angle_over_165": 0,
       "min_angle_under_5": 0,
       "min_angle_under_2": 0,
-      "min_angle_p1": 30.71,
-      "min_angle_median": 47.61
+      "min_angle_p1": 30.41,
+      "min_angle_median": 47.53
     },
     "cleanup_flips_per_pass": [
-      8381,
-      3092,
-      522,
-      78,
-      25
+      8514,
+      2828,
+      484,
+      44,
+      12
     ]
   },
-  "signed_volume": 0.418257,
-  "surface_area": 4.196316,
+  "signed_volume": 0.441181,
+  "surface_area": 4.356934,
   "glb_check": {
     "vertices": 14429,
     "triangles": 28854,
@@ -264,106 +303,106 @@
   "winding_agreement_pct": 100.0,
   "bbox_app": {
     "min": [
-      -2.8141,
-      -0.09226,
-      -0.33834
+      -2.817,
+      -0.0949,
+      -0.34553
     ],
     "max": [
-      -0.07133,
-      1.0844,
-      0.32283
+      -0.07259,
+      1.09991,
+      0.33008
     ],
     "size": [
-      2.74276,
-      1.17665,
-      0.66117
+      2.74441,
+      1.19481,
+      0.67562
     ]
   },
   "fingertips": {
     "thumb": {
       "pose_tip_px": [
-        570.5,
-        463.9
+        571.8,
+        467.5
       ],
       "mesh_tip_px": [
-        569.3,
-        464.5
+        572.0,
+        467.2
       ],
-      "delta_px": 1.33,
+      "delta_px": 0.42,
       "mesh_tip_world": [
-        -0.50197,
-        0.02779,
-        0.25414
+        -0.49729,
+        0.02254,
+        0.24738
       ]
     },
     "index": {
       "pose_tip_px": [
-        785.4,
-        419.9
+        784.8,
+        420.6
       ],
       "mesh_tip_px": [
-        785.6,
-        419.3
+        784.9,
+        420.4
       ],
-      "delta_px": 0.62,
+      "delta_px": 0.19,
       "mesh_tip_world": [
-        -0.07402,
-        0.12047,
-        0.1321
+        -0.07566,
+        0.11837,
+        0.12983
       ]
     },
     "middle": {
       "pose_tip_px": [
-        596.4,
-        522.1
+        596.7,
+        521.8
       ],
       "mesh_tip_px": [
-        596.1,
-        521.9
+        598.0,
+        522.2
       ],
-      "delta_px": 0.33,
+      "delta_px": 1.46,
       "mesh_tip_world": [
-        -0.47021,
-        -0.09039,
-        0.0201
+        -0.48131,
+        -0.09401,
+        -0.14604
       ]
     },
     "ring": {
       "pose_tip_px": [
-        526.1,
-        501.7
+        526.7,
+        502.3
       ],
       "mesh_tip_px": [
-        525.3,
-        500.9
+        527.2,
+        502.0
       ],
-      "delta_px": 1.14,
+      "delta_px": 0.51,
       "mesh_tip_world": [
-        -0.6308,
-        -0.04767,
-        -0.08837
+        -0.64417,
+        -0.05138,
+        -0.23401
       ]
     },
     "pinky": {
       "pose_tip_px": [
         439.3,
-        445.3
+        447.1
       ],
       "mesh_tip_px": [
-        439.0,
-        444.2
+        439.2,
+        446.3
       ],
-      "delta_px": 1.13,
+      "delta_px": 0.81,
       "mesh_tip_world": [
-        -0.82526,
-        0.07386,
-        -0.15931
+        -0.82462,
+        0.06946,
+        -0.15813
       ]
     }
   },
   "contour_polylines": 17,
-  "contour_points": 1483,
-  "build_seconds": 58.5,
+  "contour_points": 1572,
+  "build_seconds": 68.2,
   "a1": {
     "pass": true,
     "failures": []
@@ -377,34 +416,34 @@
     "outer": 10,
     "inner": 7,
     "conn4": {
-      "boundary_px": 2201,
+      "boundary_px": 2219,
       "covered_pct": 100.0,
       "uncovered_px": 0,
       "largest_uncovered_run_px": 0,
       "uncovered_runs": [],
       "boundary_inner_only_px": 0,
       "dist_to_outer_mean_px": 0.411,
-      "dist_to_outer_p95_px": 0.835,
-      "dist_to_outer_max_px": 1.15
+      "dist_to_outer_p95_px": 0.848,
+      "dist_to_outer_max_px": 1.061
     },
     "conn8": {
-      "boundary_px": 3133,
+      "boundary_px": 3137,
       "covered_pct": 100.0,
       "uncovered_px": 0,
       "largest_uncovered_run_px": 0,
       "uncovered_runs": [],
       "boundary_inner_only_px": 0,
-      "dist_to_outer_mean_px": 0.601,
-      "dist_to_outer_p95_px": 1.227,
-      "dist_to_outer_max_px": 1.491
+      "dist_to_outer_mean_px": 0.594,
+      "dist_to_outer_p95_px": 1.216,
+      "dist_to_outer_max_px": 1.556
     },
     "outer_precision": {
-      "mean_px": 0.538,
-      "p95_px": 0.88,
-      "max_px": 2.33,
+      "mean_px": 0.531,
+      "p95_px": 0.878,
+      "max_px": 1.738,
       "points_over_3px": 0
     },
-    "inner_points_in_frame": 147,
+    "inner_points_in_frame": 182,
     "inner_points_on_background": 0,
     "pass": true
   }
