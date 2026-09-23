@@ -1,0 +1,21 @@
+{
+  "winding": {
+    "positive": 145,
+    "negative": 5495,
+    "zero": 0
+  },
+  "seed": {
+    "components": 30000,
+    "mismatches": 30000
+  },
+  "indexJointProjection": {
+    "expected": [
+      785,
+      419
+    ],
+    "actual": [
+      785.4265495166709,
+      419.6859377362681
+    ]
+  }
+}

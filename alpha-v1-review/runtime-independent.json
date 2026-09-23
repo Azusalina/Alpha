@@ -1,0 +1,30 @@
+{
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "viewport": {
+    "width": 1644,
+    "height": 957
+  },
+  "desktopChromePresetViewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "dwell": {
+    "state": "home",
+    "hot": true
+  },
+  "pointer": {
+    "influence": 0.9752886389746218,
+    "world": [
+      0.4764890282131665,
+      -0.3375130616509928,
+      0
+    ],
+    "smoothed": [
+      0.4764890282131665,
+      -0.3375130616509928,
+      0
+    ]
+  },
+  "recovered": 0.0036419789998762544,
+  "errors": []
+}
