@@ -1,7 +1,7 @@
 export const meta = {
   name: 'alpha-v1-calibrate-poses',
   description: 'Step 2 of the Alpha v1 form round: calibrate each hand pose against the reference masks, then verify each hand independently',
-  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed; run again after step 3 widened the builder). args: {only?: ["left","right"], resume?: true, calibDone?: {<hand>: <repo path of a finished calibrator JSON report>}}. Invoke by scriptPath.',
+  whenToUse: 'Alpha v1 round 2, documentations/log/log-v2.md step 2 (after step 1 passed; run again after step 3 widened the builder). args: {only?: ["left","right"], resume?: true, calibDone?: {<hand>: <repo path of a finished calibrator JSON report>}, verdictDone?: {<hand>: <repo path of a paused round-1 verdict>}, answered?: {<hand>: <the answer to its question>}}. Invoke by scriptPath.',
   phases: [
     { title: 'Calibrate', detail: 'one agent per hand; each edits only its own pose file and rebuilds its own hand' },
     { title: 'Verify', detail: 'independent, skeptical check of each hand' },
@@ -16,7 +16,7 @@ const SCRATCH_ABS = `/home/a/Documents/Alpha/${SCRATCH}`
 const CONTEXT = `You are working in the Alpha repo at /home/a/Documents/Alpha (the main checkout, branch main — not a .claude/worktrees path). Alpha v1.0.0 is a React + TypeScript + Vite + three.js desktop-app front end. Its startup page shows two hands from The Creation of Adam: a sculptural human hand (LEFT) entering from the upper left, and a particle hand (RIGHT) entering from the lower right, index fingertips almost touching. The hands are built by a Blender script from one pose file per hand.
 
 Read first:
-- documentations/log/log-v2.md: decisions D1-D24, "Step 2 — calibration runs" and "Resume here" (this run is step 2 again, on the builder that step 3 widened).
+- documentations/log/log-v2.md: decisions D1-D25, "Step 2 — calibration runs" and "Resume here" (this run is step 2 again, on the builder that step 3 widened).
 - The previous step-2 reports, outputs/qa/calib/reports/wf_56bea77e-ccd.*.json (each calibrator's residuals, anatomy and builder requests; the right verifier's findings), and step 3's, outputs/qa/calib/reports/step3-arm-final.json and step3-digits-final.json (what each new control does, demo poses that use them, and the verifiers' notes for this step).
 - docs/CONTRACTS.md (sections 1-8; section 5 lists the optional per-hand builder fields that step 3 added to the pose format) and docs/ACCEPTANCE.md (how each metric is computed and read; the gates and why).
 - docs/HAND_ASSETS.md (how the builder turns a pose into a mesh; what each pose field does, including step 3's new controls).
@@ -43,6 +43,7 @@ DECISIONS CONFIRMED BY THE USER (log-v2.md) — they override anything else here
 - D22 The right thumb-root soft fold (the long thumb_root_cap leaves a soft valley along the thumb's underside, home view about x 1127-1194, y 725-727) is accepted as a thenar crease. Shorten it by moving the right thumb CMC back in depth where the reference allows (z 0.24 -> 0.20 / 0.16 shortens it from 67 px to 43 / 20 px); do not go back to a short thumb_root_cap.
 - D23 Left hand: hinged fingers (candidate A) over D18's ratios. MCP abduction small (at most about 6 deg), PIP/DIP bends in each finger's MCP flexion plane, knuckle line about 11 deg off the lateral axis; the back of the hand faces about 17 deg away from the camera, so palmar flexion brings the curled PIPs toward the camera. Middle 3D P1/P2 about 1.21 and ring about 1.36 are accepted. R7's sideways MCP bends (-64 / -49 deg) are rejected.
 - D24 Left thumb_roll_deg 95 (an exception to D20): the turned back of the hand rolls the thumb frame with it, and 95 keeps the thumbnail facing the viewer (2.3 deg off the camera, as in the reference and D2); the nail's shape, relief and outline are unchanged.
+- D25 Left thumb (verify:left#1's major): straighten it in one bounded refit — MCP sideways bend <= about 12 deg, IP sideways <= about 5 deg, thumb_cmc toward its reading (430,330) — and refit the thenar, palm heel and wrist crease to the palm-heel outline; also move the thumb tip about 9 px back along IP->tip (the verifier's e7: every gate still passes). If the contour p95 then stays above 2.0, keep the committed thumb with the residual recorded (D6), still apply e7, and record as a builder request for a later round: the thenar and palm heel oriented and placed independently of the thumb metacarpal, and the thumb frame taken from the nail rather than the metacarpal direction.
 - Any later D-number in log-v2.md has the same standing.
 
 NEW DECISIONS BELONG TO THE USER. Editing the pose (joint px, z, r, flat, dorsal, and the optional per-hand builder fields of CONTRACTS section 5) to match the reference is your job, not a decision. But if you reach a choice the decisions above do not settle — reading the reference differently from the masks, keypoints or D-decisions; an ambiguous depth or overlap reading; trading anatomy against pixels beyond the constraints; anything about the gates or their derivation; two sources that disagree — do not settle it and do not work around it silently. Put it in decisionsForUser (the question, the options, the evidence with image paths, your recommendation), finish the work that does not depend on it, and return; if it blocks the main structure, return early. The main session asks the user and records the answer as the next D-number. Builder-only changes go in builderRequests (step 3), not here. Leave decisionsForUser empty when there is nothing to ask.
@@ -199,11 +200,14 @@ For reference, the calibrator reported (do not trust it — check):
 ${calib.reportFile ? `the JSON report in ${calib.reportFile} (an earlier run's calibrator of this step; read it in full).` : JSON.stringify(calib, null, 2)}`
 }
 
-function fixPrompt(hand, issues) {
+function fixPrompt(hand, issues, extra = '') {
+  const list = typeof issues === 'string'
+    ? `the verdict in ${issues} (read it in full: its issues, the checks behind them and their evidence paths)`
+    : JSON.stringify(issues, null, 2)
   return `${calibratePrompt(hand)}
 
 You are CONTINUING this calibration; the current state is on disk. An independent verifier found the problems below. Address every blocker and major (minors if cheap), keep the same loop, constraints and stop rule, and return CALIB_RESULT describing the FINAL state (not just the delta):
-${JSON.stringify(issues, null, 2)}`
+${list}${extra}`
 }
 
 const ONLY = Array.isArray(args?.only) ? args.only : null
@@ -228,17 +232,32 @@ async function runHand(hand) {
   let calib = done ? { hand, reportFile: done, decisionsForUser: [] } : await agent(`${calibratePrompt(hand)}${RESUME_NOTE}`, { label: `calibrate:${hand}`, phase: 'Calibrate', schema: CALIB })
   if (!calib) return { hand, error: 'calibrator returned nothing' }
   if (calib.decisionsForUser.length) return pause(hand, 'calibrate', calib.decisionsForUser, { calib })
+  // args.verdictDone[hand]: the repo path of an earlier run's round-1 verdict (JSON) that
+  // paused on a question; args.answered[hand]: the user's answer to it. Round 1 then goes
+  // straight to the fixer, and the fixer and later verifiers are told the answer.
+  const vd = args?.verdictDone?.[hand]
+  const answer = args?.answered?.[hand]
+  const answerNote = answer
+    ? `\n\nTHE USER HAS ANSWERED the question an earlier verifier of this hand raised (recorded in documentations/log/log-v2.md): ${answer}`
+    : ''
   const history = []
   for (let round = 1; round <= 3; round++) {
-    const verdict = await agent(verifyPrompt(hand, calib, round), { label: `verify:${hand}#${round}`, phase: 'Verify', schema: VERIFY })
-    if (!verdict) { history.push({ round, verdict: null }); break }
-    history.push({ round, passed: verdict.passed, gatesAllPass: verdict.gatesAllPass, plateauGenuine: verdict.plateauGenuine, issues: verdict.issues })
-    const serious = verdict.issues.filter((i) => i.severity !== 'minor')
-    log(`${hand} round ${round}: passed=${verdict.passed}, gates=${verdict.gatesAllPass ? 'all pass' : 'some fail'}, plateau=${verdict.plateauGenuine}, ${serious.length} blocker/major`)
-    if (verdict.decisionsForUser.length) return pause(hand, `verify#${round}`, verdict.decisionsForUser, { calib, verdict, history })
-    if (verdict.passed && serious.length === 0) return { hand, calib, verdict, history }
-    if (round === 3) return { hand, calib, verdict, history, unresolved: true }
-    const next = await agent(fixPrompt(hand, verdict.issues), { label: `fix:${hand}#${round}`, phase: 'Fix', schema: CALIB })
+    let verdict
+    if (vd && round === 1) {
+      log(`${hand}: verify#1 taken from ${vd}${answer ? ', with the user\'s answer' : ''}`)
+      verdict = { issues: vd }
+      history.push({ round, verdictFile: vd })
+    } else {
+      verdict = await agent(`${verifyPrompt(hand, calib, round)}${round > 1 ? answerNote : ''}`, { label: `verify:${hand}#${round}`, phase: 'Verify', schema: VERIFY })
+      if (!verdict) { history.push({ round, verdict: null }); break }
+      history.push({ round, passed: verdict.passed, gatesAllPass: verdict.gatesAllPass, plateauGenuine: verdict.plateauGenuine, issues: verdict.issues })
+      const serious = verdict.issues.filter((i) => i.severity !== 'minor')
+      log(`${hand} round ${round}: passed=${verdict.passed}, gates=${verdict.gatesAllPass ? 'all pass' : 'some fail'}, plateau=${verdict.plateauGenuine}, ${serious.length} blocker/major`)
+      if (verdict.decisionsForUser.length) return pause(hand, `verify#${round}`, verdict.decisionsForUser, { calib, verdict, history })
+      if (verdict.passed && serious.length === 0) return { hand, calib, verdict, history }
+      if (round === 3) return { hand, calib, verdict, history, unresolved: true }
+    }
+    const next = await agent(fixPrompt(hand, verdict.issues, answerNote), { label: `fix:${hand}#${round}`, phase: 'Fix', schema: CALIB })
     if (next) calib = next
     if (next && next.decisionsForUser.length) return pause(hand, `fix#${round}`, next.decisionsForUser, { calib, history })
   }
