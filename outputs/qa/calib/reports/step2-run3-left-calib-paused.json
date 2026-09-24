@@ -1,0 +1,337 @@
+{
+ "hand": "left",
+ "pausedForUser": true,
+ "stage": "calibrate",
+ "decisionsForUser": [
+  {
+   "question": "D18 against hinged fingers: which left-hand pose should go into the repo? D18 asked for the curled middle and ring fingers to flex toward the palm at the MCP, with their PIPs 0.10-0.15 further from the camera, so that 3D P1/P2 is 1.4-1.6. D18 was decided on the 2026-09-22 pose, whose back of the hand (18.6 deg toward the camera) did not agree with its own knuckle row (50 deg off). The drawn knuckle row (index high on the right, pinky low on the left, index nearest the camera) together with hinged fingers makes the back of the hand face about 17 deg away from the camera. Then palmar flexion moves the PIPs toward the camera, not away. Also, the finger's flexion plane almost faces the camera, so 3D P1/P2 is close to the drawn 74:60, and the middle ratio reaches only 1.21 while its hidden MCP stays inside its joint gate. The only way to meet D18's numbers inside the gates is R7's: bending the fingers sideways at the knuckle.",
+   "options": [
+    "A: hinged fingers (candidate A). Every gate passes (IoU 0.983, p95 2.0, tips at most 2.24 px). MCP abduction at most 6 deg, finger joints in their hinge planes, knuckle line 11 deg off. The back of the hand faces 17 deg away from the camera. D18 only in part: middle P1/P2 1.21, ring 1.36; the PIPs are 0.06 / 0.085 further from the camera than on 2026-09-22 but in front of their own MCPs. Ready as poses/s7/candA-roll72 or candA-roll95 (see decision 2).",
+    "B: keep R7 (committed). Every gate passes and D18's numbers are met (1.45 / 1.53; PIPs 0.18 / 0.15 behind their MCPs), but through sideways MCP bends of -64 / -49 deg and finger joints up to 23 deg out of their hinge plane. The knuckle line is 51 deg off, and from above the curled fingers hook sideways.",
+    "C: hinged fingers with the hidden middle MCP re-read further up, behind the index knuckle (36-60 px from its reading (612,350)). Middle P1/P2 would reach 1.32-1.40 (anatomy-only solve). This needs a change to assets-source/reference/keypoints.json; as the reference stands, the middle_mcp joint gate would fail. Not built."
+   ],
+   "evidence": "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-views-R7-vs-candA.png (home, +35, -35 and above views: R7 | A roll 72 | A roll 95; the above row shows R7's sideways hooks against A's fingers curled under the palm). /home/a/Documents/Alpha/outputs/qa/scratch/calib-left/crops/r7/ref-fingers-4x-kp.png (reference with keypoints: the middle finger's PIP (630,395), DIP (622,460) and tip (601,523) give projected P2 about 60 px and P3 about 69 px). Numbers: runs/b16_candA_roll72/compare-left/left-metrics.json and outputs/qa/calib/compare-left/left-metrics.json (R7). Anatomy-only solves from g2 with the middle MCP free: 1.35-1.37, but 36-40 px from its reading (iterations.md, run 7). Run 5 found the most pure flexion can give inside the gate is 1.11-1.14 (qB_gate).",
+   "recommendation": "A. It is the only option that meets the task's anatomy constraints (hinged joints, knuckles on a plausible arc) and every gate, and it looks right from every side. It keeps D18's substance: flexion at the MCP toward the palm, and P1 longer than P2 in 3D. Its middle ratio is what this drawing's middle finger allows. D18 would be amended to 'palmar flexion in the hinge plane; P1/P2 as the drawing allows (middle 1.2, ring 1.36)'.",
+   "blocks": "Which pose file goes into assets-source/hands/pose-left.json, and with it the left GLB and contour, the left verifier and the hands.blend re-save. To install A: cp outputs/qa/scratch/calib-left/poses/s7/candA-roll95.pose-left.json (or candA-roll72) to assets-source/hands/pose-left.json, then run the repo build and compare commands; the result reproduces R17 (or R16)."
+  },
+  {
+   "question": "Only if decision 1 is A: may the left thumb_roll_deg change from 72 to 95? D20 keeps the thumbnail settings as set in the pose files unless the silhouette requires a change. Turning the back of the hand also rotates the thumb's frame, because the builder rolls the thumb from the dorsal. So with roll 72 the drawn nail face turns partly edge-on: 25.7 deg from the camera, against 11.6 deg in R7. Roll 95 brings it back to 2.3 deg. D2 identifies the thumb as the digit whose nail faces the viewer.",
+   "options": [
+    "Roll 95 (candA-roll95, R17): the nail faces the viewer as in the reference, 2.3 deg from the camera. Every gate passes (IoU 0.9833, p95 2.0, neg 0.932). The nail's shape, relief and outline stay as step 3 made them; only their frame is turned back to where step 3 had them.",
+    "Roll 72 (candA-roll72, R16): D20 exactly as written. The nail is 25.7 deg from the camera and reads partly as a band across the top of the thumb. Every gate passes (IoU 0.9834, p95 2.0, neg 0.935)."
+   ],
+   "evidence": "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-thumbnail-5x.png (thumbnail at 5x: reference | R7 11.6 deg | A roll 72 25.7 deg | A roll 95 2.3 deg | g3 before the thumb depths were re-solved, 34 deg). Roll sweep on g2: 80 -> 31.5, 90 -> 27.4, 95 -> 26.8 deg (roll alone was not enough; thumb joint depths from tools/nailz.py do the rest, and the thumb bones stay within +-10 % of v0).",
+   "recommendation": "Roll 95. It keeps D2's reading and matches the reference nail. It keeps the nail's orientation in the world, which is what step 3 chose; only the parameter changes, because the dorsal it is measured from changed. The silhouette is unaffected.",
+   "blocks": "Which of the two candidate A files is installed (only if decision 1 is A)."
+  }
+ ],
+ "calib": {
+  "hand": "left",
+  "allGatesPass": true,
+  "summary": "I resumed from run 6's notes. The repo pose is still R7 (committed in f1399d6). It passes every gate, but it bends the middle and ring fingers 64 and 49 deg sideways at the knuckle (MCP), and their finger joints bend up to 23 deg out of their hinge plane. That is the kinked-joint class of defect the right-hand verifier rated major.\n\nThis run finished the anatomy-constrained fit that had been cut off:\n- g3 re-run with a checkpointing wrapper, fit6c.py.\n- The middle tip fixed by a compass search (patsearch6).\n- The thumb depths re-solved so the thumbnail turns back toward the camera.\n\nThe result, candidate A, passes every gate in Blender with hinged fingers:\n- IoU 0.9834, contour mean 0.78 / p95 2.0 px, negative-space IoU 0.935.\n- Tips 2.24 / 1.41 / 2.24 / 1.0 px.\n- MCP sideways bend (abduction) at most 6 deg; finger joints out of their hinge plane at most 0.3 deg.\n- Knuckle line 11 deg off the hand's lateral axis (R7: 51 deg).\n\nThe cost: to line the back of the hand up with the knuckle row as drawn, it has to face about 17 deg away from the camera. Then palmar flexion brings the PIPs toward the camera, not away from it as D18 says. Inside the middle MCP's joint gate, the middle finger's 3D P1/P2 reaches 1.21 (D18 asks 1.4-1.6; the ring is 1.36).\n\nWith thumb_roll_deg kept at 72, the thumbnail also turns from 12 to 26 deg off the camera. Rolling the thumb to 95 (an exception to D20) brings it back to 2 deg.\n\nWhich pose goes into the repo depends on D18 and D20, so the repo keeps R7. The final rebuild (R18, with --views) is of R7 and matches the committed output exactly. Both variants of candidate A are ready to copy in and are verified in Blender.",
+  "rebuilds": 18,
+  "metrics": {
+   "repo_pose_R7_final_build_R18": {
+    "iou": 0.98036,
+    "precision": 0.9711,
+    "recall": 0.9899,
+    "contour_mean_px": 0.911,
+    "contour_p95_px": 2,
+    "contour_max_px": 4.472,
+    "negative_space_iou": 0.92779,
+    "tips_px": {
+     "index_tip": 2.24,
+     "middle_tip": 1.41,
+     "ring_tip": 2.24,
+     "pinky_tip": 3.16
+    },
+    "joints_worst_u": {
+     "wrist": 2.73
+    },
+    "keypoint_max_px": 40.49
+   },
+   "candidateA_roll72_R16": {
+    "iou": 0.98339,
+    "precision": 0.9909,
+    "recall": 0.99235,
+    "contour_mean_px": 0.78,
+    "contour_p95_px": 2,
+    "contour_max_px": 4.472,
+    "negative_space_iou": 0.9348,
+    "tips_px": {
+     "index_tip": 2.24,
+     "middle_tip": 1.41,
+     "ring_tip": 2.24,
+     "pinky_tip": 1
+    },
+    "joints_px_and_u": {
+     "index_mcp": [
+      15.03,
+      1.5
+     ],
+     "index_pip": [
+      5.91,
+      0.99
+     ],
+     "index_dip": [
+      3.36,
+      0.56
+     ],
+     "middle_mcp": [
+      28.65,
+      2.86
+     ],
+     "middle_pip": [
+      3.04,
+      0.51
+     ],
+     "middle_dip": [
+      2.95,
+      0.49
+     ],
+     "ring_mcp": [
+      28.47,
+      2.37
+     ],
+     "ring_pip": [
+      5.16,
+      0.52
+     ],
+     "ring_dip": [
+      15.34,
+      1.92
+     ],
+     "pinky_mcp": [
+      25.84,
+      1.72
+     ],
+     "pinky_pip": [
+      2.09,
+      0.21
+     ],
+     "pinky_dip": [
+      1.5,
+      0.19
+     ],
+     "thumb_cmc": [
+      42.84,
+      2.86
+     ],
+     "thumb_mcp": [
+      18.68,
+      1.87
+     ],
+     "thumb_ip": [
+      13.71,
+      1.71
+     ],
+     "wrist": [
+      22.82,
+      2.85
+     ]
+    },
+    "joint_gate_u": 3
+   },
+   "candidateA_roll95_R17": {
+    "iou": 0.98328,
+    "precision": 0.99154,
+    "recall": 0.9916,
+    "contour_mean_px": 0.788,
+    "contour_p95_px": 2,
+    "contour_max_px": 4.472,
+    "negative_space_iou": 0.93247,
+    "tips_px": {
+     "index_tip": 2.24,
+     "middle_tip": 1.41,
+     "ring_tip": 2.24,
+     "pinky_tip": 1
+    },
+    "joints": "same as R16"
+   },
+   "tip_gates_px": {
+    "index_tip": 3,
+    "middle_tip": 4,
+    "ring_tip": 4,
+    "pinky_tip": 4
+   }
+  },
+  "gates": [
+   {
+    "gate": "iou_min (repo R7)",
+    "value": 0.98036,
+    "threshold": 0.96,
+    "pass": true
+   },
+   {
+    "gate": "contour_mean_max_px (repo R7)",
+    "value": 0.911,
+    "threshold": 2,
+    "pass": true
+   },
+   {
+    "gate": "contour_p95_max_px (repo R7)",
+    "value": 2,
+    "threshold": 2,
+    "pass": true
+   },
+   {
+    "gate": "negative_space_iou_min (repo R7)",
+    "value": 0.92779,
+    "threshold": 0.865,
+    "pass": true
+   },
+   {
+    "gate": "tip:index_tip px (repo R7)",
+    "value": 2.24,
+    "threshold": 3,
+    "pass": true
+   },
+   {
+    "gate": "tip:middle_tip px (repo R7)",
+    "value": 1.41,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "tip:ring_tip px (repo R7)",
+    "value": 2.24,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "tip:pinky_tip px (repo R7)",
+    "value": 3.16,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "joints worst u (repo R7, wrist)",
+    "value": 2.73,
+    "threshold": 3,
+    "pass": true
+   },
+   {
+    "gate": "iou_min (candidate A roll72, R16)",
+    "value": 0.98339,
+    "threshold": 0.96,
+    "pass": true
+   },
+   {
+    "gate": "contour_mean_max_px (candidate A, R16)",
+    "value": 0.78,
+    "threshold": 2,
+    "pass": true
+   },
+   {
+    "gate": "contour_p95_max_px (candidate A, R16)",
+    "value": 2,
+    "threshold": 2,
+    "pass": true
+   },
+   {
+    "gate": "negative_space_iou_min (candidate A, R16)",
+    "value": 0.9348,
+    "threshold": 0.865,
+    "pass": true
+   },
+   {
+    "gate": "tip:index_tip px (candidate A)",
+    "value": 2.24,
+    "threshold": 3,
+    "pass": true
+   },
+   {
+    "gate": "tip:middle_tip px (candidate A)",
+    "value": 1.41,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "tip:ring_tip px (candidate A)",
+    "value": 2.24,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "tip:pinky_tip px (candidate A)",
+    "value": 1,
+    "threshold": 4,
+    "pass": true
+   },
+   {
+    "gate": "joints worst u (candidate A, middle_mcp / thumb_cmc)",
+    "value": 2.86,
+    "threshold": 3,
+    "pass": true
+   },
+   {
+    "gate": "iou_min (candidate A roll95, R17)",
+    "value": 0.98328,
+    "threshold": 0.96,
+    "pass": true
+   },
+   {
+    "gate": "negative_space_iou_min (candidate A roll95, R17)",
+    "value": 0.93247,
+    "threshold": 0.865,
+    "pass": true
+   }
+  ],
+  "residuals": [],
+  "anatomy": "Digit identity follows D2 in every pose: the thumb has the nail facing the viewer, tip at (571,467) vs the reading (562,458) with uncertainty 8 px; the pinky is the short digit curled under the palm, tip at (438,437); the middle tip is the curled digit at (601,523) and the ring tip the one at (532,505); the index is extended, tip at (785,418).\n\n3D phalanx lengths in reference px, P1 / P2 / P3 (projected lengths in parentheses):\n\n| Finger | v0 = 2026-09-22 pose (step start) | R7 (repo) | Candidate A (both rolls) |\n|---|---|---|---|\n| Index | 106.6 / 78.3 / 58.7 (110.5 / 80.7 / 60.2) | 96.9 / 73.1 / 55.3 | 104.3 / 78.9 / 52.3 (106.9 / 80.3 / 53.6) |\n| Middle | 74.2 / 64.4 / 65.5 | 97.2 / 67.0 / 70.3 (proj 54.0 / 64.8 / 68.0) | 75.5 / 62.2 / 70.8 (73.7 / 59.8 / 69.2) |\n| Ring | 66.5 / 62.4 / 60.1 | 93.6 / 61.1 / 62.8 (proj 63.1 / 57.9 / 59.7) | 76.6 / 56.1 / 62.9 (73.8 / 52.8 / 59.7) |\n| Pinky | 59.9 / 37.1 / 29.3 | 60.5 / 33.4 / 26.2 | 64.4 / 34.1 / 26.8 (60.0 / 29.9 / 24.2) |\n| Thumb | 103.7 / 64.2 / 74.2 | 105.6 / 69.0 / 77.7 | 99.1 / 70.7 / 78.7 |\n\n3D P1/P2 ratios:\n\n| Finger | v0 | R7 | Candidate A |\n|---|---|---|---|\n| Index | 1.36 | 1.33 | 1.32 |\n| Middle | 1.15 | 1.45 | 1.21 |\n| Ring | 1.06 | 1.53 | 1.36 |\n| Pinky | 1.61 | 1.81 | 1.89 |\n\nD18 depths: the middle / ring PIPs sit 0.062 / 0.085 world units further from the camera than in v0 (D18 asks 0.10-0.15). Each is 0.021 / 0.012 in front of its own MCP, because the whole knuckle row moved back; MCP flexion is 31 / 47 deg in the hinge plane.\n- R7 put its PIPs 0.177 / 0.150 behind their MCPs by bending them sideways, not by flexion (MCP abduction -63.6 / -49.4 deg).\n- Joint angles in candidate A: MCP abduction index -6.1, middle 4.8, ring 3.4, pinky -4.7 deg; P2/P3 out of the hinge plane at most 0.3 deg.\n- The knuckle line is 11.4 deg off the lateral axis (v0 50.2, R7 51.2).\n- Dorsal [0.324, 0.905, -0.276]: the back of the hand faces up and 17 deg away from the camera (R7 [0.4, 0.86, 0.32], 18.6 deg toward it).\n- Thumbnail angle to the camera: R7 11.6 deg, A with roll 72 25.7 deg, A with roll 95 2.3 deg.\n\nRadii taper from base to tip on every digit:\n\n| Digit | Radii (candidate A) |\n|---|---|\n| Index | 33.7 / 21.3 / 16.4 / 12.1 |\n| Middle | 30.2 / 21.7 / 16.9 / 13.6 |\n| Ring | 25.0 / 17.9 / 17.8 / 11.5 |\n| Pinky | 19.3 / 13.7 / 12.0 / 10.3 |\n| Thumb | 30.8 / 27.9 / 27.8 / 18.0 |\n\nKnuckles in A are spaced along the lateral axis 74 / 64 / 56 px (1.15-1.26 x the sum of neighbouring radii), with a small palmar arch.\n\nViews (--views on R12, R14-R18), sheet outputs/qa/calib/compare-left/decision-views-R7-vs-candA.png:\n- Both poses stay volumetric at +35 and -35 deg. No paper-thin cut-out, and no finger passes through another.\n- From above, R7's middle and ring fingers hook sideways along the knuckle row. Candidate A curls them under the palm like a loose fist, with its knuckles as separate bumps.\n- In A's home view there is a soft groove between the thenar mass and the metacarpal plate, at about x 360-445, y 260-290 (crops/r7/dorsum-ref-R7-R15-2x.png).",
+  "meshReport": "A1 passes on every build this run (R12-R18): 1 shell, 0 non-manifold edges, 0 boundary edges, winding agreement 100.0 %, 28854 triangles. D9 contour coverage is 100 % / 100 % with the largest uncovered run 0 px.\n- Repo (R18, pose R7): outputs/qa/calib/left-mesh-report.json. The GLB and contour JSON are byte-identical to the committed ones, and the mask and views are pixel-identical. Git shows those PNGs and the report as modified only through PNG metadata and build_seconds.\n- Candidate A: runs/b16_candA_roll72/calib/left-mesh-report.json and runs/b17_candA_roll95/calib/left-mesh-report.json, with the same numbers.",
+  "files": [
+   "/home/a/Documents/Alpha/assets-source/hands/pose-left.json (unchanged: R7, commit f1399d6)",
+   "/home/a/Documents/Alpha/public/assets/hand-left.glb (rebuilt from R7, byte-identical)",
+   "/home/a/Documents/Alpha/public/assets/hand-left.contour.json (rebuilt from R7, byte-identical)",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-mesh-report.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-home.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-yawp35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-yawm35.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/left-view-above.png",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/left-metrics.json",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-views-R7-vs-candA.png (new: home/+35/-35/above for R7 | A roll 72 | A roll 95)",
+   "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-thumbnail-5x.png (new: thumbnail for the reference | R7 | A roll 72 | A roll 95 | g3)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/poses/s7/candA-roll72.pose-left.json (candidate A in repo layout; built as R16)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/poses/s7/candA-roll95.pose-left.json (candidate A with thumb_roll_deg 95; built as R17)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/runs/b16_candA_roll72/ and runs/b17_candA_roll95/ (Blender builds, compare output, views)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/iterations.md (run 7 log)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/crops/r7/ (thumb-ref-R7-g2-3x.png, thumbnail-variants-5x.png, views-R7-vs-g3.png, above-R7-vs-R14.png, dorsum-ref-R7-R15-2x.png, ref-fingers-4x-kp.png)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/tools/fit6c.py (fit6 with per-iteration checkpoints)",
+   "/home/a/Documents/Alpha/outputs/qa/scratch/calib-left/tools/nailz.py (thumb depths for the nail's facing)"
+  ],
+  "openIssues": [
+   "The repo still holds R7, pending decision 1. R7 passes every gate but bends the middle and ring fingers 63.6 / 49.4 deg sideways at the MCP, bends their P2 22.8 / 15.1 deg out of the hinge plane, and its knuckle line is 51 deg off. A verifier would likely rate this major, as it did the right hand's kinked joints.",
+   "Candidate A moves the index MCP 13.6-15 px from its reading (592,306); R7 had it 6.9 px away. D17 asked for the knuckle at the reading. It is still inside the gate (1.5 u of 3), and the knuckle bump and step still fit (p95 2.0).",
+   "Candidate A works at the edge of its joint gates: middle_mcp 2.86 u, thumb_cmc 2.86 u and wrist 2.85 u against a gate of 3 u. The hinged anatomy strains against these readings.",
+   "Candidate A's middle distal phalanx is longer than its middle phalanx in 3D (70.8 vs 62.2). The drawing forces this: the finger's segments project to 60 and 69 px, and its flexion plane almost faces the camera.",
+   "Candidate A's home view shows a soft groove between the thenar mass and the metacarpal plate (x 360-445, y 260-290). It is minor, but it is not in the reference.",
+   "compare-left/residual-*.png date from the 2026-09-22 p95 plateau and are stale now that every gate passes. They are tracked in git and were left in place.",
+   "After R18, git shows outputs/qa/calib/left-{mask,view-*}.png and left-mesh-report.json as modified, but only through PNG metadata and build_seconds; the pixels are identical. The main session can commit or restore them."
+  ],
+  "decisionsForUser": [
+   {
+    "question": "D18 against hinged fingers: which left-hand pose should go into the repo? D18 asked for the curled middle and ring fingers to flex toward the palm at the MCP, with their PIPs 0.10-0.15 further from the camera, so that 3D P1/P2 is 1.4-1.6. D18 was decided on the 2026-09-22 pose, whose back of the hand (18.6 deg toward the camera) did not agree with its own knuckle row (50 deg off). The drawn knuckle row (index high on the right, pinky low on the left, index nearest the camera) together with hinged fingers makes the back of the hand face about 17 deg away from the camera. Then palmar flexion moves the PIPs toward the camera, not away. Also, the finger's flexion plane almost faces the camera, so 3D P1/P2 is close to the drawn 74:60, and the middle ratio reaches only 1.21 while its hidden MCP stays inside its joint gate. The only way to meet D18's numbers inside the gates is R7's: bending the fingers sideways at the knuckle.",
+    "options": [
+     "A: hinged fingers (candidate A). Every gate passes (IoU 0.983, p95 2.0, tips at most 2.24 px). MCP abduction at most 6 deg, finger joints in their hinge planes, knuckle line 11 deg off. The back of the hand faces 17 deg away from the camera. D18 only in part: middle P1/P2 1.21, ring 1.36; the PIPs are 0.06 / 0.085 further from the camera than on 2026-09-22 but in front of their own MCPs. Ready as poses/s7/candA-roll72 or candA-roll95 (see decision 2).",
+     "B: keep R7 (committed). Every gate passes and D18's numbers are met (1.45 / 1.53; PIPs 0.18 / 0.15 behind their MCPs), but through sideways MCP bends of -64 / -49 deg and finger joints up to 23 deg out of their hinge plane. The knuckle line is 51 deg off, and from above the curled fingers hook sideways.",
+     "C: hinged fingers with the hidden middle MCP re-read further up, behind the index knuckle (36-60 px from its reading (612,350)). Middle P1/P2 would reach 1.32-1.40 (anatomy-only solve). This needs a change to assets-source/reference/keypoints.json; as the reference stands, the middle_mcp joint gate would fail. Not built."
+    ],
+    "evidence": "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-views-R7-vs-candA.png (home, +35, -35 and above views: R7 | A roll 72 | A roll 95; the above row shows R7's sideways hooks against A's fingers curled under the palm). /home/a/Documents/Alpha/outputs/qa/scratch/calib-left/crops/r7/ref-fingers-4x-kp.png (reference with keypoints: the middle finger's PIP (630,395), DIP (622,460) and tip (601,523) give projected P2 about 60 px and P3 about 69 px). Numbers: runs/b16_candA_roll72/compare-left/left-metrics.json and outputs/qa/calib/compare-left/left-metrics.json (R7). Anatomy-only solves from g2 with the middle MCP free: 1.35-1.37, but 36-40 px from its reading (iterations.md, run 7). Run 5 found the most pure flexion can give inside the gate is 1.11-1.14 (qB_gate).",
+    "recommendation": "A. It is the only option that meets the task's anatomy constraints (hinged joints, knuckles on a plausible arc) and every gate, and it looks right from every side. It keeps D18's substance: flexion at the MCP toward the palm, and P1 longer than P2 in 3D. Its middle ratio is what this drawing's middle finger allows. D18 would be amended to 'palmar flexion in the hinge plane; P1/P2 as the drawing allows (middle 1.2, ring 1.36)'.",
+    "blocks": "Which pose file goes into assets-source/hands/pose-left.json, and with it the left GLB and contour, the left verifier and the hands.blend re-save. To install A: cp outputs/qa/scratch/calib-left/poses/s7/candA-roll95.pose-left.json (or candA-roll72) to assets-source/hands/pose-left.json, then run the repo build and compare commands; the result reproduces R17 (or R16)."
+   },
+   {
+    "question": "Only if decision 1 is A: may the left thumb_roll_deg change from 72 to 95? D20 keeps the thumbnail settings as set in the pose files unless the silhouette requires a change. Turning the back of the hand also rotates the thumb's frame, because the builder rolls the thumb from the dorsal. So with roll 72 the drawn nail face turns partly edge-on: 25.7 deg from the camera, against 11.6 deg in R7. Roll 95 brings it back to 2.3 deg. D2 identifies the thumb as the digit whose nail faces the viewer.",
+    "options": [
+     "Roll 95 (candA-roll95, R17): the nail faces the viewer as in the reference, 2.3 deg from the camera. Every gate passes (IoU 0.9833, p95 2.0, neg 0.932). The nail's shape, relief and outline stay as step 3 made them; only their frame is turned back to where step 3 had them.",
+     "Roll 72 (candA-roll72, R16): D20 exactly as written. The nail is 25.7 deg from the camera and reads partly as a band across the top of the thumb. Every gate passes (IoU 0.9834, p95 2.0, neg 0.935)."
+    ],
+    "evidence": "/home/a/Documents/Alpha/outputs/qa/calib/compare-left/decision-thumbnail-5x.png (thumbnail at 5x: reference | R7 11.6 deg | A roll 72 25.7 deg | A roll 95 2.3 deg | g3 before the thumb depths were re-solved, 34 deg). Roll sweep on g2: 80 -> 31.5, 90 -> 27.4, 95 -> 26.8 deg (roll alone was not enough; thumb joint depths from tools/nailz.py do the rest, and the thumb bones stay within +-10 % of v0).",
+    "recommendation": "Roll 95. It keeps D2's reading and matches the reference nail. It keeps the nail's orientation in the world, which is what step 3 chose; only the parameter changes, because the dorsal it is measured from changed. The silhouette is unaffected.",
+    "blocks": "Which of the two candidate A files is installed (only if decision 1 is A)."
+   }
+  ],
+  "builderRequests": []
+ }
+}
