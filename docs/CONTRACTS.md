@@ -282,6 +282,22 @@ components. For a capture without multisampling, open the dev server with
 The Canvas is `flat` (no tone mapping), so the ID colours come out exact and the
 plaster tone is set by the lights and the material directly.
 
+Inspection for the step-5 checks (`src/app/inspection.ts`, same gate as the
+view modes; absent from normal production builds):
+
+| Member | Returns |
+|---|---|
+| `particleDigest` | `{seed, count, nailCount, hash}` of the particle cloud sampled at load; `hash` = FNV-1a (32 bit, hex) over every per-particle array (home, size, tone, id, dissolve, rim). |
+| `resampleDigest(seed)` | The same digest for a cloud re-sampled in place with `seed`. |
+| `handMesh(hand)` | `{position, normal, index}` of that hand's geometry as GLTFLoader delivered it. |
+
+`tests/acceptance.spec.ts` uses them: A2 (same seed → same hash across a reload
+and in place; another seed → another hash), A1 in the browser (one shell, no
+boundary / non-manifold / misoriented edges, winding ≥ 99.9 %, counts equal to
+the mesh report's `glb_check`), and the pose-match test (a `?tier=low`
+silhouette capture scored by `overlay_check.py`: both hands pass, contact gap
+passes, 0 stray pixels; output in `outputs/qa/form/`).
+
 ## 10. Desktop diagnostics (produced by the Tauri round)
 
 Enabled only when `import.meta.env.DEV` or `VITE_ALPHA_DIAGNOSTICS === '1'`;

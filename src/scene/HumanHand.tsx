@@ -14,7 +14,7 @@
  */
 
 import { useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Color,
   Float32BufferAttribute,
@@ -26,6 +26,8 @@ import {
   ShaderMaterial,
 } from 'three';
 
+import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
+import { inspection } from '../app/inspection';
 import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import { STARTUP, phaseProgress } from '../config/timing';
@@ -58,6 +60,10 @@ export function HumanHand() {
   }, [source, rig]);
 
   const lines = useMemo(() => buildConstructionGeometry(rig, contour), [rig, contour]);
+
+  useEffect(() => {
+    if (DIAGNOSTICS_ENABLED) inspection.meshes.left = source;
+  }, [source]);
 
   const groupRef = useRef<Group>(null);
 

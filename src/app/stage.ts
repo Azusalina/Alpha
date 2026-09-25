@@ -13,7 +13,9 @@
  */
 
 import type { QualitySettings } from '../config/quality';
+import type { HandSide } from '../hand/skeleton';
 import { configureDiagnostics, DIAGNOSTICS_ENABLED, measureFrames } from './diagnostics';
+import { inspection, meshArrays } from './inspection';
 
 export type SceneState =
   | 'loading'
@@ -178,6 +180,21 @@ export function installDevInspector(extra: Record<string, unknown> = {}): void {
      */
     measureFrames(sampleCount = 240) {
       return measureFrames(sampleCount);
+    },
+    /** Digest of the particle cloud as sampled at load (review A2): seed, counts, hash. */
+    get particleDigest() {
+      return inspection.particles;
+    },
+    /** Re-sample the particle hand with `seed` and return that cloud's digest. */
+    resampleDigest(seed: number) {
+      if (!inspection.resample) throw new Error('the particle hand has not been sampled yet');
+      return inspection.resample(seed);
+    },
+    /** The hand's geometry as the browser loaded it from its GLB: position, normal, index. */
+    handMesh(hand: HandSide) {
+      const g = inspection.meshes[hand];
+      if (!g) throw new Error(`the ${hand} hand's geometry has not loaded yet`);
+      return meshArrays(g);
     },
     ...extra,
   };

@@ -10,7 +10,7 @@
  */
 
 import { useFrame, useThree } from '@react-three/fiber';
-import { useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import {
   BufferGeometry,
   Color,
@@ -23,6 +23,8 @@ import {
   Vector3,
 } from 'three';
 
+import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
+import { digestCloud, inspection } from '../app/inspection';
 import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
@@ -58,7 +60,13 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const viewMode = useViewMode();
 
   const geometry = useMemo(() => {
-    const cloud = sampleParticleHand(source, rig, QUALITY[tier].particleCount, SCENE_SEED, contour.nails ?? []);
+    const count = QUALITY[tier].particleCount;
+    const nails = contour.nails ?? [];
+    const cloud = sampleParticleHand(source, rig, count, SCENE_SEED, nails);
+    if (DIAGNOSTICS_ENABLED) {
+      inspection.particles = digestCloud(cloud);
+      inspection.resample = (seed) => digestCloud(sampleParticleHand(source, rig, count, seed, nails));
+    }
     const toward = dissipationDirection(rig);
 
     const scatter = new Float32Array(cloud.count * 3);
@@ -81,6 +89,10 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.computeBoundingSphere();
     return g;
   }, [source, contour, rig, tier]);
+
+  useEffect(() => {
+    if (DIAGNOSTICS_ENABLED) inspection.meshes.right = source;
+  }, [source]);
 
   /** Dev view modes (docs/CONTRACTS.md §9) show the mesh the particles are sampled from. */
   const solidMaterial = useMemo(
