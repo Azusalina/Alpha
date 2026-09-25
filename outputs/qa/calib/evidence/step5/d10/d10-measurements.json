@@ -1,0 +1,240 @@
+{
+ "method": "scripts/reference_masks.py right-mask rule (compact dots, sigma 7 px, level 6.5 / 1000 px^2, smoothing 4, pull-in 2, D12 bridge) applied to a full-mode home capture (SwiftShader Chromium, clock frozen), scored by compare_silhouette.compare() against assets-source/reference/right-mask.png; IoU also against the app's own mesh silhouette",
+ "runs": {
+  "tier_low": {
+   "iou": 0.78434,
+   "contour_mean_px": 9.029,
+   "contour_p95_px": 42.338,
+   "negative_space_iou": 0.74688,
+   "tips_px": {
+    "index_tip": 3.16,
+    "middle_tip": 7.07,
+    "ring_tip": 7.81,
+    "pinky_tip": 6.32
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.5453,
+   "band_density_app": 14.34097957611084,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_low_seed_1": {
+   "iou": 0.85735,
+   "contour_mean_px": 6.863,
+   "contour_p95_px": 24.116,
+   "negative_space_iou": 0.77665,
+   "tips_px": {
+    "index_tip": 2.83,
+    "middle_tip": 2.24,
+    "ring_tip": 5.39,
+    "pinky_tip": 1.0
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.6362,
+   "band_density_app": 14.69163703918457,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_low_seed_2": {
+   "iou": 0.77025,
+   "contour_mean_px": 10.069,
+   "contour_p95_px": 47.381,
+   "negative_space_iou": 0.78772,
+   "tips_px": {
+    "index_tip": 15.26,
+    "middle_tip": 5.1,
+    "ring_tip": 4.24,
+    "pinky_tip": 5.1
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou",
+    "tip:index_tip"
+   ],
+   "iou_vs_app_mesh": 0.5267,
+   "band_density_app": 13.840843200683594,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium": {
+   "iou": 0.87656,
+   "contour_mean_px": 5.73,
+   "contour_p95_px": 12.042,
+   "negative_space_iou": 0.69488,
+   "tips_px": {
+    "index_tip": 5.39,
+    "middle_tip": 5.0,
+    "ring_tip": 7.07,
+    "pinky_tip": 2.24
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.8763,
+   "band_density_app": 14.575552940368652,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_seed_1": {
+   "iou": 0.87225,
+   "contour_mean_px": 6.554,
+   "contour_p95_px": 20.854,
+   "negative_space_iou": 0.67841,
+   "tips_px": {
+    "index_tip": 2.83,
+    "middle_tip": 4.47,
+    "ring_tip": 3.0,
+    "pinky_tip": 4.0
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.8979,
+   "band_density_app": 15.815031051635742,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_seed_2": {
+   "iou": 0.88664,
+   "contour_mean_px": 5.097,
+   "contour_p95_px": 14.073,
+   "negative_space_iou": 0.74062,
+   "tips_px": {
+    "index_tip": 6.4,
+    "middle_tip": 1.0,
+    "ring_tip": 5.1,
+    "pinky_tip": 4.24
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou",
+    "tip:index_tip"
+   ],
+   "iou_vs_app_mesh": 0.9143,
+   "band_density_app": 13.882440567016602,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_seed_3": {
+   "iou": 0.87067,
+   "contour_mean_px": 6.297,
+   "contour_p95_px": 20.274,
+   "negative_space_iou": 0.67993,
+   "tips_px": {
+    "index_tip": 3.0,
+    "middle_tip": 2.24,
+    "ring_tip": 3.61,
+    "pinky_tip": 3.0
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.9059,
+   "band_density_app": 14.644912719726562,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_seed_4": {
+   "iou": 0.86817,
+   "contour_mean_px": 6.79,
+   "contour_p95_px": 27.952,
+   "negative_space_iou": 0.70053,
+   "tips_px": {
+    "index_tip": 7.07,
+    "middle_tip": 7.62,
+    "ring_tip": 2.83,
+    "pinky_tip": 4.12
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou",
+    "tip:index_tip"
+   ],
+   "iou_vs_app_mesh": 0.8915,
+   "band_density_app": 14.359771728515625,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_v_V1": {
+   "iou": 0.86208,
+   "contour_mean_px": 6.395,
+   "contour_p95_px": 21.615,
+   "negative_space_iou": 0.65623,
+   "tips_px": {
+    "index_tip": 6.4,
+    "middle_tip": 2.24,
+    "ring_tip": 5.1,
+    "pinky_tip": 4.24
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou",
+    "tip:index_tip"
+   ],
+   "iou_vs_app_mesh": 0.8858,
+   "band_density_app": 14.510884284973145,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_v_V2": {
+   "iou": 0.8595,
+   "contour_mean_px": 7.079,
+   "contour_p95_px": 29.614,
+   "negative_space_iou": 0.74085,
+   "tips_px": {
+    "index_tip": 1.0,
+    "middle_tip": 5.83,
+    "ring_tip": 2.83,
+    "pinky_tip": 5.83
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.8924,
+   "band_density_app": 14.79631519317627,
+   "band_density_drawing": 12.405457496643066
+  },
+  "tier_medium_v_V3": {
+   "iou": 0.87117,
+   "contour_mean_px": 6.29,
+   "contour_p95_px": 19.721,
+   "negative_space_iou": 0.67182,
+   "tips_px": {
+    "index_tip": 5.1,
+    "middle_tip": 4.47,
+    "ring_tip": 7.21,
+    "pinky_tip": 4.0
+   },
+   "failed_right_gates": [
+    "iou",
+    "contour_mean_px",
+    "contour_p95_px",
+    "negative_space_iou"
+   ],
+   "iou_vs_app_mesh": 0.9039,
+   "band_density_app": 14.632144927978516,
+   "band_density_drawing": 12.405457496643066
+  }
+ }
+}

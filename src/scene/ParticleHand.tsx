@@ -48,6 +48,17 @@ interface Props {
  */
 const POINT_SIZE = 0.0042;
 
+/**
+ * The sampling seed. Dev/test builds accept `?seed=<integer>` to sample the cloud
+ * with another seed (the D10 noise measurements); the product always uses
+ * SCENE_SEED.
+ */
+function particleSeed(): number {
+  if (!DIAGNOSTICS_ENABLED) return SCENE_SEED;
+  const s = new URLSearchParams(window.location.search).get('seed');
+  return s !== null && /^\d+$/.test(s) ? Number(s) : SCENE_SEED;
+}
+
 
 export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const viewport = useThree((s) => s.viewport);
@@ -62,7 +73,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const geometry = useMemo(() => {
     const count = QUALITY[tier].particleCount;
     const nails = contour.nails ?? [];
-    const cloud = sampleParticleHand(source, rig, count, SCENE_SEED, nails);
+    const cloud = sampleParticleHand(source, rig, count, particleSeed(), nails);
     if (DIAGNOSTICS_ENABLED) {
       inspection.particles = digestCloud(cloud);
       inspection.resample = (seed) => digestCloud(sampleParticleHand(source, rig, count, seed, nails));
