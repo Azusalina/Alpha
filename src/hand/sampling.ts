@@ -57,13 +57,14 @@ const HAND_SHARE = 0.86;
 
 /**
  * Share of the budget laid along the nail outlines, taken from the hand's share:
- * about 1.6 points per reference px of the right thumbnail's outline at the
- * medium tier (12 000 particles, 152 px of outline), so the D reads as a dotted
- * line over the fingertip's own density.
+ * about 1.3 points per reference px of the right thumbnail's outline at the
+ * medium tier (12 000 particles, 152 px of outline). The drawing's D is a thin
+ * grey stroke, so the points are small and a little light; the cleared plate
+ * inside (NAIL_INSIDE_WEIGHT) is what lets it read.
  */
-const NAIL_SHARE = 0.02;
-/** Nail-outline point sizes: the upper half of the smallest tier and the start of the next. */
-const NAIL_SIZE = { min: 0.8, max: 1.2 };
+const NAIL_SHARE = 0.016;
+const NAIL_SIZE = { min: 0.7, max: 1.0 };
+const NAIL_TONE = 0.9;
 /** Nail-outline points: jitter across the line (world) and lift off the surface. */
 const NAIL_JITTER = 0.0012;
 const NAIL_LIFT = 0.0015;
@@ -188,8 +189,8 @@ export function sampleParticleHand(
   }
 
   // Nail outlines: evenly spaced along the visible runs by arc length, each point
-  // jittered along and across the line, dark and mid-small; marked as rim so
-  // their breathing is damped like the silhouette's.
+  // jittered along and across the line, small and a little light; marked as rim
+  // so their breathing is damped like the silhouette's.
   const total = runs.reduce((a, r) => a + r.length, 0);
   for (let k = 0; i < handCount; i++, k++) {
     const at = ((k + 0.5 + (rng() - 0.5) * 0.6) / nailCount) * total;
@@ -200,7 +201,7 @@ export function sampleParticleHand(
     home[i * 3 + 1] = pos.y + side.y * across + nrm.y * NAIL_LIFT;
     home[i * 3 + 2] = pos.z + side.z * across + nrm.z * NAIL_LIFT;
     size[i] = NAIL_SIZE.min + (NAIL_SIZE.max - NAIL_SIZE.min) * rng();
-    tone[i] = TIERS[0].tone;
+    tone[i] = NAIL_TONE;
     id[i] = i;
     dissolve[i] = 0;
     rimOut[i] = 1;

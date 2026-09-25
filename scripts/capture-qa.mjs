@@ -5,12 +5,16 @@
  *   - startup key frames at 0 / 25 / 50 / 75 / 100 %
  *   - the stable home screen
  *   - a pointer-disturbance pair on the particle hand
+ *   - the three view modes review §E-3 asks for (docs/CONTRACTS.md §9), in
+ *     outputs/qa/views/: silhouette (from a ?tier=low load, no multisampling,
+ *     so the ID colours are exact), solid without lines, and the full product
  *
  * Frame positioning uses the dev inspector, which the spec permits for
  * screenshots. Interaction acceptance still goes through real pointer events —
  * see tests/startup.spec.ts.
  *
- * Usage: npm run dev, then `node scripts/capture-qa.mjs`.
+ * Usage: npm run dev, then `node scripts/capture-qa.mjs`. ALPHA_HEADLESS=1 runs
+ * the browser headless (no window on the desktop).
  */
 
 import { mkdir } from 'node:fs/promises';
@@ -36,7 +40,7 @@ async function waitForHome(page) {
 const main = async () => {
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({
-    headless: false,
+    headless: process.env.ALPHA_HEADLESS === '1',
     executablePath: process.env.ALPHA_CHROMIUM || undefined,
   });
   const page = await browser.newPage({ viewport: FRAME, deviceScaleFactor: 1 });
@@ -69,13 +73,31 @@ const main = async () => {
   await page.waitForTimeout(1200);
   await shot(page, 'home-pointer-recovered');
 
+  // view modes, with the clock frozen so the three frames show the same instant
+  await mkdir(`${OUT}/views`, { recursive: true });
+  await page.mouse.move(-5, -5);
+  await page.evaluate(() => window.__alpha.setTimeScale(0));
+  for (const mode of ['solid', 'full']) {
+    await page.evaluate((m) => window.__alpha.setViewMode(m), mode);
+    await page.waitForTimeout(300);
+    await shot(page, `views/view-${mode}`);
+  }
+  await page.goto(`${URL}/?tier=low`);
+  await waitForHome(page);
+  await page.evaluate(() => {
+    window.__alpha.setTimeScale(0);
+    window.__alpha.setViewMode('silhouette');
+  });
+  await page.waitForTimeout(300);
+  await shot(page, 'views/view-silhouette');
+
   await browser.close();
 
   if (errors.length) {
     console.error('console errors during capture:\n' + errors.join('\n'));
     process.exitCode = 1;
   } else {
-    console.log(`captured startup key frames and home screens into ${OUT}/`);
+    console.log(`captured startup key frames, home screens and view modes into ${OUT}/`);
   }
 };
 
