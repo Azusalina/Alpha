@@ -27,7 +27,7 @@ import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
 import { IDLE, REDUCED_MOTION, STARTUP, phaseProgress } from '../config/timing';
-import { useHandGeometry } from '../hand/assets';
+import { useHandContour, useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
 import { useViewMode } from './useViewMode';
@@ -53,11 +53,12 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const dpr = useThree((s) => s.viewport.dpr);
 
   const source = useHandGeometry('right');
+  const contour = useHandContour('right');
   const rig = handRig('right');
   const viewMode = useViewMode();
 
   const geometry = useMemo(() => {
-    const cloud = sampleParticleHand(source, rig, QUALITY[tier].particleCount, SCENE_SEED);
+    const cloud = sampleParticleHand(source, rig, QUALITY[tier].particleCount, SCENE_SEED, contour.nails ?? []);
     const toward = dissipationDirection(rig);
 
     const scatter = new Float32Array(cloud.count * 3);
@@ -79,7 +80,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.setAttribute('aRim', new Float32BufferAttribute(cloud.rim, 1));
     g.computeBoundingSphere();
     return g;
-  }, [source, rig, tier]);
+  }, [source, contour, rig, tier]);
 
   /** Dev view modes (docs/CONTRACTS.md §9) show the mesh the particles are sampled from. */
   const solidMaterial = useMemo(

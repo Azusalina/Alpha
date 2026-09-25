@@ -45,7 +45,8 @@ What it does, per hand:
      coordinates), the silhouette contour polylines public/assets/hand-<hand>.contour.json
      (the contour generator of the exported mesh from the home camera, each
      piece labelled 'outer' = borders the background, or 'inner' = occluding
-     contour inside the silhouette), a mesh report, optional calibration masks /
+     contour inside the silhouette; plus the border of each crisp nail plate
+     on the surface, for the particle sampler), a mesh report, optional calibration masks /
      shaded views (with masks, also the decision-D9 contour coverage check), and
      an editable .blend with the joint graph kept as its own object.
 
@@ -189,6 +190,7 @@ PARAMS = {
     "contour_probe_px": (0.15, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5),  # outward probes: outer/inner/hidden test
     "contour_edge_px": 0.35,    # seeing past a contour point this close outside it = it is the true contour
     "contour_join_px": 2.0,     # join pieces of one kind whose ends meet this closely (image px)
+    "nail_outline_step_px": 1.0,  # exported nail-outline resampling step (reference px at z = 0)
 }
 
 PLASTER = (0.791, 0.753, 0.686)  # #e6e1d7 in linear sRGB
@@ -468,6 +470,57 @@ class NailRelief:
         crisp = 1.0 - _smoothstep(-e, e, (q - 1.0) * wb)
         form = (1.0 - self.c) * soft_u * soft_b + self.c * crisp
         return (self.h * sp * form * sn).astype(np.float32)
+
+    def _wb(self, u):
+        s = np.clip(u / self.L, 0.0, 1.0)
+        return PARAMS["nail_width"] * (self.A0 + (self.A1 - self.A0) * s)
+
+    def outline_uv(self, n=64):
+        """The crisp plate's border as a closed loop of (u, v_b) in the
+        segment frame: the middle of its soft edge, where relief() is at half
+        height. It runs across the nail fold (u0, the D's straight side), up
+        the +b side, round the half-ellipse of the free edge and back down the
+        -b side; n points per piece, last point = first point."""
+        uc = max(self.u_free - self.a_free, self.u0)
+        t = np.linspace(0.0, 1.0, n, endpoint=False)
+        fold = np.stack([np.full(n, self.u0), (2.0 * t - 1.0) * self._wb(self.u0)], axis=1)
+        u = self.u0 + (uc - self.u0) * t
+        side_p = np.stack([u, self._wb(u)], axis=1)
+        th = np.pi * t
+        u = uc + self.a_free * np.sin(th)
+        end = np.stack([u, self._wb(u) * np.cos(th)], axis=1)
+        u = uc - (uc - self.u0) * t
+        side_m = np.stack([u, -self._wb(u)], axis=1)
+        loop = np.concatenate([fold, side_p, end, side_m])
+        return np.concatenate([loop, loop[:1]])
+
+    def outline_on_surface(self, bvh, step):
+        """outline_uv() carried onto the mesh: from each (u, v_b) on the
+        segment's lateral plane (inside the digit) a ray along the dorsal axis
+        n; its first hit leaving the surface is the outline point. Resampled
+        every `step` (world) of arc length. Returns (points, normals, misses):
+        points (k, 3) app world, a closed loop; misses = rays that found no
+        exit on the dorsal side (dropped)."""
+        reach = 3.0 * (max(self.N0, self.N1) + self.h + self.e)
+        pts, nrm, misses = [], [], 0
+        for u, vb in self.outline_uv():
+            O = self.P0 + self.T * u + self.b * vb
+            hit = bvh.ray_cast(Vector(O), Vector(self.n), reach)
+            if hit[0] is None or hit[1].dot(Vector(self.n)) <= 0.0:
+                misses += 1
+                continue
+            pts.append(tuple(hit[0]))
+            nrm.append(tuple(hit[1]))
+        pts, nrm = np.array(pts), np.array(nrm)
+        seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+        arc = np.concatenate([[0.0], np.cumsum(seg)])
+        k = max(int(round(arc[-1] / step)), 8)
+        a = np.linspace(0.0, arc[-1], k + 1)
+        out = np.stack([np.interp(a, arc, pts[:, i]) for i in range(3)], axis=1)
+        on = np.stack([np.interp(a, arc, nrm[:, i]) for i in range(3)], axis=1)
+        on /= np.maximum(np.linalg.norm(on, axis=1, keepdims=True), 1e-12)
+        out[-1], on[-1] = out[0], on[0]
+        return out, on, misses
 
 
 def _hermite(t, p0, m0, p1, m1):
@@ -1857,6 +1910,46 @@ def _smooth_resample(poly, closed):
     return np.stack([np.interp(t, s, dense[:, i]) for i in range(3)], axis=1)
 
 
+def nail_outlines(digits, V, F):
+    """The border of every crisp nail plate (nail_outline > 0) on the final
+    mesh (V, F: the exported surface, welded), for the contour JSON, plus a
+    report entry per plate. A point is visible when the home camera's ray
+    to it reaches it first and the surface there faces the camera."""
+    bvh = BVHTree.FromPolygons([tuple(v) for v in V.tolist()], [tuple(f) for f in F.tolist()])
+    step = PARAMS["nail_outline_step_px"] * PX
+    cam = Vector(CAM_POS)
+    tol = 1.0 * PX
+    out, report = [], []
+    for f, (_, _, reliefs) in digits.items():
+        for rel in reliefs:
+            if not isinstance(rel, NailRelief) or rel.c <= 0.0:
+                continue
+            pts, nrm, misses = rel.outline_on_surface(bvh, step)
+            vis = []
+            for p, n in zip(pts, nrm):
+                d = Vector(p) - cam
+                hit = bvh.ray_cast(cam, d.normalized(), 100.0)
+                seen = hit[0] is not None and hit[3] >= d.length - tol and float(np.dot(n, CAM_POS - p)) > 0.0
+                vis.append(1 if seen else 0)
+            q = project(pts)
+            out.append({
+                "digit": f,
+                "outline": round(rel.c, 4),
+                "stepPx": PARAMS["nail_outline_step_px"],
+                "points": [[round(float(c), 5) for c in p] for p in pts],
+                "normals": [[round(float(c), 4) for c in n] for n in nrm],
+                "visible": vis,
+            })
+            report.append({
+                "digit": f, "points": len(pts), "ray_misses": misses,
+                "visible_fraction": round(sum(vis) / len(vis), 4),
+                "bbox_px": [round(float(x), 1) for x in (*q.min(axis=0), *q.max(axis=0))],
+            })
+            print(f"[nail] {f}: {len(pts)} outline points, {misses} ray misses, "
+                  f"{100.0 * sum(vis) / len(vis):.0f} % visible, px box {report[-1]['bbox_px']}")
+    return out, report
+
+
 def extract_contours(V, N, F):
     """Silhouette contour polylines of the final mesh from the home camera,
     each labelled outer / inner; returns (polys, meta), longest first."""
@@ -2222,6 +2315,7 @@ def build_hand(hand, args):
     np.add.at(wN, wi, gN)
     wN /= np.maximum(np.linalg.norm(wN, axis=1, keepdims=True), 1e-12)
     polys, cmeta = extract_contours(wV, wN, wi[gF])
+    nails, nails_report = nail_outlines(digits, wV, wi[gF])
     contour = {
         "hand": hand,
         "source": "assets-source/hands/build_hands.py",
@@ -2246,6 +2340,14 @@ def build_hand(hand, args):
                           "polyline is a closed loop (last point = first point).",
         "polylines": [[[round(float(c), 5) for c in p] for p in poly] for poly in polys],
         "meta": cmeta,
+        "nailsDefinition": "nails[i]: the border of one crisp nail plate (shape key nail_outline > 0) "
+                           "on the surface of the mesh, app world, a closed loop (last point = first "
+                           "point) resampled every stepPx reference px at z = 0, starting at the nail "
+                           "fold (the D's straight side). normals: the surface normal at each point. "
+                           "visible: 1 where the point is seen from the home camera (not behind "
+                           "another part, not on a surface facing away). outline: the plate's "
+                           "nail_outline value (1 = a fully crisp D).",
+        "nails": nails,
     }
     out_contour = os.path.join(args.out, f"hand-{hand}.contour.json")
     with open(out_contour, "w") as f:
@@ -2289,6 +2391,7 @@ def build_hand(hand, args):
                      "size": [round(float(x), 5) for x in bb_hi - bb_lo]},
         "fingertips": tips,
         "contour_polylines": len(polys),
+        "nail_outlines": nails_report,
         "contour_points": int(sum(len(p) for p in polys)),
         "build_seconds": None,
     }

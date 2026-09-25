@@ -107,7 +107,8 @@
       2.5
     ],
     "contour_edge_px": 0.35,
-    "contour_join_px": 2.0
+    "contour_join_px": 2.0,
+    "nail_outline_step_px": 1.0
   },
   "shape": {
     "from_pose": {
@@ -390,8 +391,22 @@
     }
   },
   "contour_polylines": 12,
+  "nail_outlines": [
+    {
+      "digit": "thumb",
+      "points": 152,
+      "ray_misses": 0,
+      "visible_fraction": 1.0,
+      "bbox_px": [
+        901.9,
+        653.3,
+        951.0,
+        690.0
+      ]
+    }
+  ],
   "contour_points": 1521,
-  "build_seconds": 48.5,
+  "build_seconds": 24.7,
   "a1": {
     "pass": true,
     "failures": []

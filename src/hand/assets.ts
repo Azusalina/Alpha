@@ -2,7 +2,8 @@
  * The hand assets built by assets-source/hands/build_hands.py (docs/CONTRACTS.md §6):
  *
  *   public/assets/hand-<hand>.glb           one watertight shell, app world coordinates
- *   public/assets/hand-<hand>.contour.json  home-camera silhouette polylines
+ *   public/assets/hand-<hand>.contour.json  home-camera silhouette polylines and
+ *                                           the outline of each crisp nail plate
  *
  * Loaded through react-three-fiber's `useLoader`, which suspends until the file
  * is in and caches it per URL, so the scene can wait for every asset inside one
@@ -24,11 +25,28 @@ export interface ContourMeta {
   closed: boolean;
 }
 
+/** The border of one crisp nail plate on the mesh surface (the D; decision D21). */
+export interface NailOutline {
+  digit: string;
+  /** The plate's `nail_outline` shape key: 1 = a fully crisp D. */
+  outline: number;
+  /** Resampling step, reference px at z = 0. */
+  stepPx: number;
+  /** App world, a closed loop (last point = first point) from the nail fold. */
+  points: [number, number, number][];
+  /** Surface normal at each point. */
+  normals: [number, number, number][];
+  /** 1 where the point is seen from the home camera. */
+  visible: (0 | 1)[];
+}
+
 export interface HandContour {
   hand: HandSide;
   /** App world coordinates, longest polyline first. */
   polylines: [number, number, number][][];
   meta: ContourMeta[];
+  /** Absent in contour files built before step 5. */
+  nails?: NailOutline[];
 }
 
 const assetUrl = (file: string) => `${import.meta.env.BASE_URL}assets/${file}`;

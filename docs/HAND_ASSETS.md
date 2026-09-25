@@ -17,7 +17,7 @@ Interfaces: [`docs/CONTRACTS.md`](CONTRACTS.md) §1–6. Round status:
 | `assets-source/hands/check_contours.py` | Decision-D9 contour-coverage check (plain Python; also called by the builder). |
 | `assets-source/hands/hands.blend` | Editable snapshot: both hand meshes, the home camera, and a `<hand>_joint_graph` object per hand. |
 | `public/assets/hand-<hand>.glb` | The mesh the app loads. One shell, positions + normals, app world coordinates. |
-| `public/assets/hand-<hand>.contour.json` | Silhouette contour polylines from the home camera (source for the drawn outline). |
+| `public/assets/hand-<hand>.contour.json` | Silhouette contour polylines from the home camera (source for the drawn outline), and the outline of each crisp nail plate on the surface (traced by the particle sampler). |
 | `outputs/qa/calib/<hand>-mask.png` | 1644 × 957 silhouette from the home camera, white on black, no anti-aliasing. |
 | `outputs/qa/calib/<hand>-view-{home,yawm35,yawp35,above}.png` | Shaded plaster views: the home camera, then ±35° yaw and from above, framed on the in-frame part of that hand. |
 | `outputs/qa/calib/<hand>-mesh-report.json` | Topology, winding, triangle quality, bbox, fingertips measured on the mesh, D9 coverage. |
@@ -304,6 +304,7 @@ All in `PARAMS` at the top of `build_hands.py` (world units unless noted;
 | `cleanup_iters`, `cleanup_relax` | 4, 0.5 | Post-decimation quality flips + tangential relaxation. |
 | `contour_min_px`, `contour_step_px`, `contour_smooth_px` | 14, 3, 1.0 | Contour export: shortest kept *inner* piece, resampling step, smoothing sigma. |
 | `contour_probe_px`, `contour_edge_px`, `contour_join_px` | 0.15…2.5, 0.35, 2.0 | Outer/inner/hidden probes, fold test, piece joining. |
+| `nail_outline_step_px` | 1.0 | Resampling step of the exported nail outlines (reference px at z = 0). |
 
 **Shape keys** (defaults in `PARAMS`; a pose may set any of them in its
 optional `shape` object, CONTRACTS §5, where each one is defined; `_px` =
@@ -372,9 +373,30 @@ a pixel is hand or background with no grey fringe; threshold at > 127.
   "definition": "…", "stepPx": 3,
   "metaDefinition": "…",
   "polylines": [[[x, y, z], …], …],                            // app world, longest first
-  "meta": [{ "kind": "outer", "inFrame": 1.0, "closed": false }, …]   // meta[i] describes polylines[i]
+  "meta": [{ "kind": "outer", "inFrame": 1.0, "closed": false }, …],  // meta[i] describes polylines[i]
+  "nailsDefinition": "…",
+  "nails": [{ "digit": "thumb", "outline": 1, "stepPx": 1,
+              "points": [[x, y, z], …], "normals": [[x, y, z], …], "visible": [1, …] }]
 }
 ```
+
+**Nail outlines** (`nails`, step 5, decisions D20/D21): for every digit whose
+`nail_outline` is above 0, the border of the crisp plate — where
+`NailRelief.relief()` is at half height: the nail fold (`nail_start`, the D's
+straight side), the two sides at ± `nail_width` × the section half-width, and
+the half-ellipse of the free edge — computed in the distal segment's frame and
+carried onto the exported surface by a ray from the segment's lateral plane
+along its dorsal axis (the first exit; a ray that finds none is dropped and
+counted as a miss). Resampled every `nail_outline_step_px` (1 px) of arc
+length; `normals` are the surface normals there; `visible` is 1 where the home
+camera's ray reaches the point first and the surface faces the camera. The
+particle sampler lays a small share of fine points along the visible part
+(`src/hand/sampling.ts`), because the plate's relief alone is too faint for its
+surface weights to pick out (D20). Both hands export their thumbnail (the only
+crisp plates); committed poses, 2026-09-25: left 134 points, right 152, every
+ray hit, 100 % visible; the right outline spans px x 902–951, y 653–690 (the
+drawn nail fold at x 948–951). Check sheet:
+`outputs/qa/calib/evidence/step5/nail-outline-check-5x.png`.
 
 The curve is the **contour generator of the smooth-shaded surface**: the zero
 set of `n · (camera − p)` with the GLB's vertex normals interpolated over each

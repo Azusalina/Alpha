@@ -17,12 +17,18 @@
  *  - layered tone: most points small and dark, fewer mid-size ones, a few large
  *    ones that are lighter; the size is capped;
  *  - a tail released from the forearm surface, carried along the forearm's own
- *    axis out of the lower right of the frame, thinning as it goes.
+ *    axis out of the lower right of the frame, thinning as it goes;
+ *  - the thumbnail traced: a small share of fine points laid along the visible
+ *    part of each crisp nail outline the builder exports (decisions D20, D21),
+ *    because the plate's relief alone is too faint for the surface weights to
+ *    pick out.
  */
 
 import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.js';
 import { BufferGeometry, Color, Float32BufferAttribute, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 
+import { HOME_DISTANCE, projectToPixel } from '../config/composition';
+import type { NailOutline } from './assets';
 import { skeletonValues } from './reveal';
 import { makeRng } from './rng';
 import type { HandRig } from './skeleton';
@@ -41,11 +47,32 @@ export interface ParticleCloud {
   /** 1 where the particle sits on the silhouette rim, 0 on a surface facing the camera. */
   rim: Float32Array;
   count: number;
+  /** How many particles trace nail outlines (they follow the hand particles). */
+  nailCount: number;
   seed: number;
 }
 
 /** Share of the budget kept on the hand; the rest forms the tail. */
 const HAND_SHARE = 0.86;
+
+/**
+ * Share of the budget laid along the nail outlines, taken from the hand's share:
+ * about 1.6 points per reference px of the right thumbnail's outline at the
+ * medium tier (12 000 particles, 152 px of outline), so the D reads as a dotted
+ * line over the fingertip's own density.
+ */
+const NAIL_SHARE = 0.02;
+/** Nail-outline point sizes: the upper half of the smallest tier and the start of the next. */
+const NAIL_SIZE = { min: 0.8, max: 1.2 };
+/** Nail-outline points: jitter across the line (world) and lift off the surface. */
+const NAIL_JITTER = 0.0012;
+const NAIL_LIFT = 0.0015;
+/**
+ * Surface weight kept inside a nail plate: the drawing leaves the plate almost
+ * empty inside its dotted border, and at full weight the fingertip's density
+ * buries the traced outline.
+ */
+const NAIL_INSIDE_WEIGHT = 0.05;
 
 /**
  * Size tiers (share, size range, opacity). The largest dots are the lightest, so
@@ -77,8 +104,15 @@ const smoothstep = (a: number, b: number, x: number) => {
  *
  * @param source the hand GLB's geometry (shared through the loader cache; not modified)
  * @param rig    the same hand's pose rig, for the reveal / knuckle weighting and the forearm axis
+ * @param nails  the hand's crisp nail outlines from its contour file (may be empty)
  */
-export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: number, seed: number): ParticleCloud {
+export function sampleParticleHand(
+  source: BufferGeometry,
+  rig: HandRig,
+  count: number,
+  seed: number,
+  nails: readonly NailOutline[] = [],
+): ParticleCloud {
   const rng = makeRng(seed);
 
   const geometry = source.clone();
@@ -92,6 +126,7 @@ export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: 
   const tailWeight = new Float32Array(n);
   // the wrist sits where the arm meets the hand; the tail is released below it
   const wristReveal = wristRevealValue(rig, reveal, geometry);
+  const onNail = nailPlateMask(geometry, nails);
   for (let i = 0; i < n; i++) {
     const rim = 1 - Math.abs(normal.getZ(i));
     packed[i * 3] = reveal[i];
@@ -101,6 +136,7 @@ export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: 
     const distal = reveal[i] * reveal[i];
     // palm and back of the hand facing the camera stay sparse; digits, knuckles and rim read
     handWeight[i] = onScreen * (0.12 + 1.5 * distal + 1.1 * knuckle[i] + 1.2 * rim * rim);
+    if (onNail[i]) handWeight[i] *= NAIL_INSIDE_WEIGHT;
     tailWeight[i] = onScreen * (1 - smoothstep(wristReveal * 0.6, wristReveal, reveal[i]));
   }
   geometry.setAttribute('color', new Float32BufferAttribute(packed, 3));
@@ -127,14 +163,17 @@ export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: 
 
   // Hand: small clusters around weighted surface points.
   const handCount = Math.floor(count * HAND_SHARE);
+  const runs = visibleRuns(nails);
+  const nailCount = runs.length ? Math.floor(count * NAIL_SHARE) : 0;
+  const surfaceCount = handCount - nailCount;
   let i = 0;
-  while (i < handCount) {
+  while (i < surfaceCount) {
     handSampler.sample(pos, nrm, col);
     const rim = col.b;
     // fewer members and a tighter spread on the rim, so the outline stays crisp
     const members = 1 + Math.floor(rng() * (rim > 0.6 ? 2 : 4));
     const spread = (0.003 + rng() * 0.009) * (1 - 0.5 * rim);
-    for (let m = 0; m < members && i < handCount; m++, i++) {
+    for (let m = 0; m < members && i < surfaceCount; m++, i++) {
       const lift = 0.0015 * rng();
       home[i * 3] = pos.x + (rng() - 0.5) * spread + nrm.x * lift;
       home[i * 3 + 1] = pos.y + (rng() - 0.5) * spread + nrm.y * lift;
@@ -146,6 +185,25 @@ export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: 
       dissolve[i] = 0;
       rimOut[i] = rim;
     }
+  }
+
+  // Nail outlines: evenly spaced along the visible runs by arc length, each point
+  // jittered along and across the line, dark and mid-small; marked as rim so
+  // their breathing is damped like the silhouette's.
+  const total = runs.reduce((a, r) => a + r.length, 0);
+  for (let k = 0; i < handCount; i++, k++) {
+    const at = ((k + 0.5 + (rng() - 0.5) * 0.6) / nailCount) * total;
+    pointOnRuns(runs, at, pos, nrm);
+    const across = (rng() - 0.5) * 2 * NAIL_JITTER;
+    const side = new Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).cross(nrm).normalize();
+    home[i * 3] = pos.x + side.x * across + nrm.x * NAIL_LIFT;
+    home[i * 3 + 1] = pos.y + side.y * across + nrm.y * NAIL_LIFT;
+    home[i * 3 + 2] = pos.z + side.z * across + nrm.z * NAIL_LIFT;
+    size[i] = NAIL_SIZE.min + (NAIL_SIZE.max - NAIL_SIZE.min) * rng();
+    tone[i] = TIERS[0].tone;
+    id[i] = i;
+    dissolve[i] = 0;
+    rimOut[i] = 1;
   }
 
   // Tail: released from the forearm surface and carried out along the forearm's
@@ -171,7 +229,98 @@ export function sampleParticleHand(source: BufferGeometry, rig: HandRig, count: 
   }
 
   geometry.dispose();
-  return { home, size, tone, id, dissolve, rim: rimOut, count, seed };
+  return { home, size, tone, id, dissolve, rim: rimOut, count, nailCount, seed };
+}
+
+/**
+ * 1 for the vertices on a nail plate: inside its outline as the home camera
+ * sees it, on a surface facing the camera, and no further from the outline's
+ * centre than the outline itself reaches (so the pad and the back of the digit,
+ * which project into the same outline, are left alone).
+ */
+function nailPlateMask(geometry: BufferGeometry, nails: readonly NailOutline[]): Uint8Array {
+  const pos = geometry.getAttribute('position');
+  const normal = geometry.getAttribute('normal');
+  const mask = new Uint8Array(pos.count);
+  const p = new Vector3();
+  const nv = new Vector3();
+  const toCam = new Vector3();
+  for (const nail of nails) {
+    const poly = nail.points.map(([x, y, z]) => projectToPixel(x, y, z));
+    const c = nail.points.reduce((a, q) => a.add(new Vector3(...q)), new Vector3()).divideScalar(nail.points.length);
+    const reach = Math.max(...nail.points.map((q) => c.distanceTo(new Vector3(...q)))) * 1.05;
+    for (let i = 0; i < pos.count; i++) {
+      p.fromBufferAttribute(pos, i);
+      if (p.distanceTo(c) > reach) continue;
+      nv.fromBufferAttribute(normal, i);
+      if (nv.dot(toCam.set(-p.x, -p.y, HOME_DISTANCE - p.z)) <= 0) continue;
+      const [px, py] = projectToPixel(p.x, p.y, p.z);
+      if (insidePolygon(px, py, poly)) mask[i] = 1;
+    }
+  }
+  return mask;
+}
+
+/** Even-odd point-in-polygon test (the polygon's last point may repeat its first). */
+function insidePolygon(x: number, y: number, poly: [number, number][]): boolean {
+  let inside = false;
+  for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
+    const [xa, ya] = poly[a];
+    const [xb, yb] = poly[b];
+    if (ya > y !== yb > y && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) inside = !inside;
+  }
+  return inside;
+}
+
+interface Run {
+  pts: Vector3[];
+  nrm: Vector3[];
+  /** Cumulative arc length at each point; the last entry is the run's length. */
+  arc: number[];
+  length: number;
+}
+
+/** The visible stretches of every nail outline, as polylines with their arc lengths. */
+function visibleRuns(nails: readonly NailOutline[]): Run[] {
+  const runs: Run[] = [];
+  for (const nail of nails) {
+    let cur: Run | null = null;
+    for (let j = 0; j < nail.points.length; j++) {
+      if (!nail.visible[j]) {
+        cur = null;
+        continue;
+      }
+      const p = new Vector3(...nail.points[j]);
+      if (!cur) {
+        cur = { pts: [], nrm: [], arc: [], length: 0 };
+        runs.push(cur);
+      } else {
+        cur.length += p.distanceTo(cur.pts[cur.pts.length - 1]);
+      }
+      cur.pts.push(p);
+      cur.nrm.push(new Vector3(...nail.normals[j]).normalize());
+      cur.arc.push(cur.length);
+    }
+  }
+  return runs.filter((r) => r.length > 0);
+}
+
+/** The point (and surface normal) `at` world units along the runs, laid end to end. */
+function pointOnRuns(runs: Run[], at: number, pos: Vector3, nrm: Vector3): void {
+  let a = Math.min(Math.max(at, 0), runs.reduce((s, r) => s + r.length, 0));
+  for (const r of runs) {
+    if (a > r.length) {
+      a -= r.length;
+      continue;
+    }
+    let j = 1;
+    while (j < r.arc.length - 1 && r.arc[j] < a) j++;
+    const span = r.arc[j] - r.arc[j - 1];
+    const t = span > 0 ? (a - r.arc[j - 1]) / span : 0;
+    pos.lerpVectors(r.pts[j - 1], r.pts[j], t);
+    nrm.lerpVectors(r.nrm[j - 1], r.nrm[j], t).normalize();
+    return;
+  }
 }
 
 /** The reveal value at the wrist: the mean over the vertices nearest the wrist joint. */
