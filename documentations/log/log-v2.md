@@ -6,10 +6,11 @@ Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review 
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
 **Status: IN PROGRESS — session 6, 2026-09-25** (repo root, `main`).
-Steps 1–4 are closed: the three foundations, both step-3 builder stages
+Steps 1–5 are closed: the three foundations, both step-3 builder stages
 ("arm", "digits") and both calibrated hands passed independent verification,
-and the app runs on the Blender assets. Next is step 5 (tests and evidence,
-with the D20/D21 nail-outline sampler and the D10 particle-shape gate).
+the app runs on the Blender assets, and step 5's tests and evidence are in
+(Playwright 11 / 11, D10 gate). Next is step 6, the adversarial review, as a
+multi-agent workflow (D26).
 Decisions D1–D26 are below. Pick up at "Resume here";
 [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
 predates step 3 closing).
@@ -525,7 +526,7 @@ byte-identical).
 - A lower bound for the right index `knuckle_rise` below −0.5, or a smaller
   dorsal knuckle ellipsoid (the bump stands 5–7 px above D12's straight back).
 
-## Step 5 — tests and evidence (session 6, 2026-09-25, in progress)
+## Step 5 — tests and evidence (session 6, 2026-09-25, closed)
 
 - **D21 / D20** (`466cbdc`, `f354c2c`): `build_hands.py` exports every crisp
   nail plate's border (the D) onto the mesh surface into the contour JSON
@@ -559,7 +560,10 @@ byte-identical).
   than the drawing, and the blurred outline sits a few px outside. Scaling the
   level by the density ratio (1.12–1.27) scores worse than 6.5; turning the
   nail clearing off or doubling the palm's base weight stays within the seed
-  noise. The gate is the user's decision (D10), asked 2026-09-25.
+  noise. The user chose (B), a regression gate (D10 answer):
+  `scripts/particle_shape.py`, run by `tests/acceptance.spec.ts` (`c64d58a`):
+  IoU 0.880, contour mean 5.59 px, negative space 0.699, tips ≤ 4.1 px.
+  Playwright 11 / 11.
 
 ## Resume here
 
@@ -668,7 +672,7 @@ can run in parallel with it):
 - Particle tone (review B3): layered sizes and opacity, capped maximum size,
   larger points lighter; damp breathing on contour-defining particles.
 
-**5. Tests and evidence.**
+**5. Tests and evidence.** ✅ **Closed** (session 6) — see "Step 5".
 - Playwright: seed reproducibility (A2 acceptance) via an inspector digest;
   mesh integrity of the loaded GLBs in-browser; a form test that captures the
   `silhouette` mode and asserts the ACCEPTANCE thresholds through
