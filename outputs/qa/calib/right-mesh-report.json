@@ -391,7 +391,7 @@
   },
   "contour_polylines": 12,
   "contour_points": 1521,
-  "build_seconds": 64.7,
+  "build_seconds": 48.5,
   "a1": {
     "pass": true,
     "failures": []

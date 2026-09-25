@@ -5,12 +5,12 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: IN PROGRESS — session 5, 2026-09-23 20:20** (repo root, `main`).
-Steps 1, 3 and 4 are closed: the three foundations and both step-3 builder
-stages ("arm", "digits") passed independent verification, and the app runs on
-the Blender assets. Step 2 (calibration) now recalibrates both hands on the
-widened builder: the left with D17 and D18, the right with the fix for its
-kinked finger joints. Decisions D1–D25 are below. Pick up at "Resume here";
+**Status: IN PROGRESS — session 6, 2026-09-25** (repo root, `main`).
+Steps 1–4 are closed: the three foundations, both step-3 builder stages
+("arm", "digits") and both calibrated hands passed independent verification,
+and the app runs on the Blender assets. Next is step 5 (tests and evidence,
+with the D20/D21 nail-outline sampler and the D10 particle-shape gate).
+Decisions D1–D25 are below. Pick up at "Resume here";
 [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
 predates step 3 closing).
 
@@ -446,6 +446,83 @@ returned nothing. Both calibrators hit the account's usage limit after about
   forearm and carpus segments meet; the thumbnail orientation
   (`thumb_roll_deg` 72, shared by both hands).
 
+## Step 2 closed — run 3 on the widened builder (sessions 5–6, 2026-09-23 → 2026-09-25)
+
+Both hands were recalibrated on the step-3 builder
+(`.claude/workflows/alpha-v1-calibrate-poses.js`) and passed independent
+verification. The runs were cut off several times (usage limits, network,
+power-off, session ends); the workflow learnt `calibDone`, `verdictDone` and
+`answered` to skip finished agents, and its verifiers keep a `findings.md` to
+resume from. Across sessions a run cannot be adopted, so it is relaunched
+with those arguments rather than `resumeFromRunId`.
+
+**Right** (`f1399d6`, report `outputs/qa/calib/reports/step2-run3-right-calib.json`):
+IoU 0.9328, contour mean 3.289 / p95 7.62 px, negative space 0.8639; tips
+1 / 1 / 1.41 / 3.16 px; worst joint index_mcp 1.79 u; A1 and D9 pass. The
+kinked finger joints (verifier 1's major in run 2) are fixed: every PIP/DIP
+bend lies in its finger's MCP flexion plane (sideways ≤ 4°). Thumb CMC at
+z 0.17 (D22), `nail_start` thumb 0.22 (the nail fold at x 950, drawn 948–951).
+`verify:right#1` passed it with three minors, recorded here and not fixed:
+- D22's CMC move opens a dark triangular pit behind the thumb MCP in the −35°
+  view (z 0.24 slit, 0.20 small pit, 0.17 full pit; all pass every gate).
+- The MCP knuckles lie on a nearly straight line; a pose edit (verifier's XD:
+  middle_mcp 4.5 mm dorsal, pinky_mcp 2 mm palmar) reaches a modest convex
+  arch with every gate passing. Optional polish.
+- Write-up gaps: two edge clusters over 8 px (thumb underside x 1039–1054,
+  the wrist-top particle bump at 1234–1253 / 599–619) and a stale "was 36–43"
+  in the pose notes.
+Also open: mid-palm 31–35 mm against the note's ~30 mm (the drawn palm band
+limits it with this depth reading); little-finger MCP flexion 104°.
+
+**Left** (`e2ca017` D23/D24, then the D25 refit, reports
+`step2-run3-left-{calib,verify1,fix1,verify2}.json`, `-iterations.md`,
+`-verify2-findings.md`): the calibrator's R7 met the gates only through
+sideways MCP abduction; the user chose hinged fingers (D23) and thumb roll 95
+(D24). `verify:left#1` passed every gate but rated the thumb kink major (MCP
+24.8° sideways, IP −7.9°); the user chose one bounded refit (D25 B).
+`fix:left#1` (run `wf_11b45eba-07c`, from the stopped run's checkpoint):
+- thumb MCP sideways 24.8 → 10.9°, IP −7.9 → −4.6° (inside D25's ~12 / ~5);
+  thumb_cmc 42.8 → 12.3 px from its reading; the metacarpal now leaves the base
+  of the palm toward the camera; 3D P1/P2 0.90 → 1.14 (drawn 1.12); the thumb
+  end moved 7.6 px back (e7 within about 2 px);
+- thenar, palm heel, wrist crease, thumb_root_cap and the palm section refitted
+  to the palm-heel outline; the long groove on the back of the hand is gone
+  (valley 23.2 → 6.4 px);
+- final build: IoU 0.98363, contour mean 0.776 / p95 2.000 px (109 of 213
+  allowed edge px over 2), negative space 0.93267; tips 2.24 / 1.41 / 2.24 /
+  1.0 px; all 16 joints within 3 u (closest middle_mcp 2.87 u, wrist 2.85 u);
+  A1 and D9 pass.
+`verify:left#2` passed it (rebuild byte-identical, every number reproduced,
+digit identity per D2, capsule clearance ≥ 1.22 × the radii sum) with three
+minors, recorded here:
+- A short fold remains at the first web (home view about 446–462, 290–300;
+  valley 23.4 px, second difference 1.19 — sharper than the old groove). The
+  FDI cannot fill it without breaking the dorsal outline; `thenar_size` 1.10
+  halves it but bulges the thenar outline by up to 4.5 px. Builder request.
+- The D25 sideways number depends on the thumb frame (it follows the
+  metacarpal and `thumb_roll_deg`): the same chain reads 15.9° at roll 100.
+  The thumbnail is now 8.1° off the camera (was 3.0°, D24 chose 2.3°); the
+  nail angle and D25's bound now trade against each other.
+- The report left out that the palm joint was refitted too (section about
+  33 % thicker; thickness / width about 0.36, volumetric in the views).
+Ring 3D P1/P2 moved 1.36 → 1.46 (inside D18's original 1.4–1.6).
+
+**Both hands**: the index-tip contact gap on the two Blender masks is 29.07 px
+(reference 30.41, Δ −1.34, tolerance ±6.8), unchanged by the D25 refit.
+`hands.blend` re-saved from the calibrated poses (GLBs and contours
+byte-identical).
+
+**Builder requests for a later round** (D25 C and the verifiers' minors):
+- Thenar and palm heel placed independently of the thumb metacarpal, and the
+  thumb frame taken from the nail rather than the metacarpal direction (every
+  D25 fit settles the MCP sideways bend at the bound, 10.9–11.1°).
+- A first-web / FDI mass that can sit below the dorsal silhouette line.
+- Fill enclosed outside voids of the SDF grid before extraction (nearly
+  touching finger roots form 1–2 voxel pockets that fail A1; it would also let
+  the right knuckles take a convex arch).
+- A lower bound for the right index `knuckle_rise` below −0.5, or a smaller
+  dorsal knuckle ellipsoid (the bump stands 5–7 px above D12's straight back).
+
 ## Resume here
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
@@ -484,9 +561,8 @@ Loop: edit pose → `build_hands.py --hand <h> --masks …` → `compare_silhoue
 IoU ≥ 0.93 left / ≥ 0.90 right, contour p95 ≤ 8 px, negative-space IoU ≥ 0.85,
 fingertip keypoints within their stated uncertainty. Keep bone lengths
 consistent; check the ±35° views stay volumetric. Thicken the fingers.
-**In progress** (session 5, see "Step 2 — calibration runs"): both hands are
-recalibrated after step 3 — the left with D17 and D18, the right with the
-fix for its kinked finger joints (verifier 1's major).
+✅ **Closed** (session 6, 2026-09-25): both hands recalibrated on the
+widened builder and verified — see "Step 2 closed".
 
 **3. Builder fixes** — ✅ **closed** (session 5, 2026-09-23). First planned
 for after calibration: remove the forearm cuff;
@@ -531,9 +607,7 @@ agents from cache. Power-offs, user-requested stops, usage limits and server
 overloads all kill running agents; `/tmp` is tmpfs and was wiped three times
 before scratch moved to `outputs/qa/scratch/` (git-ignored).
 
-**Next — step 2 on the widened builder**
-(`.claude/workflows/alpha-v1-calibrate-poses.js`, `args: {resume: true}`; its
-prompts carry D20–D22 and each hand's handoff from the step-3 reports).
+**Next — step 5** (below). Step 2 on the widened builder is closed.
 
 **4. Integrate into the app** (main session; files disjoint from step 2, so it
 can run in parallel with it):
