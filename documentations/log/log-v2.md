@@ -523,6 +523,42 @@ byte-identical).
 - A lower bound for the right index `knuckle_rise` below −0.5, or a smaller
   dorsal knuckle ellipsoid (the bump stands 5–7 px above D12's straight back).
 
+## Step 5 — tests and evidence (session 6, 2026-09-25, in progress)
+
+- **D21 / D20** (`466cbdc`, `f354c2c`): `build_hands.py` exports every crisp
+  nail plate's border (the D) onto the mesh surface into the contour JSON
+  (`nails`: points, normals, home-camera visibility; mesh report
+  `nail_outlines`); GLBs and silhouette polylines unchanged, A1 / D9 pass.
+  Right thumb: 152 points, 100 % visible, px x 902–951 / y 653–690 (drawn fold
+  x 948–951). The sampler lays 1.6 % of the budget along the visible outline
+  (sizes 0.7–1.0, tone 0.9, damped like the rim) and keeps 0.05 of the surface
+  weight inside the plate, so the thumbnail reads as a thin D, as drawn (a
+  heavier trace, 2 % at 0.8–1.2, read as a black stamp at 1x). Evidence:
+  `outputs/qa/calib/evidence/step5/`.
+- **Playwright** (`8f810d5`): `tests/acceptance.spec.ts` — A2 (same seed →
+  same cloud hash across a reload and in place; another seed differs), A1 in
+  the browser (both GLBs one shell, no boundary / non-manifold / misoriented
+  edges, winding ≥ 99.9 %, counts = mesh report), and the pose match (a
+  `?tier=low` silhouette capture through `overlay_check.py`: left IoU 0.9836 /
+  p95 2.0, right 0.9327 / 7.62, contact 29.07 px, 0 stray px). 10 / 10 with the
+  startup specs. Inspector members `particleDigest`, `resampleDigest(seed)`,
+  `handMesh(hand)` (CONTRACTS §9); none of it is in the production build.
+- **Screenshots** (`f354c2c`): `scripts/capture-qa.mjs` also writes the review
+  §E-3 set to `outputs/qa/views/` (silhouette, solid, full; 1644 × 957) and can
+  run headless. Startup 0 / 50 / 100 %, home and the hover disturbance /
+  recovery re-captured on the calibrated hands and look right.
+- **D10 measurements** (`5c62acd`, `outputs/qa/calib/evidence/step5/d10/`): the
+  reference right-mask rule on full-mode captures, scored against the
+  reference right mask. Medium tier, 5 seeds: IoU 0.868–0.887, contour mean
+  5.1–6.8 px, p95 12–28 px, negative space 0.68–0.74, tips ≤ 7.6 px (index
+  2.8–7.1); against the app's own mesh silhouette IoU 0.876–0.914. Low tier:
+  IoU 0.77–0.86 (the back of the hand breaks up). Where it misses: the thumb
+  crossing in front of the palm and the curled digits' inner side are sparser
+  than the drawing, and the blurred outline sits a few px outside. Scaling the
+  level by the density ratio (1.12–1.27) scores worse than 6.5; turning the
+  nail clearing off or doubling the palm's base weight stays within the seed
+  noise. The gate is the user's decision (D10), asked 2026-09-25.
+
 ## Resume here
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
