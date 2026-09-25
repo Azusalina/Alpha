@@ -1,0 +1,181 @@
+{
+  "hand": "right",
+  "label": "particle density mask of particles-full.png",
+  "frame": [
+    1644,
+    957
+  ],
+  "ignore_zone_used": true,
+  "pixels": {
+    "reference": 87790,
+    "render": 88831,
+    "overlap": 82659,
+    "render_only": 6172,
+    "reference_only": 5131,
+    "render_in_ignore_zone": 32027
+  },
+  "iou": 0.87971,
+  "precision": 0.93052,
+  "recall": 0.94155,
+  "contour_distance_px": {
+    "ref_to_render": {
+      "mean": 4.322,
+      "p95": 10.0,
+      "max": 16.125,
+      "n": 1734
+    },
+    "render_to_ref": {
+      "mean": 6.75,
+      "p95": 26.877,
+      "max": 59.034,
+      "n": 1905
+    },
+    "symmetric": {
+      "mean": 5.593,
+      "p95": 13.936,
+      "max": 59.034,
+      "n": 3639
+    }
+  },
+  "negative_space": {
+    "iou": 0.69887,
+    "reference_px": 21227,
+    "render_px": 23370
+  },
+  "keypoints": {},
+  "keypoint_summary": {
+    "n": 0,
+    "mean_px": null,
+    "max_px": null
+  },
+  "silhouette_tips": {
+    "index_tip": {
+      "reference_px": [
+        807,
+        438
+      ],
+      "render_px": [
+        806,
+        434
+      ],
+      "found": true,
+      "offset_px": [
+        -1,
+        -4
+      ],
+      "distance_px": 4.12,
+      "reference_uncertainty_px": 3.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "middle_tip": {
+      "reference_px": [
+        810,
+        654
+      ],
+      "render_px": [
+        810,
+        651
+      ],
+      "found": true,
+      "offset_px": [
+        0,
+        -3
+      ],
+      "distance_px": 3.0,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "ring_tip": {
+      "reference_px": [
+        902,
+        755
+      ],
+      "render_px": [
+        903,
+        759
+      ],
+      "found": true,
+      "offset_px": [
+        1,
+        4
+      ],
+      "distance_px": 4.12,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    },
+    "pinky_tip": {
+      "reference_px": [
+        989,
+        756
+      ],
+      "render_px": [
+        985,
+        756
+      ],
+      "found": true,
+      "offset_px": [
+        -4,
+        0
+      ],
+      "distance_px": 4.0,
+      "reference_uncertainty_px": 4.0,
+      "at_search_edge": false,
+      "note": ""
+    }
+  },
+  "acceptance": {
+    "source": "assets-source/reference/thresholds.json (docs/ACCEPTANCE.md)",
+    "pass": false,
+    "failed": [
+      "iou",
+      "contour_mean_px",
+      "contour_p95_px",
+      "negative_space_iou"
+    ],
+    "checks": {
+      "iou": {
+        "value": 0.87971,
+        "gate": ">= 0.918",
+        "pass": false
+      },
+      "contour_mean_px": {
+        "value": 5.593,
+        "gate": "<= 3.7",
+        "pass": false
+      },
+      "contour_p95_px": {
+        "value": 13.936,
+        "gate": "<= 8.9",
+        "pass": false
+      },
+      "negative_space_iou": {
+        "value": 0.69887,
+        "gate": ">= 0.825",
+        "pass": false
+      },
+      "tip:index_tip": {
+        "value": 4.12,
+        "gate": "<= 6.0 (= 2.0 x 3.0)",
+        "pass": true
+      },
+      "tip:middle_tip": {
+        "value": 3.0,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      },
+      "tip:ring_tip": {
+        "value": 4.12,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      },
+      "tip:pinky_tip": {
+        "value": 4.0,
+        "gate": "<= 8.0 (= 2.0 x 4.0)",
+        "pass": true
+      }
+    }
+  }
+}

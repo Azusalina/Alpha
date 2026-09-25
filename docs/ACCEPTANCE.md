@@ -515,9 +515,22 @@ back-of-hand outline. That is step 2 (calibration).
 - **The unscored zones.** The left arm at x < 45 and the right arm past the wrist cut. The
   app's forearms must still leave the frame, but only the overlay shows it.
 - **Particles and motion.** Silhouette mode has no particles. Whether the particle cloud
-  keeps the hand shape (review E), the reveal, breathing and hover recovery all need their
-  own checks. One option is to build a density mask from a full render with the same
-  method as `right-mask.png` and compare it with `compare_silhouette.py`.
+  keeps the hand shape (review E) is checked by `scripts/particle_shape.py` (decision
+  D10): the rule that built `right-mask.png` (compact dots, σ 7 px, level 6.5 / 1000 px²,
+  smoothing, pull-in, D12 bridge) applied to a full-mode home capture at the default
+  tier, scored against `right-mask.png`. Its gates are a **regression gate**, set just
+  below the worst of five seeds measured when D10 was decided (IoU 0.868–0.887, contour
+  mean 5.1–6.8 px, negative space 0.68–0.74, tips ≤ 7.6 px): IoU ≥ 0.85, contour mean
+  ≤ 7.5 px, negative-space IoU ≥ 0.65, index tip ≤ 8 px, other tips ≤ 9 px; contour p95
+  is reported, not gated (12–28 px across seeds). They are looser than the right mesh's
+  gates on purpose: the density rule blurs the outline a few px outward, and the app's
+  cloud is sparser than the drawing where the thumb crosses the palm and inside the
+  curled digits. So a pass means the cloud has not lost the shape, not that it matches
+  the drawing's particles; that is judged by looking (step 6). The low tier (6 000
+  particles) is not gated: its density silhouette breaks up on the back of the hand
+  (IoU 0.77–0.86). Evidence: `outputs/qa/calib/evidence/step5/d10/`;
+  `tests/acceptance.spec.ts` runs it. The reveal, breathing and hover recovery are
+  checked by the startup specs and the captures in `scripts/capture-qa.mjs`.
 - **Artistic fidelity.** The left reference is the artist's line, not a physical
   occluding contour. Matching it to within 2 px means matching the drawing. Whether the
   result looks sculptural is a judgment made by looking.

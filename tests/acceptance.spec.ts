@@ -8,7 +8,10 @@
  *    consistently wound shell, and match the builder's mesh report;
  *  - pose matches: the app's `silhouette` view mode (docs/CONTRACTS.md §9),
  *    scored by scripts/overlay_check.py, passes every gate of both hands, the
- *    index-tip contact gap, and shows no stray pixels.
+ *    index-tip contact gap, and shows no stray pixels;
+ *  - D10: the particle hand, at the default tier, keeps the hand shape — its
+ *    particle-density silhouette (the reference right mask's own rule) passes
+ *    the D10 regression gates in scripts/particle_shape.py.
  *
  * Positioning goes through the dev inspector (window.__alpha), which the spec
  * permits for measurement; nothing here asserts interaction.
@@ -173,4 +176,29 @@ test('pose matches — the silhouette capture passes every ACCEPTANCE gate', asy
   }
   expect(rep.contact.pass).toBe(true);
   expect(rep.pose_matches).toBe(true);
+});
+
+test('D10 — the particle hand keeps the hand shape', async ({ page }) => {
+  const dir = 'outputs/qa/form';
+  mkdirSync(dir, { recursive: true });
+  // the product's tier (no ?tier): the gate was set on the medium tier
+  await reachHome(page);
+  await page.mouse.move(-5, -5);
+  await page.waitForTimeout(800);
+  await page.evaluate(() =>
+    (window as unknown as { __alpha: { setTimeScale(v: number): void } }).__alpha.setTimeScale(0),
+  );
+  await page.waitForTimeout(200);
+  const shot = `${dir}/particles-full.png`;
+  await page.screenshot({ path: shot });
+
+  let code = 0;
+  try {
+    execFileSync('python3', ['scripts/particle_shape.py', shot, '--out', `${dir}/particle-shape`], { stdio: 'pipe' });
+  } catch (e) {
+    code = (e as { status?: number }).status ?? -1;
+  }
+  const rep = JSON.parse(readFileSync(`${dir}/particle-shape/particle-shape.json`, 'utf8'));
+  expect(rep.failed, JSON.stringify(rep.gates.checks)).toEqual([]);
+  expect(code).toBe(0);
 });

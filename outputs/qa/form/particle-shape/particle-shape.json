@@ -1,0 +1,59 @@
+{
+  "screenshot": "outputs/qa/form/particles-full.png",
+  "method": "reference right-mask rule (scripts/reference_masks.py build_right) on the screenshot, scored by compare_silhouette.compare() against the reference right mask",
+  "particles_detected": 1874,
+  "iou": 0.87971,
+  "precision": 0.93052,
+  "recall": 0.94155,
+  "contour_mean_px": 5.593,
+  "contour_p95_px_not_gated": 13.936,
+  "negative_space_iou": 0.69887,
+  "tips_px": {
+    "index_tip": 4.12,
+    "middle_tip": 3.0,
+    "ring_tip": 4.12,
+    "pinky_tip": 4.0
+  },
+  "gates": {
+    "source": "decision D10 (documentations/log/log-v2.md), docs/ACCEPTANCE.md section 7",
+    "checks": {
+      "iou": {
+        "value": 0.87971,
+        "gate": ">= 0.85",
+        "pass": true
+      },
+      "contour_mean_px": {
+        "value": 5.593,
+        "gate": "<= 7.5",
+        "pass": true
+      },
+      "negative_space_iou": {
+        "value": 0.69887,
+        "gate": ">= 0.65",
+        "pass": true
+      },
+      "tip:index_tip": {
+        "value": 4.12,
+        "gate": "<= 8.0",
+        "pass": true
+      },
+      "tip:middle_tip": {
+        "value": 3.0,
+        "gate": "<= 9.0",
+        "pass": true
+      },
+      "tip:ring_tip": {
+        "value": 4.12,
+        "gate": "<= 9.0",
+        "pass": true
+      },
+      "tip:pinky_tip": {
+        "value": 4.0,
+        "gate": "<= 9.0",
+        "pass": true
+      }
+    }
+  },
+  "pass": true,
+  "failed": []
+}
