@@ -681,7 +681,14 @@ can run in parallel with it):
   lines, full material — at 1644 × 957.
 - Re-check startup reveal at p = 0 / 0.5 / 1 and hover recovery.
 
-**6. Adversarial review** against review §E's five questions: do the poses
+**6. Adversarial review** — **in progress** (session 6, 2026-09-25; D26: a multi-agent workflow,
+`.claude/workflows/alpha-v1-review-step6.js`). Runs `wf_0c91fbfa-2e5` (cut off by a session end) and
+`wf_4e901799-243` (stopped at the user's request, 22:40) returned nothing yet; the five reviewers'
+progress is in `outputs/qa/scratch/review6/<question>/findings.md`, which a relaunch resumes from.
+Relaunch (attended; the Vite dev server must be running at 127.0.0.1:5173 —
+`npx vite --host 127.0.0.1 --port 5173 --strictPort` in the background):
+`Workflow({scriptPath: ".claude/workflows/alpha-v1-review-step6.js"})`, or
+`args: {only: [...]}` for the questions still open. The review is against review §E's five questions: do the poses
 match, are there visible seams, does the solid have classical sculptural mass,
 do the particles keep the hand shape, does the same seed reproduce.
 
