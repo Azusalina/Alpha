@@ -150,3 +150,65 @@ passed (outputs/qa/calib/reports/step2-run3-right-verify1.json). This run's anat
 
 Next: re-run g3; then the middle tip (0.12 px over) and D18's middle ratio (1.21) — if the gates and
 D18 cannot both hold with hinge-plane fingers, that is the question for the user (D6).
+
+## Run 7, 2026-09-24 (resumed; wf_653728d4-e10, left only)
+Start: repo pose = R7 (committed), all gates pass; scratch g2 = hinged fit (fails middle tip 4.12 > 4.0).
+- g3 re-run with tools/fit6c.py (fit6 + a checkpoint pose after every improved LM iteration, poses/s6/g3.ckpt.json).
+- (anatomy only) anatsolve from g2, MCP px free <= 2.85 u, thumb z free: pip-sign 0 / +1 give the same optimum
+  (middle P1/P2 1.37, ring 1.43, dorsal -31 deg) and -1 (D18's direction) 1.35 / 1.40 (dorsal -29 deg), but
+  both put the middle MCP at (585, 322-326), 36-40 px from its reading (gate 30 px) -> inside the gate the
+  middle ratio stays ~1.2-1.25 (the flexion plane's normal, the knuckle line, points 0.83-0.94 at the camera,
+  so P1/P2 in 3D ~ the drawn 74/60).
+- Thumbnail: R7 11.6 deg from the camera; g2 36.3 deg (roll 72). Roll alone on g2: 80 -> 31.5, 90 -> 27.4,
+  95 -> 26.8 (minimum), 110 -> 31.9: the dorsal flip turns the drawn nail face into a band on the thumb's top
+  (crops/r7/thumb-ref-R7-g2-3x.png: reference | R7 | g2).
+- (surrogate) g3 = fit6c from g2, bones anchored to v0 (6 LM iterations, 17 min): IoU 0.9831, mean 0.801 / p95 2.000 / max 4.47,
+  neg 0.9351, over2 111/212, tips 2.24/1.0/3.16/2.24. Hinged (|abd| <= 6.1, out of plane <= 0.3 deg); knuckle line 11.4 deg off;
+  dorsal [0.324, 0.905, -0.276] (back of the hand 17 deg away from the camera); 3D P1/P2 middle 1.20, ring 1.36; thumbnail 34.1 deg.
+- R12 b12_g3 (scratch, --views): IoU 0.98345, mean 0.786 / p95 2.000 / max 5.00, neg 0.93607, tips 2.24 / 4.12 / 2.24 / 1.0;
+  fails only the middle tip again (the Blender tip loses row 523; the leftmost pixel of row 522 wins). A1/D9 pass.
+  Views sheet crops/r7/views-R7-vs-g3.png.
+- (surrogate) g3p = patsearch6 g3 middle_distal (13 min): middle DIP (+0.5, -0.5), tip (-0.25, -0.75) r +0.25 flat 0.795 -> 0.825;
+  over2 107 -> 93, middle tip at biases 0-0.3: 2.24 / 2.24 / 1.41 / 1.41.
+- R13 b13_g3p (scratch): IoU 0.98347, mean 0.785 / p95 2.000 / max 5.00, neg 0.93411, tips 2.24 / 1.41 / 2.24 / 1.0.
+  EVERY GATE PASSES (hinged fingers). A1 1/0/0/100 %/28854, D9 pass.
+- (surrogate) g3p_nz = g3p + thumb cmc/mcp/ip/tip z from tools/nailz.py (px and thumb_roll_deg held; thumb bones within
+  +-10 % of v0; the thumb >= 0.06 in front of the ring/little joints it covers): thumbnail 34.1 -> 25.7 deg from the camera;
+  over2 99 -> 108/212.
+- R14 b14_g3p_nz (scratch, --views): IoU 0.98331, mean 0.787 / p95 2.000 / max 5.00, neg 0.93493, tips 2.24 / 1.41 / 2.24 / 1.0.
+  EVERY GATE PASSES. A1/D9 pass.
+- R15 b15_g3p_nz_roll95 (scratch, --views; thumb_roll_deg 72 -> 95, a D20 exception, evidence only): thumbnail 2.3 deg;
+  IoU 0.98316, mean 0.796 / p95 2.000 / max 5.00, neg 0.93238, tips 2.24 / 1.41 / 2.24 / 1.0. EVERY GATE PASSES.
+  Thumbnail strip crops/r7/thumbnail-variants-5x.png (reference | R7 | g3 | R14 | R15).
+- Candidate files in the repo layout (tools/writepose.py rounding, notes rewritten): poses/s7/candA-roll72.pose-left.json
+  (= R14) and poses/s7/candA-roll95.pose-left.json (= R15).
+- R16 b16_candA_roll72 (scratch, --views): IoU 0.98339, mean 0.780 / p95 2.000 / max 4.47, neg 0.93480, tips 2.24/1.41/2.24/1.0;
+  joints worst middle_mcp 2.86 u, thumb_cmc 2.86 u, wrist 2.85 u (gate 3 u). EVERY GATE PASSES. A1 1/0/0/100 %/28854, D9 pass.
+- R17 b17_candA_roll95 (scratch, --views): IoU 0.98328, mean 0.788 / p95 2.000 / max 4.47, neg 0.93247, tips 2.24/1.41/2.24/1.0;
+  same joints. EVERY GATE PASSES. A1/D9 pass.
+- R18 REPO rebuild of the committed pose R7 with --views (the pose file unchanged): IoU 0.98036, mean 0.911 / p95 2.000,
+  neg 0.92779, tips 2.24/1.41/2.24/3.16, every gate passes; GLB and contour JSON byte-identical, mask and views
+  pixel-identical (PNG metadata and build_seconds differ).
+- Evidence for the user: outputs/qa/calib/compare-left/decision-views-R7-vs-candA.png (home/+35/-35/above: R7 | A roll 72 |
+  A roll 95) and decision-thumbnail-5x.png.
+Stopped here: which pose goes in the repo is the user's choice (D18 vs hinged fingers, and D20's thumb roll);
+the repo keeps R7 until the answer. To install a candidate: cp poses/s7/candA-roll{72,95}.pose-left.json
+assets-source/hands/pose-left.json, then the repo build + compare commands (it reproduces R16/R17).
+
+## Run 8, 2026-09-24 (verify:left#1 fix, D25: one bounded thumb refit)
+Start: repo pose = candidate A roll 95 (e2ca017, D23/D24), every gate passes; verifier's major: thumb MCP 24.8 deg
+sideways, IP -7.9 (tools8/thumbang.py = the verifier's anat2 decomposition, reproduces it). D25 (B): MCP sideways
+<= ~12, IP <= ~5, thumb_cmc toward (430,330), refit thenar/palm heel/wrist crease; thumb tip to e7 (564.98,460.35).
+- (anatomy only) tools8/thumbsolve.py: thumb px/z solved for D25's angles with the tip on e7, CMC at a fraction f
+  toward its reading or at a point on the drawn thumb's 2D axis. Two families: (A) CMC near the reading, metacarpal
+  toward the camera, MCP flexion 34-36 deg (meta 56-58 deg off the hand axis in 3D); (B) CMC on the 2D line
+  (405,300), MCP flexion ~4, meta 38.5 deg off the axis. Surrogate before refit: A f0.7 p95 2.83, f1.0 3.00;
+  B (405,300) 5.39, (413,297) 7.21 (the thenar follows the metacarpal off the palm-heel outline).
+- (main session's note, from the transcript; the run stopped at about 22:48 on 2026-09-24 when the session
+  ended, not by a decision) LM refits of both families with D25's constraints, tools8 fit started 22:34:
+  fA (from family A, CMC near its reading) and fB (family B). At the stop fA had 2 iterations
+  (cost 7782.9 -> 2560.4) and fB 2 (25000.6 -> 6253.8). fA's checkpoint fA.ckpt.json, surrogate:
+  IoU 0.9822, mean 0.826 / p95 2.000 / max 4.24, neg 0.9362, over2 153/213, tips index 2.24 / middle 2.24 /
+  ring 3.16 / pinky 2.24; thumb MCP flexion 44.7, sideways 11.8 deg; IP flexion 11.5, sideways -3.3 deg;
+  nail 9.0 deg off the camera — inside D25's limits. Not yet built in Blender; no repo change (HEAD 258b2ab).
+  Next: finish or re-run fA (and fB if needed), Blender-build the best in scratch, then the repo build.
