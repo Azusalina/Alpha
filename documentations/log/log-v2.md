@@ -565,6 +565,22 @@ byte-identical).
   IoU 0.880, contour mean 5.59 px, negative space 0.699, tips ≤ 4.1 px.
   Playwright 11 / 11.
 
+## Step 6 — adversarial review (sessions 6–7, 2026-09-25 → 2026-09-29)
+
+Workflow `.claude/workflows/alpha-v1-review-step6.js` (D26), in two batches
+(`wf_c89c04ee-834`: seams, seed; `wf_a5a50b85-9f7`: pose, mass, particles).
+Reports: `outputs/qa/calib/reports/step6-batch{1,2}.json`; evidence under
+`outputs/qa/scratch/review6/` (git-ignored). Every blocker / major was checked
+by an independent skeptic; minors are unverified.
+
+| Question (review §E) | Answer | Findings |
+|---|---|---|
+| Do both poses match? | **Yes** — fresh app capture reproduces every gate; digit identity, occlusion, bends, wrist axis (25.97° vs 23.41°) match | 4 minor: a construction line crosses the contact gap; left curled middle/ring nails hidden (D23 consequence); right arm past the cut runs to the corner (unscored); left forearm flares off-frame |
+| Visible seams? | **None at home** — one welded shell per hand in the browser, no split normals | 7 minor: left first-web fold (known); left thumbnail D not legible (the exported outline is not inked); 4.2 px joint in the left ink contour; left wrist undercut at −35°; telescoped index from above (known); D22 pit also in solid mode; right thumbnail plate hard-edged in solid mode |
+| Classical sculptural mass? | **Partly** — real anatomical masses, wide tone range, lines from the rig in the B2 order | 2 major (confirmed): soft forms only, no plane breaks as the drawing's "geometric version" has (a builder capability); the in-frame forearm's shadow side is a flat dark band (lighting). 4 minor incl. finger-length ratios in 3D (D23 consequence) |
+| Particles keep the hand shape? | **Partly** — reads as a hand at home, hover recovers exactly, thumbnail D legible at 3x | 3 major (confirmed): the tail does not disperse past the wrist (review B3); the cloud is ~1.7x the drawing's ink with no tip/knuckle hierarchy; the D10 gate's margin is inside its own noise (2 of 6 fresh seeds fail, as does 1 of 3 10 % thinnings). Minors: low tier, gap line, thumb crossing |
+| Same seed reproduces? | **Partly** — the arrays are bit-identical across reloads, tiers and 4 JS engines (incl. WebKitGTK); the *frame* is per device | 1 major, rated minor by its skeptic: the shader's `fract(sin())` hash differs per GPU (SwiftShader vs Xe agree on ~1.4 % of values); 4 minor incl. idle time carried into scrubbed frames |
+
 ## Resume here
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
@@ -681,7 +697,7 @@ can run in parallel with it):
   lines, full material — at 1644 × 957.
 - Re-check startup reveal at p = 0 / 0.5 / 1 and hover recovery.
 
-**6. Adversarial review** — **in progress** (session 6, 2026-09-25; D26: a multi-agent workflow,
+**6. Adversarial review** — ✅ **reviewed** (see "Step 6"; decisions pending). Earlier notes (session 6, 2026-09-25; D26: a multi-agent workflow,
 `.claude/workflows/alpha-v1-review-step6.js`). Runs `wf_0c91fbfa-2e5` (cut off by a session end) and
 `wf_4e901799-243` (stopped at the user's request, 22:40) returned nothing yet; the five reviewers'
 progress is in `outputs/qa/scratch/review6/<question>/findings.md`, which a relaunch resumes from.
