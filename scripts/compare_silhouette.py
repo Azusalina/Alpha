@@ -468,9 +468,14 @@ def bbox(m: np.ndarray, pad: int = 20):
 # -------------------------------------------------------------------- compare
 
 def compare(hand: str, render: np.ndarray, out_dir: Path, render_kps: dict | None = None,
-            use_ignore: bool = True, ref_dir: Path = REF_DIR, label: str = "") -> dict:
+            use_ignore: bool = True, ref_dir: Path = REF_DIR, label: str = "",
+            extra_ignore: np.ndarray | None = None) -> dict:
+    """extra_ignore: more pixels left out of every metric, on top of the reference's
+    ignore zone (scripts/particle_shape.py scores the fingers and palm only, D27)."""
     ref = load_reference(hand, ref_dir)
     ignore = ref["ignore"] if use_ignore else np.zeros_like(ref["mask"])
+    if extra_ignore is not None:
+        ignore = ignore | extra_ignore
     valid = ~ignore
     rm, nm = ref["mask"] & valid, render & valid
 

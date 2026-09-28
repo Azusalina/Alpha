@@ -97,6 +97,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.setAttribute('aId', new Float32BufferAttribute(cloud.id, 1));
     g.setAttribute('aDissolve', new Float32BufferAttribute(cloud.dissolve, 1));
     g.setAttribute('aRim', new Float32BufferAttribute(cloud.rim, 1));
+    g.setAttribute('aHash', new Float32BufferAttribute(cloud.hash, 3));
     g.computeBoundingSphere();
     return g;
   }, [source, contour, rig, tier]);
@@ -145,6 +146,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           attribute float aId;
           attribute float aDissolve;
           attribute float aRim;
+          attribute vec3 aHash;
 
           uniform float uGather;
           uniform float uTime;
@@ -157,14 +159,13 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
 
           varying float vAlpha;
 
-          // Hashed per-particle constants: recomputed from the id, never stored,
-          // so a reverse transition can reproduce them exactly.
-          float hash(float n) { return fract(sin(n * 127.1) * 43758.5453); }
-
           void main() {
-            float h1 = hash(aId);
-            float h2 = hash(aId + 19.7);
-            float h3 = hash(aId + 51.3);
+            // Per-particle constants, integer-hashed from the id on the CPU
+            // (sampling.ts): the same on every GPU, and recomputable from the id,
+            // so a reverse transition reproduces them exactly (D29).
+            float h1 = aHash.x;
+            float h2 = aHash.y;
+            float h3 = aHash.z;
 
             // Startup: each particle gathers on its own slightly delayed clock,
             // so the cloud condenses instead of sliding in as one block.

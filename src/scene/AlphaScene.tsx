@@ -47,15 +47,20 @@ function AssetsReady({ onReady }: { onReady: () => void }) {
  * left (the reference's implied light) and a weak fill, so knuckles and
  * metacarpals read; the lit planes stay a step below the paper and the turned
  * planes go clearly darker, so the hand never flattens into one grey.
+ * Step 6 (decision D28, mass-2): the key comes from further in front and the
+ * fill from below the forearm, with a lighter ground bounce, so the forearm's
+ * underside turns as a cylinder instead of a flat dark band (in-frame forearm
+ * p5 / p50 from 89 / 140 to 128 / 186; the hand keeps p5 130, p95 231 against
+ * the paper's 242).
  */
 const LIGHT = {
   sky: '#ffffff',
-  ground: '#8f8a80',
+  ground: '#b0aa9f',
   hemisphere: 0.45,
-  keyFrom: [-3.2, 2.2, 2.0] as [number, number, number],
-  key: 3.0,
-  fillFrom: [2.2, -1.4, 1.6] as [number, number, number],
-  fill: 0.35,
+  keyFrom: [-2.6, 1.6, 3.2] as [number, number, number],
+  key: 2.8,
+  fillFrom: [-0.6, -2.6, 1.8] as [number, number, number],
+  fill: 0.8,
   ambient: 0.1,
 };
 

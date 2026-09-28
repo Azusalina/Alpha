@@ -30,7 +30,7 @@ import { BufferGeometry, Color, Float32BufferAttribute, Mesh, MeshBasicMaterial,
 import { HOME_DISTANCE, projectToPixel } from '../config/composition';
 import type { NailOutline } from './assets';
 import { skeletonValues } from './reveal';
-import { makeRng } from './rng';
+import { hash11, makeRng } from './rng';
 import type { HandRig } from './skeleton';
 
 export interface ParticleCloud {
@@ -46,6 +46,12 @@ export interface ParticleCloud {
   dissolve: Float32Array;
   /** 1 where the particle sits on the silhouette rim, 0 on a surface facing the camera. */
   rim: Float32Array;
+  /**
+   * Three per-particle constants in [0, 1) (gather lead, breathing phase, pointer
+   * response), hashed from the id with integer arithmetic on the CPU, so every GPU
+   * gets the same values (decision D29; a shader fract(sin()) hash differed per GPU).
+   */
+  hash: Float32Array;
   count: number;
   /** How many particles trace nail outlines (they follow the hand particles). */
   nailCount: number;
@@ -230,7 +236,11 @@ export function sampleParticleHand(
   }
 
   geometry.dispose();
-  return { home, size, tone, id, dissolve, rim: rimOut, count, nailCount, seed };
+  const hash = new Float32Array(count * 3);
+  for (let k = 0; k < count; k++) {
+    for (let c = 0; c < 3; c++) hash[k * 3 + c] = hash11(k, c);
+  }
+  return { home, size, tone, id, dissolve, rim: rimOut, hash, count, nailCount, seed };
 }
 
 /**

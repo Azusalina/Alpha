@@ -8,7 +8,7 @@
  * ticks at the joints, alignment rays that carry the hand's directions off the
  * frame, and the outer contour of the sculpted mesh
  * (public/assets/hand-left.contour.json, the silhouette the Blender builder
- * extracted from the same GLB the app renders).
+ * extracted from the same GLB the app renders) with the thumbnail's outline.
  *
  * Draw order (review B2): wrist structure → metacarpals → knuckles and phalanges
  * → outer contour, and the solid surface resolves after that (config/timing.ts).
@@ -145,6 +145,22 @@ export function buildConstructionPaths(rig: HandRig, contour?: HandContour): Con
       const window: [number, number] = i === 0 ? [C[0], C[1]] : slot([C[0] + 0.06, C[1]], i - 1, outer.length - 1, 3);
       add(window, 0.85, pl.map((p) => new Vector3(p[0], p[1], p[2])), true);
     });
+
+    // The thumbnail's D, inked like the drawing's (decision D30): the crisp nail
+    // outline the builder exports, visible stretches only (the lines have no depth
+    // test), drawn at the end of the contour layer.
+    for (const nail of contour.nails ?? []) {
+      let run: Vector3[] = [];
+      const flush = () => {
+        if (run.length >= 2) add([C[0] + 0.16, C[1]], 0.7, run, true);
+        run = [];
+      };
+      nail.points.forEach((p, j) => {
+        if (nail.visible[j]) run.push(new Vector3(p[0], p[1], p[2]));
+        else flush();
+      });
+      flush();
+    }
   }
 
   return paths;

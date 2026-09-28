@@ -118,8 +118,12 @@ class Stage {
 
   set(next: SceneState): void {
     if (next === this._state) return;
+    const leavingHome = this._state === 'home';
     this._state = next;
-    if (next === 'home') this.idleTime = 0;
+    // Reset on arriving at home and on leaving it, so no frame outside home
+    // depends on how long home was shown: the breathing phase is a function of
+    // the seed and the time since home only (decision D30).
+    if (next === 'home' || leavingHome) this.idleTime = 0;
     for (const l of this.listeners) l(next);
   }
 

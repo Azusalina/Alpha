@@ -35,7 +35,7 @@ export const inspection: {
 /** A digest of the cloud's arrays, bit for bit: the same seed must give the same hash. */
 export function digestCloud(cloud: ParticleCloud): CloudDigest {
   let h = 0x811c9dc5;
-  for (const a of [cloud.home, cloud.size, cloud.tone, cloud.id, cloud.dissolve, cloud.rim]) {
+  for (const a of [cloud.home, cloud.size, cloud.tone, cloud.id, cloud.dissolve, cloud.rim, cloud.hash]) {
     const bytes = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
     for (let i = 0; i < bytes.length; i++) {
       h ^= bytes[i];
