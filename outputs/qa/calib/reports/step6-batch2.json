@@ -1,0 +1,261 @@
+{
+ "run": "wf_a5a50b85-9f7",
+ "note": "batch 2: pose, mass, particles; verify:particles-gate-density failed on the session limit",
+ "results": [
+  {
+   "answer": "yes",
+   "summary": "Yes, both hands' poses match the reference. The fresh app capture (?tier=low silhouette through scripts/overlay_check.py) reproduces the gates exactly. Left: IoU 0.9836, contour p95 2.0 px, negative space 0.933, tips 2.24/1.41/2.24/1.0 px. Right: IoU 0.93267, contour p95 7.62 px, negative space 0.864, tips 1/1/1.41/3.16 px. The index-tip gap is 29.07 px against 30.41 drawn. Digit identity matches D1 and D2 by eye. So do which digit hides which (left: thumb in front, pinky and ring coming out from behind it; right: thumb in front of ring and pinky, middle under index), the bend and direction of every digit, the wrist axis (right 25.97 against 23.41 deg drawn, tolerance +-4) and the negative space. The right hand does not use the ~5 px position tolerance: the best-fit shift is (0,0) and the centroid is off by only -2.1 px. Off-axis views (+-35 deg, above) are volumetric, with no digit passing through another; the only defect there is the right thumb pit, already recorded. Low and medium tiers agree (IoU 0.998). What remains are four minors the gates cannot see: a construction line runs across the contact gap; the drawn nail slivers on the left curled middle and ring fingers are hidden by the hinged pose (a D23 consequence); the right arm past the wrist cut runs to the bottom-right corner while the drawing's particles drift out flat; the left forearm flares 3.2x off-frame, visible only off-axis. No blocker or major. The Playwright suite was not run, so nothing was written to outputs/qa/form or outputs/qa/tmp.",
+   "checked": [
+    "Findings log resumed from the earlier run: /home/a/Documents/Alpha/outputs/qa/scratch/review6/pose/findings.md (runs 1-2 plus run 3 appended)",
+    "Fresh app captures (capture.mjs against the running dev server; src unchanged since c64d58a, since then only docs and workflow commits) | digest seed 20260919 count 12000 hash d1c97a08 | outputs/qa/scratch/review6/pose/{app-silhouette-low,app-silhouette-medium,app-full,app-solid}.png, capture-info.json",
+    "overlay_check.py on the fresh ?tier=low silhouette | L IoU 0.9836 p95 2.0 neg 0.9332; R IoU 0.93267 p95 7.616 max 34.54 neg 0.8638; gap 29.07 vs 30.41 (tolerance 6.8); pose_matches true | outputs/qa/scratch/review6/pose/overlay-low/overlay-report.json",
+    "overlay_check.py --no-ignore | left unchanged (0.9828); right IoU 0.618, p95 212 px, all of it from the arm past the wrist cut (the unscored zone, ACCEPTANCE s7) | outputs/qa/scratch/review6/pose/overlay-noignore/overlay-report.json",
+    "Best integer translation of app vs reference masks (shift_check.py) | best at (0,0) for both hands; right centroid dx -2.12 px, so the ~5 px tolerance is not being used | outputs/qa/scratch/review6/pose/shift_check.py",
+    "Low vs medium tier silhouettes | IoU 0.998 for both hands (antialiased edges only) | app-silhouette-{low,medium}.png",
+    "Digit identity, bends, occlusion and negative space by eye (left and right crops, ref / full / solid) | match D1 and D2; which digit hides which matches | crop-left-digits.png, crop-right-digits.png, crop-right-overlaps-3x.png, crop-left-overlaps-3x.png, overlay-low/overlay-zoom-{left,right}.png",
+    "Contact gap at 8x | tips almost touching as drawn (29 px); a construction line crosses the gap in the full view | gap-line-8x.png, crop-contact.png",
+    "Whole frame ref vs app full | composition matches; differences only in the unscored arm zones | whole-ref-vs-app.png",
+    "Right forearm axis by the mask rule, x 1150-1320 | ref 23.41 deg, app 25.97 deg (within +-4) | forearm_axis2.py",
+    "Right tail past the wrist (tail_dir.py) | ref dot median stays at y 755-790 for x 1320-1640; the app band keeps 25-30 deg and leaves at the bottom-right corner; slopes 11.8 vs 23.4 deg | outputs/qa/scratch/review6/pose/tail_dir.py",
+    "Off-axis views +-35 deg and above (Blender views from the current GLBs) | volumetric, no digit through digit, not paper-thin; right -35 deg pit behind thumb MCP (already recorded); the left forearm is a club with a visible end cap in +35 | views-left-2x2.png, views-right-2x2.png, offaxis-*.png",
+    "Nail facing of curled digits (nail_facing.py) and stroke rows on the reference | drawn left middle/ring nails are slivers on the right 20-35 % of the tip (dorsum ~60-70 deg from camera); app dorsum 92/97 deg, so no nail visible | curled-tips-nails-5x.png, nail_facing.py",
+    "Left forearm 3D sections from handMesh, and pose-left.json | width 0.239 -> 0.650 world (2.7x); forearm r 155 px vs wrist 48.6 px at z 0 | mesh-left.json, assets-source/hands/pose-left.json",
+    "Window aspects 2560x1080, 1600x1200, 1920x1080 | no arm end cap or other break at home | aspect-*-pair.png, capture-aspect.mjs",
+    "Camera motion at home | none ('home holds still', src/scene/CameraRig.tsx:28), so off-axis shapes are never seen in the app today"
+   ],
+   "findings": [
+    {
+     "id": "pose-gapline",
+     "severity": "minor",
+     "title": "A construction line crosses the 'almost touching' gap into the particle hand",
+     "description": "In the app's home full view, the left index's reaching-axis ray (src/hand/constructionLines.ts:133-134, ray(index.joints[1], index.joints[3], 0.55), commented 'the index's reaching axis carried toward the particle hand') is drawn across the whole 29 px gap between the two index tips and into the particle cloud. In the drawing the gap is empty paper: the index's axis line stops a few px past the tip. The pose gap itself is right (29.07 vs 30.41 px), but the empty space at the focal point of the composition is bridged by a faint line. Silhouette mode draws no lines, so no gate sees this.",
+     "evidence": "outputs/qa/scratch/review6/pose/gap-line-8x.png (ref | app, crop 770-830 x 395-455 at 8x). Grey sampled along the segment (786,416)->(807,438) in app-full.png vs the reference: app 133-205 at every sample, ref 244-247 (paper) from x 790 to 802. Capture: node outputs/qa/scratch/review6/pose/capture.mjs.",
+     "known": false
+    },
+    {
+     "id": "pose-curlnails",
+     "severity": "minor",
+     "title": "Left curled middle and ring fingers: the drawn nail slivers are hidden by the hinged pose (D23 consequence)",
+     "description": "The drawing shows a nail outline on the right 20-35 % of the tips of the left middle and ring fingers, which means their dorsum faces about 60-70 deg from the camera. In the hinged pose (D23: back of the hand turned ~17 deg away), the distal dorsum faces 92 deg (middle) and 97 deg (ring) from the camera. The nails are therefore edge-on or behind, and both fingertips read as plain rounded tubes at home. The silhouette is unaffected (ACCEPTANCE s7: anything inside the outline is not measured). D23 did not discuss this effect.",
+     "evidence": "python3 outputs/qa/scratch/review6/pose/nail_facing.py (left middle distal dorsum.cam -0.04 / 92 deg, ring -0.12 / 97 deg). Reference strokes: ring row y 488 edges 524/555, nail line 547.5; middle row y 503 edges 589.5/618.5, nail line 612.5 (aes-ref/alpha-white-geom.PNG). Crop: outputs/qa/scratch/review6/pose/curled-tips-nails-5x.png (ref | full | solid, box 495-625 x 400-535).",
+     "known": false
+    },
+    {
+     "id": "pose-tail",
+     "severity": "minor",
+     "title": "The right arm past the wrist cut runs to the bottom-right corner; the drawing's particles drift out flat",
+     "description": "Past x 1320 the drawing's dots keep a flat median (y 755-790 up to x 1640) and fan out up and down. The app continues the forearm at 25-30 deg and leaves the frame at the bottom-right corner (median y 866 at x 1640, p90 940). This lies in the unscored zone (ACCEPTANCE s7), so no gate sees it. Removing the ignore zone drops the right IoU to 0.618. Within the scored window the axis matches (25.97 vs 23.41 deg). This overlaps the particles reviewer's tail-width finding.",
+     "evidence": "python3 outputs/qa/scratch/review6/pose/tail_dir.py (per-40-px-column dot medians; slopes ref 11.8 vs app 23.4 deg); outputs/qa/scratch/review6/pose/overlay-noignore/overlay-report.json; whole-ref-vs-app.png; outputs/qa/scratch/review6/particles/findings.md line 11.",
+     "known": true,
+     "knownRef": "docs/ACCEPTANCE.md s7 'The unscored zones' (the arm past the wrist cut is not scored); the direction itself is not recorded"
+    },
+    {
+     "id": "pose-flare",
+     "severity": "minor",
+     "title": "The left forearm flares 3.2x off-frame: a club with an end cap in the +35 deg view",
+     "description": "To match the drawn forearm, which widens toward the left edge, the forearm joint sits at px (-187,136), z 0, r 155 px, against wrist r 48.6 px. The mesh widens 0.239 -> 0.650 world in a round section. At home only the in-frame part shows and it matches (left IoU 0.9836), but from +35 deg the arm reads as a bottle-shaped club with its flat end in frame. The home camera never moves (CameraRig.tsx:28), so viewers see this only if a later round moves the camera.",
+     "evidence": "outputs/qa/scratch/review6/pose/views-left-2x2.png (top-right = yawp35), outputs/qa/calib/left-view-yawp35.png; assets-source/hands/pose-left.json joints.forearm / joints.wrist; outputs/qa/scratch/review6/pose/mesh-left.json.",
+     "known": false
+    }
+   ],
+   "decisionsForUser": [
+    "pose-gapline: keep the left index's reaching-axis construction line running across the contact gap into the particles (the implementer's choice in constructionLines.ts), or stop it short of the gap as the drawing does?",
+    "pose-curlnails (consequence of D23): accept that the left curled middle and ring fingers show no nail at home, or allow a small axial roll of those distal phalanges (about 25-35 deg toward the camera) or a nail-outline detail as for the thumb? This would need a pose or builder change and a left recalibration."
+   ],
+   "filesWrittenOutsideScratch": []
+  },
+  {
+   "answer": "partly",
+   "summary": "Partly. The left plaster hand has real anatomical masses: thenar, hypothenar, first dorsal interosseous, palm heel, dorsal wrist bump, an index knuckle dome, finger pads and a thumbnail. It holds its volume in the Blender ±35° and above views, so it is no longer the round-1 tubes or a flat card. The tone range is wide rather than one flat grey: left solid luminance p2/p50/p98 = 85/164/224 against paper at 242, and the hand alone (x>330) p5/p50/p95 = 99/172/220. The construction lines all come from the rig (wrist sections, the wrist-to-MCP metacarpal fan, the MCP ridge, bone axes, joint ticks, half-phalanx marks) or from the mesh's own outer contour. They build up in the review-B2 order during startup, and each layer overlaps the next by about 0.05 of the clock: wrist 0.2-0.3, metacarpals 0.35-0.45, knuckles 0.45-0.55, contour 0.55-0.75, solid 0.65-0.97.\n\nIt falls short of classical sculptural mass in two ways a viewer sees at the home view.\n\n1. **Builder limit.** The form has no planes. The SDF with polynomial smooth unions gives a single smooth dome for the back of the hand. Of the knuckle row only the index dome reads. The curled middle and ring fingers are featureless round tubes, and the index has ring bulges. The drawing builds the hand from planes and angular turns.\n2. **Lighting.** The forearm's shadow side is one flat dark band: 15,457 px (13% of the left hand) at luminance 81-99, std 4.0, median gradient 0. It is the darkest mass in the frame and the least modelled.\n\nSmaller points: the 3D phalanx proportions are off (middle finger 0.89× the index, P2 shorter than P3 on the middle and ring, pinky 0.52× the index), which follows from D23 and the single-view depth reading. The thumbnail reads as a band. The reveal front shows a speckle for about 0.1-0.2 s. The forearm off-frame is a cone.",
+   "checked": [
+    "Prior scratch reused: src/ and assets unchanged since 5c62acd (2026-09-25 22:11), so the run-1 captures (22:23-22:30) are current. Fresh captures in outputs/qa/scratch/review6/mass/cap2/ via capture2.mjs, no page errors.",
+    "Startup order (run-1 sweep p 0.05-1.00): B2 order holds with overlap: wrist cross and circles 0.20-0.30, metacarpal fan 0.35-0.45, knuckle ridge and ticks 0.45-0.55, ink contour 0.55-0.75, solid 0.65-0.97. Evidence: startup-sheet-left.png, src/hand/constructionLines.ts LAYERS, src/config/timing.ts.",
+    "Reason for the construction lines: every path comes from rig joints or from hand-left.contour.json outer polylines. PASS. Evidence: src/hand/constructionLines.ts:98-170.",
+    "Tone of the left solid: p2/p50/p98 85/164/224, paper 242; hand x>330 p5/p50/p95 99/172/220, not one flat grey. Evidence: cap2/home-solid.png plus cap2/home-silhouette.png mask.",
+    "Forearm shadow side: 15,457 px at luminance 81-99, std 4.0, median gradient 0, a flat band (mass-2). Evidence: c2-wrist-3way.png, c2-wrist-step-4x.png; row profile y=215-245, x=200-340.",
+    "Planes and turns at home vs the drawing: soft smooth-union forms, curled digits are tubes (mass-1). Evidence: c2-index-3way.png, c2-knuckles-palm-3way.png, c2-curled-3way.png, sbs-lefthand-ref-solid.png, pair-fingers-2x.png, pair-wrist-palm-2x.png.",
+    "Masses present and volumetric off-axis: thenar, hypothenar, FDI, palm heel, wrist bump, knuckle dome, pads, nail. Evidence: bl-left-yawp35-hand-2x.png, bl-left-above-hand-2x.png, blender-left-views-grid.png; shape keys in outputs/qa/calib/left-mesh-report.json.",
+    "3D phalanx proportions from the pose joints with the exact camera (mass-3). Evidence: pose_numbers.py, pose_numbers.json.",
+    "Left thumbnail at 5x: transverse bright band, faint D (mass-4). Evidence: c2-thumbnail-pair-5x.png.",
+    "Reveal front at p 0.72-0.86: sliver and speckle (mass-5). Evidence: c2-reveal-front-072-078-082-086.png, cap/startup-080.png, crop-startup080-2x.png.",
+    "Right hand in solid mode (dev only): soft, even palm; volumetric in the Blender views. Evidence: c2-right-solid-vs-ref.png, c2-right-blender-views.png.",
+    "GLB palm sections (palm_section.py): the slab includes the thumb and curled finger roots, so it is not a usable palm-thickness number and is not used as evidence.",
+    "Playwright suite not run; nothing written to outputs/qa/form or outputs/qa/tmp. All files are in outputs/qa/scratch/review6/mass/ (findings.md updated)."
+   ],
+   "findings": [
+    {
+     "id": "mass-1",
+     "severity": "major",
+     "title": "Solid is soft smooth-union forms without planes; curled digits read as tubes",
+     "description": "At the home view the left hand's masses exist but are not carved. The back of the hand is one smooth dome from the wrist to the knuckles, and of the knuckle row only the index dome reads. The curled middle and ring fingers are uniform round tubes with no PIP knuckle turn and no side or dorsal planes. The index is a round tube with ring bulges at PIP and DIP. The drawing builds the same hand from planes: faceted construction, an angular index PIP, straight-sided phalanges. This is a builder limit, not lighting: the SDF of capsules and ellipsoids is fused with polynomial smooth minima (k_body 0.045, k_joint 0.016, waist 0.07, pads 0.78), which by construction cannot produce a plane or a hard turn. Review B1/B2 asks for the palm block, knuckle turns and finger sections to read.",
+     "evidence": "outputs/qa/scratch/review6/mass/c2-index-3way.png, c2-curled-3way.png, c2-knuckles-palm-3way.png, sbs-lefthand-ref-solid.png (reference | solid | full crops from cap2/home-{solid,full}.png vs aes-ref/alpha-white-geom.PNG); builder params in outputs/qa/calib/left-mesh-report.json .params; docs/HAND_ASSETS.md 'Selective smooth unions'. The seams reviewer saw the index 'telescoped' from above (outputs/qa/scratch/review6/seams/findings.md).",
+     "known": false
+    },
+    {
+     "id": "mass-2",
+     "severity": "major",
+     "title": "Forearm shadow side is one flat dark grey: the darkest mass in the frame carries no form",
+     "description": "The key light (from [-3.2,2.2,2.0], 3.0) does not reach the forearm's underside. The fill (0.35 from [2.2,-1.4,1.6]) plus the hemisphere and ambient light leave it almost uniform, so the lower half of the forearm is a flat dark band that meets the lit wrist at a near-vertical tone step (about 92 to about 150 within 20 px at x 266-306). The drawing's forearm is paper-white with lines. This is lighting, not builder: review B2 asks for a soft key and weak fill so that the form never becomes one flat grey. The pose reviewer also noted that the left forearm is the darkest mass in the frame (app 135 vs ref 240 at x<250).",
+     "evidence": "cap2/home-solid.png with the left mask from cap2/home-silhouette.png: 15,457 px (13 % of 118,234 left px) at x<260 with luminance 81-99, std 4.0, median gradient magnitude 0.0; hand x>330 median gradient 1.8. Row profile y=215: 95,95,...,96 then 109..174 over x 266-338. Crops: outputs/qa/scratch/review6/mass/c2-wrist-step-4x.png, c2-wrist-3way.png, c2-home-vs-ref-half.png. Light constants: src/scene/AlphaScene.tsx:51-60.",
+     "known": false
+    },
+    {
+     "id": "mass-3",
+     "severity": "minor",
+     "title": "3D phalanx proportions off on the curled digits (a consequence of D23 and single-view depth)",
+     "description": "With the committed pose, the middle finger is shorter than the index: 0.436 vs 0.492 world units, 0.89× (anatomically about 1.05-1.1×). The middle P1 is 0.72× the index P1. The middle P2 is shorter than its P3 (0.130 vs 0.148), and so is the ring's (0.111 vs 0.135); anatomically P2 ≥ P3. The pinky is 0.52× the index (about 0.75-0.8× anatomically). At home the curled digits are foreshortened and hide it; it shows in the ±35°/above views and matters once the camera moves (review B1.5, round C). D23 chose hinged fingers with 'P1/P2 what the drawing allows' and records only middle/ring P1/P2 = 1.21/1.46; the finger lengths and the P2/P3 inversion are not recorded.",
+     "evidence": "outputs/qa/scratch/review6/mass/pose_numbers.py and pose_numbers.json (3D lengths from assets-source/hands/pose-left.json via the exact camera pixelToWorld with (D-z)/D).",
+     "known": false
+    },
+    {
+     "id": "mass-4",
+     "severity": "minor",
+     "title": "Left thumbnail reads as a bright transverse band, not the drawn D plate",
+     "description": "Under the grazing key light the nail-fold step becomes a bright line across the thumb, while the plate's sides and free edge are barely lit. The nail reads as a band, whereas the drawing has a clean inked oval. The left nail outline exported for step 5 is used only by the right-hand particles; no line traces it on the left. This is part lighting and part builder relief (nail_relief 0.2); D24 set the thumb roll so the nail faces the camera.",
+     "evidence": "outputs/qa/scratch/review6/mass/c2-thumbnail-pair-5x.png (crop 500-580, 380-460 of the reference and cap2/home-solid.png); also found by the seams reviewer: outputs/qa/scratch/review6/seams/findings.md (r2-full-left-thumb-5x-vs-ref.png).",
+     "known": false
+    },
+    {
+     "id": "mass-5",
+     "severity": "minor",
+     "title": "Reveal front shows a detached sliver and order-dependent speckle on the palm underside",
+     "description": "During the surface reveal (p about 0.78-0.86, about 0.1-0.2 s at the default 2.8 s) the plaster appears first as a detached sliver below the palm. It then appears as a shredded, speckled patch on the hypothenar/thenar underside rather than a soft growing edge. The surface material is transparent: true with depthWrite at its default (true) and drawn in one call, so overlapping partially transparent surfaces blend or depth-reject each other depending on triangle order. It is transient, so it does not affect the home view.",
+     "evidence": "outputs/qa/scratch/review6/mass/c2-reveal-front-072-078-082-086.png (cap2/startup-0{72,78,82,86}.png crop 260-560, 200-420), crop-startup080-2x.png; src/scene/HumanHand.tsx:76-106.",
+     "known": false
+    },
+    {
+     "id": "mass-6",
+     "severity": "minor",
+     "title": "Off-frame forearm is a blunt cone/bottle in off-axis views",
+     "description": "The forearm joint sits off-frame at px x -187 with r 155 px (125 mm on an index = 95 mm scale, against a 39 mm wrist). The in-frame width matches the drawing (app vs ref width 207/202, 183/184, ..., 115/115 px along the arm), but past the frame edge it extrapolates to a capped bottle, about 2.7× the wrist width. At home only its in-frame part is seen; it matters for review B1.5 and round C camera moves. The pose reviewer measured the same (width 0.239 to 0.650 world).",
+     "evidence": "outputs/qa/scratch/review6/mass/blender-left-views-grid.png (outputs/qa/calib/left-view-{yawp35,yawm35,above}.png); width profile along the forearm axis vs assets-source/reference/left-mask.png (inline script; numbers in this finding); outputs/qa/scratch/review6/pose/findings.md last line.",
+     "known": false
+    }
+   ],
+   "decisionsForUser": [
+    "mass-1: the drawing's 'geometric version' builds the hand from planes, while the SDF + smooth-union builder can only make soft forms. Should a later round add planar modelling, which is a new builder capability? Options include facet or plane breaks on the back of the hand, angular PIP/DIP turns, and non-round finger sections. Or is the current soft plaster accepted as the round-2 answer?",
+    "mass-2: re-tune the lighting so the forearm's shadow side is modelled and lighter (stronger or better-placed fill, lighter ground colour, or a rim/bounce light), which would move the in-frame forearm toward the drawing's paper-white? Or keep the current key/fill balance?",
+    "mass-3 (consequence of D23): in 3D the curled middle finger is shorter than the index, P2 < P3 on the middle and ring, and the pinky is 0.52× the index. Accept this, since home hides it, or constrain finger lengths in a later calibration before any camera move?"
+   ]
+  },
+  {
+   "refuted": false,
+   "severity": "major",
+   "reason": "The finding holds up. I captured my own home view twice, at the default tier=medium and at tier=low, and the reviewer's numbers came out the same. Inside the left-hand mask, 15,457 px lie at x<260 with luminance 81-99. That is 13.07 % of 118,234 px, with std 3.99 and a median gradient of 0.0. On the hand at x>330 the median gradient is 1.80. Every vertical profile across the forearm shows the same thing: a lit upper half with cylindrical falloff (about 184 down to 97), then a lower 35-45 % that only drifts from 97 to about 84. It has no core shadow and no reflected light, so that side reads as one flat grey band. On the median, the app's forearm at x<250 is 141 against 247 in the reference drawing.\n\nThe dark band is the lowest-tone mass in the frame and a viewer sees it immediately at the home view (see crops). Review B2 (line 139) explicitly asks the lighting to avoid \"整只手成为同一块灰色\" (\"the whole hand becoming one block of grey\"). No decision in D1-D26 covers lighting or forearm tone; the step-4 lighting re-tune is an implementation choice, not a user decision. I also found it in neither log-v2 nor ACCEPTANCE §7, so it is not a known residual.\n\nIt is in scope: a shadow side with no modulation flattens the cylinder, and that bears directly on 体块 (sculptural mass).\n\nOne detail should be corrected. At the wrist the tone does not jump within 20 px as a hard step. It is a smooth ramp over about 36 px (row y=215: 96 at x 260, then 103, 112, 119, 126, 128, 131, 135, 140, 145, 150 over x 264-300). At normal size it still reads as a near-vertical boundary between the lit wrist and the dark forearm. The core claim and the severity stand.",
+   "evidence": "All files are in /home/a/Documents/Alpha/outputs/qa/scratch/review6/verify-mass-2/.\n\n**Captures.** Script: cap.mjs, run with `node outputs/qa/scratch/review6/verify-mass-2/cap.mjs` against the running dev server (tier medium and low, setTimeScale(0), pointer moved off-canvas). It writes {medium,low}-{silhouette,solid,full}.png.\n\n**Numbers (low-solid, left mask = pure red in low-silhouette):**\n- Left mask: 118,234 px.\n- x<260: 42,735 px, luminance percentiles 5/25/50/75/95 = 88/95/140/175/183.\n- Band at luminance 81-99: 15,457 px (13.07 %), std 3.99, median |grad| 0.0. For comparison, x>330 has median |grad| 1.80.\n- Column profiles, top to bottom:\n  - x=60: 151, 183 (peak), ..., 107, 99, 98, 97, ..., 87\n  - x=180: ..., 185 (peak), ..., 110, 97, 96, 94, ..., 82\n  - x=240: 184 (peak), ..., 108, 97, 96, 94, ..., 87\n- Row y=215, x 240-348 step 4 (identical at medium and low, solid): 96 ×6, then 103, 112, 119, 126, 128, 131, 135, 140, 145, 150, 155, 159, 162, ... 179.\n- Median at x<250: reference 247 (aes-ref/alpha-white-geom.PNG within assets-source/reference/left-mask.png) vs app 141.\n\n**Crops:**\n- left-3way.png: reference, solid and full at x 0-800, y 40-540.\n- wrist-ref-vs-app-3x.png: x 180-420, y 120-300, reference vs full.\n\n**Sources:**\n- Light constants: src/scene/AlphaScene.tsx:51-60 (key 3.0 from [-3.2,2.2,2.0]; fill 0.35; hemisphere 0.45 with ground #8f8a80; ambient 0.1).\n- Review B2: alpha-v1-review/review.md:139.\n- Not recorded as known: searched documentations/log/log-v2.md and docs/ACCEPTANCE.md for dark/shadow/tone/fill.\n\nI did not run the Playwright test suite."
+  },
+  {
+   "refuted": false,
+   "severity": "major",
+   "reason": "Mostly reproduces, and I kept major, but I narrowed the finding. On my own home-view captures, the left solid's curled middle and ring fingers are smooth, even-width sausages. The drawing gives the same fingers angular PIP corners, straight-sided phalanges and DIP creases. The index shows rounded ring bulges at PIP and DIP (the 'telescoped' look). The back of the hand is one soft dome, and only the index MCP knuckle stands out clearly in the knuckle row. A viewer would notice this at the home view, and it bears directly on the 体块 (sculptural mass) question, so major holds.\n\nTwo parts are overstated or out of bounds. (1) 'No PIP knuckle turn' is too strong. In pose-left.json the middle and ring axes turn about 40 deg at the PIP in the image plane, and the render shows that bend as a soft curve with a slight outline bulge. What is missing is a crisp knuckle corner and a dorsal plane, not the turn. (2) The finding asks for planes and faceting, and calls the smooth-union builder a defect because it 'cannot produce a plane'. That runs against the documented art direction: docs/DECISIONS.md section 1 says 'Soft classical sculpture plus geometric construction lines', docs/VISUAL_V1.md section 2 says 'Soft, plaster-like solid', and review B2 says '柔和实体' (soft solid). The faceting in aes-ref/alpha-white-geom.PNG is arguably the drawing's construction-line style, which the app assigns to the line layer, not the surface. None of D1-D26 settles this, so do not treat the planes part as a settled defect. Put it to the user as a decision: should the solid carry carved planes and hard knuckle corners, or stay soft with better knuckle articulation? The defect that stands without that decision is weak articulation: tube-like curled digits, telescoped IP rings and an under-read knuckle row. The index IP rings are a consequence of D19 S4 (dorsal IP knuckles: ip_knuckle_size 0.62, k_ipk 0.01) that the decision did not foresee.",
+   "evidence": "Captured fresh from the running dev server: outputs/qa/scratch/review6/verify-mass-1/cap.mjs (medium tier, 1644x957, DPR 1, setTimeScale(0), setViewMode solid/full), which wrote home-solid.png and home-full.png. Crops (reference | solid | full), all in outputs/qa/scratch/review6/verify-mass-1/:\n- left-3way.png (0,120)-(760,620)\n- knuckles-3way.png (340,260)-(620,520)\n- curled-3way.png (380,380)-(640,560)\n- index-3way.png (540,270)-(800,440)\n- midring-2way.png (490,320)-(680,540), reference | solid, 3x\n\nWhat they show:\n- midring-2way.png: the reference middle and ring fingers have corner turns at the PIP (about y 400-410 in the reference) and DIP crease lines. The solid shows smooth tubes with a rounded bend and no dorsal knuckle.\n- index-3way.png: bulges at PIP and DIP.\n\nPose image-plane bends computed from assets-source/hands/pose-left.json joints[*].px: middle PIP/DIP 40.3/15.6 deg, ring 39.0/15.5 deg, index 16.1/8.6 deg. So the turn exists, but softly.\n\nBuilder params (outputs/qa/calib/left-mesh-report.json .params): k_body 0.045, k_joint 0.016, k_ipk 0.01, ip_knuckle_size 0.62, waist 0.07, pad_size 0.78. These match the finding.\n\nArt direction: docs/DECISIONS.md line 12 and docs/VISUAL_V1.md line 42 (soft solid); review.md B2 '柔和实体'.\n\nNo tracked files were touched and the Playwright suite was not run."
+  },
+  {
+   "answer": "partly",
+   "summary": "Partly. At the medium tier, which is the product default, the home view reads as a hand. The index finger, the two curled digits and the thumb are all legible at 1x. The thumbnail shows as a thin D loop at 3x, as D20/D21 intended. Breathing is damped near the outline: from the code and 478.5 px per world unit, the rim moves 0.7 px and the interior 2.3 px. Hover stays local (changed pixels r p95 93 px, none beyond 150 px) and recovers fully: pointerInfluence is 0.03 at 1 s, and the frame matches the baseline pixel for pixel at 4 s and 6 s. The startup gather condenses into the hand.\n\nIt does not yet read as the drawing's flowing particles (review B3):\n- **The tail does not disperse.** Past the wrist the cloud is a crisp-edged tube of constant width, 116–131 px across over 0–420 px along the forearm. The drawing widens from 130 to 296 px. Only 2 of 527 tail dots lie more than 8 px outside the forearm mesh silhouette, and none more than 30 px. Around the hand, 0 dots lie outside the outline; the drawing has 51 (4.6 %).\n- **The cloud is too dense, dark and uniform.** Mean ink in the hand zone is 0.167 against 0.090 in the drawing (1.86x). 10 px boxes above 0.4 ink cover 4.5 % of the zone against 0.26 %, and the biggest dark knot (2349 px) sits around the thumbnail and the curled pads. Fingertips and knuckles stand only 1.07–1.36x above the hand mean, against 1.13–2.43x in the drawing.\n\nThe D10 gate passes at the default seed (IoU 0.876–0.880) but proves less than it claims:\n- It fails frames that look the same: removing 5 % of the dots at random gives IoU 0.828. Fresh seed 31337 gives IoU 0.818, contour mean 8.58, negative space 0.649. One of nine breathing phases fails the middle tip (10.0 px against 9).\n- In both thinned and reseeded frames the failure comes mostly from a patch of forearm next to the wrist cut dropping out of the mask, not from the fingers.\n- It passes 14 solid black blotches painted into the palm, and it passes the undispersed tail.\n- It crashes with a TypeError on an empty mask instead of reporting a fail.\n- It does catch a missing index tip, missing curled digits, filled finger gaps and an 8 px shift.\n\nThe low tier (6000 particles, reachable only through the dev URL) still reads as a hand at 1x. It is lighter and closer to the drawing's tone (ink 0.107), but the outline and the back of the hand break up (gate IoU 0.784, already known) and the thumbnail D is lost.\n\nNothing tracked was edited and git status is clean. I did not run the Playwright suite. Every scratch file is under /home/a/Documents/Alpha/outputs/qa/scratch/review6/particles/, with findings.md updated line by line.",
+   "checked": [
+    "Resume: prior 2026-09-25 captures reused. src unchanged since 5c62acd; a fresh capture has the same digest d1c97a08 (seed 20260919, 12000 points) | now/, shots/home-*.json",
+    "D10 gate on own captures: medium PASS (IoU 0.876, contour mean 6.01, negative space 0.694, p95 15.6); low FAIL (IoU 0.784, contour mean 9.03, p95 42.4); low is not gated (known) | ps-med/particle-shape.json, ps-low/particle-shape.json",
+    "1x and zoomed comparison with the drawing's right hand: reads as a hand, as a uniform stipple with no free dots and no lines | cmp-hand-1x-ref-med.png, cmp-hand-core-1x-native.png, zoom-index-3x.png, zoom-curled-3x.png",
+    "Tail width across the forearm axis, p5-p95 of detected dots: app 116-131 px constant from 0 to 420 px past the wrist; drawing 130 -> 296 px | ana-med.json, ana-ref.json, zoom-tail-1x.png",
+    "Tail dots outside the forearm mesh silhouette past the cut: medium 2/527 beyond 8 px, 0 beyond 30 px; low 1/372 | shots/med-silhouette.png (inline script this run)",
+    "Dots more than 8 px outside the silhouette before the cut: app 0 (both tiers), drawing 51 (4.6 %) | ana-*.json",
+    "Blotches (ink>0.45 components of at least 40 px): medium 72, max 1366 px, 40.5 % of dark ink; low 33 (17.6 %); drawing 5 (5.4 %) | ana-*.json, blotch-med-2x.png, blotch-ref-2x.png",
+    "Dark density in 10 px boxes: medium mean ink 0.167 vs 0.090, boxes above 0.4 ink 4.5 % vs 0.26 %; biggest knot 2349 px at (952,678) | blk.json, hot10-med-2x.png, cmp-thumbzone-3x.png",
+    "Fingertip and knuckle ink relative to the hand mean: drawing 1.13-2.43, medium 1.07-1.36 (thumb tip 1.79) | tipdensity.json",
+    "Rim vs interior ink: app 1.76, drawing 1.05; interior tile CV app 0.58, drawing 0.74 | ana-*.json",
+    "Thumbnail D: readable as a thin loop at medium (x 902-951, y 653-690); lost at low | cmp-thumbzone-2x-ref-med-low.png, zoom-thumbnail-5x.png",
+    "Breathing over one 7.5 s period (9 frames): gate IoU 0.864-0.917; frame t2 fails middle tip 10.0 > 9; amplitude from code: rim 0.7 px, interior 2.3 px, tail up to 7.5 px | ps-breath/t*/particle-shape.json, shots/br-t*.png",
+    "Hover at (1080,600): settled r p95 93 px, 0 px changed beyond 150 px; pointerInfluence 0.030 at 1 s, 9e-4 at 2 s; 0 px differ from baseline at 4 s and 6 s | hover/hover-diff.json, hover/hover-base-in-out-2x.png, hover/hover-hv.json",
+    "Startup gather p0-1: condenses into the hand, legible from p 0.8 | gather-sheet.png, shots/ga-p*.png",
+    "Broken clouds through particle_shape.py: fails on index tip removed, curled digits removed, gaps filled, 8 px shift, 40 % thinning; passes with 14 painted black blotches (IoU 0.867) | broken/make.py, broken/ps-*/particle-shape.json",
+    "Gate sensitivity: dropping 5/10/15 % of small marks at random fails every time (IoU 0.828/0.822/0.823); a 23491 px forearm patch at x 1239-1644 drops out | broken/ps-dthin*/, broken/dthin95-vs-orig-mask.png",
+    "Seed spread, 4 fresh medium seeds: 7 IoU 0.868, 42 IoU 0.876, 1000 IoU 0.857 pass; 31337 FAIL (IoU 0.818, contour mean 8.58, negative space 0.649) | seeds/ps-*/particle-shape.json, seeds/seed31337-shot-and-maskdiff.png",
+    "Gate on an empty mask (hand painted out; dots merged into blobs): TypeError at particle_shape.py:83, exit 1, no JSON | broken/tail-only.png, broken/blobbed.png",
+    "Left-hand exclusion: left mask max x 786 < RIGHT_X_MIN 790; a left-only image gives 0 detections with or without the exclusion; the right index tip (x 805) is not clipped | broken/left-only.png",
+    "Low tier: dev-only (DEFAULT_TIER medium, no auto-downgrade in src/config/quality.ts); readable, lighter, outline breaks, D lost | cmp-hand-1x-ref-low.png, cmp-right-1x-ref-med-low.png",
+    "Contact gap: the left index construction ray crosses into the particle index tip (already found by the pose reviewer) | cmp-contact-4x.png",
+    "Repo read-only: git status clean; Playwright suite not run (no outputs/qa/form or outputs/qa/tmp writes)"
+   ],
+   "findings": [
+    {
+     "id": "particles-tail",
+     "severity": "major",
+     "title": "The tail does not disperse past the wrist; the forearm is a crisp-edged band to the frame edge",
+     "description": "Review B3 asks for the cloud to thin out and spread past the wrist (腕后逐渐散开), and the drawing's forearm scatters widely with large free dots. The app's forearm is a straight, constant-width tube with a sharp traced rim that runs out of the frame. Cause, read from src/hand/sampling.ts: handWeight covers the whole forearm (reveal>0.04, 0.12 base + 1.2*rim^2), so the hand share traces the forearm outline all the way out. The tail share is pushed up to reach 1.1 wu (526 px) with spread 0.02+0.34 t^2 wu; the particles that would spread far also travel far and leave the frame (the wrist is about 460 px from the frame edge along the axis), so the in-frame tail barely spreads. The D10 gate cannot see this: the region past the wrist cut is in its ignore zone.",
+     "evidence": "outputs/qa/scratch/review6/particles/ana-med.json vs ana-ref.json tail_bins: app width p5-p95 116-131 px over 0-420 px past the wrist, drawing 130/180/211/296/267/245/202 px. Past-cut dots outside the forearm mesh silhouette (shots/med-silhouette.png): 2/527 beyond 8 px, 0 beyond 30 px, max 15.8 px (low tier 1/372). Visual: zoom-tail-1x.png, cmp-right-1x-ref-med-low.png. Code: src/hand/sampling.ts:136-141, 214-229.",
+     "known": false
+    },
+    {
+     "id": "particles-density",
+     "severity": "major",
+     "title": "The cloud is about twice as dark as the drawing, uniform, and knotted around the thumb",
+     "description": "B3 opens with 'the particles are too dense and the black blotches obvious' (粒子偏密、黑色团块明显). At the medium home view the hand is a uniform stipple at 1.86x the drawing's ink. The darkest knot sits around the thumbnail and the curled pads, and the thin D sits inside it. There is no hierarchy: fingertips and knuckles are barely above the hand mean, the outline rim is emphasized instead (rim/interior 1.76 vs 1.05), and the palm varies less (tile CV 0.58 vs 0.74). There are no free particles and no lines, so at 1x it reads as a stippled silhouette rather than the drawing's airy, flowing construction. Individual large dots are not the problem: the size tiers work. The knots are overlaps of many small dots.",
+     "evidence": "outputs/qa/scratch/review6/particles/blk.json: mean ink in the reference zone 0.167 (medium) vs 0.090 (drawing); 10 px boxes above 0.4 ink 4.5 % vs 0.26 %; 6 px boxes above 0.5 ink 3.1 % vs 0.14 %. Largest knot 2349 px at (952,678) in hot10-med-2x.png. ana-med.json: 72 dark components of at least 40 px holding 40.5 % of dark ink (drawing 5, 5.4 %). tipdensity.json: tips/MCPs 1.07-1.36x the hand mean (thumb tip 1.79) vs 1.13-2.43x in the drawing. Crops: cmp-hand-core-1x-native.png, cmp-thumbzone-3x.png. Scripts: blk.py, ana.py.",
+     "known": false
+    },
+    {
+     "id": "particles-gate-density",
+     "severity": "major",
+     "title": "The D10 gate cannot separate a regression from noise, and mostly measures forearm density next to the wrist cut",
+     "description": "Its margin (default seed IoU 0.876-0.880 against a gate of 0.85) is smaller than its noise from causes that leave the shape unchanged:\n- Dropping 5 % of the small dots at random, visually identical, fails IoU (0.828).\n- A fresh seed, 31337, fails IoU, contour mean and negative space.\n- One breathing phase (idle about 2.43 s) fails the middle tip.\n\nIn the thinned and reseeded frames, most of the loss is a patch of the forearm band just inside the wrist cut. The density there sits at the 6.5 level, the band splits, and the piece without a RIGHT_SEEDS point is dropped. Meanwhile it passes 14 solid black blotches in the palm and the undispersed tail. So it checks 'at least as dense as now near the wrist' more than it checks the hand shape. It would also block the fix that particles-density needs (a sparser, lighter cloud).",
+     "evidence": "outputs/qa/scratch/review6/particles/broken/ps-dthin95|90|85/particle-shape.json: IoU 0.828/0.822/0.823. The mask diff broken/dthin95-vs-orig-mask.png loses 23491 px at x 1239-1644, y 672-914, gains 0. seeds/ps-31337/particle-shape.json: IoU 0.818, contour mean 8.576, negative space 0.649 (seeds 7/42/1000: 0.868/0.876/0.857); seeds/seed31337-shot-and-maskdiff.png. ps-breath/t2/particle-shape.json fails tip:middle_tip 10.0 (breath range IoU 0.864-0.917). broken/ps-blotches14/particle-shape.json passes (IoU 0.867). Reproduce with: python3 scripts/particle_shape.py <png> --out <dir>. Variants are built by broken/make.py and the inline thinning in findings.md.",
+     "known": false
+    },
+    {
+     "id": "particles-gate-crash",
+     "severity": "minor",
+     "title": "particle_shape.py crashes instead of reporting a fail when the mask is empty",
+     "description": "When the density mask is empty (hand gone, or every dot merged into blobs longer than DOT_MAX_LEN), compare() returns contour mean None. Line 83 then raises TypeError: exit 1, a traceback, and no particle-shape.json. The documented contract is exit 1 with a report. The test would still go red, but with no explanation.",
+     "evidence": "python3 scripts/particle_shape.py outputs/qa/scratch/review6/particles/broken/tail-only.png --out /tmp/x -> TypeError: '<=' not supported between instances of 'NoneType' and 'float' (scripts/particle_shape.py:83). Same for broken/blobbed.png.",
+     "known": false
+    },
+    {
+     "id": "particles-low-tier",
+     "severity": "minor",
+     "title": "Low tier: the outline and the back of the hand break up, and the thumbnail D is lost",
+     "description": "At ?tier=low (6000 particles, 96 nail points) the hand still reads at 1x and its tone is closer to the drawing (ink 0.107). The density outline breaks on the back of the hand (known), and the thin D on the thumbnail is no longer readable. The product always uses medium (DEFAULT_TIER, and nothing downgrades automatically), so users see low only if step 7 moves the product to it.",
+     "evidence": "outputs/qa/scratch/review6/particles/ps-low/particle-shape.json (IoU 0.784, contour mean 9.03, p95 42.4); cmp-thumbzone-2x-ref-med-low.png (right panel); cmp-hand-1x-ref-low.png; blk.json low; src/config/quality.ts:20-25.",
+     "known": true,
+     "knownRef": "ACCEPTANCE.md section 7 (low tier not gated, breaks up on the back of the hand); the lost D is not recorded"
+    },
+    {
+     "id": "particles-gapline",
+     "severity": "minor",
+     "title": "A left construction ray crosses the contact gap into the particle index tip",
+     "description": "The left index's reaching-axis ray (overshoot 0.55) runs through the 29 px gap and into the right particle fingertip, where the drawing has only a short tick at the left tip. It falls on the particle hand's most-watched point.",
+     "evidence": "outputs/qa/scratch/review6/particles/cmp-contact-4x.png (crop x 700-900, y 380-480, 4x); src/hand/constructionLines.ts:134",
+     "known": true,
+     "knownRef": "outputs/qa/scratch/review6/pose/findings.md line 16 (pose-gapline); not in log-v2"
+    },
+    {
+     "id": "particles-thumb-crossing",
+     "severity": "minor",
+     "title": "The thumb crossing the palm is not traced as a separate digit",
+     "description": "In the drawing the thumb is a distinct cylinder with its own outline in front of the palm. In the app only the thin D is visible; the thumb's edges are lost in the dense knot around it, so the thumb reads only through the nail.",
+     "evidence": "outputs/qa/scratch/review6/particles/cmp-thumbzone-3x.png, cmp-thumbzone-2x-ref-med-low.png",
+     "known": true,
+     "knownRef": "ACCEPTANCE.md section 7 and log-v2 Step 5 D10 measurements (the thumb crossing the palm is sparser than the drawing)"
+    }
+   ],
+   "decisionsForUser": [
+    "D10 (regression gate) did not foresee this: the gate's noise from reseeding, breathing phase or 5 % thinning (IoU 0.818-0.917) is as large as its margin (0.876 vs 0.85), and it mostly reacts to forearm density next to the wrist cut. It would also fail the lighter, sparser cloud that review B3 asks for. Options: (a) keep D10 as it is; (b) score the median over several seeds and phases; (c) move the cut, or score only the finger region; (d) scale the density level to the cloud's own density. Which?",
+    "Tail dispersion (review B3): the in-frame forearm is a constant-width traced band because the hand share covers the whole forearm, and the tail share mostly leaves the frame. Should the next round make the cloud disperse past the wrist like the drawing (widening to about 300 px, free dots)? That would also change what the D10 gate sees near the wrist cut.",
+    "Density and tone: the medium cloud is 1.86x the drawing's ink, with no tip/knuckle hierarchy. Reduce it in a later round (fewer or lighter hand particles, lighter rim, emphasis on tips and knuckles)? It conflicts with the D10 gate as it stands (see the first question)."
+   ],
+   "filesWrittenOutsideScratch": []
+  },
+  {
+   "refuted": false,
+   "severity": "major",
+   "reason": "I reproduced it with my own captures and measurements. At the home view (medium and low tier) the right forearm past the wrist is a band of constant width with a crisp edge that runs to the frame edge. The dots stay within a few px of the forearm mesh silhouette. The drawing's forearm widens to roughly twice that width and scatters large free dots. Review B3 asks for exactly that: 腕后逐渐散开 (spread out gradually past the wrist). No decision D1-D26 settles the tail's form. D10 (B) only chose the regression gate. Its blindness past the wrist cut is already recorded in ACCEPTANCE.md section 7 (\"The unscored zones\"), so that part of the finding is known: true. The dispersion defect itself is not recorded anywhere: log-v2 line 387 defers \"the tail judged against the calibrated hands\" to steps 5-6. Scope: it is borderline for the question \"do the particles keep the hand shape\", because a crisp forearm arguably keeps the shape. But the question is framed by B3 (\"reads as a hand first, then as flowing particles\") and step 6 is where the tail was to be judged, so I do not refute it on scope. Major fits: it is visible at the home view in the lower-right quarter of the frame. One small numeric discrepancy that changes nothing: from the reference wrist keypoint (1282,709) at 23.4 deg, the frame edge is about 394 px along the axis, not about 460 px.",
+   "evidence": "All files are in /home/a/Documents/Alpha/outputs/qa/scratch/review6/verify-particles-tail/.\n- Capture: cap.mjs, run from the repo root: node outputs/qa/scratch/review6/verify-particles-tail/cap.mjs. It loads the running dev server at 1644x957, waits for state 'home', moves the pointer off, freezes the clock with setTimeScale(0), and saves {med,low}-full.png and {med,low}-sil.png (silhouette mode). The screenshots first landed in the repo root because the paths were relative. I moved them into the scratch dir right away, and git status is clean.\n- Visual: cmp-tail.png shows the crop x 1000-1644, y 480-957: reference on top, then app medium, then app low. The reference forearm is a diffuse, widening scatter with large free dots and dots out to the top-right corner. The app forearm is a straight band with sharp traced edges running off the right edge. Low tier looks the same, only sparser.\n- Numbers: ana.py writes ana.json. Dots are connected components below grey 150. The wrist is the keypoints.json right wrist (1282.1,709.5) and the axis is 23.4 deg. For each 60 px bin along the axis past the wrist (starting 40 px past it), I took the p5-p95 spread of the dots' offsets across the axis.\n  - Reference: 186 / 248 / 273 / 239 / 257 / 142 px.\n  - App medium: 119 / 122 / 127 / 130 / 135 / 120 px.\n  - App low: 120 / 122 / 131 / 130 / 135 / 120 px.\n- Dots past the cut against the silhouette-mode mesh mask (distance transform): medium 810 dots, 5 beyond 8 px, 0 beyond 30 px, max 15.6 px. Low 522 dots, 2 beyond 8 px, 0 beyond 30 px, max 16.4 px.\n- Code: src/hand/sampling.ts line 139 gives handWeight = onScreen*(0.12+1.5*distal+1.1*knuckle+1.2*rim^2) over the whole forearm (onScreen = smoothstep(0,0.04,reveal)), so the rim trace follows the forearm outline. HAND_SHARE is 0.86 at line 56, so the tail gets 14%. Lines 214-229: reach 1.1, spread 0.02+0.34*t^2, t=rng^0.6.\n- Known parts: the gate's unscored zone is in docs/ACCEPTANCE.md section 7 ('The unscored zones ... the right arm past the wrist cut'). The deferred tail judgment is at documentations/log/log-v2.md:387."
+  },
+  {
+   "refuted": false,
+   "severity": "major",
+   "reason": "The finding reproduces with my own captures. At the medium tier (the default) the right-hand cloud is clearly darker and more knotted than the drawing, and you can see it at the home view at 1x. The darkest knots sit around the thumbnail and the curled pads, where the thin D is lost in the stipple. The rim is emphasised over the interior, as the reviewer says.\n\nThe reviewer's numbers run slightly high. The app's background is 242, not the drawing's paper value of 247, so the fixed PAPER constant adds a little ink. With the real background the medium tier is about 1.7x the drawing (0.150 vs 0.088), not 1.86x. The finding still stands.\n\nIt is not a decided choice reported as a defect:\n- D10 (B) only set a regression gate on the particle outline and said step 6 judges whether the particles read like the drawing.\n- D20/D21 decided how the thumbnail's D is traced, not how dense the cloud is.\n- The 6000/12000 particle budgets and the step-4 particle tone plan are implementation, not user decisions.\n\nIt is in scope for \"do the particles keep the hand shape\": review B3 (\"reads as a hand first\") starts with exactly this complaint (粒子偏密、黑色团块明显). Major is right, because a viewer notices it at the home view. It is not a blocker: the silhouette still reads as a hand and passes the D10 gate.\n\nI did not check the tip-density hierarchy numbers: the keypoint lookup in my script returned nothing, so that sub-claim is unverified by me.\n\nThe low tier is much closer to the drawing (0.089 vs 0.088 mean ink; few knots). That suggests a fix: lower the density or dot opacity at the default tier.\n\nI only wrote files in my scratch folder and did not run the Playwright suite.",
+   "evidence": "All files are in /home/a/Documents/Alpha/outputs/qa/scratch/review6/verify-particles-density/.\n\n**Captures.** cap.mjs (run with node) captured the settled home view on the running dev server: 1644x957, clock frozen, pointer off the canvas. It wrote med-full.png, med-s7-full.png (seed 7) and low-full.png.\n\n**Ink metrics.** m.py, results in m.json. The zone is the right reference mask dilated by 10 px, minus the left mask dilated by 9 px (same zone as the reviewer).\n\n| | Drawing | Medium | Medium, seed 7 | Low |\n|---|---|---|---|---|\n| Background grey | 246 | 242 | 242 | 242 |\n| Mean ink, PAPER=247 | 0.0898 | 0.1671 | 0.1678 | 0.1078 |\n| Mean ink, real background | 0.0877 | 0.1499 | 0.1506 | 0.0893 |\n| Share of 10 px boxes above 0.4 ink | 0.26 % | 4.41 % | 4.91 % | 0.45 % |\n| Share of 6 px boxes above 0.5 ink | 0.14 % | 3.07 % | 3.36 % | 0.56 % |\n| Dark components of 40 px or more | 1 | 34 | 39 | 3 |\n| Share of dark ink in those components | 0.8 % | 16.3 % | 16.4 % | 1.7 % |\n| Palm tile CV (16 px tiles) | 0.70 | 0.62 | — | — |\n\n- Mean ink with the real background gives the 1.71x ratio quoted in the reason.\n- My dark threshold differs from the reviewer's, so the component counts differ, but the gap to the drawing is the same.\n\n**Rim vs interior** (hier.json): drawing 1.07, medium 1.48, low 1.55. The rim is emphasised in the app, as the finding says.\n\n**Crops.**\n- cmp-ref-med-low-1x.png (box 760,420 to 1130,800; drawing / medium / low): the medium tier is visibly a dense stipple with dark knots over the thumb and the curled ring and pinky pads.\n- cmp-thumb-3x.png (box 870,620 to 1000,730; drawing / medium): the drawing's thin D sits in open paper; in the app it is buried in dense overlapping small dots.\n\n**Decisions checked** in log-v2.md: D10 answer (line 198: \"Whether the particles read like the drawing is judged in step 6\"), D20/D21 (nail outline only). No user decision covers cloud density or tone."
+  }
+ ]
+}
