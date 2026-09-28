@@ -1,0 +1,172 @@
+{
+ "run": "wf_c89c04ee-834",
+ "note": "batch 1 (pose failed on the session limit); reviews for seed and seams, plus the skeptic verdict on seed-1",
+ "results": [
+  {
+   "answer": "partly",
+   "summary": "The particle distribution is reproduced exactly. A seed always gives the same particle arrays, bit for bit: across reloads, when re-sampled in place, at both tiers, and in 4 JavaScript engines (Chromium V8, Node V8, Bun JSC, and the WebKitGTK 2.52.6 jsc shell that the Tauri shell uses). All 7 seeds tested give identical digests everywhere (default seed 20260919: medium d1c97a08, low e9d5d30f). A different seed changes 36 000 of 36 000 home coordinates. Rebuilding the right hand from pose-right.json gives a byte-identical GLB (sha256 cd212569…) and contour file (76b9d15f…). No Math.random or Date is on the sampling or render path. On one device, a frozen-clock frame is also identical pixel for pixel: 0 px differ across reloads on SwiftShader and on an Intel Iris Xe GPU, at both tiers, after 6 resamples, and for scrubbed startup frames at p 0.25/0.5/0.75. Across GPUs the rendered frame is not the same. The shader computes breathing phase, gather lead and pointer factor with fract(sin(aId*127.1)*43758.5453), and that result depends on the GPU. With the same seed, Xe and SwiftShader agree on only about 1.5 % of these per-particle values. In the particle region the Xe and SwiftShader frames differ in 32 903 px (>32 levels), against 41 780 px between two different seeds on the same GPU. The left hand differs in only 429 px (>8). So \"same seed rebuilds the same frame\" (rng.ts header, DECISIONS.md:47) holds only per device, and the A2 test checks only the arrays in SwiftShader. A2 passes today (1/1, 13.2 s).",
+   "checked": [
+    "Resumed from outputs/qa/scratch/review6/seed/findings.md (earlier run, 2026-09-25); new lines added under '## resume run 2026-09-28'",
+    "Code read: src/hand/{sampling,rng}.ts, src/app/{inspection,App}.tsx, src/scene/ParticleHand.tsx, tests/acceptance.spec.ts A2, review.md A2, ACCEPTANCE §7, CONTRACTS §9, DECISIONS.md:47 | digest hashes all 6 ParticleCloud arrays (home,size,tone,id,dissolve,rim); aScatter is not hashed but is derived from them | src/app/inspection.ts:36-52, src/scene/ParticleHand.tsx:83-89",
+    "Math.random/Date/performance.now on the sampling/render path | none (earlier run)",
+    "Right hand rebuilt into scratch (Blender, 29 s) | GLB and contour.json byte-identical; mask pixel-identical (only PNG time metadata differs); report differs only in paths and build_seconds | outputs/qa/scratch/review6/seed/build-right/",
+    "Sampler outside the browser: Node V8, Bun JSC 1.4.2, WebKitGTK 2.52.6 jsc shell | all 7 seed digests and scatter hashes identical to Chromium | harness/out-node/digests.json, harness/out-bun/digests.json, harness/out-jsc.json",
+    "Chromium SwiftShader particleDigest at load (medium, ?tier=low, ?seed=1) and resampleDigest for seeds 0,1,2,20260919,20260920,2^32-1 | equal to Node's; loaded digest unchanged after the resamples | browser/swiftshader/report.json",
+    "Chromium on Intel Iris Xe (ANGLE Vulkan) | same digests | browser/xe/report.json",
+    "Frozen-clock frames (timeScale 0 before home, idleTime 0), two fresh loads | SwiftShader medium 0 px, low 0 px, after resample 0 px; Xe medium 0 px, low 0 px, after resample 0 px | pixdiff-xe.json",
+    "Same seed, Xe vs SwiftShader | left-hand region 11 554 px >0 / 429 px >8 (raster noise); particle region 38 485 >0 / 32 903 >32 vs 41 780 >32 for seed 1 vs default | regiondiff.json, crop-ss-xe-seed1.png",
+    "GPU hash readback (WebGL2 vertex shader) | SwiftShader vs Xe equal for 1.5 % of ids, median circular diff 0.25; Xe Vulkan == Xe GL-EGL; h2 distinct values 424 (SwiftShader) / 537 (Xe) over 12 000 ids; predicted drift offset at uTime 0: hand median 1.9 px, max 5.5; tail median 7.0, max 17.5 | gpuhash/stats.json, hashstats.py",
+    "Reduced motion (Xe) vs normal at uTime 0 | particle region differs by 31 612 px >32 (by design, REDUCED_MOTION.breathAmplitude) | regiondiff.json",
+    "scrubStartup(0.25/0.5/0.75) at timeScale 0 on two fresh loads | 0 px differ each | scrub/pixdiff.json, scrub.mjs",
+    "Scrub after 3 s idle at home (idleTime 3.05) vs fresh scrub | p0.5: 42 372 px differ, p0.75: 49 294 px, bbox particle hand only | scrub/log.json, scrub/pixdiff.json",
+    "grep hash11 in src/tests/scripts | defined in rng.ts:24, never used",
+    "?seed parsing | /^\\d+$/ then makeRng(seed>>>0): seeds >= 2^32 wrap | ParticleHand.tsx:56-60, rng.ts:9",
+    "ALPHA_CHROMIUM=/usr/bin/chromium npx playwright test tests/acceptance.spec.ts -g A2 | 1 passed (13.2 s)",
+    "git status after all runs | clean (no tracked changes)",
+    "Not proven by anything here: the real Tauri WebKitGTK webview on the user's GPU (step 7), WebView2/WKWebView on other OSes, other Blender versions for the rebuild, and a left-hand rebuild (only the right hand was rebuilt, as allowed)"
+   ],
+   "findings": [
+    {
+     "id": "seed-1",
+     "severity": "major",
+     "title": "The same seed renders a different dot arrangement on a different GPU (fract(sin) hash in the particle shader)",
+     "description": "The shader computes its per-particle constants in the vertex shader: breathing phase h2, gather lead h1 and pointer factor h3, each as fract(sin(n*127.1)*43758.5453). With n up to about 12 000, the argument reaches about 1.5e6. At that size the result depends on the GPU's sin precision. SwiftShader and Intel Xe agree for only about 1.5 % of ids, and neither matches exact f32 math. At the home view the clock is 0 but the drift is not, so each dot moves a GPU-dependent amount (predicted hand median 1.9 px, max 5.5; tail up to 17.5 px). Measured in the particle region, Xe vs SwiftShader with the same seed differ in 32 903 px (>32 levels). Seed 1 vs the default seed on the same GPU differ in 41 780 px. So the same seed on another GPU looks about 79 % as different as another seed, while the left hand differs only by raster noise (429 px >8). The hand shape is kept; the individual dots are not. rng.ts:1-5 and DECISIONS.md:47 claim that 'a given seed always rebuilds the same frame' (for spec 7.3 reversible transitions and stable screenshots), and the shader comment says hashing 'can reproduce them exactly'. That holds per device only. The A2 test proves only the CPU arrays, in SwiftShader. rng.ts already has an integer hash11 meant for exactly this job, but nothing uses it. Consequence: SwiftShader captures (including the D10 evidence) will not match the user's desktop dot for dot. No decision in D1-D26 covers this.",
+     "evidence": "src/scene/ParticleHand.tsx:162-182 (hash, drift); src/hand/rng.ts:1-5, 24-28; docs/DECISIONS.md:47; outputs/qa/scratch/review6/seed/regiondiff.json, pixdiff-xe.json, crop-ss-xe-seed1.png (SwiftShader | Xe | seed 1, crop 880,440-1180,640 at 2x); gpuhash/stats.json and gpuhash/{swiftshader,hw-vulkan,hw-glegl}.json produced by gpuhash.mjs and hashstats.py; browser/{swiftshader,xe}/*.png produced by browser2.mjs",
+     "known": false
+    },
+    {
+     "id": "seed-2",
+     "severity": "minor",
+     "title": "A2 test and digest prove less than 'the same frame'",
+     "description": "A2 hashes the six CPU arrays at the medium tier and the default seed, in one engine (SwiftShader Chromium). The following are not in the suite: the low tier, the aScatter attribute (derived), frozen-frame pixel identity, other GPUs, and the WebKitGTK webview. Those were checked by hand in this review: low tier, scatter hashes, and frames per device all match. What the test claims ('same cloud, bit for bit, across a reload and in place') is true. The docs that describe it (CONTRACTS §9, log-v2 A2 'Fixed and verified') should not be read as frame reproducibility.",
+     "evidence": "tests/acceptance.spec.ts:116-131; src/app/inspection.ts:36-52; docs/CONTRACTS.md:290-295; documentations/log/log-v2.md:41",
+     "known": false
+    },
+    {
+     "id": "seed-3",
+     "severity": "minor",
+     "title": "Breathing hash has only a few hundred distinct phases",
+     "description": "Because of the same sin precision loss, h2 takes only 424 distinct values over 12 000 ids on SwiftShader (537 on Xe). Particles therefore breathe in lockstep groups of about 28 rather than each with its own phase. This is not visible in stills. It may show as clumped co-motion in motion, which the user's desktop run in step 7 would reveal.",
+     "evidence": "outputs/qa/scratch/review6/seed/gpuhash/stats.json (distinct_values_h2); src/scene/ParticleHand.tsx:162-177",
+     "known": false
+    },
+    {
+     "id": "seed-4",
+     "severity": "minor",
+     "title": "Scrubbed or reversed startup frames depend on how long the scene idled",
+     "description": "stage.idleTime keeps counting while the stage is 'home' and is not reset when the stage goes back to 'intro'. The shader's breathing phase uTime = idleTime/period is therefore carried into the gather. With timeScale 0, scrubStartup(p) on fresh loads is pixel-identical. After 3 s of idle, the same p differs by 42 372 px (p 0.5) and 49 294 px (p 0.75), in the particle hand only. The reverse transition (spec 7.3) is not built yet, so this is only a heads-up for it. Review A2 itself says a return-animation failure cannot be inferred.",
+     "evidence": "outputs/qa/scratch/review6/seed/scrub.mjs, scrub/log.json (idleTime 3.0511), scrub/pixdiff.json; src/scene/ParticleHand.tsx:226-228; src/app/App.tsx:100-104",
+     "known": false
+    },
+    {
+     "id": "seed-5",
+     "severity": "minor",
+     "title": "Dev ?seed values of 2^32 or more alias smaller seeds",
+     "description": "particleSeed accepts any digit string, but makeRng applies seed>>>0. So ?seed=4294967296 samples the same cloud as seed 0, while particleDigest.seed reports 4294967296. This is dev and test only; the product always uses SCENE_SEED.",
+     "evidence": "src/scene/ParticleHand.tsx:56-60; src/hand/rng.ts:9",
+     "known": false
+    }
+   ],
+   "decisionsForUser": [
+    "seed-1: Should the per-particle constants be the same on every GPU? Option (a): replace the shader's fract(sin()) with a GPU-portable integer hash. That could be rng.ts's unused hash11, precomputed into an attribute, or a uint hash in GLSL ES 3.0. The home-view dot arrangement would change once, and D10's particle_shape baseline would need re-measuring. Option (b): accept per-device reproducibility and change the claims in rng.ts and DECISIONS.md:47 (and the shader comment) to 'same frame on the same device'. No existing decision (D1-D26) covers this.",
+    "seed-4: When the reverse transition is built, should idleTime/uTime be reset or eased to 0 on leaving home, so that the return frames depend only on the seed and the progress? Or should the breathing phase carry over by design?"
+   ],
+   "filesWrittenOutsideScratch": [
+    "Possibly outputs/qa/form/ and outputs/qa/tmp/ from the A2 Playwright run (git-ignored; both existed before the run, and the A2 test itself writes no captures)"
+   ]
+  },
+  {
+   "answer": "yes",
+   "summary": "Answer polarity: \"yes\" means the round passes the seam question. At the home view the product has no visible seams in the sense review A used (\"tubular stitching\", white triangle gaps at the wrist and finger roots). Both GLBs are one welded shell. In the browser (__alpha.handMesh): 14 429 vertices and 28 854 triangles per hand, all positions unique, 0 boundary edges, 0 non-manifold edges, 0 duplicated directed edges, and 0 split normals, so there are no hard-normal shading seams. These numbers match the builder mesh reports (glb_check: winding 1.0, a1.pass true, final minimum triangle angle p1 30.1 deg). An independent dihedral analysis finds the sharpest edges on the left hand (up to 62 deg) only in finger crevices that the home camera cannot see. Fingertip silhouettes at DPR 2 are smooth, with no faceting. On the left hand the wrist, finger roots, thumb root and forearm exit are continuous. The left ink contour has 9 in-frame pieces, and every end meets another within 1.7 px except one joint of 4.2 px at the wrist underside. The right mesh appears only in the dev solid and silhouette modes (ParticleHand.tsx:273); the product shows the right hand as particles, so its marks never reach a viewer. What remains is minor: the known left first-web fold (darkest 118 vs a local median of 191); a bright transverse ridge across the left thumbnail, so the drawn D does not read; the 4.2 px ink joint; a crescent undercut at the left wrist in the -35 deg view; ring steps along the left index in the above view; the D22 right thumb-root pit, which also shows at home in solid mode; and the right thumbnail standing out as a hard-edged raised plate in solid mode.",
+   "checked": [
+    "A1 in browser via __alpha.handMesh (outputs/qa/scratch/review6/seams/capture.mjs -> cap/a1-browser.json): both 14429 v / 28854 t, unique positions 14429, boundary 0, non-manifold 0, dup directed 0, split normals 0 - PASS",
+    "A1 independent on public/assets GLBs (mesh_seams.py -> mesh/mesh-{left,right}.json): 1 shell, winding 100 %, 0 degenerate, min tri angle 19.3/20.8 deg - PASS",
+    "Builder mesh reports outputs/qa/calib/{left,right}-mesh-report.json glb_check / a1: identical counts, winding 1.0, a1.pass true - PASS",
+    "Fresh captures cap/{solid,full}-dpr{1,2}.png at 1644x957; solid-dpr1 identical to outputs/qa/views/view-solid.png (0 px differ)",
+    "Dihedral crease map over solid view (mesh/creases-*.png, crops/run2-creases-*-2x.png): left max 62 deg at px (586,316),(578,361),(538,362) - occluded at home (crops/r2-left-sharpest-edges-8x.png); right max 104 deg at right thumbnail edge",
+    "Left wrist, first web, fingers at DPR2 zoom (crops/r2-solid-left-wrist-web-dpr2.png, r2-solid-left-fingers-dpr2.png): smooth fusion at wrist, finger roots, thumb root; known first-web fold visible",
+    "Left index DIP/PIP vs reference (crops/solid-L5-index-dip-vs-ref-4x.png): dorsal step matches the drawing, no collar",
+    "Left fingertip faceting at DPR2 10x (crops/r2-solid-dpr2-left-*-10x.png): smooth, no polygonal outline",
+    "Left thumbnail vs reference (crops/r2-full-left-thumb-5x-vs-ref.png): transverse ridge band, D not legible - minor",
+    "Left ink contour continuity (contour JSON outer pieces projected with CONTRACTS s3 camera): 9 pieces, ends meet within <=1.7 px except 4.2 px at (313-317,269-273); lines depthTest false so no occlusion gaps; crops/r2-full-left-wrist-contour-gap-6x-vs-ref.png",
+    "Left forearm exit and construction lines in full view (crops/r2-full-left-forearm-2x-vs-ref.png): continuous, no seam",
+    "Builder shaded views +-35 / above both hands (crops/r2-calib-*.png, r2-calib-left-above-index-4x.png, r2-calib-left-yawm35-wrist-3x.png, r2-calib-left-above-wrist-4x.png)",
+    "Right solid at home: D22 pit visible (crops/r2-solid-right-pit-home-5x.png); right solid not rendered in full mode (src/scene/ParticleHand.tsx:273)",
+    "Right particle thumbnail D in full view (crops/r2-full-right-thumbnail-4x-vs-ref.png): thin D plus fold, no seam",
+    "Playwright suite not run (independent browser A1 done instead); nothing written to outputs/qa/form or outputs/qa/tmp; all files under outputs/qa/scratch/review6/seams/ (findings.md updated)"
+   ],
+   "findings": [
+    {
+     "id": "seams-1",
+     "severity": "minor",
+     "title": "Left first-web fold visible at home",
+     "description": "A short dark fold between the thumb base and the index metacarpal is visible in the solid and full home views. It sits where the drawing has dense shading, so it reads as a crease rather than a seam.",
+     "evidence": "cap/solid-dpr1.png box x440-475 y280-305: min 118, p5 122, median 191; crops/r2-left-firstweb-dpr2-vs-ref.png, crops/r2-solid-left-wrist-web-dpr2.png (all under outputs/qa/scratch/review6/seams/)",
+     "known": true,
+     "knownRef": "documentations/log/log-v2.md 'Step 2 closed' verify:left#2 minor (home ~446-462, 290-300) and builder request 'first-web / FDI mass'"
+    },
+    {
+     "id": "seams-2",
+     "severity": "minor",
+     "title": "Left thumbnail reads as a transverse ridge band, not the drawn D",
+     "description": "The left thumb has nail_relief 0.2 and nail_outline 1 in the pose file. At home the plate's proximal border renders as a bright stripe with a dark line on its proximal side across the thumb, while the D outline is barely legible. The reference draws a crisp inked D. The left contour JSON does export the thumbnail outline (nails: thumb, 134 points), but constructionLines.ts inks only the 'outer' polylines, so the D is never drawn.",
+     "evidence": "crops/r2-full-left-thumb-5x-vs-ref.png, crops/r2-left-thumbnail-dpr2-vs-ref.png; cap/solid-dpr1.png box x520-560 y410-445 min 104 / median 159; assets-source/hands/pose-left.json shape.nail_*; src/hand/constructionLines.ts filter meta.kind==='outer'",
+     "known": false
+    },
+    {
+     "id": "seams-3",
+     "severity": "minor",
+     "title": "4.2 px joint in the left ink contour at the wrist underside",
+     "description": "Two outer contour pieces (piece 0 start and the 3-point piece 8) meet with a 4.2 px offset at the wrist underside. At zoom this shows as a kink or blob in the ink line. At 1x it reads as a node, much like the drawing's junction dots. Every other piece junction is at most 1.7 px.",
+     "evidence": "project public/assets/hand-left.contour.json outer polylines with the CONTRACTS s3 camera: piece0 start (317,273) vs piece8 end (315,270) = 4.2 px; crops/r2-full-left-wrist-contour-gap-6x-vs-ref.png",
+     "known": false
+    },
+    {
+     "id": "seams-4",
+     "severity": "minor",
+     "title": "Crescent undercut fold at the left wrist underside in the -35 deg view",
+     "description": "In the builder's -35 deg view the forearm's end overhangs the palm heel and the little-finger metacarpal end, which leaves a crescent-shaped dark groove that looks like a collar lip. At home the same place is a clean concave corner that matches the drawn wrist notch. HAND_ASSETS records only the silhouette effect, not this fold.",
+     "evidence": "outputs/qa/calib/left-view-yawm35.png around px 757-797, 427-453; crops/r2-calib-left-yawm35-wrist-3x.png",
+     "known": false
+    },
+    {
+     "id": "seams-5",
+     "severity": "minor",
+     "title": "Left index looks telescoped (ring steps at PIP/DIP) from above",
+     "description": "In the above view each distal phalanx starts narrower, with a hard ring-shaped step, so the finger reads as stacked tubes. The home view is fine and matches the drawing's DIP step.",
+     "evidence": "outputs/qa/calib/left-view-above.png px ~1060-1190, 511-560; crops/r2-calib-left-above-index-4x.png",
+     "known": true,
+     "knownRef": "docs/HAND_ASSETS.md head_back / phalanx_base note ('hard concave crease ... in the +-35 deg views'); log-v2 step 3 digits"
+    },
+    {
+     "id": "seams-6",
+     "severity": "minor",
+     "title": "D22 right thumb-root pit also visible at home in solid mode",
+     "description": "The dark pit behind the right thumb MCP is recorded only for the -35 deg view, but it also shows as a dark oval in the home solid view (the review s E-3 screenshot set). The product (full mode) shows the right hand as particles only, so viewers never see it.",
+     "evidence": "cap/solid-dpr1.png: 901 px more than 25 grey levels below the median in bbox x1077-1119 y605-659, darkest 105 vs median 181; crops/r2-solid-right-pit-home-5x.png; src/scene/ParticleHand.tsx:273",
+     "known": true,
+     "knownRef": "log-v2 'Step 2 closed' verify:right#1 minor and D22 (recorded for the -35 deg view only)"
+    },
+    {
+     "id": "seams-7",
+     "severity": "minor",
+     "title": "Right thumbnail is a hard-edged raised plate in solid mode",
+     "description": "The right thumbnail relief (nail_relief 0.3, nail_outline 1) has the sharpest edges on either mesh, with dihedrals up to 104 deg at the nail fold. In the -35 deg view it reads as a block laid on the thumb. It shows only in solid mode; in full mode the particle D reads as drawn.",
+     "evidence": "mesh/mesh-right.json sharp_visible_edges_top px 965-981, 638-639 (dihedral 104, 97, 96, 80); crops/r2-calib-right-yawm35.png; crops/r2-full-right-thumbnail-4x-vs-ref.png",
+     "known": false
+    }
+   ],
+   "decisionsForUser": [
+    "Left thumbnail: the contour JSON exports the left thumb's nail D (134 points), but the construction lines ink only the outer silhouette, so the drawn D does not read at home (seams-2). Should the D be inked on the left hand (as D21 does with particles on the right), or should nail_relief/nail_outline be retuned, or should it be left as is?",
+    "The right thumb-root pit (D22) also shows in the home solid-mode screenshot, not only in the -35 deg view. The product shows particles there. Record it as it is, or treat it as part of the builder request for a thenar filler?"
+   ],
+   "filesWrittenOutsideScratch": []
+  },
+  {
+   "refuted": false,
+   "severity": "minor",
+   "reason": "The finding reproduces in full, and the cause is the one the reviewer names. No decision in D1-D26 covers it, and it belongs under \"does the same seed reproduce?\". I checked this myself: with breathing drift switched off, SwiftShader and Xe differ only by raster noise. So the fract(sin) hash is what makes the same seed give a different frame on a different GPU. Seed reproduction still holds for the CPU arrays (the digests match on both GPUs) and for frames on one device (0 px difference between loads). It fails only across GPUs.\n\nI would lower the severity from major to minor, for two reasons:\n(1) A viewer at the home view cannot notice it. Each device shows one consistent, breathing arrangement, and in normal use uTime advances, so the dots never hold a fixed layout anyway.\n(2) No check claims more than it proves. The A2 test and CONTRACTS §9 claim only the cloud arrays (the \"cloud hash\"), and that is proven on both GPUs. The overstatements are in comments and docs: rng.ts:1-5 and DECISIONS.md:47 say \"same frame\", and the shader comment says \"reproduce them exactly\".\n\nOne consequence the reviewer did not quantify: the hash moves the D10 metrics between devices. On Xe the default-seed negative-space score falls to 0.659, against a gate of 0.65. That matters for step 7, because SwiftShader's D10 margins do not carry over to the user's desktop. It is a question for the user, not a failed gate: the D10 gate still passed on Xe here, and it already samples an arbitrary breathing phase on a single GPU. For the user: should reproducibility mean the same frame on every GPU (switch the shader to the integer hash11, or pass per-particle phases as attributes), or only on the same device? If the second, the docs and comments should be scoped down.",
+   "evidence": "All files are under /home/a/Documents/Alpha/outputs/qa/scratch/review6/verify-seed-1/. The scripts are gh.mjs, cap.mjs and capr.mjs (capr.mjs is cap.mjs with reducedMotion). I did not run the Playwright suite; the only thing written in the repo is this scratch directory.\n\n1. Hash readback (gh.mjs → ss.json, xe.json). The shader's hash(aId), hash(aId+19.7) and hash(aId+51.3) were read back for 12 000 ids on two renderers: SwiftShader, and ANGLE Vulkan on Intel Iris Xe RPL-P (Mesa).\n   - Share of ids where the two agree: h1 1.52 %, h2 1.46 %, h3 1.35 %.\n   - Median circular difference: about 0.25, i.e. the two are uncorrelated.\n   - Distinct values: SwiftShader 410/424/407, Xe 546/537/539.\n   - These match the reviewer's stats.json.\n\n2. Frozen home frames (cap.mjs; setTimeScale(0) before home; idleTime 0; digest d1c97a08 on both GPUs). Pixel counts that differ, left hand = x<800 at >8 levels, particle region = x≥800 at >32 levels:\n\n   | Comparison | Left hand | Particle region |\n   |---|---|---|\n   | Same GPU, two loads (SS or Xe) | 0 | 0 |\n   | SS vs Xe, same default seed | 541 | 32 903 |\n   | SS, default vs seed 1 | 0 | 41 780 |\n   | Xe, default vs seed 1 | 0 | 40 146 |\n   | SS, seed 1 vs seed 2 | 0 | 41 774 |\n\n   Crop: crop-ss-xe-seed1.png (SS | Xe | seed 1; crop 880,440-1180,640 at 2x). It shows a different dot arrangement with the same hand shape.\n\n3. Isolating the cause (capr.mjs, reducedMotion 'reduce', so breathAmplitude is 0 per src/config/timing.ts:51). With the drift off, SS vs Xe differ in 2 621 px in the particle region, against 38 389 px for seed 1. So about 92 % of the cross-GPU difference comes from the hash-driven drift.\n\n4. D10 gate (scripts/particle_shape.py on each frame; output in ps-*/particle-shape.json):\n\n   | Frame | IoU | Contour mean | Negative space | Gate |\n   |---|---|---|---|---|\n   | SS default | 0.898 | 4.90 px | 0.755 | pass |\n   | Xe default | 0.866 | 6.24 px | 0.659 (gate ≥ 0.65) | pass |\n   | SS seed 1 | – | – | – | fails (pinky tip 11.18 px) |\n   | Xe seed 1 | – | – | – | pass |\n   | Reduced motion, SS | 0.8776 | 5.95 px | 0.6966 | pass |\n   | Reduced motion, Xe | 0.8763 | 5.99 px | 0.6959 | pass |\n\n   With the drift off the two GPUs score almost the same; with it on they move apart.\n\n5. Scope of the claims. tests/acceptance.spec.ts:5 and :116-131 and docs/CONTRACTS.md:290-294 claim only the cloud arrays and their digest. The \"same frame\" wording is only in src/hand/rng.ts:1-5, docs/DECISIONS.md:47, and the shader comment at src/scene/ParticleHand.tsx:160-162. The hash is at ParticleHand.tsx:162, the drift at :174-178, and src/hand/rng.ts:24-28 (hash11) is not used anywhere. None of the \"SwiftShader / GPU\" caveats in log-v2 or ACCEPTANCE mention this, so it is not a known issue."
+  }
+ ]
+}
