@@ -10,7 +10,11 @@ requires-python = ">=3.10"
 dependencies = []
 
 [tool.setuptools.packages.find]
-include = ["core*"]
+include = ["core*", "translator*", "model*"]
+
+[tool.setuptools.package-data]
+model = ["baseline.json"]
 
 [project.scripts]
 alpha-brain = "core.cli:main"
+alpha-model = "model.__main__:main"

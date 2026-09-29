@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "partitions": ["rational", "emotional", "crazy"],
+  "parameters": {
+    "value.autonomy": 0,
+    "value.fairness": 0,
+    "value.care": 0,
+    "value.truth": 0,
+    "value.security": 0,
+    "value.growth": 0,
+    "value.achievement": 0,
+    "value.connection": 0,
+    "affect.disappointment": 0,
+    "affect.sadness": 0,
+    "affect.happiness": 0,
+    "affect.anger": 0,
+    "expression.less_initiative": 0
+  }
+}

@@ -21,6 +21,17 @@ export interface HumanUi {
   reply: string | null;
 }
 
+export interface Signal {
+  kind: 'click' | 'input';
+  t: number;
+  origin: [number, number, number];
+  region: number;
+  fromCss: [number, number] | null;
+  vertex: number;
+  /** The hop distances from `vertex` have been written (at impact). */
+  hopped: boolean;
+}
+
 type Listener = () => void;
 
 class HumanStore {
@@ -31,11 +42,17 @@ class HumanStore {
   focusP = 0;
   /** 0..1 growth of the graph edges inside the brain. */
   growP = 0;
-  /** Ripple: brain-local origin and seconds since it started (<0 = none). */
-  pulseOrigin: [number, number, number] = [0, 0, 0];
-  pulseT = -1;
-  /** Region lit by the last input-box submission, and its age in seconds. */
-  pulseRegion = -1;
+  /**
+   * The brain's answer to a click or to the input box (decision D53). An
+   * `input` signal first flies from the input box (`fromCss`, CSS px) to a
+   * vertex of `region`, then runs along the net's edges from there and leaves
+   * the region lit for a while; a `click` signal starts running at once from
+   * the vertex nearest `origin` (brain-local). BrainView advances `t`
+   * (seconds since the signal started) and resolves `vertex` (-1 = not yet).
+   */
+  signal: Signal | null = null;
+  /** Where to name the lit region (CSS px) and how visible, set by BrainView each frame. */
+  label: { x: number; y: number; alpha: number; region: number } | null = null;
   /** User drag rotation, radians (resting or drilled in; D42). */
   dragYaw = 0;
   dragPitch = 0;
@@ -60,18 +77,22 @@ class HumanStore {
     return () => this.listeners.delete(l);
   };
 
-  pulse(origin: [number, number, number], region = -1): void {
-    this.pulseOrigin = origin;
-    this.pulseT = 0;
-    this.pulseRegion = region;
+  /** A click on the brain: a discharge from the nearest vertex. */
+  pulse(origin: [number, number, number]): void {
+    this.signal = { kind: 'click', t: 0, origin, region: -1, fromCss: null, vertex: -1, hopped: false };
+  }
+
+  /** The input box answered: a signal from the box into `region`. */
+  inject(region: number, fromCss: [number, number]): void {
+    this.signal = { kind: 'input', t: 0, origin: [0, 0, 0], region, fromCss, vertex: -1, hopped: false };
   }
 
   /** Back to the resting state; used when leaving the destination. */
   reset(): void {
     this.focusP = 0;
     this.growP = 0;
-    this.pulseT = -1;
-    this.pulseRegion = -1;
+    this.signal = null;
+    this.label = null;
     this.dragYaw = 0;
     this.dragPitch = 0;
     this.spinVel = { yaw: 0, pitch: 0 };

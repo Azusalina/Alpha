@@ -31,6 +31,8 @@ export interface Palette {
   glow: boolean;
   /** Opacity multiplier for points and lines (additive light needs less). */
   inkAlpha: number;
+  /** The one restrained colour: a brain region answering the input box (D53). */
+  accent: string;
 }
 
 export const PALETTES: Record<Theme, Palette> = {
@@ -46,6 +48,7 @@ export const PALETTES: Record<Theme, Palette> = {
     lightFill: '#eceae5',
     glow: false,
     inkAlpha: 1,
+    accent: '#3d6a8a',
   },
   dark: {
     paper: '#050505',
@@ -60,6 +63,7 @@ export const PALETTES: Record<Theme, Palette> = {
     lightFill: '#8d8a84',
     glow: true,
     inkAlpha: 0.72,
+    accent: '#9cc3e0',
   },
 };
 

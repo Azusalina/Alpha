@@ -1,21 +1,25 @@
 # Alpha brain (backend)
 
-This directory is the future local memory and inference engine. The particle
-brain in `src/scene/BrainView.tsx` is the visual representation; it does not
-currently read memories from this directory.
+This directory contains the first local memory and self-model backend. The
+particle brain in `src/scene/BrainView.tsx` does not yet read from it.
 
 The product direction and open decisions are in [docs/architecture.md](docs/architecture.md).
-`core/` now contains a dependency-free Python/SQLite memory prototype. It can
+`core/` contains a dependency-free Python/SQLite memory prototype. It can
 save source text, stage evidence-linked candidate memories, accept or reject
 them, and search accepted memories by literal text. `core/extraction.py` can
 ask an injected text model to propose candidates, but no model runtime is
-configured or installed by this project. It does not classify a person,
-answer questions, or connect to the frontend yet. Do not place personal
+configured. `translator/` contains conservative rules plus local personal
+vocabulary adaptation using jieba at `../ext-refs/jieba`. `model/` is the first
+evidence-linked active self-model with an immutable zero baseline and separate
+rational/emotional/"crazy" partitions. It does **not** diagnose a person, fully
+understand free text, or connect to the frontend yet. Do not place personal
 journals or chat exports in Git.
 
 ## Layout
 
 - `core/`: main brain programs and domain logic.
+- `translator/`: rule-first observations and local vocabulary learning.
+- `model/`: partitioned self-model, effects, and local CLI.
 - `data/`: local memories and indexes at runtime; content is ignored by Git.
 - `logs/`: local operational logs at runtime; content is ignored by Git.
 - `docs/`: design, decisions, and interface contracts.
@@ -24,6 +28,11 @@ journals or chat exports in Git.
 The repository's existing frontend is React/TypeScript and Tauri 2. The
 backend may use a different language, but its interface must preserve the
 product's single natural-language input and local-only data boundary.
+
+The model's commands and limitations are in [model/README.md](model/README.md),
+with active/deferred parameters in [docs/parameters.md](docs/parameters.md).
+Run both `python -m unittest discover -s tests -v` and
+`python -m unittest discover -s translator -p 'test_*.py' -v`.
 
 ## Try the local core
 

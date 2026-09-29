@@ -7,8 +7,8 @@
  * re-randomises: the same seed rebuilds the same arrays.
  *
  * Matching is by spatial sort, not optimal transport (spec C.6): hand samples
- * sorted from fingertip to wrist are paired, rank for rank, with brain points
- * sorted front to back, so neighbours stay roughly neighbours in flight.
+ * sorted from fingertip to wrist are paired, rank for rank, with brain mesh
+ * vertices sorted front to back, so neighbours stay roughly neighbours in flight.
  */
 
 import { BufferGeometry, Float32BufferAttribute, Mesh, Vector3, Color } from 'three';
@@ -17,15 +17,19 @@ import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.j
 import { skeletonValues } from '../hand/reveal';
 import { hash11, makeRng } from '../hand/rng';
 import type { HandRig } from '../hand/skeleton';
-import type { BrainPoints } from './brainAsset';
+import type { BrainMesh } from './brainAsset';
 
 export interface HumanCloud {
   count: number;
   /** xyz on the left hand's surface (world space at home). */
   hand: Float32Array;
-  /** xyz in the brain's normalised local space. */
+  /** xyz in the brain's normalised local space: the particle's mesh vertex. */
   brain: Float32Array;
-  /** Region index of the brain point (placeholder grouping). */
+  /** The mesh vertex the particle lands on (D52). */
+  vertex: Float32Array;
+  /** Outward normal of that vertex, brain-local. */
+  normal: Float32Array;
+  /** Region index of the vertex (placeholder grouping). */
   region: Float32Array;
   /** The hand surface's reveal value at the sample: 0 at the wrist, 1 at a fingertip. */
   reveal: Float32Array;
@@ -35,57 +39,30 @@ export interface HumanCloud {
   tone: Float32Array;
 }
 
-/**
- * Share of each region kept in the brain subset. The reference model's
- * brainstem and cerebellum are dense inner meshes; at full weight they bury the
- * cortex, which is what makes the shape read as a brain.
- */
-const REGION_WEIGHT: Record<string, number> = {
-  cerebellum: 0.3,
-  brainstem: 0.22,
-};
-
 const TIERS = [
   { share: 0.72, min: 0.55, max: 1.0, tone: 1.0 },
   { share: 0.24, min: 1.0, max: 1.5, tone: 0.8 },
   { share: 0.04, min: 1.5, max: 2.1, tone: 0.55 },
 ] as const;
 
+/**
+ * The brain is a low-poly net (decision D52): `perVertex` particles leave the
+ * hand for each mesh vertex and land on it together, so the flight keeps the
+ * hand's density while the arrived brain is one clean dot per vertex.
+ */
 export function buildHumanCloud(
   source: BufferGeometry,
   rig: HandRig,
-  brain: BrainPoints,
-  count: number,
+  mesh: BrainMesh,
+  perVertex: number,
   seed: number,
 ): HumanCloud {
-  // --- brain subset: region-weighted, deterministic by index hash ---------------
-  const candidates: number[] = [];
-  for (let i = 0; i < brain.meta.count; i++) {
-    const w = REGION_WEIGHT[brain.meta.regions[brain.region[i]]] ?? 1;
-    if (hash11(i, 7) < w) candidates.push(i);
-  }
-  // Even out the spatial density (D43): the model's meshes are very uneven
-  // (dense cerebellum and brainstem at the back and base, a sparse frontal
-  // pole), which made one end of the brain visibly brighter than the other.
-  // Count candidates per cell of a coarse grid and thin crowded cells down to
-  // the median occupancy.
-  const G = 7;
-  const cell = (i: number) => {
-    const c = (v: number) => Math.min(G - 1, Math.max(0, Math.floor(((v + 1) / 2) * G)));
-    return c(brain.position[i * 3]) + G * (c(brain.position[i * 3 + 1]) + G * c(brain.position[i * 3 + 2]));
-  };
-  const occupancy = new Map<number, number>();
-  for (const i of candidates) occupancy.set(cell(i), (occupancy.get(cell(i)) ?? 0) + 1);
-  const counts = [...occupancy.values()].sort((a, b) => a - b);
-  const median = counts[Math.floor(counts.length / 2)];
-  const even = candidates.filter((i) => hash11(i, 10) < Math.min(1, median / occupancy.get(cell(i))!));
-  candidates.length = 0;
-  candidates.push(...even);
-  candidates.sort((a, b) => hash11(a, 8) - hash11(b, 8));
-  const picked = Array.from({ length: count }, (_, k) => candidates[k % candidates.length]);
+  const count = mesh.count * perVertex;
+  const P = mesh.position;
   // front of the brain (+x) first, a little of y so the crown leads the base
-  const brainKey = (i: number) => brain.position[i * 3] + 0.35 * brain.position[i * 3 + 1];
-  picked.sort((a, b) => brainKey(b) - brainKey(a));
+  const brainKey = (i: number) => P[i * 3] + 0.35 * P[i * 3 + 1];
+  const order = Array.from({ length: mesh.count }, (_, i) => i).sort((a, b) => brainKey(b) - brainKey(a));
+  const picked = Array.from({ length: count }, (_, k) => order[Math.floor(k / perVertex)]);
 
   // --- hand samples, carrying the surface reveal value --------------------------
   const g = source.clone();
@@ -114,6 +91,8 @@ export function buildHumanCloud(
     count,
     hand: new Float32Array(count * 3),
     brain: new Float32Array(count * 3),
+    vertex: new Float32Array(count),
+    normal: new Float32Array(count * 3),
     region: new Float32Array(count),
     reveal: new Float32Array(count),
     hash: new Float32Array(count * 3),
@@ -124,8 +103,10 @@ export function buildHumanCloud(
     const s = samples[k];
     const b = picked[k];
     out.hand.set([s.x, s.y, s.z], k * 3);
-    out.brain.set([brain.position[b * 3], brain.position[b * 3 + 1], brain.position[b * 3 + 2]], k * 3);
-    out.region[k] = brain.region[b];
+    out.brain.set([P[b * 3], P[b * 3 + 1], P[b * 3 + 2]], k * 3);
+    out.normal.set([mesh.normal[b * 3], mesh.normal[b * 3 + 1], mesh.normal[b * 3 + 2]], k * 3);
+    out.vertex[k] = b;
+    out.region[k] = mesh.region[b];
     out.reveal[k] = Math.min(1, Math.max(0, s.r));
     out.hash.set([hash11(k, 0), hash11(k, 1), hash11(k, 2)], k * 3);
     let u = hash11(k, 3);
@@ -145,16 +126,16 @@ export function buildHumanCloud(
  * Brain-local position of each graph node, laid out as a tree inside the brain:
  * the root at the centre, one branch per placeholder region at that region's
  * cortex centroid, children fanned around their branch, leaves further out
- * along the same direction. Every target is snapped to a real cortex point of
- * the node's region, so the nodes sit *on* particles. Deterministic.
+ * along the same direction. Every target is snapped to a mesh vertex of the
+ * node's region, so the nodes sit *on* the net's dots (D52). Deterministic.
  */
 export function nodeBrainPositions(
-  brain: BrainPoints,
+  brain: BrainMesh,
   nodes: readonly { id: string; region: number; depth: number; parent: string | null }[],
 ): Map<string, [number, number, number]> {
   const P = brain.position;
   const byRegion = new Map<number, number[]>();
-  for (let i = 0; i < brain.meta.count; i++) {
+  for (let i = 0; i < brain.count; i++) {
     const x = P[i * 3];
     const y = P[i * 3 + 1];
     const z = P[i * 3 + 2];
@@ -222,64 +203,4 @@ export function nodeBrainPositions(
   const out = new Map<string, [number, number, number]>();
   for (const [id, v] of pos) out.set(id, [v.x, v.y, v.z]);
   return out;
-}
-
-/**
- * Faint links between neighbouring brain particles (decision D37), so the
- * brain reads as a connected surface rather than a haze. Every `stride`-th
- * particle links to its `k` nearest others among the same subset, if closer
- * than `maxDist` (brain-local units), each pair once. Brute force over the
- * subset at load; deterministic.
- *
- * Returns brain-local segment endpoints and, per endpoint, the region (for
- * hover lighting).
- */
-export function brainLinks(
-  cloud: HumanCloud,
-  stride = 3,
-  k = 2,
-  maxDist = 0.11,
-): { position: Float32Array; region: Float32Array } {
-  const idx: number[] = [];
-  for (let i = 0; i < cloud.count; i += stride) idx.push(i);
-  const n = idx.length;
-  const B = cloud.brain;
-  const seen = new Set<number>();
-  const pos: number[] = [];
-  const reg: number[] = [];
-  const max2 = maxDist * maxDist;
-  const best = new Array<{ j: number; d: number }>(k);
-  for (let a = 0; a < n; a++) {
-    const i = idx[a];
-    const x = B[i * 3];
-    const y = B[i * 3 + 1];
-    const z = B[i * 3 + 2];
-    for (let q = 0; q < k; q++) best[q] = { j: -1, d: max2 };
-    for (let b = 0; b < n; b++) {
-      if (b === a) continue;
-      const j = idx[b];
-      const dx = B[j * 3] - x;
-      const dy = B[j * 3 + 1] - y;
-      const dz = B[j * 3 + 2] - z;
-      const d = dx * dx + dy * dy + dz * dz;
-      if (d >= best[k - 1].d || d < 1e-8) continue;
-      // insert, keeping `best` sorted
-      let q = k - 1;
-      while (q > 0 && best[q - 1].d > d) {
-        best[q] = best[q - 1];
-        q--;
-      }
-      best[q] = { j: b, d };
-    }
-    for (const { j: b } of best) {
-      if (b < 0) continue;
-      const key = a < b ? a * n + b : b * n + a;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const j = idx[b];
-      pos.push(x, y, z, B[j * 3], B[j * 3 + 1], B[j * 3 + 2]);
-      reg.push(cloud.region[i], cloud.region[j]);
-    }
-  }
-  return { position: new Float32Array(pos), region: new Float32Array(reg) };
 }

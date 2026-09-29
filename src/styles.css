@@ -10,6 +10,7 @@
   --alpha-paper: #f4f2ee;
   --alpha-ink: #1b1b1d;
   --alpha-construction: #7b7d85;
+  --alpha-accent: #3d6a8a;
 }
 
 /* Dark theme (decisions D38–D40; config/theme.ts sets data-theme on <html>). */
@@ -17,6 +18,7 @@
   --alpha-paper: #050505;
   --alpha-ink: #f2f2f2;
   --alpha-construction: #8a8c94;
+  --alpha-accent: #9cc3e0;
   color-scheme: dark;
 }
 
@@ -137,6 +139,24 @@ body {
   inset: 0;
   pointer-events: none;
   color: var(--alpha-ink);
+}
+
+/* D53: the region lit by the input box, named beside where the signal struck */
+.human-panel__region-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--alpha-accent);
+  /* a backing in the ground colour, so the net's lines do not cut the name */
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+  background: var(--alpha-paper);
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .human-panel button,

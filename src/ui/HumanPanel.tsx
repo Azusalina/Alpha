@@ -35,6 +35,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
   const arrived = state === 'human';
 
   const dividerRef = useRef<SVGSVGElement>(null);
+  const labelRef = useRef<HTMLParagraphElement>(null);
 
   // opacity and the divide line follow p every frame without React re-rendering
   useEffect(() => {
@@ -54,6 +55,19 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         b.setAttribute('x2', String(50 + 50 * t));
         b.setAttribute('y2', String(50 + 50 * t));
       }
+      // D53: the lit region's name, beside where the signal struck
+      const lab = labelRef.current;
+      const at = humanStore.label;
+      if (lab) {
+        if (at) {
+          const name = `占位脑区「${regionLabel(at.region)}」`;
+          if (lab.textContent !== name) lab.textContent = name;
+          lab.style.transform = `translate(${at.x + 14}px, ${at.y - 10}px)`;
+          lab.style.opacity = String(at.alpha);
+        } else if (lab.style.opacity !== '0') {
+          lab.style.opacity = '0';
+        }
+      }
       raf = requestAnimationFrame(tick);
     };
     tick();
@@ -68,7 +82,9 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     let h = 0;
     for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     const region = h % 5;
-    humanStore.pulse([0, 0, 0], region);
+    // the signal leaves from the input box (D53)
+    const box = (e.currentTarget as HTMLFormElement).querySelector('input')!.getBoundingClientRect();
+    humanStore.inject(region, [box.left + box.width * 0.15, box.top + box.height / 2]);
     humanStore.set({
       reply: `原型演示：已收到「${t.length > 24 ? `${t.slice(0, 24)}…` : t}」，点亮了占位脑区「${regionLabel(region)}」。未运行模型，也未保存。`,
     });
@@ -167,6 +183,8 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           </ul>
         </div>
       )}
+
+      <p ref={labelRef} className="human-panel__region-label" data-testid="region-label" aria-hidden="true" style={{ opacity: 0 }} />
 
       {ui.focused && ui.selected && (
         <NodeDetail id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />
