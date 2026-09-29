@@ -17,9 +17,9 @@ Output (docs/CONTRACTS.md §12):
   public/assets/brain.bin   float32 xyz * count, then uint8 region * count
   public/assets/brain.json  {count, regions: [names], bounds, source}
 
-Positions are centred on the bounding-box centre, rotated so the brain faces
-the camera in profile (front of the brain toward -x, i.e. toward the upper
-left of the composition's diagonal), and scaled so the largest half-extent is 1.
+Positions are centred on the bounding-box centre and scaled so the largest
+half-extent is 1; axes are the model's own (y up, front of the brain toward +x).
+The app sets the brain's attitude (config/composition.ts BRAIN.tilt).
 
 Usage: python3 scripts/build_brain.py <path/to/BrainUVs.obj>
 """

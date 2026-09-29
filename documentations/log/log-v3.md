@@ -94,6 +94,11 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 
 - `tsc --noEmit` clean. Playwright **15/15** (11 round-2 + V08-human, V09,
   brain drill-in/detail/Escape, V12 ten round trips bit-identical).
+- Home unchanged: with reduced motion (no breathing) and the clock frozen, the
+  home frame is **bit-identical** to round 2's `b04e44e`. The D10 metrics in
+  `outputs/qa/form/particle-shape/` moved (median IoU 0.863 → 0.857, all gates
+  pass) because D10 freezes the breathing clock after a real-time wait, so each
+  run captures another breathing phase — run-to-run noise, not a change.
 - Screenshots: `outputs/qa/human/` (`p000`…`p100`, `focus`, `node`,
   `human-transition-sheet.png`). SwiftShader — functional only, no frame times.
 
