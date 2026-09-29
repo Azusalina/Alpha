@@ -8,39 +8,39 @@
   "ignore_zone_used": true,
   "pixels": {
     "reference": 68941,
-    "render": 72997,
-    "overlap": 66336,
-    "render_only": 6661,
-    "reference_only": 2605,
-    "render_in_ignore_zone": 68169
+    "render": 69519,
+    "overlap": 63815,
+    "render_only": 5704,
+    "reference_only": 5126,
+    "render_in_ignore_zone": 67483
   },
-  "iou": 0.87744,
-  "precision": 0.90875,
-  "recall": 0.96221,
+  "iou": 0.85491,
+  "precision": 0.91795,
+  "recall": 0.92565,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 5.383,
-      "p95": 12.108,
-      "max": 16.279,
+      "mean": 4.862,
+      "p95": 11.314,
+      "max": 16.971,
       "n": 1415
     },
     "render_to_ref": {
-      "mean": 5.834,
-      "p95": 14.805,
-      "max": 28.018,
-      "n": 1485
+      "mean": 7.767,
+      "p95": 29.614,
+      "max": 52.924,
+      "n": 1674
     },
     "symmetric": {
-      "mean": 5.614,
-      "p95": 12.728,
-      "max": 28.018,
-      "n": 2900
+      "mean": 6.436,
+      "p95": 21.0,
+      "max": 52.924,
+      "n": 3089
     }
   },
   "negative_space": {
-    "iou": 0.71696,
+    "iou": 0.66808,
     "reference_px": 21227,
-    "render_px": 21903
+    "render_px": 25079
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -55,15 +55,15 @@
         438
       ],
       "render_px": [
-        808,
+        803,
         434
       ],
       "found": true,
       "offset_px": [
-        1,
+        -4,
         -4
       ],
-      "distance_px": 4.12,
+      "distance_px": 5.66,
       "reference_uncertainty_px": 3.0,
       "at_search_edge": false,
       "note": ""
@@ -74,15 +74,15 @@
         654
       ],
       "render_px": [
-        806,
-        656
+        808,
+        655
       ],
       "found": true,
       "offset_px": [
-        -4,
-        2
+        -2,
+        1
       ],
-      "distance_px": 4.47,
+      "distance_px": 2.24,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -93,13 +93,13 @@
         755
       ],
       "render_px": [
-        898,
-        762
+        901,
+        763
       ],
       "found": true,
       "offset_px": [
-        -4,
-        7
+        -1,
+        8
       ],
       "distance_px": 8.06,
       "reference_uncertainty_px": 4.0,
@@ -112,15 +112,15 @@
         756
       ],
       "render_px": [
-        987,
-        758
+        985,
+        760
       ],
       "found": true,
       "offset_px": [
-        -2,
-        2
+        -4,
+        4
       ],
-      "distance_px": 2.83,
+      "distance_px": 5.66,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -138,32 +138,32 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.87744,
+        "value": 0.85491,
         "gate": ">= 0.918",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 5.614,
+        "value": 6.436,
         "gate": "<= 3.7",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 12.728,
+        "value": 21.0,
         "gate": "<= 8.9",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.71696,
+        "value": 0.66808,
         "gate": ">= 0.825",
         "pass": false
       },
       "tip:index_tip": {
-        "value": 4.12,
+        "value": 5.66,
         "gate": "<= 6.0 (= 2.0 x 3.0)",
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 4.47,
+        "value": 2.24,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
         "pass": true
       },
@@ -173,7 +173,7 @@
         "pass": false
       },
       "tip:pinky_tip": {
-        "value": 2.83,
+        "value": 5.66,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
         "pass": true
       }

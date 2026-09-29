@@ -37,6 +37,7 @@ import {
   Sphere,
   Vector2,
   Vector3,
+  Vector4,
 } from 'three';
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
@@ -58,6 +59,22 @@ const POINT_SIZE = 0.0042;
 /** Ripple speed (brain-local units per second) and lifetime (seconds). */
 const PULSE_SPEED = 1.6;
 const PULSE_LIFE = 1.5;
+/**
+ * How much the arrived brain is strengthened over the plain hand particles
+ * (decision D41): more opaque and a little larger overall, and more again on
+ * the silhouette (points whose surface turns away from the viewer), so the
+ * resting brain in the lower left reads as a shape. Drilled in, the rim boost
+ * halves so it does not crowd the interior and the tree.
+ */
+const VISIBILITY = {
+  alpha: 0.3,
+  rimAlpha: 0.7,
+  size: 0.18,
+  rimSize: 0.5,
+  /** In the glowing dark theme the brain's dots get this much more light. */
+  darkGlow: 1.25,
+} as const;
+
 /** A click within this many CSS pixels of a node picks it. */
 const NODE_PICK_PX = 14;
 
@@ -241,6 +258,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uPulseSpeed: { value: PULSE_SPEED },
           uPulseLife: { value: PULSE_LIFE },
           uSwirl: { value: 1 },
+          uVis: { value: new Vector4(VISIBILITY.alpha, VISIBILITY.rimAlpha, VISIBILITY.size, VISIBILITY.rimSize) },
           uSizeScale: { value: 1 },
           uColor: { value: new Color(PALETTE.ink) },
           uAccent: { value: new Color(PALETTE.inkSoft) },
@@ -268,6 +286,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uniform float uPulseSpeed;
           uniform float uPulseLife;
           uniform float uSwirl;
+          uniform vec4 uVis; // alpha, rim alpha, size, rim size (VISIBILITY)
           uniform float uSizeScale;
 
           varying float vAlpha;
@@ -317,14 +336,25 @@ export function BrainView({ tier, reducedMotion }: Props) {
             lit = max(lit, step(abs(aRegion - uHoverRegion), 0.5) * uFocus * 0.65);
             vLit = lit;
 
+            // Visibility once arrived (D41): the silhouette is where the surface
+            // normal (≈ direction from the brain centre) turns away from the
+            // viewer; those points get the strongest boost, so the outline reads.
+            float shell = smoothstep(0.35, 0.9, length(aBrain));
+            vec3 centre = (uBrain * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            vec3 nrm = normalize(target - centre + vec3(1e-4));
+            vec3 toEye = normalize(cameraPosition - target);
+            float rim = smoothstep(0.5, 0.95, 1.0 - abs(dot(nrm, toEye))) * shell;
+            float rimK = rim * (1.0 - 0.5 * uFocus);
+
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
-            gl_PointSize = aSize * (1.0 + 0.9 * lit) * uSizeScale / max(0.25, -mv.z);
+            float grow = 1.0 + m * (uVis.z + uVis.w * rimK);
+            gl_PointSize = aSize * grow * (1.0 + 0.9 * lit) * uSizeScale / max(0.25, -mv.z);
 
-            // Interior points read lighter than the cortex, so the shape has depth.
-            float shell = smoothstep(0.35, 0.9, length(aBrain));
-            float body = mix(1.0, mix(0.72, 1.0, shell), m);
-            vAlpha = aTone * appear * body * (0.85 + 0.15 * lit);
+            // The interior stays a touch lighter than the cortex, for depth.
+            float body = mix(1.0, 0.9 + 0.1 * shell, m);
+            float boost = 1.0 + m * (uVis.x + uVis.y * rimK);
+            vAlpha = aTone * appear * body * boost * (0.85 + 0.15 * lit);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -449,7 +479,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     (p) => {
       particleMaterial.uniforms.uColor.value.set(p.ink);
       particleMaterial.uniforms.uAccent.value.set(p.inkSoft);
-      applyInk(particleMaterial, p);
+      applyInk(particleMaterial, p, VISIBILITY.darkGlow);
       edgeMaterial.uniforms.uColor.value.set(p.inkSoft);
       applyInk(edgeMaterial, p, 1.2);
       nodeMaterial.uniforms.uColor.value.set(p.ink);

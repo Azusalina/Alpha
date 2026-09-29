@@ -180,6 +180,25 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 - Screenshots: `outputs/qa/theme/` (dark/light × home, brain, focus, tree;
   `theme-sheet.png`).
 
+## Part 4 — brain visibility (session 8, third ask)
+
+> 调节 particle brain 的透明度和提升可见度
+
+**D41** (asked): fixed values tuned by me, no new control; strengthen the
+**particle dots** and the **resting brain's outline** (links and the dark glow
+left as they were, except the brain dots' own dark-theme light).
+
+- `BrainView` `VISIBILITY`: once arrived, dots +30 % opacity and +18 % size;
+  silhouette points (surface turning away from the viewer) +70 % opacity and
+  +50 % size, halved while drilled in; the interior is no longer dimmed to 72 %
+  (now 90 %); dark theme brain dots × 1.25 light.
+- Measured mean contrast in the brain region (before → after): dark resting
+  2.6 → 5.6, dark drilled-in 3.5 → 6.0, light resting 4.8 → 9.0, light
+  drilled-in 6.2 → 9.8. Home is untouched (the brain is not drawn there).
+- Screens: `outputs/qa/theme/brain-visibility-compare.png` (left before, right after).
+- The brain drill-in test timed out once under the full parallel run (its
+  growth poll waited 5 s); timeouts raised, passes alone and in the suite.
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density

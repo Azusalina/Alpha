@@ -3,16 +3,16 @@
   "shots": [
     {
       "screenshot": "outputs/qa/form/particles-full-seed20260919.png",
-      "particles_detected": 1900,
-      "iou": 0.88193,
-      "contour_mean_px": 5.311,
-      "contour_p95_px": 13.416,
-      "negative_space_iou": 0.73169,
+      "particles_detected": 1882,
+      "iou": 0.86508,
+      "contour_mean_px": 6.54,
+      "contour_p95_px": 21.932,
+      "negative_space_iou": 0.69865,
       "tips_px": {
-        "index_tip": 3.16,
-        "middle_tip": 3.16,
+        "index_tip": 3.61,
+        "middle_tip": 8.54,
         "ring_tip": 3.16,
-        "pinky_tip": 5.1
+        "pinky_tip": 3.0
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -23,16 +23,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed1.png",
-      "particles_detected": 1951,
-      "iou": 0.85091,
-      "contour_mean_px": 6.481,
-      "contour_p95_px": 20.616,
-      "negative_space_iou": 0.68159,
+      "particles_detected": 1935,
+      "iou": 0.85616,
+      "contour_mean_px": 6.538,
+      "contour_p95_px": 20.809,
+      "negative_space_iou": 0.68509,
       "tips_px": {
-        "index_tip": 2.0,
-        "middle_tip": 0.0,
-        "ring_tip": 1.0,
-        "pinky_tip": 5.0
+        "index_tip": 3.16,
+        "middle_tip": 2.0,
+        "ring_tip": 7.07,
+        "pinky_tip": 3.16
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -43,16 +43,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed2.png",
-      "particles_detected": 1916,
-      "iou": 0.8666,
-      "contour_mean_px": 6.213,
-      "contour_p95_px": 18.019,
-      "negative_space_iou": 0.72241,
+      "particles_detected": 1871,
+      "iou": 0.85557,
+      "contour_mean_px": 6.63,
+      "contour_p95_px": 19.031,
+      "negative_space_iou": 0.69593,
       "tips_px": {
-        "index_tip": 1.41,
-        "middle_tip": 7.21,
-        "ring_tip": 2.83,
-        "pinky_tip": 4.0
+        "index_tip": 5.39,
+        "middle_tip": 9.43,
+        "ring_tip": 2.0,
+        "pinky_tip": 6.08
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -63,16 +63,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed3.png",
-      "particles_detected": 1977,
-      "iou": 0.87744,
-      "contour_mean_px": 5.614,
-      "contour_p95_px": 12.728,
-      "negative_space_iou": 0.71696,
+      "particles_detected": 1914,
+      "iou": 0.85491,
+      "contour_mean_px": 6.436,
+      "contour_p95_px": 21.0,
+      "negative_space_iou": 0.66808,
       "tips_px": {
-        "index_tip": 4.12,
-        "middle_tip": 4.47,
+        "index_tip": 5.66,
+        "middle_tip": 2.24,
         "ring_tip": 8.06,
-        "pinky_tip": 2.83
+        "pinky_tip": 5.66
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -83,16 +83,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed4.png",
-      "particles_detected": 1877,
-      "iou": 0.85361,
-      "contour_mean_px": 6.647,
-      "contour_p95_px": 25.549,
-      "negative_space_iou": 0.73862,
+      "particles_detected": 1849,
+      "iou": 0.86174,
+      "contour_mean_px": 6.365,
+      "contour_p95_px": 24.306,
+      "negative_space_iou": 0.69699,
       "tips_px": {
-        "index_tip": 6.08,
+        "index_tip": 3.61,
         "middle_tip": 2.24,
-        "ring_tip": 7.07,
-        "pinky_tip": 4.24
+        "ring_tip": 5.1,
+        "pinky_tip": 3.0
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -103,52 +103,52 @@
     }
   ],
   "median": {
-    "iou": 0.8666,
-    "contour_mean_px": 6.213,
-    "contour_p95_px_not_gated": 18.019,
-    "negative_space_iou": 0.72241,
+    "iou": 0.85616,
+    "contour_mean_px": 6.538,
+    "contour_p95_px_not_gated": 21.0,
+    "negative_space_iou": 0.69593,
     "tips_px": {
-      "index_tip": 3.16,
-      "middle_tip": 3.16,
-      "ring_tip": 3.16,
-      "pinky_tip": 4.24
+      "index_tip": 3.61,
+      "middle_tip": 2.24,
+      "ring_tip": 5.1,
+      "pinky_tip": 3.16
     }
   },
   "gates": {
     "source": "decisions D10, D27 (documentations/log/log-v2.md), docs/ACCEPTANCE.md section 7",
     "checks": {
       "iou": {
-        "value": 0.8666,
+        "value": 0.85616,
         "gate": ">= 0.84",
         "pass": true
       },
       "contour_mean_px": {
-        "value": 6.213,
+        "value": 6.538,
         "gate": "<= 7.0",
         "pass": true
       },
       "negative_space_iou": {
-        "value": 0.72241,
+        "value": 0.69593,
         "gate": ">= 0.65",
         "pass": true
       },
       "tip:index_tip": {
-        "value": 3.16,
+        "value": 3.61,
         "gate": "<= 6.0",
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 3.16,
+        "value": 2.24,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 3.16,
+        "value": 5.1,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 4.24,
+        "value": 3.16,
         "gate": "<= 7.0",
         "pass": true
       }

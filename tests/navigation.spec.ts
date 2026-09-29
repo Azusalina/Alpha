@@ -88,6 +88,7 @@ test('V09 — repeated requests during a transition do not re-enter it', async (
 });
 
 test('brain — click drills in, a node opens its detail, Escape backs out step by step', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await waitFor(page, 'home');
@@ -96,7 +97,7 @@ test('brain — click drills in, a node opens its detail, Escape backs out step 
 
   const c = await alpha(page, (a) => a.brain.screenOf());
   await page.mouse.click(c![0], c![1]);
-  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).growP, { timeout: 5000 }).toBe(1);
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).growP, { timeout: 15_000 }).toBe(1);
   expect((await alpha(page, (a) => a.humanUi())).focused).toBe(true);
 
   const n = await alpha(page, (a) => a.brain.screenOf('n05'));
@@ -108,7 +109,7 @@ test('brain — click drills in, a node opens its detail, Escape backs out step 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('node-detail')).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focusP, { timeout: 5000 }).toBe(0);
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focusP, { timeout: 15_000 }).toBe(0);
   await page.keyboard.press('Escape');
   await waitFor(page, 'home', 10_000);
 });
