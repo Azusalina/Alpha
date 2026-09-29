@@ -118,3 +118,195 @@ body {
     transition-duration: 1ms;
   }
 }
+
+/*
+ * Human destination (round 3). Paper and ink like the rest: no cards, no
+ * shadows — a ruled input line and small serif type set beside the brain,
+ * which rests in the lower left of the view (decision D32).
+ */
+.human-panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--alpha-ink);
+}
+
+.human-panel button,
+.human-panel input {
+  font: inherit;
+  color: inherit;
+}
+
+/* keyboard way into the brain; clicks pass through to the canvas (the ripple
+   starts where the brain was clicked) */
+.human-panel__brain {
+  position: absolute;
+  left: 8%;
+  bottom: 10%;
+  width: 34%;
+  height: 52%;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.human-panel__brain:focus-visible {
+  outline: 1px dashed var(--alpha-construction);
+  outline-offset: 4px;
+}
+
+.human-panel__input {
+  position: absolute;
+  right: 9%;
+  bottom: 22%;
+  width: min(30rem, 40%);
+  pointer-events: auto;
+}
+
+.human-panel__label {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--alpha-construction);
+  margin-bottom: 0.4rem;
+}
+
+.human-panel__row {
+  display: flex;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--alpha-ink);
+}
+
+.human-panel__row input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0;
+  font-size: 1.15rem;
+  outline: none;
+  user-select: text;
+}
+
+.human-panel__row button,
+.human-panel__back,
+.human-panel__nodes button,
+.node-detail button {
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0.1rem;
+  cursor: pointer;
+}
+
+.human-panel__row button {
+  color: var(--alpha-construction);
+}
+
+.human-panel__row button:hover,
+.human-panel__back:hover,
+.human-panel__nodes button:hover,
+.node-detail button:hover {
+  color: var(--alpha-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.human-panel__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--alpha-construction);
+}
+
+.human-panel__focus {
+  position: absolute;
+  left: 3%;
+  top: 5%;
+  bottom: 5%;
+  width: 13rem;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.human-panel__back {
+  align-self: flex-start;
+  font-size: 0.9rem;
+  color: var(--alpha-construction);
+}
+
+.human-panel__hint {
+  font-size: 0.78rem;
+  color: var(--alpha-construction);
+  min-height: 2.4em;
+}
+
+.human-panel__nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.human-panel__nodes button {
+  color: var(--alpha-construction);
+  text-align: left;
+}
+
+.human-panel__nodes button.is-selected {
+  color: var(--alpha-ink);
+}
+
+.node-detail {
+  position: absolute;
+  right: 4%;
+  top: 12%;
+  width: 17rem;
+  pointer-events: auto;
+  border-left: 1px solid var(--alpha-construction);
+  padding: 0 0 0 1.1rem;
+}
+
+.node-detail header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.node-detail__tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--alpha-construction);
+}
+
+.node-detail h2 {
+  font-weight: normal;
+  font-size: 1.35rem;
+  margin: 0.5rem 0 0.8rem;
+}
+
+.node-detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.9rem;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.node-detail dt {
+  color: var(--alpha-construction);
+}
+
+.node-detail dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.6rem;
+}
+
+.node-detail__note {
+  margin-top: 1rem;
+  font-size: 0.74rem;
+  color: var(--alpha-construction);
+}

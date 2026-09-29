@@ -6,10 +6,9 @@
  * computed from it. GSAP drives `p`; the frame loop reads it. React only ever
  * sees the state *name* change, never the per-frame value.
  *
- * v1.0.0 startup scope implements `loading → intro → home`. The navigation
- * states are declared here because the startup contract is defined against them
- * (nothing belonging to a destination may exist during startup), but they are
- * not reachable yet — see documentations/log/log-v1.md.
+ * Round 1–2 implemented `loading → intro → home`. Round 3 (log-v3.md) adds
+ * `home → toHuman → human → fromHuman → home`; the system side is declared but
+ * not reachable yet.
  */
 
 import type { QualitySettings } from '../config/quality';
@@ -44,7 +43,29 @@ export function destinationsAllowed(state: SceneState): boolean {
 
 /** Navigation hot zones only arm once home is stable (spec 2, 启动). */
 export function hotzonesArmed(state: SceneState): boolean {
-  return state === 'home';
+  return state === 'home' || state === 'human';
+}
+
+/**
+ * Which corners are live (spec 3 table): at home both; at the human
+ * destination only the opposite (lower-right) corner, which returns home.
+ */
+export function armedCorners(state: SceneState): readonly ('human' | 'system')[] {
+  if (state === 'home') return ['human', 'system'];
+  if (state === 'human') return ['system'];
+  if (state === 'system') return ['human'];
+  return [];
+}
+
+/**
+ * Progress of the home ↔ human transition as every consumer should read it:
+ * 0 at home (and during startup), p while travelling, 1 at the destination.
+ */
+export function humanProgress(): number {
+  const s = stage.state;
+  if (s === 'human') return 1;
+  if (s === 'toHuman' || s === 'fromHuman') return stage.progress;
+  return 0;
 }
 
 type Listener = (state: SceneState) => void;
@@ -73,6 +94,9 @@ class Stage {
 
   /** Seconds since home became stable; drives idle breathing. */
   idleTime = 0;
+
+  /** Seconds spent at a destination; drives the brain's idle spin. Reset on arrival. */
+  destTime = 0;
 
   /** Pinned in tests so screenshots are reproducible. */
   timeScale = 1;
@@ -124,6 +148,7 @@ class Stage {
     // depends on how long home was shown: the breathing phase is a function of
     // the seed and the time since home only (decision D30).
     if (next === 'home' || leavingHome) this.idleTime = 0;
+    if (next === 'toHuman') this.destTime = 0;
     for (const l of this.listeners) l(next);
   }
 

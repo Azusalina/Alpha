@@ -1,0 +1,139 @@
+/**
+ * Round 3 navigation checks, human side (log-v3.md; spec 12 V05–V09, V12).
+ *
+ * Interaction is driven with real pointer and keyboard input; the dev
+ * inspector is used only to read state and to freeze the clock for the
+ * pixel comparison, never to trigger what is being tested — except V12's
+ * repeated round trips, which call the same navigate() a dwell calls.
+ */
+
+import { expect, test, type Page } from '@playwright/test';
+
+type Alpha = {
+  state: string;
+  progress: number;
+  setTimeScale(v: number): void;
+  navigate(to: 'human' | 'home'): boolean;
+  humanUi(): { focused: boolean; selected: string | null; reply: string | null; focusP: number; growP: number };
+  brain: { screenOf(id?: string): [number, number] | null };
+};
+
+/** Run `fn` against window.__alpha in the page (the function is serialised). */
+const alpha = <T,>(page: Page, fn: (a: Alpha) => T) =>
+  page.evaluate(`(${fn.toString()})(window.__alpha)`) as Promise<T>;
+
+async function state(page: Page): Promise<string> {
+  return page.evaluate(() => (window as unknown as { __alpha: Alpha }).__alpha.state);
+}
+
+async function waitFor(page: Page, s: string, timeout = 60_000): Promise<void> {
+  await expect.poll(() => state(page), { timeout }).toBe(s);
+}
+
+async function dwell(page: Page, testId: string): Promise<void> {
+  const box = await page.getByTestId(testId).boundingBox();
+  if (!box) throw new Error(`${testId} is not on screen`);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(600);
+}
+
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  page.on('pageerror', (e) => errors.push(String(e)));
+  (page as unknown as { __errors: string[] }).__errors = errors;
+});
+
+test('V08 human — dwell top-left travels to the brain, dwell bottom-right returns', async ({ page }) => {
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await expect(page.getByTestId('particle-brain')).toHaveCount(0);
+
+  await dwell(page, 'hotzone-human');
+  await expect.poll(() => state(page)).toMatch(/toHuman|human/);
+  // mid-flight: the destination exists but cannot take focus yet
+  await waitFor(page, 'human', 10_000);
+
+  const input = page.getByTestId('human-input');
+  await expect(input).toBeVisible();
+  await input.click();
+  await input.fill('今天有点累');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).reply ?? '').toContain('原型演示');
+
+  // at the destination only the opposite corner is live
+  await expect(page.getByTestId('hotzone-human')).toHaveCount(0);
+  await dwell(page, 'hotzone-system');
+  await waitFor(page, 'home', 10_000);
+  await expect(page.getByTestId('particle-brain')).toHaveCount(0);
+  expect(await page.locator('input, textarea').count()).toBe(0);
+  expect((page as unknown as { __errors: string[] }).__errors).toEqual([]);
+});
+
+test('V09 — repeated requests during a transition do not re-enter it', async ({ page }) => {
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await dwell(page, 'hotzone-human');
+  await expect.poll(() => state(page)).toBe('toHuman');
+  const p0 = await alpha(page, (a) => a.progress);
+  expect(await alpha(page, (a) => a.navigate('human'))).toBe(false);
+  expect(await alpha(page, (a) => a.navigate('home'))).toBe(false);
+  // progress kept moving forward: the running transition was not restarted
+  await page.waitForTimeout(300);
+  expect(await alpha(page, (a) => a.progress)).toBeGreaterThan(p0);
+  await waitFor(page, 'human', 10_000);
+});
+
+test('brain — click drills in, a node opens its detail, Escape backs out step by step', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await dwell(page, 'hotzone-human');
+  await waitFor(page, 'human', 10_000);
+
+  const c = await alpha(page, (a) => a.brain.screenOf());
+  await page.mouse.click(c![0], c![1]);
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).growP, { timeout: 5000 }).toBe(1);
+  expect((await alpha(page, (a) => a.humanUi())).focused).toBe(true);
+
+  const n = await alpha(page, (a) => a.brain.screenOf('n05'));
+  await page.mouse.move(n![0], n![1]);
+  await page.waitForTimeout(200);
+  await page.mouse.click(n![0], n![1]);
+  await expect(page.getByTestId('node-detail')).toContainText('示例记录 05');
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('node-detail')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focusP, { timeout: 5000 }).toBe(0);
+  await page.keyboard.press('Escape');
+  await waitFor(page, 'home', 10_000);
+});
+
+test('V12 — ten round trips land on the same home frame', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await alpha(page, (a) => a.setTimeScale(0));
+  await page.mouse.move(-5, -5); // off the canvas: no pointer disturbance at all
+  // the reference frame is taken after one return, so the idle clock (reset on
+  // arriving home, frozen here) is at the same value in both frames
+  await alpha(page, (a) => a.navigate('human'));
+  await waitFor(page, 'human', 10_000);
+  await alpha(page, (a) => a.navigate('home'));
+  await waitFor(page, 'home', 10_000);
+  await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  const before = await page.screenshot();
+
+  for (let i = 0; i < 10; i++) {
+    expect(await alpha(page, (a) => a.navigate('human'))).toBe(true);
+    await waitFor(page, 'human', 10_000);
+    expect(await alpha(page, (a) => a.navigate('home'))).toBe(true);
+    await waitFor(page, 'home', 10_000);
+  }
+  await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  await page.waitForTimeout(300);
+  const after = await page.screenshot();
+  expect(after.equals(before)).toBe(true);
+});

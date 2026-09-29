@@ -28,9 +28,9 @@ import {
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { inspection } from '../app/inspection';
-import { stage } from '../app/stage';
+import { humanProgress, stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
-import { STARTUP, phaseProgress } from '../config/timing';
+import { STARTUP, TRANSITION, phaseProgress } from '../config/timing';
 import { useHandContour, useHandGeometry } from '../hand/assets';
 import { buildConstructionGeometry } from '../hand/constructionLines';
 import { handRig } from '../hand/pose';
@@ -127,6 +127,7 @@ export function HumanHand() {
         uniforms: {
           uDraw: { value: 0 },
           uSettle: { value: 0 },
+          uFade: { value: 1 },
           uColor: { value: new Color(PALETTE.construction) },
           uInk: { value: new Color(PALETTE.inkSoft) },
         },
@@ -147,6 +148,7 @@ export function HumanHand() {
         fragmentShader: /* glsl */ `
           uniform float uDraw;
           uniform float uSettle;
+          uniform float uFade;
           uniform vec3 uColor;
           uniform vec3 uInk;
           varying float vOrder;
@@ -159,7 +161,7 @@ export function HumanHand() {
             // the outer contour keeps more of its weight than the scaffolding
             float freshness = 1.0 - smoothstep(0.0, 0.12, uDraw - vOrder);
             float rest = mix(0.78, 0.95, vInk);
-            float alpha = drawn * vWeight * mix(1.0, rest, uSettle) * (0.9 + 0.5 * freshness);
+            float alpha = drawn * vWeight * mix(1.0, rest, uSettle) * (0.9 + 0.5 * freshness) * uFade;
             if (alpha <= 0.002) discard;
             gl_FragColor = vec4(mix(uColor, uInk, vInk), min(alpha, 1.0));
           }
@@ -183,11 +185,21 @@ export function HumanHand() {
         APPROACH_OFFSET[2] * (1 - approach),
       );
     }
+    // Toward the human destination the hand is used up (spec 3 前往左上): the
+    // plaster withdraws from the fingertips toward the wrist while BrainView's
+    // particles appear where it has gone, and the drawing fades. At p = 0 every
+    // value here is exactly its home value.
+    const hp = humanProgress();
+    const dissolve = phaseProgress(hp, TRANSITION.phases.surfaceDissolve);
+    const fade = 1 - phaseProgress(hp, TRANSITION.phases.linesFade);
+
     lineMaterial.uniforms.uDraw.value = draw;
     lineMaterial.uniforms.uSettle.value = settle;
+    lineMaterial.uniforms.uFade.value = fade * fade;
     // the dev view modes show the finished form whatever the timeline says
     const finished = stage.viewMode !== 'full';
-    surfaceMaterial.userData.uniforms.uReveal.value = finished ? REVEAL_OVERSHOOT : reveal * REVEAL_OVERSHOOT;
+    surfaceMaterial.userData.uniforms.uReveal.value =
+      (finished ? REVEAL_OVERSHOOT : reveal * REVEAL_OVERSHOOT) * (1 - dissolve);
     surfaceMaterial.userData.uniforms.uOpacity.value = finished ? 1 : Math.min(1, reveal * 1.4);
   });
 

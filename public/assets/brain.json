@@ -1,0 +1,31 @@
+{
+  "count": 39410,
+  "regions": [
+    "semantic",
+    "episodic",
+    "process",
+    "analytic",
+    "affective",
+    "amygdala",
+    "cerebellum",
+    "brainstem",
+    "bridge"
+  ],
+  "regionCounts": {
+    "semantic": 4557,
+    "episodic": 3481,
+    "process": 2960,
+    "analytic": 974,
+    "affective": 1044,
+    "amygdala": 118,
+    "cerebellum": 14130,
+    "brainstem": 12009,
+    "bridge": 137
+  },
+  "extent": [
+    2.0,
+    1.7520548909891256,
+    1.6619082821652766
+  ],
+  "source": "BrainUVs.obj, github.com/victors1681/3dbrain (MIT, Victor Santos)"
+}

@@ -25,10 +25,10 @@ import {
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { digestCloud, inspection } from '../app/inspection';
-import { stage } from '../app/stage';
-import { PALETTE } from '../config/composition';
+import { humanProgress, stage } from '../app/stage';
+import { PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
-import { IDLE, REDUCED_MOTION, STARTUP, phaseProgress } from '../config/timing';
+import { IDLE, REDUCED_MOTION, STARTUP, TRANSITION, phaseProgress } from '../config/timing';
 import { useHandContour, useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
@@ -61,14 +61,15 @@ function particleSeed(): number {
 
 
 export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
-  const viewport = useThree((s) => s.viewport);
-  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
   const dpr = useThree((s) => s.viewport.dpr);
 
   const source = useHandGeometry('right');
   const contour = useHandContour('right');
   const rig = handRig('right');
   const viewMode = useViewMode();
+
+  const toward = useMemo(() => dissipationDirection(rig), [rig]);
 
   const geometry = useMemo(() => {
     const count = QUALITY[tier].particleCount;
@@ -78,7 +79,6 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
       inspection.particles = digestCloud(cloud);
       inspection.resample = (seed) => digestCloud(sampleParticleHand(source, rig, count, seed, nails));
     }
-    const toward = dissipationDirection(rig);
 
     const scatter = new Float32Array(cloud.count * 3);
     const tmp = new Vector3();
@@ -100,7 +100,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.setAttribute('aHash', new Float32BufferAttribute(cloud.hash, 3));
     g.computeBoundingSphere();
     return g;
-  }, [source, contour, rig, tier]);
+  }, [source, contour, rig, tier, toward]);
 
   useEffect(() => {
     if (DIAGNOSTICS_ENABLED) inspection.meshes.right = source;
@@ -137,6 +137,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uPointerRadius: { value: IDLE.pointerRadius },
           uPointerStrength: { value: IDLE.pointerStrength },
           uSizeScale: { value: 1 },
+          uExit: { value: 0 },
+          uToward: { value: new Vector3() },
           uColor: { value: new Color(PALETTE.ink) },
         },
         vertexShader: /* glsl */ `
@@ -156,6 +158,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uniform float uPointerRadius;
           uniform float uPointerStrength;
           uniform float uSizeScale;
+          uniform float uExit;
+          uniform vec3 uToward;
 
           varying float vAlpha;
 
@@ -189,13 +193,21 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             pos += normalize(away + vec3(0.0001)) * influence * influence
                  * uPointerStrength * uPointerInfluence * (0.6 + h3);
 
+            // Auxiliary exit (a destination on the other side): the hand scatters
+            // along its own dissipation direction out of view and fades
+            // (ambientBorderParticles = false). Zero at home, so home is exact.
+            float x = clamp((uExit - h1 * 0.3) / 0.7, 0.0, 1.0);
+            x = x * x * (3.0 - 2.0 * x);
+            vec3 jitter = (aHash - 0.5) * vec3(0.9, 0.9, 0.6);
+            pos += (uToward * (0.8 + 1.6 * h3) + jitter) * x;
+
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
             gl_PointSize = aSize * uSizeScale / max(0.25, -mv.z);
 
             // Larger points are lighter (aTone), the tail reads lighter still, and
             // everything fades up as it gathers.
-            vAlpha = aTone * (1.0 - 0.45 * aDissolve) * clamp(g * 1.6, 0.0, 1.0);
+            vAlpha = aTone * (1.0 - 0.45 * aDissolve) * clamp(g * 1.6, 0.0, 1.0) * (1.0 - x);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -225,6 +237,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   useFrame((_, delta) => {
     const p = stage.state === 'intro' ? stage.progress : stage.state === 'loading' ? 0 : 1;
     material.uniforms.uGather.value = phaseProgress(p, STARTUP.phases.particleGather);
+    material.uniforms.uExit.value = phaseProgress(humanProgress(), TRANSITION.phases.auxiliaryExit);
+    material.uniforms.uToward.value.copy(toward);
 
     if (stage.state === 'home') stage.idleTime += delta * stage.timeScale;
     material.uniforms.uTime.value = stage.idleTime / IDLE.breathPeriod;
@@ -258,17 +272,19 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
 
     const influence = material.uniforms.uPointerInfluence;
     influence.value += ((target ? 1 : 0) - influence.value) * rate;
+    // Finish the relaxation: below this the push is ~5e-5 world units (invisible),
+    // and snapping to exactly 0 lets a returned home frame match the original
+    // pixel for pixel (V12) instead of approaching it forever.
+    if (!target && influence.value < 1e-3) influence.value = 0;
 
     stage.pointerInfluence = influence.value;
     stage.pointerSmoothed = acquired.current
       ? [smoothed.current.x, smoothed.current.y, smoothed.current.z]
       : null;
 
-    // Point size in device pixels. `viewport.factor` is CSS pixels per world
-    // unit on the z = 0 plane; scaling by DPR and the camera distance turns
-    // `aSize` into a stable on-screen diameter that still shrinks with depth.
-    const perWorldUnit = viewport.factor * dpr;
-    material.uniforms.uSizeScale.value = perWorldUnit * camera.position.z * POINT_SIZE;
+    // Point size in device pixels: `aSize` becomes a stable on-screen diameter
+    // that still shrinks with depth (the shader divides by view depth).
+    material.uniforms.uSizeScale.value = devicePixelsPerUnitDepth(size.height, dpr) * POINT_SIZE;
   });
 
   if (viewMode !== 'full') {

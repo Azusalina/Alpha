@@ -14,7 +14,9 @@ import { Plane, Vector3 } from 'three';
 import { stage } from '../app/stage';
 import { PALETTE } from '../config/composition';
 import type { QualityTier } from '../config/quality';
+import { preloadBrainAsset } from '../brain/brainAsset';
 import { preloadHandAssets } from '../hand/assets';
+import { BrainView } from './BrainView';
 import { CameraRig } from './CameraRig';
 import { HumanHand } from './HumanHand';
 import { ParticleHand } from './ParticleHand';
@@ -22,6 +24,7 @@ import { useViewMode } from './useViewMode';
 
 // Fetch both GLBs and both contour files at once, before either hand renders.
 preloadHandAssets();
+preloadBrainAsset();
 
 interface Props {
   tier: QualityTier;
@@ -131,6 +134,8 @@ export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
       <Suspense fallback={null}>
         <HumanHand />
         <ParticleHand tier={tier} pointer={worldPointer} reducedMotion={reducedMotion} />
+        {/* built at load with the hands (its particles are the left hand's), drawn only away from home */}
+        {viewMode === 'full' && <BrainView tier={tier} reducedMotion={reducedMotion} />}
         <AssetsReady onReady={onReady} />
       </Suspense>
     </>

@@ -77,6 +77,18 @@ export function fitDistance(viewportAspect: number, fovDeg = CAMERA.fovDeg): num
   return Math.max(forHeight, forWidth);
 }
 
+/**
+ * Device pixels per world unit at unit distance from the camera, for a canvas
+ * `heightCss` CSS pixels tall. Dividing by a point's view depth gives its
+ * on-screen scale. At home this equals R3F's `viewport.factor * dpr * D`, but it
+ * does not depend on where the camera was when R3F last recomputed its
+ * viewport — which it does on every Canvas re-render, and away from home that
+ * left the particle size off by a random amount after a return (V12).
+ */
+export function devicePixelsPerUnitDepth(heightCss: number, dpr: number, fovDeg = CAMERA.fovDeg): number {
+  return (heightCss * dpr) / (2 * Math.tan((fovDeg * Math.PI) / 360));
+}
+
 /** Paper and ink, taken from the reference's warm near-white ground. */
 export const PALETTE = {
   paper: '#f4f2ee',
@@ -88,4 +100,33 @@ export const PALETTE = {
      go. At #fbfaf8 the hand was within 6/255 of the ground and read as flat. */
   sculptureLight: '#e6e1d7',
   sculptureShadow: '#9d9890',
+} as const;
+
+/**
+ * World anchors of the one continuous plane (IDEA §3, spec 7.1). The human and
+ * system destinations lie on the composition's own diagonal, one frame diagonal
+ * from home, so flying there is a move along the organic → structured axis.
+ */
+export const ANCHORS = {
+  HOME: [0, 0, 0],
+  HUMAN: [-FRAME_WIDTH, FRAME_HEIGHT, 0],
+  SYSTEM: [FRAME_WIDTH, -FRAME_HEIGHT, 0],
+} as const;
+
+/**
+ * The particle brain at the human destination (decision D32): it sits in the
+ * lower left of that view, the input box to its right. Click drills in (D34): it
+ * moves to the centre of the view and grows.
+ */
+export const BRAIN = {
+  /** Brain centre relative to the HUMAN anchor, resting and focused. */
+  offset: [-0.62, -0.2, 0] as [number, number, number],
+  focusOffset: [0, 0, 0] as [number, number, number],
+  /** Half-extent of the brain in world units (the asset is normalised to 1). */
+  scale: 0.58,
+  focusScale: 0.82,
+  /** Resting attitude: a three-quarter profile, front of the brain toward the viewer's right. */
+  tilt: [0.18, -0.55, 0.04] as [number, number, number],
+  /** Idle spin at the destination, radians per second (the reference app auto-rotates). */
+  spin: 0.12,
 } as const;

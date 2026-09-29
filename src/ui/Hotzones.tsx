@@ -5,10 +5,10 @@
  * with real pointer input and has an accessible name (spec 8). They are only
  * mounted once home is stable, so nothing can be triggered during startup.
  *
- * v1.0.0 startup scope: the zones arm and report dwell through `onDwell`, but
- * there is no destination to travel to yet, so the shell leaves it unset and a
- * completed dwell only marks the corner. Wiring dwell to a camera move is the
- * next phase (spec 11 D).
+ * `corners` says which zones exist in the current state (stage.armedCorners):
+ * both at home, only the opposite corner at a destination (spec 3 table). The
+ * zones remount on every state change, so the pointer has to leave and come
+ * back before a corner can fire again.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import { HOTZONE } from '../config/timing';
 
 interface Props {
   armed: boolean;
+  corners?: readonly ('human' | 'system')[];
   onDwell?: (corner: 'human' | 'system') => void;
 }
 
@@ -33,6 +34,9 @@ function useDwell(armed: boolean, corner: 'human' | 'system', onDwell?: Props['o
 
   const enter = () => {
     if (!armed) return;
+    // enter can arrive twice (pointer and focus); never leave an orphan timer
+    // behind, or a quick pass would still commit after the pointer has left (V04)
+    if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       setHot(true);
       onDwell?.(corner);
@@ -48,7 +52,7 @@ function useDwell(armed: boolean, corner: 'human' | 'system', onDwell?: Props['o
   return { hot, enter, leave };
 }
 
-export function Hotzones({ armed, onDwell }: Props) {
+export function Hotzones({ armed, corners = ['human', 'system'], onDwell }: Props) {
   const human = useDwell(armed, 'human', onDwell);
   const system = useDwell(armed, 'system', onDwell);
 
@@ -59,6 +63,7 @@ export function Hotzones({ armed, onDwell }: Props) {
 
   return (
     <>
+      {corners.includes('human') && (
       <button
         type="button"
         className={`hotzone hotzone--human${human.hot ? ' is-hot' : ''}`}
@@ -67,11 +72,15 @@ export function Hotzones({ armed, onDwell }: Props) {
         aria-label="Move toward the human side"
         onPointerEnter={human.enter}
         onPointerLeave={human.leave}
-        onFocus={human.enter}
-        onBlur={human.leave}
+        // keyboard: explicit Enter / Space only — focus alone never travels (spec 8)
+        onClick={(e) => {
+          if (armed && e.detail === 0) onDwell?.('human');
+        }}
       >
         <span className="hotzone__mark" aria-hidden="true" />
       </button>
+      )}
+      {corners.includes('system') && (
       <button
         type="button"
         className={`hotzone hotzone--system${system.hot ? ' is-hot' : ''}`}
@@ -80,11 +89,14 @@ export function Hotzones({ armed, onDwell }: Props) {
         aria-label="Move toward the system side"
         onPointerEnter={system.enter}
         onPointerLeave={system.leave}
-        onFocus={system.enter}
-        onBlur={system.leave}
+        // keyboard: explicit Enter / Space only — focus alone never travels (spec 8)
+        onClick={(e) => {
+          if (armed && e.detail === 0) onDwell?.('system');
+        }}
       >
         <span className="hotzone__mark" aria-hidden="true" />
       </button>
+      )}
     </>
   );
 }

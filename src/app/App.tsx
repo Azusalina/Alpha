@@ -2,11 +2,12 @@
  * Application shell for the Alpha v1.0.0 startup page.
  *
  * Responsibilities: gate on the scene being ready, run the one startup
- * timeline, and hand control to the idle home state. Deliberately absent —
- * because the spec forbids them here — are the particle brain, the technology
- * tree and the natural-language input box. They are not hidden with CSS; they
- * are not constructed at all, so nothing can receive a click, a hover or Tab
- * focus during startup or at home (spec 2, 启动; checks V01 and V11).
+ * timeline, hand control to the idle home state, and route corner dwell to
+ * navigation. The destination DOM (the human side's input box and brain
+ * panel) is not constructed during startup or at home — not hidden with CSS —
+ * so nothing can receive a click, a hover or Tab focus there (spec 2, 启动;
+ * checks V01 and V11). The brain's particles are built at load but not drawn
+ * at home.
  */
 
 import { Canvas } from '@react-three/fiber';
@@ -18,8 +19,17 @@ import { REDUCED_MOTION, STARTUP } from '../config/timing';
 import { AlphaScene } from '../scene/AlphaScene';
 import { Diagnostics } from '../ui/Diagnostics';
 import { Hotzones } from '../ui/Hotzones';
+import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
-import { hotzonesArmed, installDevInspector, stage, type SceneState } from './stage';
+import { humanStore } from './humanStore';
+import { focusBrain, navigate, scrubHuman } from './navigation';
+import {
+  armedCorners,
+  hotzonesArmed,
+  installDevInspector,
+  stage,
+  type SceneState,
+} from './stage';
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(
@@ -105,9 +115,40 @@ export function App() {
       resumeStartup() {
         gsap.globalTimeline.resume();
       },
+      /** Round 3: travel as a dwell would ('human' | 'home'); false if not applicable. */
+      navigate(to: 'human' | 'home') {
+        return navigate(to, reducedMotion);
+      },
+      /** Jump the home → human transition to an exact p (screenshots). */
+      scrubHuman(p: number) {
+        gsap.globalTimeline.pause();
+        scrubHuman(p);
+      },
+      resumeTime() {
+        gsap.globalTimeline.resume();
+      },
+      focusBrain(on: boolean) {
+        focusBrain(on, reducedMotion);
+      },
+      /** A function, not a getter: the inspector spreads `extra`, which would freeze a getter. */
+      humanUi() {
+        return { ...humanStore.get(), focusP: humanStore.focusP, growP: humanStore.growP };
+      },
       quality: QUALITY[tier],
     });
-  }, [tier]);
+  }, [tier, reducedMotion]);
+
+  useHumanKeys(reducedMotion);
+
+  // Dwell on a live corner travels (spec 3 table). The system side is not built
+  // yet (round 3 part 2), so its corner at home only marks itself.
+  const onDwell = useCallback(
+    (corner: 'human' | 'system') => {
+      if (stage.state === 'home' && corner === 'human') navigate('human', reducedMotion);
+      else if (stage.state === 'human' && corner === 'system') navigate('home', reducedMotion);
+    },
+    [reducedMotion],
+  );
 
   // Pause the frame loop when the window is hidden (spec 9).
   const [visible, setVisible] = useState(() => !document.hidden);
@@ -139,7 +180,17 @@ export function App() {
         <AlphaScene tier={tier} reducedMotion={reducedMotion} onReady={onAssetsReady} />
       </Canvas>
 
-      <Hotzones armed={hotzonesArmed(sceneState)} />
+      {/* keyed by state so a zone remounts on arrival: the pointer must re-enter to fire */}
+      <Hotzones
+        key={sceneState}
+        armed={hotzonesArmed(sceneState)}
+        corners={armedCorners(sceneState)}
+        onDwell={onDwell}
+      />
+
+      {(sceneState === 'toHuman' || sceneState === 'human' || sceneState === 'fromHuman') && (
+        <HumanPanel state={sceneState} reducedMotion={reducedMotion} />
+      )}
 
       {/* Dev / VITE_ALPHA_DIAGNOSTICS=1 only; renders nothing until Ctrl+Shift+D. */}
       {DIAGNOSTICS_ENABLED && <Diagnostics />}

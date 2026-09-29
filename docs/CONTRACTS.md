@@ -319,3 +319,36 @@ in `dist/`).
 - Playwright cannot download browsers here: `ALPHA_CHROMIUM=/usr/bin/chromium`.
 - Blender 5.2.2 LTS renders headless (Workbench < 1 s per frame).
 - Python: numpy, Pillow, scipy only.
+
+## 12. Destinations and the particle brain (round 3, `log-v3.md`)
+
+- **Anchors** (`config/composition.ts` `ANCHORS`): `HOME (0,0,0)`,
+  `HUMAN (−FRAME_WIDTH, FRAME_HEIGHT, 0)`, `SYSTEM (FRAME_WIDTH, −FRAME_HEIGHT, 0)`.
+  The camera keeps its home distance and moves in x/y only (`CameraRig`).
+- **Progress**: one scalar `stage.progress`; `humanProgress()` is 0 at home and
+  during startup, `p` in `toHuman` / `fromHuman`, 1 in `human`. Phase windows:
+  `config/timing.ts` `TRANSITION.phases`. The return runs the same path, p 1 → 0.
+- **Brain asset** (`scripts/build_brain.py <BrainUVs.obj>`, source
+  github.com/victors1681/3dbrain, MIT, Victor Santos):
+  - `public/assets/brain.bin` — `float32 xyz × count`, then `uint8 region × count`;
+    positions centred, largest half-extent 1.
+  - `public/assets/brain.json` — `{count, regions[], regionCounts, extent, source}`.
+    Region names are **placeholders** (D36).
+- **Left-hand particles** (`brain/humanCloud.ts`): sampled once from
+  `hand-left.glb` with seed `SCENE_SEED + 1`, count = the tier's `particleCount`;
+  each keeps hand position, brain position, region, reveal and three integer
+  hashes. At home they are not drawn.
+- **GraphData** (`fixtures/graph.ts`): 27 neutral placeholder nodes (root, five
+  branches, children, leaves) with stable ids `n00`–`n26`, tree edges plus four
+  cross-links. Shared by the brain and (next) the technology tree.
+- **Particle size**: every point shader scales by
+  `devicePixelsPerUnitDepth(canvasHeightCss, dpr) × POINT_SIZE / viewDepth`
+  (never R3F `viewport.factor`, which R3F recomputes from wherever the camera is
+  when the Canvas re-renders).
+- **Dev inspector additions** (`window.__alpha`, dev / diagnostics builds only):
+  `navigate('human' | 'home') → boolean`, `scrubHuman(p)`, `resumeTime()`,
+  `focusBrain(on)`, `humanUi()` (focused, selected, hovered, hoverRegion, reply,
+  focusP, growP), `brain.screenOf(id?)` (CSS px of the brain centre or a node).
+- **Destination DOM**: `data-testid="particle-brain"` (the panel; exists only in
+  `toHuman` / `human` / `fromHuman`, `inert` until `human`), `human-input`,
+  `brain-open` (keyboard way into the brain), `node-detail`.

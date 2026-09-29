@@ -66,3 +66,37 @@ export const HOTZONE = {
   width: 0.16,
   height: 0.24,
 } as const;
+
+/**
+ * home ↔ destination transitions (spec 7.2). One progress scalar p; the return
+ * runs the same path with p from 1 to 0. Phase windows are fractions of p.
+ */
+export const TRANSITION = {
+  /** Seconds for home → human (and back). */
+  duration: 2.6,
+  reducedDuration: 0.6,
+  phases: {
+    /**
+     * The solid withdraws from the fingertips toward the wrist, and particles
+     * appear on the surface exactly where it has gone.
+     */
+    surfaceDissolve: [0.0, 0.34],
+    /** Construction lines fade as the drawing is used up. */
+    linesFade: [0.08, 0.42],
+    /** Particles migrate to the brain, each on its own delayed clock. */
+    migrate: [0.18, 0.94],
+    /** The auxiliary (right) hand scatters out of view and fades. */
+    auxiliaryExit: [0.0, 0.6],
+    /** The destination's DOM (input box) fades in; interactive only at p = 1. */
+    domReveal: [0.9, 1.0],
+    /** Idle spin blends in/out, so the reverse path lands on the canonical pose. */
+    settle: [0.86, 1.0],
+  },
+} as const;
+
+/** Drill-in to the brain (decision D34). */
+export const FOCUS = {
+  duration: 0.9,
+  /** Graph edges grow from the root outward after the focus lands. */
+  treeGrow: 1.4,
+} as const;
