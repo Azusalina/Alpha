@@ -5,7 +5,7 @@ Branch: `main`, repo root `/home/a/Documents/Alpha`.
 Previous round: [`log-v2.md`](log-v2.md) (form and acceptance, D1–D31, complete).
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 
-**Status: parts 1 and 2 complete (human side and system side). Nothing pushed.**
+**Status: parts 1–3 complete (human side, system side, brain links + light/dark). Nothing pushed.**
 
 ---
 
@@ -139,6 +139,47 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 - Screenshots: `outputs/qa/system/` (`s015`…`s100`, `s-node`,
   `system-transition-sheet.png`). SwiftShader — functional only.
 
+## Part 3 — brain links and global light / dark (session 8, second ask)
+
+> 使 particle brain 部分的 particle 之间有微弱的线连接以增强其 level of visibility；
+> add: 全局 light/dark mode 切换
+
+### Decisions (asked and answered)
+
+| # | Decision |
+|---|---|
+| **D37** | Brain links = **nearest-neighbour web**: every 3rd brain particle links to its 2 nearest (≤ 0.11 brain units), ≈ 4–6 k faint lines along the cortex; they surface only after the particles arrive (settle phase), turn with the brain, light up with the hovered region and the ripple. |
+| **D38** | Switch = a **small top-right icon** (the corner no hot zone uses; faint until hovered) plus the **T** key outside text fields. This knowingly relaxes "no buttons on home" for one near-invisible mark. Choice persists (localStorage); `?theme=` overrides per load. |
+| **D39** | Dark = **inverted + glow**: #050505 ground (sampled from `alpha-black-main-line.PNG`), light plaster, near-white particles and lines blended additively with softened dot edges. |
+| **D40** | **Dark is the default.** Acceptance tooling pins `?theme=light` (`tests/acceptance.spec.ts reachHome`, `scripts/capture-qa.mjs`). The supersedes the earlier plan draft's black-scheme items. |
+
+### Built
+
+- `config/theme.ts` (palettes, store, `useTheme` / `usePalette`), `scene/useThemeBinding.ts`
+  (`uAlpha` / `uGlow`, additive blending in dark). Light values reproduce the
+  pre-theme shaders exactly.
+- Themed: background, hemisphere / fill light, plaster, construction lines,
+  particle hand, brain particles / graph / links, tree lines, CSS (`data-theme`
+  on `<html>`), diagnostics panel.
+- `brain/humanCloud.ts brainLinks()`, link layer in `BrainView`.
+- `ui/ThemeToggle.tsx`: mounted from first home; hidden in the dev capture view
+  modes (the silhouette capture counted its 11 grey pixels as strays).
+- `tests/theme.spec.ts`: default dark, icon and T toggle, persists across
+  reload, T typed into the input box stays text.
+
+### Verified
+
+- Light canvas bit-identical to round 2 `b04e44e` (reduced motion, frozen
+  clock); the only differing pixels are the toggle icon (1608–1618, 25–35).
+- Playwright: 19 of 20 pass in the full parallel run, V04 skips itself under
+  load (as designed). **D10 fails only under full parallel load** (index tip
+  6.3–6.7 px vs gate 6.0); run alone it passes twice (median index tip 2.8 /
+  3.2 px, IoU 0.867). Cause: D10 lets the breathing clock run 800 ms of *real*
+  time before freezing, so a loaded machine captures a different breathing
+  phase. Pre-existing test design; not changed without the user (see open 5).
+- Screenshots: `outputs/qa/theme/` (dark/light × home, brain, focus, tree;
+  `theme-sheet.png`).
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
@@ -149,6 +190,12 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
    destinations add ~12 k brain particles, drawn only away from home — needs a
    hardware measurement), black scheme, D28 / D30 art items.
 4. Push (`! git push origin main`).
+5. D10 flakiness under load: freeze the breathing clock at a fixed phase before
+   the D10 capture (e.g. `setTimeScale(0)` right at home, as V12 does), or keep
+   real-time capture and run D10 serially? Changing it re-derives nothing but
+   alters what D10 measures, so it is the user's call.
+6. Dark-theme art review: plaster tone, glow strength (`inkAlpha` 0.72), link
+   density in both themes.
 
 ## Resume here
 

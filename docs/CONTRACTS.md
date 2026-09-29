@@ -358,3 +358,15 @@ in `dist/`).
   `toHuman` / `human` / `fromHuman`, `inert` until `human`), `human-input`,
   `brain-open` (keyboard way into the brain), `node-detail`;
   `data-testid="technology-tree"` (system panel, no input box).
+
+## 13. Theme (round 3, D38–D40)
+
+- `config/theme.ts`: `Theme = 'light' | 'dark'`, default **dark**; persisted in
+  `localStorage['alpha.theme']`; `?theme=light|dark` overrides for one load.
+  `<html data-theme>` carries it for CSS.
+- **Acceptance gates are defined on `light` only**: every capture for them loads
+  `?theme=light`. The silhouette view mode is independent of the theme.
+- Point / line shaders take `uAlpha` and `uGlow`; with the light palette they are
+  exactly 1 and 0 (the light frame is unchanged by theming).
+- Inspector: `themeName()`, `setTheme(t)`. DOM: `data-testid="theme-toggle"`
+  (top right, only in `full` view mode, from first home on); key **T**.

@@ -35,6 +35,7 @@ import { useHandContour, useHandGeometry } from '../hand/assets';
 import { buildConstructionGeometry } from '../hand/constructionLines';
 import { handRig } from '../hand/pose';
 import { skeletonValues } from '../hand/reveal';
+import { applyInk, useThemeBinding } from './useThemeBinding';
 import { useViewMode } from './useViewMode';
 
 /** How far the hand starts outside its final position, in world units. */
@@ -133,6 +134,8 @@ export function HumanHand() {
           uFade: { value: 1 },
           uColor: { value: new Color(PALETTE.construction) },
           uInk: { value: new Color(PALETTE.inkSoft) },
+          uAlpha: { value: 1 },
+          uGlow: { value: 0 },
         },
         vertexShader: /* glsl */ `
           attribute float aOrder;
@@ -152,6 +155,7 @@ export function HumanHand() {
           uniform float uDraw;
           uniform float uSettle;
           uniform float uFade;
+          uniform float uAlpha;
           uniform vec3 uColor;
           uniform vec3 uInk;
           varying float vOrder;
@@ -164,13 +168,24 @@ export function HumanHand() {
             // the outer contour keeps more of its weight than the scaffolding
             float freshness = 1.0 - smoothstep(0.0, 0.12, uDraw - vOrder);
             float rest = mix(0.78, 0.95, vInk);
-            float alpha = drawn * vWeight * mix(1.0, rest, uSettle) * (0.9 + 0.5 * freshness) * uFade;
+            float alpha = drawn * vWeight * mix(1.0, rest, uSettle) * (0.9 + 0.5 * freshness) * uFade * uAlpha;
             if (alpha <= 0.002) discard;
             gl_FragColor = vec4(mix(uColor, uInk, vInk), min(alpha, 1.0));
           }
         `,
       }),
     [],
+  );
+
+  useThemeBinding(
+    (p) => {
+      surfaceMaterial.color.set(p.sculptureLight);
+      lineMaterial.uniforms.uColor.value.set(p.construction);
+      lineMaterial.uniforms.uInk.value.set(p.inkSoft);
+      // thin lines need a little more light than dots to read when glowing
+      applyInk(lineMaterial, p, 1.1);
+    },
+    [surfaceMaterial, lineMaterial],
   );
 
   useFrame(() => {

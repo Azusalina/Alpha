@@ -42,7 +42,7 @@ import {
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { humanStore } from '../app/humanStore';
 import { humanProgress, stage } from '../app/stage';
-import { buildHumanCloud, nodeBrainPositions } from '../brain/humanCloud';
+import { brainLinks, buildHumanCloud, nodeBrainPositions } from '../brain/humanCloud';
 import { useBrainPoints } from '../brain/brainAsset';
 import { ANCHORS, BRAIN, PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
@@ -51,6 +51,7 @@ import { GRAPH } from '../fixtures/graph';
 import { useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { focusBrain } from '../app/navigation';
+import { applyInk, useThemeBinding } from './useThemeBinding';
 
 /** Same on-screen dot scale as the particle hand (ParticleHand POINT_SIZE). */
 const POINT_SIZE = 0.0042;
@@ -152,6 +153,74 @@ export function BrainView({ tier, reducedMotion }: Props) {
     return g;
   }, [nodeLocal]);
 
+  /** Faint neighbour links (D37), brain-local, drawn inside the brain group. */
+  const links = useMemo(() => {
+    const l = brainLinks(cloud);
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(l.position, 3));
+    g.setAttribute('aRegion', new Float32BufferAttribute(l.region, 1));
+    return g;
+  }, [cloud]);
+
+  const linkMaterial = useMemo(
+    () =>
+      new ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: NormalBlending,
+        uniforms: {
+          uShow: { value: 0 },
+          uHoverRegion: { value: -1 },
+          uFocus: { value: 0 },
+          uPulseOrigin: { value: new Vector3() },
+          uPulseT: { value: -1 },
+          uPulseSpeed: { value: PULSE_SPEED },
+          uPulseLife: { value: PULSE_LIFE },
+          uPulseRegion: { value: -1 },
+          uColor: { value: new Color(PALETTE.inkSoft) },
+          uAlpha: { value: 1 },
+        },
+        vertexShader: /* glsl */ `
+          attribute float aRegion;
+          uniform float uHoverRegion;
+          uniform float uFocus;
+          uniform vec3 uPulseOrigin;
+          uniform float uPulseT;
+          uniform float uPulseSpeed;
+          uniform float uPulseLife;
+          uniform float uPulseRegion;
+          varying float vLit;
+          varying float vShell;
+          void main() {
+            float lit = step(abs(aRegion - uHoverRegion), 0.5) * uFocus;
+            if (uPulseT >= 0.0) {
+              float d = distance(position, uPulseOrigin);
+              float wave = exp(-pow((d - uPulseT * uPulseSpeed) * 7.0, 2.0)) * (1.0 - uPulseT / uPulseLife);
+              float hit = uPulseRegion < 0.0 ? 1.0 : step(abs(aRegion - uPulseRegion), 0.5);
+              lit = max(lit, wave * hit);
+            }
+            vLit = lit;
+            // the cortex carries the web; the dense interior stays quieter
+            vShell = smoothstep(0.35, 0.9, length(position));
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uShow;
+          uniform vec3 uColor;
+          uniform float uAlpha;
+          varying float vLit;
+          varying float vShell;
+          void main() {
+            float a = uShow * mix(0.05, 0.13, vShell) * (1.0 + 2.2 * vLit) * uAlpha;
+            if (a <= 0.002) discard;
+            gl_FragColor = vec4(uColor, min(1.0, a));
+          }
+        `,
+      }),
+    [],
+  );
+
   const particleMaterial = useMemo(
     () =>
       new ShaderMaterial({
@@ -175,6 +244,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uSizeScale: { value: 1 },
           uColor: { value: new Color(PALETTE.ink) },
           uAccent: { value: new Color(PALETTE.inkSoft) },
+          uAlpha: { value: 1 },
+          uGlow: { value: 0 },
         },
         vertexShader: /* glsl */ `
           attribute vec3 aBrain;
@@ -259,15 +330,17 @@ export function BrainView({ tier, reducedMotion }: Props) {
         fragmentShader: /* glsl */ `
           uniform vec3 uColor;
           uniform vec3 uAccent;
+          uniform float uAlpha;
+          uniform float uGlow;
           varying float vAlpha;
           varying float vLit;
           void main() {
             vec2 c = gl_PointCoord - 0.5;
             float r = dot(c, c);
             if (r > 0.25) discard;
-            float a = vAlpha * (1.0 - smoothstep(0.16, 0.25, r));
+            float a = vAlpha * (1.0 - smoothstep(mix(0.16, 0.0, uGlow), 0.25, r));
             if (a <= 0.004) discard;
-            gl_FragColor = vec4(mix(uColor, uAccent, 0.35 * vLit), min(1.0, a * (1.0 + 0.4 * vLit)));
+            gl_FragColor = vec4(mix(uColor, uAccent, 0.35 * vLit), min(1.0, a * (1.0 + 0.4 * vLit)) * uAlpha);
           }
         `,
       }),
@@ -284,6 +357,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         uniforms: {
           uGrow: { value: 0 },
           uColor: { value: new Color(PALETTE.inkSoft) },
+          uAlpha: { value: 1 },
         },
         vertexShader: /* glsl */ `
           attribute float aOrder;
@@ -299,6 +373,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         fragmentShader: /* glsl */ `
           uniform float uGrow;
           uniform vec3 uColor;
+          uniform float uAlpha;
           varying float vOrder;
           varying float vKind;
           void main() {
@@ -307,7 +382,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
             float head = 1.0 - smoothstep(0.0, 0.25, uGrow - vOrder);
             float a = drawn * mix(0.7, 0.32, vKind) * (0.85 + 0.6 * head);
             if (a <= 0.003) discard;
-            gl_FragColor = vec4(uColor, min(1.0, a));
+            gl_FragColor = vec4(uColor, min(1.0, a) * uAlpha);
           }
         `,
       }),
@@ -327,6 +402,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uSelected: { value: -1 },
           uSizeScale: { value: 1 },
           uColor: { value: new Color(PALETTE.ink) },
+          uAlpha: { value: 1 },
         },
         vertexShader: /* glsl */ `
           attribute float aDepth;
@@ -350,6 +426,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         `,
         fragmentShader: /* glsl */ `
           uniform vec3 uColor;
+          uniform float uAlpha;
           varying float vAlpha;
           varying float vRing;
           void main() {
@@ -361,15 +438,31 @@ export function BrainView({ tier, reducedMotion }: Props) {
             float core = mix(0.0, 1.0 - smoothstep(0.16, 0.24, r), vRing);
             float a = vAlpha * fill * (1.0 - 0.85 * core);
             if (a <= 0.004) discard;
-            gl_FragColor = vec4(uColor, a);
+            gl_FragColor = vec4(uColor, a * uAlpha);
           }
         `,
       }),
     [],
   );
 
+  useThemeBinding(
+    (p) => {
+      particleMaterial.uniforms.uColor.value.set(p.ink);
+      particleMaterial.uniforms.uAccent.value.set(p.inkSoft);
+      applyInk(particleMaterial, p);
+      edgeMaterial.uniforms.uColor.value.set(p.inkSoft);
+      applyInk(edgeMaterial, p, 1.2);
+      nodeMaterial.uniforms.uColor.value.set(p.ink);
+      applyInk(nodeMaterial, p);
+      linkMaterial.uniforms.uColor.value.set(p.inkSoft);
+      applyInk(linkMaterial, p, 1.25);
+    },
+    [particleMaterial, edgeMaterial, nodeMaterial, linkMaterial],
+  );
+
   const groupRef = useRef<Group>(null);
   const pointsRef = useRef<import('three').Points>(null);
+  const linksRef = useRef<import('three').LineSegments>(null);
 
   // ---- brain transform ---------------------------------------------------------
   const tmp = useMemo(
@@ -514,10 +607,19 @@ export function BrainView({ tier, reducedMotion }: Props) {
     u.uSizeScale.value = sizeScale;
     nodeMaterial.uniforms.uSizeScale.value = sizeScale;
 
+    // links surface once the particles have arrived, and go first on the way back
+    const lu = linkMaterial.uniforms;
+    lu.uShow.value = settle;
+    lu.uFocus.value = humanStore.focusP;
+    lu.uPulseT.value = humanStore.pulseT;
+    lu.uPulseRegion.value = humanStore.pulseRegion;
+    lu.uPulseOrigin.value.fromArray(humanStore.pulseOrigin);
+
     edgeMaterial.uniforms.uGrow.value = humanStore.growP * 4;
     nodeMaterial.uniforms.uGrow.value = humanStore.growP * 4;
 
     if (pointsRef.current) pointsRef.current.visible = hp > 0;
+    if (linksRef.current) linksRef.current.visible = settle > 0;
 
     // hover: nodes first, then regions (only while drilled in and settled)
     const ui = humanStore.get();
@@ -556,6 +658,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     }
     humanStore.set({ hovered, hoverRegion: region });
     u.uHoverRegion.value = region;
+    lu.uHoverRegion.value = region;
     nodeMaterial.uniforms.uHover.value = hovered ? GRAPH.nodes.findIndex((n) => n.id === hovered) : -1;
     nodeMaterial.uniforms.uSelected.value = ui.selected ? GRAPH.nodes.findIndex((n) => n.id === ui.selected) : -1;
     if (stage.state === 'human') {
@@ -586,6 +689,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     <>
       <points ref={pointsRef} geometry={geometry} material={particleMaterial} frustumCulled={false} visible={false} />
       <group ref={groupRef}>
+        <lineSegments ref={linksRef} geometry={links} material={linkMaterial} renderOrder={5} frustumCulled={false} visible={false} />
         <lineSegments geometry={edges} material={edgeMaterial} renderOrder={20} frustumCulled={false} />
         <points geometry={nodes} material={nodeMaterial} renderOrder={21} frustumCulled={false} />
       </group>

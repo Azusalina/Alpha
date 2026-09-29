@@ -21,6 +21,8 @@ import { Diagnostics } from '../ui/Diagnostics';
 import { Hotzones } from '../ui/Hotzones';
 import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
 import { SystemPanel } from '../ui/SystemPanel';
+import { ThemeToggle } from '../ui/ThemeToggle';
+import { themeStore } from '../config/theme';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
 import { humanStore } from './humanStore';
 import { focusBrain, navigate, scrubTransition } from './navigation';
@@ -139,6 +141,12 @@ export function App() {
       treeUi() {
         return treeStore.get();
       },
+      themeName() {
+        return themeStore.get();
+      },
+      setTheme(t: 'light' | 'dark') {
+        themeStore.set(t);
+      },
       quality: QUALITY[tier],
     });
   }, [tier, reducedMotion]);
@@ -196,6 +204,8 @@ export function App() {
       >
         <AlphaScene tier={tier} reducedMotion={reducedMotion} onReady={onAssetsReady} />
       </Canvas>
+
+      {sceneState !== 'loading' && sceneState !== 'intro' && <ThemeToggle />}
 
       {/* keyed by state so a zone remounts on arrival: the pointer must re-enter to fire */}
       <Hotzones

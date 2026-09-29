@@ -49,7 +49,7 @@ const main = async () => {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await page.goto(URL);
+  await page.goto(`${URL}/?theme=light`); // gates are defined on the white scheme (D40)
   await waitForHome(page);
 
   // startup key frames, scrubbed rather than raced against real time
@@ -82,7 +82,7 @@ const main = async () => {
     await page.waitForTimeout(300);
     await shot(page, `views/view-${mode}`);
   }
-  await page.goto(`${URL}/?tier=low`);
+  await page.goto(`${URL}/?tier=low&theme=light`);
   await waitForHome(page);
   await page.evaluate(() => {
     window.__alpha.setTimeScale(0);

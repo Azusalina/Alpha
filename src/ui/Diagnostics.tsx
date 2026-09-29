@@ -32,7 +32,7 @@ const panel: CSSProperties = {
   maxHeight: 'calc(100vh - 24px)',
   overflow: 'auto',
   padding: '10px 12px',
-  background: 'rgba(244, 242, 238, 0.96)',
+  background: 'var(--alpha-paper, #f4f2ee)',
   color: 'var(--alpha-ink, #1b1b1d)',
   border: '1px solid var(--alpha-construction, #7b7d85)',
   font: "11px/1.45 ui-monospace, 'DejaVu Sans Mono', 'Noto Sans Mono', monospace",

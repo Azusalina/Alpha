@@ -206,3 +206,63 @@ export function nodeBrainPositions(
   for (const [id, v] of pos) out.set(id, [v.x, v.y, v.z]);
   return out;
 }
+
+/**
+ * Faint links between neighbouring brain particles (decision D37), so the
+ * brain reads as a connected surface rather than a haze. Every `stride`-th
+ * particle links to its `k` nearest others among the same subset, if closer
+ * than `maxDist` (brain-local units), each pair once. Brute force over the
+ * subset at load; deterministic.
+ *
+ * Returns brain-local segment endpoints and, per endpoint, the region (for
+ * hover lighting).
+ */
+export function brainLinks(
+  cloud: HumanCloud,
+  stride = 3,
+  k = 2,
+  maxDist = 0.11,
+): { position: Float32Array; region: Float32Array } {
+  const idx: number[] = [];
+  for (let i = 0; i < cloud.count; i += stride) idx.push(i);
+  const n = idx.length;
+  const B = cloud.brain;
+  const seen = new Set<number>();
+  const pos: number[] = [];
+  const reg: number[] = [];
+  const max2 = maxDist * maxDist;
+  const best = new Array<{ j: number; d: number }>(k);
+  for (let a = 0; a < n; a++) {
+    const i = idx[a];
+    const x = B[i * 3];
+    const y = B[i * 3 + 1];
+    const z = B[i * 3 + 2];
+    for (let q = 0; q < k; q++) best[q] = { j: -1, d: max2 };
+    for (let b = 0; b < n; b++) {
+      if (b === a) continue;
+      const j = idx[b];
+      const dx = B[j * 3] - x;
+      const dy = B[j * 3 + 1] - y;
+      const dz = B[j * 3 + 2] - z;
+      const d = dx * dx + dy * dy + dz * dz;
+      if (d >= best[k - 1].d || d < 1e-8) continue;
+      // insert, keeping `best` sorted
+      let q = k - 1;
+      while (q > 0 && best[q - 1].d > d) {
+        best[q] = best[q - 1];
+        q--;
+      }
+      best[q] = { j: b, d };
+    }
+    for (const { j: b } of best) {
+      if (b < 0) continue;
+      const key = a < b ? a * n + b : b * n + a;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const j = idx[b];
+      pos.push(x, y, z, B[j * 3], B[j * 3 + 1], B[j * 3 + 2]);
+      reg.push(cloud.region[i], cloud.region[j]);
+    }
+  }
+  return { position: new Float32Array(pos), region: new Float32Array(reg) };
+}

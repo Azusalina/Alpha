@@ -24,6 +24,7 @@ import { PALETTE } from '../config/composition';
 import { SYSTEM_PHASES, phaseProgress } from '../config/timing';
 import { GRAPH } from '../fixtures/graph';
 import { treeLayout } from '../tree/layoutCache';
+import { applyInk, useThemeBinding } from './useThemeBinding';
 
 const RING_SEGMENTS = 40;
 /** Minimum pick radius in CSS pixels. */
@@ -110,6 +111,8 @@ export function TreeView() {
           uGrow: { value: 0 },
           uColor: { value: new Color(PALETTE.construction) },
           uInk: { value: new Color(PALETTE.inkSoft) },
+          uAlpha: { value: 1 },
+          uGlow: { value: 0 },
         },
         vertexShader: /* glsl */ `
           attribute float aOrder;
@@ -126,6 +129,7 @@ export function TreeView() {
           uniform float uGrow;
           uniform vec3 uColor;
           uniform vec3 uInk;
+          uniform float uAlpha;
           varying float vOrder;
           varying float vKind;
           void main() {
@@ -133,13 +137,22 @@ export function TreeView() {
             // the freshly drawn head is darker, like the construction drawing
             float head = 1.0 - smoothstep(0.0, 0.3, uGrow - vOrder);
             float weight = vKind < 0.5 ? 0.8 : (vKind < 1.5 ? 0.4 : 0.5);
-            float a = drawn * weight * (0.85 + 0.5 * head);
+            float a = drawn * weight * (0.85 + 0.5 * head) * uAlpha;
             if (a <= 0.003) discard;
             gl_FragColor = vec4(mix(uColor, uInk, vKind < 0.5 ? 0.6 : 0.0), min(1.0, a));
           }
         `,
       }),
     [],
+  );
+
+  useThemeBinding(
+    (p) => {
+      material.uniforms.uColor.value.set(p.construction);
+      material.uniforms.uInk.value.set(p.inkSoft);
+      applyInk(material, p, 1.1);
+    },
+    [material],
   );
 
   // ---- pointer ----------------------------------------------------------------

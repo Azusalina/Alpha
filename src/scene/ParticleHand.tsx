@@ -36,6 +36,7 @@ import { mapToTree } from '../tree/mapping';
 import { useHandContour, useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
+import { applyInk, useThemeBinding } from './useThemeBinding';
 import { useViewMode } from './useViewMode';
 
 interface Props {
@@ -155,6 +156,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uHoverNode: { value: -1 },
           uSelectedNode: { value: -1 },
           uColor: { value: new Color(PALETTE.ink) },
+          uAlpha: { value: 1 },
+          uGlow: { value: 0 },
         },
         vertexShader: /* glsl */ `
           attribute vec3 aScatter;
@@ -265,6 +268,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
         `,
         fragmentShader: /* glsl */ `
           uniform vec3 uColor;
+          uniform float uAlpha;
+          uniform float uGlow;
           varying float vAlpha;
 
           void main() {
@@ -273,14 +278,24 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             if (r > 0.25) discard;
 
             // Soft-edged dot: small points stay crisp, large ones read as deposits.
-            float edge = 1.0 - smoothstep(0.16, 0.25, r);
-            float a = vAlpha * edge;
+            // In the dark theme the edge softens into a glow (uGlow = 1).
+            float edge = 1.0 - smoothstep(mix(0.16, 0.0, uGlow), 0.25, r);
+            float a = vAlpha * edge * uAlpha;
             if (a <= 0.004) discard;
             gl_FragColor = vec4(uColor, a);
           }
         `,
       }),
     [],
+  );
+
+  useThemeBinding(
+    (p) => {
+      material.uniforms.uColor.value.set(p.ink);
+      applyInk(material, p);
+      solidMaterial.color.set(p.sculptureLight);
+    },
+    [material, solidMaterial],
   );
 
   const smoothed = useRef(new Vector3());

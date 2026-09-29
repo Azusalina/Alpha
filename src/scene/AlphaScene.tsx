@@ -12,7 +12,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Plane, Vector3 } from 'three';
 
 import { stage } from '../app/stage';
-import { PALETTE } from '../config/composition';
+import { usePalette } from '../config/theme';
 import type { QualityTier } from '../config/quality';
 import { preloadBrainAsset } from '../brain/brainAsset';
 import { preloadHandAssets } from '../hand/assets';
@@ -59,7 +59,7 @@ function AssetsReady({ onReady }: { onReady: () => void }) {
  */
 const LIGHT = {
   sky: '#ffffff',
-  ground: '#b0aa9f',
+  /* ground and fill colours come from the theme palette (config/theme.ts) */
   hemisphere: 0.45,
   keyFrom: [-2.6, 1.6, 3.2] as [number, number, number],
   key: 2.8,
@@ -73,6 +73,7 @@ const COMPOSITION_PLANE = new Plane(new Vector3(0, 0, 1), 0);
 
 export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
   const viewMode = useViewMode();
+  const palette = usePalette();
   const pointer = useThree((s) => s.pointer);
   const raycaster = useThree((s) => s.raycaster);
   const camera = useThree((s) => s.camera);
@@ -119,7 +120,11 @@ export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
   return (
     <>
       {/* the silhouette view mode needs a pure white ground (docs/CONTRACTS.md §9) */}
-      <color key={viewMode} attach="background" args={[viewMode === 'silhouette' ? '#ffffff' : PALETTE.paper]} />
+      <color
+        key={`${viewMode}-${palette.paper}`}
+        attach="background"
+        args={[viewMode === 'silhouette' ? '#ffffff' : palette.paper]}
+      />
       <CameraRig />
 
       {/*
@@ -127,9 +132,9 @@ export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
         reference's implied light, a cool fill to keep the shadow side readable,
         and a low ambient so the plaster never goes fully black.
       */}
-      <hemisphereLight args={[LIGHT.sky, LIGHT.ground, LIGHT.hemisphere]} />
+      <hemisphereLight key={palette.lightGround} args={[LIGHT.sky, palette.lightGround, LIGHT.hemisphere]} />
       <directionalLight position={LIGHT.keyFrom} intensity={LIGHT.key} color="#ffffff" />
-      <directionalLight position={LIGHT.fillFrom} intensity={LIGHT.fill} color={PALETTE.paperDeep} />
+      <directionalLight position={LIGHT.fillFrom} intensity={LIGHT.fill} color={palette.lightFill} />
       <ambientLight intensity={LIGHT.ambient} />
 
       <Suspense fallback={null}>

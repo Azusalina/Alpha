@@ -12,6 +12,14 @@
   --alpha-construction: #7b7d85;
 }
 
+/* Dark theme (decisions D38–D40; config/theme.ts sets data-theme on <html>). */
+:root[data-theme='dark'] {
+  --alpha-paper: #050505;
+  --alpha-ink: #f2f2f2;
+  --alpha-construction: #8a8c94;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -345,4 +353,43 @@ body {
   margin: 0.3rem 0 0;
   font-size: 0.78rem;
   color: var(--alpha-construction);
+}
+
+/* Light / dark switch: the top-right corner, faint until hovered (D38). */
+.theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--alpha-construction);
+  opacity: 0.28;
+  cursor: pointer;
+  transition: opacity 260ms ease;
+  z-index: 5;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  opacity: 0.9;
+}
+
+.theme-toggle:focus-visible {
+  outline: 1px solid var(--alpha-construction);
+  outline-offset: 2px;
+}
+
+/* the destination text glows a little in the dark theme, like the particles */
+:root[data-theme='dark'] .node-detail h2,
+:root[data-theme='dark'] .system-panel__title {
+  text-shadow: 0 0 10px rgba(242, 242, 242, 0.25);
+}
+
+:root[data-theme='dark'] .human-panel__row {
+  border-bottom-color: var(--alpha-construction);
 }
