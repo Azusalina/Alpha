@@ -239,6 +239,45 @@ Measured front/back ink ratio of the resting brain (1 = balanced): before
 - Screens: `outputs/qa/theme/brain-layout-sheet.png` (dark / light × rest,
   dragged, drilled in), `brain-density-compare.png` (left 100 %, right 50 %).
 
+## Part 6 — home divide line, glass tree from the wrist (sessions 8–9, fifth ask)
+
+> main page — 左下角到右上角 implement 同样的 1px 分割线，参考 particle brain 部分的分割线；
+> particle hand: tree 部分不再使用琐碎的粒子表现，使用固体 2d 节点和连接线，偏向玻璃质感，主节点从手腕处 attach，
+> 每个节点 select/hover = highlight + enlarge (a bit)，double click node = 进入节点
+
+Asked before starting; the user's answers:
+
+| # | Decision |
+|---|---|
+| **D47** | Home divide line: 1 px, bottom-left → top-right corner, ink on ground; drawn from the centre outward at the end of the startup settle, retracted when leaving home. **Hidden in acceptance captures** (`?capture=1`, which also hides the theme switch), so no gate is re-derived. |
+| **D48** | At the system destination the particle hand **stays**, ghosted (hand ≈ 45 %, forearm tail almost gone; `handGhost` p 0.1–0.55), and the tree grows out of its **wrist**: root at the wrist, levels laid out to the right; camera frames the wrist at ≈ 22 % of the width. The particle→node morph, `TreeView.tsx` and `tree/mapping.ts` are gone. |
+| **D49** | Double click (or Enter) on a node opens the record's **detail page** — a full-view glass sheet with neutral example content, parent / children / cross-links as chips; Escape steps back page → selection → home. |
+| **D50** | Glass is **DOM**: frosted `backdrop-filter` discs and SVG edges over the canvas, projected through the scene camera every frame; nodes grow by depth, edges draw toward them (`treeGrow` p 0.42–0.97). Hover / select highlights and eases the node ≈ 18 % larger. |
+
+### Fixes found while verifying (session 9)
+
+- The detail page inherited `pointer-events: none` from `.system-panel`, so its
+  chips and × could not be clicked (the canvas got the click). It now takes the
+  pointer back and blocks the scene underneath, as a modal should.
+- Node labels sat to the right of each node, where the child edges leave, so
+  edges ran through the text; a ground-colour glow did not hide them. Labels
+  now have a small solid backing in the ground colour.
+
+### Verified
+
+- `tsc` clean. Tree tests rewritten ("glass nodes: hover and click highlight,
+  double click opens the page, Escape steps back"; "the root is attached to the
+  particle hand wrist, and Enter opens a node"); new "home divide line" test.
+- Full suite: 21 of 23 on the first run; the two failures were load-only —
+  V12 passed alone, D10 (ring tip lost) passed twice in a row alone. At home
+  the new particle shader is mathematically the same as before (no morph, no
+  ghost), so D10 is the open item 5 again, not a shape change. Navigation +
+  startup specs 17 / 17 afterwards.
+- Screens: `outputs/qa/scratch/r3/r5-{dark,light}-sheet.png` (home, transition
+  0.3 / 0.6 / 0.8, tree, hover, page), `r5-{dark,light}-hover-crop.png`.
+- Not yet checked: `backdrop-filter` cost on the desktop WebKitGTK build (a
+  hardware check, like D31).
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
@@ -255,9 +294,15 @@ Measured front/back ink ratio of the resting brain (1 = balanced): before
    alters what D10 measures, so it is the user's call.
 6. Dark-theme art review: plaster tone, glow strength (`inkAlpha` 0.72), link
    density in both themes.
+7. Glass tree art review (node sizes, label density — only depths 0–1 are
+   labelled, ghosted hand strength) and the frosted-glass frame cost on the
+   desktop build.
 
 ## Resume here
 
-- Both sides work end to end. Next: the user's art review of
+- Part 6 (D47–D50) done: home divide line, glass tree from the wrist, node
+  detail page. Next: the user's art review of `outputs/qa/scratch/r3/r5-*-sheet.png`,
+  then the open items above.
+- Earlier: the user's art review of
   `outputs/qa/human/human-transition-sheet.png` and
   `outputs/qa/system/system-transition-sheet.png`, then the open items above.

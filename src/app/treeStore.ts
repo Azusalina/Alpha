@@ -8,17 +8,19 @@ import { useSyncExternalStore } from 'react';
 export interface TreeUi {
   selected: string | null;
   hovered: string | null;
+  /** The node whose detail page is open (double click / Enter; D49). */
+  opened: string | null;
 }
 
 class TreeStore {
-  private ui: TreeUi = { selected: null, hovered: null };
+  private ui: TreeUi = { selected: null, hovered: null, opened: null };
   private listeners = new Set<() => void>();
 
   get = (): TreeUi => this.ui;
 
   set(patch: Partial<TreeUi>): void {
     const next = { ...this.ui, ...patch };
-    if (next.selected === this.ui.selected && next.hovered === this.ui.hovered) return;
+    if (next.selected === this.ui.selected && next.hovered === this.ui.hovered && next.opened === this.ui.opened) return;
     this.ui = next;
     for (const l of this.listeners) l();
   }
@@ -29,7 +31,7 @@ class TreeStore {
   };
 
   reset(): void {
-    this.set({ selected: null, hovered: null });
+    this.set({ selected: null, hovered: null, opened: null });
   }
 }
 

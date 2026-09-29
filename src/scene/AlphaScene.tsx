@@ -17,7 +17,6 @@ import type { QualityTier } from '../config/quality';
 import { preloadBrainAsset } from '../brain/brainAsset';
 import { preloadHandAssets } from '../hand/assets';
 import { BrainView } from './BrainView';
-import { TreeView } from './TreeView';
 import { CameraRig } from './CameraRig';
 import { HumanHand } from './HumanHand';
 import { ParticleHand } from './ParticleHand';
@@ -142,7 +141,6 @@ export function AlphaScene({ tier, reducedMotion, onReady }: Props) {
         <ParticleHand tier={tier} pointer={worldPointer} reducedMotion={reducedMotion} />
         {/* built at load with the hands (its particles are the left hand's), drawn only away from home */}
         {viewMode === 'full' && <BrainView tier={tier} reducedMotion={reducedMotion} />}
-        {viewMode === 'full' && <TreeView />}
         <AssetsReady onReady={onReady} />
       </Suspense>
     </>

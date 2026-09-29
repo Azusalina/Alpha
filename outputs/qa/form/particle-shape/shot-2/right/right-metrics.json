@@ -8,39 +8,39 @@
   "ignore_zone_used": true,
   "pixels": {
     "reference": 68941,
-    "render": 71342,
-    "overlap": 65309,
-    "render_only": 6033,
-    "reference_only": 3632,
-    "render_in_ignore_zone": 65671
+    "render": 71120,
+    "overlap": 65139,
+    "render_only": 5981,
+    "reference_only": 3802,
+    "render_in_ignore_zone": 67093
   },
-  "iou": 0.87109,
-  "precision": 0.91544,
-  "recall": 0.94732,
+  "iou": 0.86942,
+  "precision": 0.9159,
+  "recall": 0.94485,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 4.915,
-      "p95": 10.817,
-      "max": 17.263,
+      "mean": 4.905,
+      "p95": 10.77,
+      "max": 18.028,
       "n": 1415
     },
     "render_to_ref": {
-      "mean": 7.335,
-      "p95": 32.249,
-      "max": 57.723,
-      "n": 1569
+      "mean": 7.521,
+      "p95": 32.567,
+      "max": 58.138,
+      "n": 1575
     },
     "symmetric": {
-      "mean": 6.188,
-      "p95": 15.245,
-      "max": 57.723,
-      "n": 2984
+      "mean": 6.283,
+      "p95": 17.152,
+      "max": 58.138,
+      "n": 2990
     }
   },
   "negative_space": {
-    "iou": 0.7222,
+    "iou": 0.72436,
     "reference_px": 21227,
-    "render_px": 22894
+    "render_px": 22708
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -112,15 +112,15 @@
         756
       ],
       "render_px": [
-        990,
-        760
+        992,
+        759
       ],
       "found": true,
       "offset_px": [
-        1,
-        4
+        3,
+        3
       ],
-      "distance_px": 4.12,
+      "distance_px": 4.24,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -138,22 +138,22 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.87109,
+        "value": 0.86942,
         "gate": ">= 0.918",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 6.188,
+        "value": 6.283,
         "gate": "<= 3.7",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 15.245,
+        "value": 17.152,
         "gate": "<= 8.9",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.7222,
+        "value": 0.72436,
         "gate": ">= 0.825",
         "pass": false
       },
@@ -173,7 +173,7 @@
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 4.12,
+        "value": 4.24,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
         "pass": true
       }

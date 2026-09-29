@@ -8,39 +8,39 @@
   "ignore_zone_used": true,
   "pixels": {
     "reference": 68941,
-    "render": 69802,
-    "overlap": 64299,
-    "render_only": 5503,
-    "reference_only": 4642,
-    "render_in_ignore_zone": 68678
+    "render": 69705,
+    "overlap": 64063,
+    "render_only": 5642,
+    "reference_only": 4878,
+    "render_in_ignore_zone": 68414
   },
-  "iou": 0.86372,
-  "precision": 0.92116,
-  "recall": 0.93267,
+  "iou": 0.85895,
+  "precision": 0.91906,
+  "recall": 0.92924,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 4.522,
-      "p95": 12.042,
-      "max": 17.889,
+      "mean": 4.818,
+      "p95": 12.53,
+      "max": 19.235,
       "n": 1415
     },
     "render_to_ref": {
-      "mean": 7.353,
-      "p95": 33.262,
-      "max": 62.29,
-      "n": 1552
+      "mean": 7.606,
+      "p95": 34.828,
+      "max": 62.769,
+      "n": 1541
     },
     "symmetric": {
-      "mean": 6.003,
-      "p95": 18.377,
-      "max": 62.29,
-      "n": 2967
+      "mean": 6.271,
+      "p95": 18.894,
+      "max": 62.769,
+      "n": 2956
     }
   },
   "negative_space": {
-    "iou": 0.70119,
+    "iou": 0.70032,
     "reference_px": 21227,
-    "render_px": 23191
+    "render_px": 22830
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -56,14 +56,14 @@
       ],
       "render_px": [
         806,
-        436
+        435
       ],
       "found": true,
       "offset_px": [
         -1,
-        -2
+        -3
       ],
-      "distance_px": 2.24,
+      "distance_px": 3.16,
       "reference_uncertainty_px": 3.0,
       "at_search_edge": false,
       "note": ""
@@ -93,12 +93,12 @@
         755
       ],
       "render_px": [
-        901,
+        903,
         755
       ],
       "found": true,
       "offset_px": [
-        -1,
+        1,
         0
       ],
       "distance_px": 1.0,
@@ -137,27 +137,27 @@
     ],
     "checks": {
       "iou": {
-        "value": 0.86372,
+        "value": 0.85895,
         "gate": ">= 0.918",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 6.003,
+        "value": 6.271,
         "gate": "<= 3.7",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 18.377,
+        "value": 18.894,
         "gate": "<= 8.9",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.70119,
+        "value": 0.70032,
         "gate": ">= 0.825",
         "pass": false
       },
       "tip:index_tip": {
-        "value": 2.24,
+        "value": 3.16,
         "gate": "<= 6.0 (= 2.0 x 3.0)",
         "pass": true
       },

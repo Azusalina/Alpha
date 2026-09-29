@@ -3,16 +3,16 @@
   "shots": [
     {
       "screenshot": "outputs/qa/form/particles-full-seed20260919.png",
-      "particles_detected": 1846,
-      "iou": 0.88037,
-      "contour_mean_px": 5.508,
-      "contour_p95_px": 19.702,
-      "negative_space_iou": 0.72457,
+      "particles_detected": 1892,
+      "iou": 0.87536,
+      "contour_mean_px": 6.901,
+      "contour_p95_px": 31.01,
+      "negative_space_iou": 0.71936,
       "tips_px": {
-        "index_tip": 3.61,
-        "middle_tip": 4.12,
-        "ring_tip": 6.4,
-        "pinky_tip": 8.06
+        "index_tip": 5.1,
+        "middle_tip": 6.32,
+        "ring_tip": 3.16,
+        "pinky_tip": 2.83
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -23,13 +23,13 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed1.png",
-      "particles_detected": 1937,
-      "iou": 0.86372,
-      "contour_mean_px": 6.003,
-      "contour_p95_px": 18.377,
-      "negative_space_iou": 0.70119,
+      "particles_detected": 1963,
+      "iou": 0.85895,
+      "contour_mean_px": 6.271,
+      "contour_p95_px": 18.894,
+      "negative_space_iou": 0.70032,
       "tips_px": {
-        "index_tip": 2.24,
+        "index_tip": 3.16,
         "middle_tip": 0.0,
         "ring_tip": 1.0,
         "pinky_tip": 3.61
@@ -43,16 +43,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed2.png",
-      "particles_detected": 1924,
-      "iou": 0.87109,
-      "contour_mean_px": 6.188,
-      "contour_p95_px": 15.245,
-      "negative_space_iou": 0.7222,
+      "particles_detected": 1897,
+      "iou": 0.86942,
+      "contour_mean_px": 6.283,
+      "contour_p95_px": 17.152,
+      "negative_space_iou": 0.72436,
       "tips_px": {
         "index_tip": 3.61,
         "middle_tip": 8.94,
         "ring_tip": 3.61,
-        "pinky_tip": 4.12
+        "pinky_tip": 4.24
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -63,16 +63,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed3.png",
-      "particles_detected": 1976,
-      "iou": 0.85442,
-      "contour_mean_px": 6.09,
-      "contour_p95_px": 15.651,
-      "negative_space_iou": 0.67624,
+      "particles_detected": 1948,
+      "iou": 0.87649,
+      "contour_mean_px": 5.536,
+      "contour_p95_px": 13.342,
+      "negative_space_iou": 0.73329,
       "tips_px": {
-        "index_tip": 3.0,
-        "middle_tip": 6.71,
-        "ring_tip": 5.39,
-        "pinky_tip": 3.61
+        "index_tip": 2.0,
+        "middle_tip": 7.28,
+        "ring_tip": 5.1,
+        "pinky_tip": 5.39
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -83,16 +83,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed4.png",
-      "particles_detected": 1903,
-      "iou": 0.90657,
-      "contour_mean_px": 4.169,
-      "contour_p95_px": 10.44,
-      "negative_space_iou": 0.81581,
+      "particles_detected": 1880,
+      "iou": 0.85679,
+      "contour_mean_px": 6.547,
+      "contour_p95_px": 25.783,
+      "negative_space_iou": 0.74575,
       "tips_px": {
-        "index_tip": 5.1,
-        "middle_tip": 2.83,
-        "ring_tip": 4.47,
-        "pinky_tip": 3.16
+        "index_tip": 6.08,
+        "middle_tip": 2.24,
+        "ring_tip": 7.07,
+        "pinky_tip": 4.24
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -103,32 +103,32 @@
     }
   ],
   "median": {
-    "iou": 0.87109,
-    "contour_mean_px": 6.003,
-    "contour_p95_px_not_gated": 15.651,
-    "negative_space_iou": 0.7222,
+    "iou": 0.86942,
+    "contour_mean_px": 6.283,
+    "contour_p95_px_not_gated": 18.894,
+    "negative_space_iou": 0.72436,
     "tips_px": {
       "index_tip": 3.61,
-      "middle_tip": 4.12,
-      "ring_tip": 4.47,
-      "pinky_tip": 3.61
+      "middle_tip": 6.32,
+      "ring_tip": 3.61,
+      "pinky_tip": 4.24
     }
   },
   "gates": {
     "source": "decisions D10, D27 (documentations/log/log-v2.md), docs/ACCEPTANCE.md section 7",
     "checks": {
       "iou": {
-        "value": 0.87109,
+        "value": 0.86942,
         "gate": ">= 0.84",
         "pass": true
       },
       "contour_mean_px": {
-        "value": 6.003,
+        "value": 6.283,
         "gate": "<= 7.0",
         "pass": true
       },
       "negative_space_iou": {
-        "value": 0.7222,
+        "value": 0.72436,
         "gate": ">= 0.65",
         "pass": true
       },
@@ -138,17 +138,17 @@
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 4.12,
+        "value": 6.32,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 4.47,
+        "value": 3.61,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 3.61,
+        "value": 4.24,
         "gate": "<= 7.0",
         "pass": true
       }

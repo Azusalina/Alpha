@@ -11,6 +11,8 @@
  */
 
 import { Canvas } from '@react-three/fiber';
+import { Vector3 } from 'three';
+import { wristWorld } from '../tree/layout';
 import gsap from 'gsap';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -22,6 +24,7 @@ import { Hotzones } from '../ui/Hotzones';
 import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
 import { SystemPanel } from '../ui/SystemPanel';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { HomeDivider } from '../ui/HomeDivider';
 import { themeStore } from '../config/theme';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
 import { humanStore } from './humanStore';
@@ -147,6 +150,13 @@ export function App() {
       treeUi() {
         return treeStore.get();
       },
+      /** CSS px of the right hand's wrist (the tree root's anchor, D48). */
+      wristScreen() {
+        const cam = stage.camera;
+        if (!cam) return null;
+        const v = new Vector3(...wristWorld()).project(cam);
+        return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight];
+      },
       themeName() {
         return themeStore.get();
       },
@@ -174,7 +184,9 @@ export function App() {
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || stage.state !== 'system') return;
-      if (treeStore.get().selected) treeStore.set({ selected: null });
+      const t = treeStore.get();
+      if (t.opened) treeStore.set({ opened: null });
+      else if (t.selected) treeStore.set({ selected: null });
       else navigate('home', reducedMotion);
     };
     window.addEventListener('keydown', on);
@@ -211,6 +223,7 @@ export function App() {
         <AlphaScene tier={tier} reducedMotion={reducedMotion} onReady={onAssetsReady} />
       </Canvas>
 
+      <HomeDivider />
       {sceneState !== 'loading' && sceneState !== 'intro' && <ThemeToggle />}
 
       {/* keyed by state so a zone remounts on arrival: the pointer must re-enter to fire */}

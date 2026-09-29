@@ -151,3 +151,24 @@ test('V03 — pointer disturbs the particle hand locally, then it recovers', asy
   await page.mouse.move(-5, -5);
   await expect.poll(async () => (await probe()).influence, { timeout: 4000 }).toBeLessThan(0.05);
 });
+
+test('home divide line — bottom-left to top-right once home is reached; absent in captures', async ({ page }) => {
+  await page.goto('/');
+  await waitForHome(page);
+  await page.waitForTimeout(300);
+  const ends = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="home-divide-line"] line')].map((l) => [
+      l.getAttribute('x2'),
+      l.getAttribute('y2'),
+    ]),
+  );
+  expect(ends).toEqual([
+    ['0', '100'],
+    ['100', '0'],
+  ]);
+
+  await page.goto('/?capture=1');
+  await waitForHome(page);
+  await expect(page.getByTestId('home-divide-line')).toHaveCount(0);
+  await expect(page.getByTestId('theme-toggle')).toHaveCount(0);
+});

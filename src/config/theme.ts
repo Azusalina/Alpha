@@ -65,6 +65,13 @@ export const PALETTES: Record<Theme, Palette> = {
 
 const STORAGE_KEY = 'alpha.theme';
 
+/**
+ * `?capture=1`: acceptance captures. Hides the screen furniture that is not
+ * part of the measured composition — the home divide line (D47) and the theme
+ * switch — since every gate was derived without them.
+ */
+export const captureClean = new URLSearchParams(window.location.search).get('capture') === '1';
+
 function initialTheme(): Theme {
   const q = new URLSearchParams(window.location.search).get('theme');
   if (q === 'light' || q === 'dark') return q;

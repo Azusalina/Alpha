@@ -110,6 +110,14 @@ class Stage {
   timeScale = 1;
 
   /**
+   * The scene camera, and callbacks run right after CameraRig moves it each
+   * frame: DOM overlays (the technology tree) project through it, so they
+   * stay locked to the world.
+   */
+  camera: import('three').Camera | null = null;
+  frameHooks = new Set<() => void>();
+
+  /**
    * Pointer projected onto the composition plane, or null when it is off the
    * canvas. Written by the scene each frame and read by the dev inspector, so
    * pointer behaviour can be checked without reaching into the scene graph.

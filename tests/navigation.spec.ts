@@ -168,26 +168,50 @@ test('V08 system — dwell bottom-right grows the tree from the right hand, dwel
   expect((page as unknown as { __errors: string[] }).__errors).toEqual([]);
 });
 
-test('tree — a node opens its detail, a linked record can be followed, Escape closes then returns', async ({ page }) => {
+test('tree — glass nodes: hover and click highlight, double click opens the page, Escape steps back', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await waitFor(page, 'home');
   await dwell(page, 'hotzone-system');
   await waitFor(page, 'system', 10_000);
 
-  const n = await alpha(page, (a) => a.tree.screenOf('n07'));
-  await page.mouse.move(n![0], n![1]);
+  const n07 = page.getByTestId('tree-node-n07');
+  await n07.hover();
   await expect.poll(async () => (await alpha(page, (a) => a.treeUi())).hovered).toBe('n07');
-  await page.mouse.click(n![0], n![1]);
-  const detail = page.getByTestId('node-detail');
-  await expect(detail).toContainText('示例记录 07');
-  await detail.getByRole('button', { name: '示例记录 15' }).click();
-  await expect(detail).toContainText('示例记录 15');
+  await expect(n07).toHaveClass(/is-hot/);
+  await n07.click();
+  expect((await alpha(page, (a) => a.treeUi())).selected).toBe('n07');
+  await expect(page.getByTestId('node-page')).toHaveCount(0);
+
+  await n07.dblclick();
+  const sheet = page.getByTestId('node-page');
+  await expect(sheet).toContainText('示例记录 07');
+  await sheet.getByRole('button', { name: '示例记录 15' }).click();
+  await expect(sheet).toContainText('示例记录 15');
 
   await page.keyboard.press('Escape');
-  await expect(detail).toHaveCount(0);
+  await expect(sheet).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  expect((await alpha(page, (a) => a.treeUi())).selected).toBeNull();
   await page.keyboard.press('Escape');
   await waitFor(page, 'home', 10_000);
+});
+
+test('tree — the root is attached to the particle hand wrist, and Enter opens a node', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await alpha(page, (a) => a.navigate('system'));
+  await waitFor(page, 'system', 10_000);
+  const root = await page.getByTestId('tree-node-n00').boundingBox();
+  const wrist = await alpha(page, (a) => (a as unknown as { wristScreen(): [number, number] }).wristScreen());
+  expect(Math.hypot(root!.x + root!.width / 2 - wrist[0], root!.y + root!.height / 2 - wrist[1])).toBeLessThan(3);
+
+  await page.getByTestId('tree-node-n03').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('node-page')).toContainText('示例记录 03');
 });
 
 test('V12 system — ten round trips land on the same home frame', async ({ page }) => {

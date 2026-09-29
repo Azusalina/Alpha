@@ -95,21 +95,20 @@ export const TRANSITION = {
 } as const;
 
 /**
- * home ↔ system (spec 3 前往右下): the right hand is the primary form and
- * becomes the technology tree; the left hand is auxiliary and exits along its
- * construction lines. Same duration and driver as the human side.
+ * home ↔ system (spec 3 前往右下): the right hand stays, ghosted, and the
+ * technology tree grows out of its wrist (D48); the left hand is auxiliary
+ * and exits along its construction lines. Same duration and driver as the
+ * human side.
  */
 export const SYSTEM_PHASES = {
-  /** Particles leave the hand for their node / edge targets, each on its own clock. */
-  morph: [0.05, 0.9],
-  /** Tree lines draw after the layout has mostly formed (spec 7.3: p ≈ 0.65). */
-  edges: [0.62, 0.95],
+  /** The particle hand steps back to a ghost; its forearm tail fades (D48). */
+  handGhost: [0.1, 0.55],
+  /** The tree grows out of the wrist: nodes by depth, edges drawn toward them. */
+  treeGrow: [0.42, 0.97],
   /** The left hand: plaster fades, the drawing slides out to the upper left and fades. */
   leftExit: [0.0, 0.42],
   /** Destination DOM. */
   domReveal: [0.9, 1.0],
-  /** Idle shimmer at the destination blends in at the end. */
-  settle: [0.86, 1.0],
 } as const;
 
 /** Drill-in to the brain (decision D34). */

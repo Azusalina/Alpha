@@ -1,6 +1,7 @@
 /**
- * DOM of the system destination (spec 3 前往右下, 4): a quiet caption, the
- * hovered record's name and, on click, its detail. There is deliberately no
+ * DOM of the system destination (spec 3 前往右下, 4): the glass technology
+ * tree (TreeOverlay), a quiet caption naming the hovered or selected record,
+ * and a record's detail page on double click (NodePage). There is deliberately no
  * input box here — natural language has one entrance, on the human side
  * (IDEA §4).
  *
@@ -11,10 +12,12 @@
 import { useEffect, useRef } from 'react';
 
 import { systemProgress, type SceneState } from '../app/stage';
-import { treeStore, useTreeUi } from '../app/treeStore';
+import { useTreeUi } from '../app/treeStore';
 import { SYSTEM_PHASES, phaseProgress } from '../config/timing';
 import { GRAPH } from '../fixtures/graph';
-import { NodeDetail, regionLabel } from './NodeDetail';
+import { regionLabel } from './NodeDetail';
+import { NodePage } from './NodePage';
+import { TreeOverlay } from './TreeOverlay';
 
 export function SystemPanel({ state }: { state: SceneState }) {
   const ui = useTreeUi();
@@ -31,9 +34,12 @@ export function SystemPanel({ state }: { state: SceneState }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const hovered = ui.hovered ? GRAPH.nodes.find((n) => n.id === ui.hovered) : null;
+  const focusId = ui.hovered ?? ui.selected;
+  const hovered = focusId ? GRAPH.nodes.find((n) => n.id === focusId) : null;
 
   return (
+    <>
+    <TreeOverlay state={state} />
     <div
       ref={rootRef}
       className="system-panel"
@@ -46,10 +52,11 @@ export function SystemPanel({ state }: { state: SceneState }) {
         <p className="system-panel__hint">
           {hovered
             ? `${hovered.label} · 层级 ${hovered.depth} · 占位脑区「${regionLabel(hovered.region)}」`
-            : '原型演示 · 悬停节点查看 · 点击打开详情 · Esc 返回'}
+            : '原型演示 · 悬停或点击节点 · 双击进入 · Esc 返回'}
         </p>
       </div>
-      {ui.selected && <NodeDetail id={ui.selected} onSelect={(id) => treeStore.set({ selected: id })} />}
+      {ui.opened && <NodePage id={ui.opened} />}
     </div>
+    </>
   );
 }

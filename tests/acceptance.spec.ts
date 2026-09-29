@@ -38,8 +38,9 @@ interface MeshArrays {
 type Hand = 'left' | 'right';
 
 async function reachHome(page: Page, url = '/'): Promise<void> {
-  // every acceptance gate was derived on the white reference (D40): pin light
-  await page.goto(url + (url.includes('?') ? '&' : '?') + 'theme=light');
+  // every acceptance gate was derived on the white reference (D40) and without
+  // screen furniture (D47): pin light, hide the divide line and theme switch
+  await page.goto(url + (url.includes('?') ? '&' : '?') + 'theme=light&capture=1');
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __alpha?: { state: string } }).__alpha?.state), {
       // 60 s: the first test after a fresh dev server waits for Vite's cold compile

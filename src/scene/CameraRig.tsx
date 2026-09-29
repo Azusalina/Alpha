@@ -15,8 +15,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 import type { PerspectiveCamera } from 'three';
 
-import { humanProgress, systemProgress } from '../app/stage';
+import { humanProgress, stage, systemProgress } from '../app/stage';
 import { ANCHORS, CAMERA, fitDistance } from '../config/composition';
+import { systemCameraTarget } from '../tree/layout';
+
+/** The system view is framed on the right hand's wrist, where the tree grows (D48). */
+const SYSTEM_TARGET = systemCameraTarget();
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
@@ -37,12 +41,16 @@ export function CameraRig() {
     const t = easeInOut(humanProgress());
     const u = easeInOut(systemProgress());
     const x =
-      CAMERA.homeTarget[0] + (ANCHORS.HUMAN[0] - CAMERA.homeTarget[0]) * t + (ANCHORS.SYSTEM[0] - CAMERA.homeTarget[0]) * u;
+      CAMERA.homeTarget[0] + (ANCHORS.HUMAN[0] - CAMERA.homeTarget[0]) * t + (SYSTEM_TARGET[0] - CAMERA.homeTarget[0]) * u;
     const y =
-      CAMERA.homeTarget[1] + (ANCHORS.HUMAN[1] - CAMERA.homeTarget[1]) * t + (ANCHORS.SYSTEM[1] - CAMERA.homeTarget[1]) * u;
+      CAMERA.homeTarget[1] + (ANCHORS.HUMAN[1] - CAMERA.homeTarget[1]) * t + (SYSTEM_TARGET[1] - CAMERA.homeTarget[1]) * u;
     camera.position.set(x, y, distance);
     camera.lookAt(x, y, CAMERA.homeTarget[2]);
     camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    // DOM overlays (the technology tree, D50) project through this camera
+    stage.camera = camera;
+    for (const hook of stage.frameHooks) hook();
   });
 
   return null;

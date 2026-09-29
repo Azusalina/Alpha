@@ -11,7 +11,7 @@
 
 import { useEffect } from 'react';
 
-import { themeStore, useTheme } from '../config/theme';
+import { captureClean, themeStore, useTheme } from '../config/theme';
 import { useViewMode } from '../scene/useViewMode';
 
 export function ThemeToggle() {
@@ -32,7 +32,7 @@ export function ThemeToggle() {
     return () => window.removeEventListener('keydown', on);
   }, []);
 
-  if (viewMode !== 'full') return null;
+  if (viewMode !== 'full' || captureClean) return null;
 
   return (
     <button
