@@ -15,7 +15,7 @@
 import leftPoseJson from '../../assets-source/hands/pose-left.json';
 import rightPoseJson from '../../assets-source/hands/pose-right.json';
 
-import { FRAME_HEIGHT, REFERENCE_FRAME, pixelToWorld } from '../config/composition';
+import { FRAME_HEIGHT, HAND_SCREEN_OFFSET_PX, REFERENCE_FRAME, pixelToWorld } from '../config/composition';
 import type { DigitName, HandRig, HandSide, Joint } from './skeleton';
 
 export interface PoseJoint {
@@ -69,13 +69,17 @@ export function parsePose(raw: unknown, expected: HandSide): PoseFile {
   return o as PoseFile;
 }
 
-export function jointFromPose(name: string, j: PoseJoint): Joint {
-  return { name, p: pixelToWorld(j.px[0], j.px[1], j.z), r: j.r * PX };
+/** `offset`: the hand's screen placement in reference px (D51). */
+export function jointFromPose(name: string, j: PoseJoint, offset: readonly [number, number] = [0, 0]): Joint {
+  return { name, p: pixelToWorld(j.px[0] + offset[0], j.px[1] + offset[1], j.z), r: j.r * PX };
 }
 
-/** A pose file as a rig in app world space. */
-export function rigFromPose(pose: PoseFile): HandRig {
-  const J = (name: string) => jointFromPose(name, pose.joints[name]);
+/**
+ * A pose file as a rig in app world space, at the hand's screen placement (D51),
+ * or at the reference's own placement with `offset` [0, 0].
+ */
+export function rigFromPose(pose: PoseFile, offset: readonly [number, number] = HAND_SCREEN_OFFSET_PX[pose.hand]): HandRig {
+  const J = (name: string) => jointFromPose(name, pose.joints[name], offset);
   const [forearm, wrist, palm] = pose.chains.arm;
   const n = Math.hypot(...pose.dorsal);
   return {
@@ -98,4 +102,15 @@ const rigs: Partial<Record<HandSide, HandRig>> = {};
 /** The rig for one hand. Deterministic and cached: no RNG, no async load. */
 export function handRig(hand: HandSide): HandRig {
   return (rigs[hand] ??= rigFromPose(POSES[hand]));
+}
+
+const referenceRigs: Partial<Record<HandSide, HandRig>> = {};
+
+/**
+ * The rig at the reference's placement, before the hand's screen offset (D51).
+ * The particle hand is sampled here and the cloud moved afterwards, so a
+ * placement never changes which particles a seed produces.
+ */
+export function referenceRig(hand: HandSide): HandRig {
+  return (referenceRigs[hand] ??= rigFromPose(POSES[hand], [0, 0]));
 }

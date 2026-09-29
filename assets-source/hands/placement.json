@@ -1,0 +1,5 @@
+{
+  "notes": "Screen placement of each hand at home (decision D51, documentations/log/log-v3.md part 7). An exact translation in reference pixels (1644 x 957), applied on top of the pose file, the GLB and the contour: every point moves by exactly this many pixels through the home camera, whatever its depth, so the hand's shape is unchanged. The reference masks, keypoints and every gate stay in the reference's own placement; the acceptance scripts (scripts/placement.py) move the measured hand back by this offset before scoring. Right: moved along the composition diagonal so the index finger clears the home divide line (D47).",
+  "left": { "screen_offset_px": [0, 0] },
+  "right": { "screen_offset_px": [65, 38] }
+}

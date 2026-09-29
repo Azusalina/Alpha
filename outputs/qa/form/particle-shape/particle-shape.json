@@ -1,18 +1,22 @@
 {
-  "method": "reference right-mask rule (scripts/reference_masks.py build_right) on each screenshot, scored by compare_silhouette.compare() against the reference right mask over the fingers and palm; the median over the screenshots is gated",
+  "method": "each screenshot moved back by the right hand's screen placement (D51, assets-source/hands/placement.json) with the left hand cleared, then the reference right-mask rule (scripts/reference_masks.py build_right), scored by compare_silhouette.compare() against the reference right mask over the fingers and palm; the median over the screenshots is gated",
+  "placement_px": [
+    65,
+    38
+  ],
   "shots": [
     {
       "screenshot": "outputs/qa/form/particles-full-seed20260919.png",
-      "particles_detected": 1892,
-      "iou": 0.87536,
-      "contour_mean_px": 6.901,
-      "contour_p95_px": 31.01,
-      "negative_space_iou": 0.71936,
+      "particles_detected": 1730,
+      "iou": 0.85615,
+      "contour_mean_px": 6.562,
+      "contour_p95_px": 24.166,
+      "negative_space_iou": 0.68599,
       "tips_px": {
-        "index_tip": 5.1,
-        "middle_tip": 6.32,
-        "ring_tip": 3.16,
-        "pinky_tip": 2.83
+        "index_tip": 4.0,
+        "middle_tip": 3.16,
+        "ring_tip": 4.12,
+        "pinky_tip": 7.07
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -23,16 +27,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed1.png",
-      "particles_detected": 1963,
-      "iou": 0.85895,
-      "contour_mean_px": 6.271,
-      "contour_p95_px": 18.894,
-      "negative_space_iou": 0.70032,
+      "particles_detected": 1791,
+      "iou": 0.84651,
+      "contour_mean_px": 6.791,
+      "contour_p95_px": 21.586,
+      "negative_space_iou": 0.67656,
       "tips_px": {
-        "index_tip": 3.16,
-        "middle_tip": 0.0,
-        "ring_tip": 1.0,
-        "pinky_tip": 3.61
+        "index_tip": 3.61,
+        "middle_tip": 4.47,
+        "ring_tip": 3.16,
+        "pinky_tip": 4.0
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -43,16 +47,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed2.png",
-      "particles_detected": 1897,
-      "iou": 0.86942,
-      "contour_mean_px": 6.283,
-      "contour_p95_px": 17.152,
-      "negative_space_iou": 0.72436,
+      "particles_detected": 1758,
+      "iou": 0.8551,
+      "contour_mean_px": 6.257,
+      "contour_p95_px": 18.207,
+      "negative_space_iou": 0.68995,
       "tips_px": {
-        "index_tip": 3.61,
-        "middle_tip": 8.94,
-        "ring_tip": 3.61,
-        "pinky_tip": 4.24
+        "index_tip": 4.47,
+        "middle_tip": 4.47,
+        "ring_tip": 2.83,
+        "pinky_tip": 3.16
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -63,16 +67,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed3.png",
-      "particles_detected": 1948,
-      "iou": 0.87649,
-      "contour_mean_px": 5.536,
-      "contour_p95_px": 13.342,
-      "negative_space_iou": 0.73329,
+      "particles_detected": 1818,
+      "iou": 0.88153,
+      "contour_mean_px": 5.365,
+      "contour_p95_px": 12.952,
+      "negative_space_iou": 0.72642,
       "tips_px": {
-        "index_tip": 2.0,
-        "middle_tip": 7.28,
-        "ring_tip": 5.1,
-        "pinky_tip": 5.39
+        "index_tip": 4.12,
+        "middle_tip": 5.0,
+        "ring_tip": 8.06,
+        "pinky_tip": 2.83
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -83,16 +87,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed4.png",
-      "particles_detected": 1880,
-      "iou": 0.85679,
-      "contour_mean_px": 6.547,
-      "contour_p95_px": 25.783,
-      "negative_space_iou": 0.74575,
+      "particles_detected": 1796,
+      "iou": 0.88303,
+      "contour_mean_px": 5.182,
+      "contour_p95_px": 13.601,
+      "negative_space_iou": 0.7946,
       "tips_px": {
-        "index_tip": 6.08,
+        "index_tip": 7.07,
         "middle_tip": 2.24,
-        "ring_tip": 7.07,
-        "pinky_tip": 4.24
+        "ring_tip": 4.0,
+        "pinky_tip": 3.61
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -103,52 +107,52 @@
     }
   ],
   "median": {
-    "iou": 0.86942,
-    "contour_mean_px": 6.283,
-    "contour_p95_px_not_gated": 18.894,
-    "negative_space_iou": 0.72436,
+    "iou": 0.85615,
+    "contour_mean_px": 6.257,
+    "contour_p95_px_not_gated": 18.207,
+    "negative_space_iou": 0.68995,
     "tips_px": {
-      "index_tip": 3.61,
-      "middle_tip": 6.32,
-      "ring_tip": 3.61,
-      "pinky_tip": 4.24
+      "index_tip": 4.12,
+      "middle_tip": 4.47,
+      "ring_tip": 4.0,
+      "pinky_tip": 3.61
     }
   },
   "gates": {
     "source": "decisions D10, D27 (documentations/log/log-v2.md), docs/ACCEPTANCE.md section 7",
     "checks": {
       "iou": {
-        "value": 0.86942,
+        "value": 0.85615,
         "gate": ">= 0.84",
         "pass": true
       },
       "contour_mean_px": {
-        "value": 6.283,
+        "value": 6.257,
         "gate": "<= 7.0",
         "pass": true
       },
       "negative_space_iou": {
-        "value": 0.72436,
+        "value": 0.68995,
         "gate": ">= 0.65",
         "pass": true
       },
       "tip:index_tip": {
-        "value": 3.61,
+        "value": 4.12,
         "gate": "<= 6.0",
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 6.32,
+        "value": 4.47,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 3.61,
+        "value": 4.0,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 4.24,
+        "value": 3.61,
         "gate": "<= 7.0",
         "pass": true
       }

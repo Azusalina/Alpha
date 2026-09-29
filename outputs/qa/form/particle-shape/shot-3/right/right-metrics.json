@@ -8,39 +8,39 @@
   "ignore_zone_used": true,
   "pixels": {
     "reference": 68941,
-    "render": 72278,
-    "overlap": 65962,
-    "render_only": 6316,
-    "reference_only": 2979,
-    "render_in_ignore_zone": 68681
+    "render": 72789,
+    "overlap": 66403,
+    "render_only": 6386,
+    "reference_only": 2538,
+    "render_in_ignore_zone": 53990
   },
-  "iou": 0.87649,
-  "precision": 0.91262,
-  "recall": 0.95679,
+  "iou": 0.88153,
+  "precision": 0.91227,
+  "recall": 0.96319,
   "contour_distance_px": {
     "ref_to_render": {
-      "mean": 5.094,
-      "p95": 11.48,
-      "max": 16.125,
+      "mean": 5.113,
+      "p95": 12.042,
+      "max": 16.401,
       "n": 1415
     },
     "render_to_ref": {
-      "mean": 5.947,
-      "p95": 16.649,
-      "max": 29.53,
-      "n": 1520
+      "mean": 5.605,
+      "p95": 14.933,
+      "max": 28.018,
+      "n": 1491
     },
     "symmetric": {
-      "mean": 5.536,
-      "p95": 13.342,
-      "max": 29.53,
-      "n": 2935
+      "mean": 5.365,
+      "p95": 12.952,
+      "max": 28.018,
+      "n": 2906
     }
   },
   "negative_space": {
-    "iou": 0.73329,
+    "iou": 0.72642,
     "reference_px": 21227,
-    "render_px": 22192
+    "render_px": 21778
   },
   "keypoints": {},
   "keypoint_summary": {
@@ -55,15 +55,15 @@
         438
       ],
       "render_px": [
-        807,
-        436
+        808,
+        434
       ],
       "found": true,
       "offset_px": [
-        0,
-        -2
+        1,
+        -4
       ],
-      "distance_px": 2.0,
+      "distance_px": 4.12,
       "reference_uncertainty_px": 3.0,
       "at_search_edge": false,
       "note": ""
@@ -74,15 +74,15 @@
         654
       ],
       "render_px": [
-        808,
-        661
+        807,
+        658
       ],
       "found": true,
       "offset_px": [
-        -2,
-        7
+        -3,
+        4
       ],
-      "distance_px": 7.28,
+      "distance_px": 5.0,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -93,15 +93,15 @@
         755
       ],
       "render_px": [
-        903,
-        760
+        898,
+        762
       ],
       "found": true,
       "offset_px": [
-        1,
-        5
+        -4,
+        7
       ],
-      "distance_px": 5.1,
+      "distance_px": 8.06,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -112,15 +112,15 @@
         756
       ],
       "render_px": [
-        994,
-        754
+        987,
+        758
       ],
       "found": true,
       "offset_px": [
-        5,
-        -2
+        -2,
+        2
       ],
-      "distance_px": 5.39,
+      "distance_px": 2.83,
       "reference_uncertainty_px": 4.0,
       "at_search_edge": false,
       "note": ""
@@ -133,46 +133,47 @@
       "iou",
       "contour_mean_px",
       "contour_p95_px",
-      "negative_space_iou"
+      "negative_space_iou",
+      "tip:ring_tip"
     ],
     "checks": {
       "iou": {
-        "value": 0.87649,
+        "value": 0.88153,
         "gate": ">= 0.918",
         "pass": false
       },
       "contour_mean_px": {
-        "value": 5.536,
+        "value": 5.365,
         "gate": "<= 3.7",
         "pass": false
       },
       "contour_p95_px": {
-        "value": 13.342,
+        "value": 12.952,
         "gate": "<= 8.9",
         "pass": false
       },
       "negative_space_iou": {
-        "value": 0.73329,
+        "value": 0.72642,
         "gate": ">= 0.825",
         "pass": false
       },
       "tip:index_tip": {
-        "value": 2.0,
+        "value": 4.12,
         "gate": "<= 6.0 (= 2.0 x 3.0)",
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 7.28,
+        "value": 5.0,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 5.1,
+        "value": 8.06,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
-        "pass": true
+        "pass": false
       },
       "tip:pinky_tip": {
-        "value": 5.39,
+        "value": 2.83,
         "gate": "<= 8.0 (= 2.0 x 4.0)",
         "pass": true
       }

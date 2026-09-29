@@ -13,6 +13,8 @@
 
 import { useLoader } from '@react-three/fiber';
 import { BufferGeometry, FileLoader, Mesh } from 'three';
+
+import { HAND_SCREEN_OFFSET_PX, screenShiftAt } from '../config/composition';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import type { HandSide } from './skeleton';
@@ -61,23 +63,48 @@ export const HAND_CONTOUR_URL: Record<HandSide, string> = {
   right: assetUrl('hand-right.contour.json'),
 };
 
+/** Move a world point (at index `i` of `p`) to the hand's screen placement (D51), in place. */
+export function place(hand: HandSide, p: number[] | Float32Array, i = 0): void {
+  const [dx, dy] = screenShiftAt(HAND_SCREEN_OFFSET_PX[hand], p[i + 2]);
+  p[i] += dx;
+  p[i + 1] += dy;
+}
+
+const isPlaced = (hand: HandSide) => HAND_SCREEN_OFFSET_PX[hand][0] !== 0 || HAND_SCREEN_OFFSET_PX[hand][1] !== 0;
+
+const placedGeometry = new WeakMap<BufferGeometry, BufferGeometry>();
+const placedContour = new WeakMap<object, HandContour>();
+
 /**
  * The hand's surface. The GLB has one node with no transform and one primitive
- * (positions + normals + indices), already in app world space, so the geometry is
- * used as it is. The returned geometry is shared through the loader cache: add
- * attributes to a clone, never to it.
+ * (positions + normals + indices), already in app world space at the reference
+ * placement; a hand with a screen offset (D51) gets a moved copy, made once per
+ * loaded GLB (`at: 'reference'` returns the GLB as built). The returned geometry
+ * is shared: add attributes to a clone, never to it.
  */
-export function useHandGeometry(hand: HandSide): BufferGeometry {
+export function useHandGeometry(hand: HandSide, at: 'placement' | 'reference' = 'placement'): BufferGeometry {
   const gltf = useLoader(GLTFLoader, HAND_GLB_URL[hand]);
   let geometry: BufferGeometry | null = null;
   gltf.scene.traverse((o) => {
     if (!geometry && (o as Mesh).isMesh) geometry = (o as Mesh).geometry as BufferGeometry;
   });
   if (!geometry) throw new Error(`${HAND_GLB_URL[hand]} contains no mesh`);
-  return geometry;
+  const source: BufferGeometry = geometry;
+  if (at === 'reference' || !isPlaced(hand)) return source;
+  let placed = placedGeometry.get(source);
+  if (!placed) {
+    placed = source.clone();
+    const pos = placed.getAttribute('position').array as Float32Array;
+    for (let i = 0; i < pos.length; i += 3) place(hand, pos, i);
+    placed.getAttribute('position').needsUpdate = true;
+    placed.computeBoundingSphere();
+    placed.computeBoundingBox();
+    placedGeometry.set(source, placed);
+  }
+  return placed;
 }
 
-export function useHandContour(hand: HandSide): HandContour {
+export function useHandContour(hand: HandSide, at: 'placement' | 'reference' = 'placement'): HandContour {
   const data = useLoader(FileLoader, HAND_CONTOUR_URL[hand], (loader) => {
     loader.setResponseType('json');
   }) as unknown;
@@ -85,7 +112,16 @@ export function useHandContour(hand: HandSide): HandContour {
   if (!c || !Array.isArray(c.polylines) || !Array.isArray(c.meta) || c.meta.length !== c.polylines.length) {
     throw new Error(`${HAND_CONTOUR_URL[hand]} is not a hand contour file`);
   }
-  return c as HandContour;
+  if (at === 'reference' || !isPlaced(hand)) return c as HandContour;
+  let placed = placedContour.get(c);
+  if (!placed) {
+    const moved = structuredClone(c) as HandContour;
+    for (const line of moved.polylines) for (const p of line) place(hand, p);
+    for (const nail of moved.nails ?? []) for (const p of nail.points) place(hand, p);
+    placed = moved;
+    placedContour.set(c, placed);
+  }
+  return placed;
 }
 
 /** Start fetching every hand asset before the scene first renders them. */

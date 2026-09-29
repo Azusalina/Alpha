@@ -172,3 +172,33 @@ test('home divide line — bottom-left to top-right once home is reached; absent
   await expect(page.getByTestId('home-divide-line')).toHaveCount(0);
   await expect(page.getByTestId('theme-toggle')).toHaveCount(0);
 });
+
+test('D51 — the particle hand stays clear of the home divide line', async ({ page }) => {
+  // dark ground: the particles are the brightest thing right of the plaster fingertip.
+  // capture=1 hides the line itself, so only the hand is counted
+  await page.goto('/?theme=dark&capture=1');
+  await waitForHome(page);
+  await page.mouse.move(-5, -5);
+  await page.waitForTimeout(600);
+  const png = (await page.screenshot()).toString('base64');
+  const above = await page.evaluate(async (b64) => {
+    const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
+    const bmp = await createImageBitmap(blob);
+    const c = new OffscreenCanvas(bmp.width, bmp.height);
+    const g = c.getContext('2d')!;
+    g.drawImage(bmp, 0, 0);
+    const { data, width: w, height: h } = g.getImageData(0, 0, bmp.width, bmp.height);
+    let n = 0;
+    // right of the plaster index tip, anything bright on or above the line
+    // (bottom-left → top-right) plus a 6 px margin
+    for (let y = 0; y < h; y++)
+      for (let x = Math.round(w * 0.49); x < w; x++) {
+        const lineY = h - (x * h) / w;
+        if (y > lineY + 6) continue;
+        const i = (y * w + x) * 4;
+        if (data[i] + data[i + 1] + data[i + 2] > 3 * 90) n++;
+      }
+    return n;
+  }, png);
+  expect(above).toBeLessThanOrEqual(3);
+});

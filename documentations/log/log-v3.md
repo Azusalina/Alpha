@@ -278,6 +278,44 @@ Asked before starting; the user's answers:
 - Not yet checked: `backdrop-filter` cost on the desktop WebKitGTK build (a
   hardware check, like D31).
 
+## Part 7 — the particle hand clears the home divide line (session 9)
+
+> main page particle hand 和分割线重叠了，调整位置
+
+The home divide line (D47, corner to corner) cut through the particle index
+finger: up to 54 px of it lay above the line (x ≈ 810–880). Asked whether to
+move the line or the hand; the user chose the hand.
+
+| # | Decision |
+|---|---|
+| **D51** | The particle hand moves **(+65, +38) reference px** — along the composition diagonal, so the two index fingers still point at each other, only further apart; its closest particle now sits ≈ 21 px below the line. An exact screen translation (`assets-source/hands/placement.json`, docs/CONTRACTS.md §6 "Screen placement"): pose files, GLBs, reference masks and every gate stay as they were, and the measurements move the captured hand back first. |
+
+### How it stays measurement-neutral
+
+- First attempt moved the GLB and rig before sampling: every seed then
+  produced a *different* cloud (the area-weighted sampler's draws shift with
+  the geometry), so D10's numbers moved like a seed change (IoU median
+  0.867 → 0.855 on a frozen, reduced-motion A/B). Fixed by sampling at the
+  reference placement and moving the finished cloud: the moved captures,
+  moved back, differ from the unmoved ones in ~40 of 185 000 pixels, and
+  `particle_shape.py` gives the same numbers per seed (IoU 0.86176 / 0.886 /
+  0.86665 / 0.88047 / 0.84437 vs 0.86176 / 0.88591 / …).
+- The silhouette capture (`pose matches`) passes every gate of both hands
+  and the contact gap with the right ID mask moved back, which also checks
+  that the hand sits exactly at its placement.
+- New test "D51 — the particle hand stays clear of the home divide line"
+  (bright pixels on or above the line + 6 px, right of the plaster tip, dark
+  theme): 0 now; 354 with the placement set back to [0, 0].
+- Not changed: the displayed index-tip gap is now ≈ 75 px wider than the
+  reference's; the contact gate measures the reference relation (moved back).
+
+### Verified
+
+- `tsc` clean; `overlay_check.py --selftest` ok (synthetic renders built at the
+  placement). Full suite 22 / 24 under parallel load; V01 and D10 (ring tip
+  lost — open item 5) both passed when rerun alone.
+- Screens: `outputs/qa/scratch/r3/home-{dark,light}.png`.
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
@@ -300,6 +338,7 @@ Asked before starting; the user's answers:
 
 ## Resume here
 
+- Part 7 (D51) done: the particle hand moved clear of the home divide line.
 - Part 6 (D47–D50) done: home divide line, glass tree from the wrist, node
   detail page. Next: the user's art review of `outputs/qa/scratch/r3/r5-*-sheet.png`,
   then the open items above.

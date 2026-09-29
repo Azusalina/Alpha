@@ -69,6 +69,7 @@ from compare_silhouette import (  # noqa: E402  (one implementation of every mea
     load_reference, mask_from_id_render, mask_gray, mask_tip, refuse_size, save_mask, shift,
     two_ink,
 )
+from placement import offset as placement_offset, to_placement, to_reference  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SHOT = ROOT / "outputs" / "qa" / "home.png"
@@ -185,13 +186,19 @@ def run_silhouette(rgb: np.ndarray, out: Path, render_kps: dict | None, use_igno
                       f"than {STRAY_MAX_PX} of them fails the screenshot",
         "ok": bool(stray.sum() <= STRAY_MAX_PX),
     }
-    save_mask(out / "render-mask-left.png", c["left"])
-    save_mask(out / "render-mask-right.png", c["right"])
     if stray.any():
         s = np.full((H, W, 3), 255, np.uint8)
         s[hands] = (200, 200, 200)
         s[stray] = (255, 0, 255)
         Image.fromarray(s).save(out / "stray-pixels.png")
+    # every gate is in the reference's placement: move each hand back by its
+    # screen placement (D51, scripts/placement.py) before scoring
+    placement = {h: list(placement_offset(h)) for h in ("left", "right")}
+    for h in ("left", "right"):
+        c[h] = to_reference(c[h], h, False)
+    hands = c["left"] | c["right"]
+    save_mask(out / "render-mask-left.png", c["left"])
+    save_mask(out / "render-mask-right.png", c["right"])
 
     per_hand = {}
     for hand in ("left", "right"):
@@ -227,6 +234,10 @@ def run_silhouette(rgb: np.ndarray, out: Path, render_kps: dict | None, use_igno
                                             and contract["ok"])
     return {
         "mode": "silhouette", "contract": contract,
+        "placement_px": placement,
+        "placement_rule": "each hand's ID mask is moved back by its screen placement "
+                          "(assets-source/hands/placement.json, D51) before scoring; masks, "
+                          "overlays and the contact gap are in the reference's placement",
         "hands": {h: summary(per_hand[h]) for h in ("left", "right")},
         "contact": gap,
         "pose_matches": overall,
@@ -297,7 +308,8 @@ def selftest(out: Path) -> dict:
     # 1. synthetic silhouette screenshot per CONTRACTS section 9, with a 1-px anti-aliased rim
     from scipy import ndimage as ndi
     rgb = np.full((H, W, 3), 255, np.uint8)
-    for m, col in ((refL, ID_COLORS["left"]), (refR, ID_COLORS["right"])):
+    placedL, placedR = to_placement(refL, "left", False), to_placement(refR, "right", False)
+    for m, col in ((placedL, ID_COLORS["left"]), (placedR, ID_COLORS["right"])):
         rim = ndi.binary_dilation(m) & ~m
         rgb[rim] = (np.array(col) * 0.5 + 255 * 0.5).astype(np.uint8)   # 50 % coverage
         rgb[m] = col
@@ -316,8 +328,8 @@ def selftest(out: Path) -> dict:
 
     # 2. the same, with the right hand moved 5 px down and a stray construction line drawn in
     rgb2 = np.full((H, W, 3), 255, np.uint8)
-    rgb2[refL] = ID_COLORS["left"]
-    rgb2[shift(refR, 0, 5)] = ID_COLORS["right"]
+    rgb2[placedL] = ID_COLORS["left"]
+    rgb2[shift(placedR, 0, 5)] = ID_COLORS["right"]
     rgb2[100:102, 900:1500] = (90, 90, 90)
     p2 = out / "synthetic-silhouette-shifted.png"
     Image.fromarray(rgb2).save(p2)

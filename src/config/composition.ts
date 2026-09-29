@@ -11,6 +11,8 @@
  * frame on the z = 0 plane, y up, +z toward the camera.
  */
 
+import placement from '../../assets-source/hands/placement.json';
+
 export const REFERENCE_FRAME = {
   width: 1644,
   height: 957,
@@ -53,6 +55,30 @@ export function pixelToWorld(px: number, py: number, z = 0): [number, number, nu
     (px / REFERENCE_FRAME.width - 0.5) * FRAME_WIDTH * k,
     (0.5 - py / REFERENCE_FRAME.height) * FRAME_HEIGHT * k,
     z,
+  ];
+}
+
+/**
+ * Each hand's screen placement at home (decision D51): an exact translation in
+ * reference pixels on top of its pose file, GLB and contour, read from
+ * `assets-source/hands/placement.json` (the acceptance scripts read the same
+ * file and score the hand back in the reference's placement).
+ */
+export const HAND_SCREEN_OFFSET_PX: Record<'left' | 'right', readonly [number, number]> = {
+  left: placement.left.screen_offset_px as [number, number],
+  right: placement.right.screen_offset_px as [number, number],
+};
+
+/**
+ * World offset that moves a point at depth `z` by (dx, dy) reference pixels
+ * through the home camera — scaled by (D − z) / D like pixelToWorld, so every
+ * depth lands exactly that many pixels away and the shape does not change.
+ */
+export function screenShiftAt(offsetPx: readonly [number, number], z: number): [number, number] {
+  const k = (HOME_DISTANCE - z) / HOME_DISTANCE;
+  return [
+    (offsetPx[0] / REFERENCE_FRAME.width) * FRAME_WIDTH * k,
+    (-offsetPx[1] / REFERENCE_FRAME.height) * FRAME_HEIGHT * k,
   ];
 }
 

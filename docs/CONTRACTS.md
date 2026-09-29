@@ -194,6 +194,22 @@ blender -b --factory-startup -P assets-source/hands/build_hands.py -- \
   --report-dir outputs/qa/calib --blend assets-source/hands/hands.blend --views
 ```
 
+### Screen placement (D51, `assets-source/hands/placement.json`)
+
+`{"left": {"screen_offset_px": [dx, dy]}, "right": {…}}` — an exact translation
+of each hand at home, in reference pixels, applied by the app on top of the
+pose file, the GLB and the contour (`src/hand/assets.ts`, `src/hand/pose.ts`):
+a world point at depth z moves by (dx, dy) px × (D − z) / D world units per px,
+so it lands exactly (dx, dy) pixels away through the home camera and the
+hand's shape does not change. The pose files, GLBs, contours, reference data
+(§7) and every gate stay in the reference's own placement; the builder does
+not read this file. The particle hand is sampled at the reference placement
+and the cloud moved afterwards, so a seed gives the same particles wherever the
+hand is placed. The measurements move the captured hand back first
+(`scripts/placement.py`: `overlay_check.py` per ID mask, `particle_shape.py`
+per screenshot, with the left hand cleared). Currently right = [65, 38]
+(clear of the home divide line, D47), left = [0, 0].
+
 ## 7. Reference data (produced by `scripts/reference_masks.py`)
 
 In `assets-source/reference/`:

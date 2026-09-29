@@ -29,8 +29,8 @@ import { humanProgress, stage, systemProgress } from '../app/stage';
 import { PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
 import { IDLE, REDUCED_MOTION, STARTUP, SYSTEM_PHASES, TRANSITION, phaseProgress } from '../config/timing';
-import { useHandContour, useHandGeometry } from '../hand/assets';
-import { handRig } from '../hand/pose';
+import { place, useHandContour, useHandGeometry } from '../hand/assets';
+import { handRig, referenceRig } from '../hand/pose';
 import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
 import { applyInk, useThemeBinding } from './useThemeBinding';
 import { useViewMode } from './useViewMode';
@@ -66,8 +66,12 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const dpr = useThree((s) => s.viewport.dpr);
 
   const source = useHandGeometry('right');
-  const contour = useHandContour('right');
+  // sampled at the reference placement, then moved (D51): a seed gives the
+  // same particles wherever the hand is placed
+  const referenceSource = useHandGeometry('right', 'reference');
+  const contour = useHandContour('right', 'reference');
   const rig = handRig('right');
+  const sampleRig = referenceRig('right');
   const viewMode = useViewMode();
 
   const toward = useMemo(() => dissipationDirection(rig), [rig]);
@@ -75,10 +79,15 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
   const geometry = useMemo(() => {
     const count = QUALITY[tier].particleCount;
     const nails = contour.nails ?? [];
-    const cloud = sampleParticleHand(source, rig, count, particleSeed(), nails);
+    const sample = (seed: number) => {
+      const c = sampleParticleHand(referenceSource, sampleRig, count, seed, nails);
+      for (let i = 0; i < c.count; i++) place('right', c.home, i * 3);
+      return c;
+    };
+    const cloud = sample(particleSeed());
     if (DIAGNOSTICS_ENABLED) {
       inspection.particles = digestCloud(cloud);
-      inspection.resample = (seed) => digestCloud(sampleParticleHand(source, rig, count, seed, nails));
+      inspection.resample = (seed) => digestCloud(sample(seed));
     }
 
     const scatter = new Float32Array(cloud.count * 3);
@@ -102,7 +111,7 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
 
     g.computeBoundingSphere();
     return g;
-  }, [source, contour, rig, tier, toward]);
+  }, [referenceSource, sampleRig, contour, tier, toward]);
 
   useEffect(() => {
     if (DIAGNOSTICS_ENABLED) inspection.meshes.right = source;

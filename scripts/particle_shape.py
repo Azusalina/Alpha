@@ -48,6 +48,7 @@ from scipy import ndimage as ndi
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import reference_masks as RM  # noqa: E402
 from compare_silhouette import H, W, compare, load_reference  # noqa: E402
+from placement import offset as placement_offset, to_reference  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / "outputs" / "qa" / "particle-shape"
@@ -85,6 +86,12 @@ def score(shot: Path, out: Path, region_ignore: np.ndarray) -> dict:
     if img.size != (W, H):
         raise SystemExit(f"{shot}: {img.size[0]} x {img.size[1]}, expected {W} x {H} (DPR 1); refused")
     gray = np.asarray(img.convert("L"), dtype=np.float32)
+    # the gates are in the reference's placement: clear the left hand where it is
+    # drawn, then move the frame back by the right hand's screen placement (D51)
+    left_drawn = ndi.binary_dilation(load_reference("left")["mask"], iterations=LEFT_EXCLUDE_PX + 3)
+    ground = float(np.median(gray))
+    gray = np.where(left_drawn, ground, gray).astype(np.float32)
+    gray = to_reference(gray, "right", ground)
     out.mkdir(parents=True, exist_ok=True)
     m, n = particle_mask(gray)
     Image.fromarray((m * 255).astype(np.uint8)).save(out / "particle-mask.png")
@@ -124,9 +131,12 @@ def main() -> int:
         checks[f"tip:{k}"] = {"value": tips[k], "gate": f"<= {lim}", "pass": tips[k] is not None and tips[k] <= lim}
     failed = [k for k, v in checks.items() if not v["pass"]]
     rep = {
-        "method": "reference right-mask rule (scripts/reference_masks.py build_right) on each screenshot, "
+        "method": "each screenshot moved back by the right hand's screen placement (D51, "
+                  "assets-source/hands/placement.json) with the left hand cleared, then the "
+                  "reference right-mask rule (scripts/reference_masks.py build_right), "
                   "scored by compare_silhouette.compare() against the reference right mask over the "
                   "fingers and palm; the median over the screenshots is gated",
+        "placement_px": list(placement_offset("right")),
         "shots": runs,
         "median": {"iou": med("iou"), "contour_mean_px": med("contour_mean_px"),
                    "contour_p95_px_not_gated": med("contour_p95_px"),
