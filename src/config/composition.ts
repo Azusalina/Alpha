@@ -114,16 +114,17 @@ export const ANCHORS = {
 } as const;
 
 /**
- * The particle brain at the human destination (decision D32): it sits in the
- * lower left of that view, the input box to its right. Click drills in (D34): it
+ * The particle brain at the human destination (decisions D32, D45): it sits in
+ * the lower-left triangle under the view's top-left → bottom-right divide line
+ * (clear of it at any rotation), the input box in the upper-right triangle. Click drills in (D34): it
  * moves to the centre of the view and grows.
  */
 export const BRAIN = {
   /** Brain centre relative to the HUMAN anchor, resting and focused. */
-  offset: [-0.62, -0.2, 0] as [number, number, number],
+  offset: [-0.88, -0.4, 0] as [number, number, number],
   focusOffset: [0, 0, 0] as [number, number, number],
   /** Half-extent of the brain in world units (the asset is normalised to 1). */
-  scale: 0.58,
+  scale: 0.55,
   focusScale: 0.82,
   /** Resting attitude: a three-quarter profile, front of the brain toward the viewer's right. */
   tilt: [0.18, -0.55, 0.04] as [number, number, number],

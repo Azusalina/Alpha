@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alpha-brain"
+version = "0.1.0"
+description = "Local memory engine prototype for Alpha"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["core*"]
+
+[project.scripts]
+alpha-brain = "core.cli:main"

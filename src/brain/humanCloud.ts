@@ -64,6 +64,23 @@ export function buildHumanCloud(
     const w = REGION_WEIGHT[brain.meta.regions[brain.region[i]]] ?? 1;
     if (hash11(i, 7) < w) candidates.push(i);
   }
+  // Even out the spatial density (D43): the model's meshes are very uneven
+  // (dense cerebellum and brainstem at the back and base, a sparse frontal
+  // pole), which made one end of the brain visibly brighter than the other.
+  // Count candidates per cell of a coarse grid and thin crowded cells down to
+  // the median occupancy.
+  const G = 7;
+  const cell = (i: number) => {
+    const c = (v: number) => Math.min(G - 1, Math.max(0, Math.floor(((v + 1) / 2) * G)));
+    return c(brain.position[i * 3]) + G * (c(brain.position[i * 3 + 1]) + G * c(brain.position[i * 3 + 2]));
+  };
+  const occupancy = new Map<number, number>();
+  for (const i of candidates) occupancy.set(cell(i), (occupancy.get(cell(i)) ?? 0) + 1);
+  const counts = [...occupancy.values()].sort((a, b) => a - b);
+  const median = counts[Math.floor(counts.length / 2)];
+  const even = candidates.filter((i) => hash11(i, 10) < Math.min(1, median / occupancy.get(cell(i))!));
+  candidates.length = 0;
+  candidates.push(...even);
   candidates.sort((a, b) => hash11(a, 8) - hash11(b, 8));
   const picked = Array.from({ length: count }, (_, k) => candidates[k % candidates.length]);
   // front of the brain (+x) first, a little of y so the crown leads the base

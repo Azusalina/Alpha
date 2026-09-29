@@ -98,7 +98,7 @@ export function focusBrain(on: boolean, reduced = false): void {
     tl.to(humanStore, { growP: 1, duration: FOCUS.treeGrow * k, ease: 'power1.inOut' }, '-=0.2');
   } else {
     tl.to(humanStore, { growP: 0, duration: 0.35 * k, ease: 'power1.in' });
-    tl.to(humanStore, { dragYaw: 0, dragPitch: 0, duration: FOCUS.duration * k, ease: 'power2.inOut' }, 0);
+    // the user's rotation is kept: backing out only moves and shrinks the brain (D42)
     tl.to(humanStore, { focusP: 0, duration: FOCUS.duration * k, ease: 'power2.inOut' }, 0.1);
   }
   focusTween = tl;

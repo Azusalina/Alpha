@@ -36,9 +36,15 @@ class HumanStore {
   pulseT = -1;
   /** Region lit by the last input-box submission, and its age in seconds. */
   pulseRegion = -1;
-  /** User drag rotation while focused, radians. */
+  /** User drag rotation, radians (resting or drilled in; D42). */
   dragYaw = 0;
   dragPitch = 0;
+  /** Release inertia, radians per second; decays each frame. */
+  spinVel = { yaw: 0, pitch: 0 };
+  /** Accumulated idle spin, radians; paused while dragging. */
+  spin = 0;
+  /** A drag is in progress. */
+  dragging = false;
 
   get = (): HumanUi => this.ui;
 
@@ -68,6 +74,9 @@ class HumanStore {
     this.pulseRegion = -1;
     this.dragYaw = 0;
     this.dragPitch = 0;
+    this.spinVel = { yaw: 0, pitch: 0 };
+    this.spin = 0;
+    this.dragging = false;
     this.set({ focused: false, selected: null, hovered: null, hoverRegion: -1, reply: null });
   }
 }

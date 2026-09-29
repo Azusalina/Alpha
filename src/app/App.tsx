@@ -136,7 +136,13 @@ export function App() {
       },
       /** A function, not a getter: the inspector spreads `extra`, which would freeze a getter. */
       humanUi() {
-        return { ...humanStore.get(), focusP: humanStore.focusP, growP: humanStore.growP };
+        return {
+          ...humanStore.get(),
+          focusP: humanStore.focusP,
+          growP: humanStore.growP,
+          dragYaw: humanStore.dragYaw,
+          dragPitch: humanStore.dragPitch,
+        };
       },
       treeUi() {
         return treeStore.get();

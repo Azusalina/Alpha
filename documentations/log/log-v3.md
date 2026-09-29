@@ -199,6 +199,46 @@ left as they were, except the brain dots' own dark-theme light).
 - The brain drill-in test timed out once under the full parallel run (its
   growth poll waited 5 s); timeouts raised, passes alone and in the suite.
 
+## Part 5 — rotation, balance, links, divide line, density (session 8, fourth ask)
+
+> 使鼠标可以旋转 brain model，并使亮度均衡统一（前后脑明显亮度差）；在不增粗的前提下使线条可见度和亮度加；
+> 从左上方到右下方增加一条分割 screen 的线（背景黑/白 = 分割线白/黑），particle brain 置于左下方区域，input 栏置于右上方区域
+> （进行中追加）降低粒子密度使得 particle brain 看起来清爽且简洁
+
+| # | Decision |
+|---|---|
+| **D42** | Drag rotates the brain **at any time** (resting or drilled in), with capped release inertia (≤ 3 rad/s, decaying); the idle spin pauses while dragging; a click without movement still drills in; backing out keeps the user's rotation. |
+| **D43** | Front/back brightness balanced (see below). |
+| **D44** | Only the brain's neighbour web: ≈ 2× opacity, full ink colour, dark glow × 1.5; still 1 px. |
+| **D45** | Divide line only at the human destination: 1 px, top-left corner → bottom-right corner of the view, ink on ground (white on black / black on white), drawn from the centre outward over p 0.7–1, muted while drilled in (the drilled brain moves across it). Brain in the lower-left triangle (offset −0.88, −0.40; scale 0.55, clear of the line at any rotation), input in the upper-right triangle. |
+| **D46** | Brain particle budget = **50 %** of the tier's hand budget (medium: 6 000), for a clean, simple brain. (Chosen by me from the ask; say if you want another share.) |
+
+### Front/back brightness — cause and fix
+
+1. **Bug**: the "appear where the plaster withdrew" window never completed for
+   wrist-side particles (appear ≈ 0.07 at dissolve = 1). Wrist particles map
+   to the back of the brain, so the back stayed faint. Window compressed ×0.88.
+2. With that fixed, the model's uneven meshes showed (dense cerebellum /
+   brainstem, sparse frontal pole): candidates are now thinned per cell of a
+   7³ grid down to the median occupancy.
+3. The remaining projected asymmetry (cerebellum layered under the occipital
+   cortex) is compensated in the brain's own frame by point **size**
+   (front +20 %, back −20 %) — opacity is already saturated in the light theme,
+   so an opacity gain did nothing.
+
+Measured front/back ink ratio of the resting brain (1 = balanced): before
+1.36 (light) / 1.37 (dark); after 1.00 / 0.98 (with D46).
+
+### Verified
+
+- `tsc` clean; new test "drag turns the resting brain without drilling in; the
+  divide line splits the view". Full suite with 2 workers: 20 of 21 pass;
+  **D10 failed again under load** (contour mean 7.015 vs 7.0, ring tip lost) —
+  the right hand was not touched in this part; same breathing-phase cause as
+  part 3, still open item 5.
+- Screens: `outputs/qa/theme/brain-layout-sheet.png` (dark / light × rest,
+  dragged, drilled in), `brain-density-compare.png` (left 100 %, right 50 %).
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density

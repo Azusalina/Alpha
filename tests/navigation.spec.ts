@@ -16,7 +16,14 @@ type Alpha = {
   navigate(to: 'human' | 'system' | 'home'): boolean;
   treeUi(): { selected: string | null; hovered: string | null };
   tree: { screenOf(id: string): [number, number] | null };
-  humanUi(): { focused: boolean; selected: string | null; reply: string | null; focusP: number; growP: number };
+  humanUi(): {
+    focused: boolean;
+    selected: string | null;
+    reply: string | null;
+    focusP: number;
+    growP: number;
+    dragYaw: number;
+  };
   brain: { screenOf(id?: string): [number, number] | null };
 };
 
@@ -203,4 +210,41 @@ test('V12 system — ten round trips land on the same home frame', async ({ page
   await page.waitForTimeout(300);
   const after = await page.screenshot();
   expect(after.equals(before)).toBe(true);
+});
+
+test('brain — drag turns the resting brain without drilling in; the divide line splits the view', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await expect(page.getByTestId('divide-line')).toHaveCount(0);
+  await dwell(page, 'hotzone-human');
+  await waitFor(page, 'human', 10_000);
+
+  // D45: corner to corner once arrived
+  const ends = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="divide-line"] line')].map((l) => [
+      l.getAttribute('x2'),
+      l.getAttribute('y2'),
+    ]),
+  );
+  expect(ends).toEqual([
+    ['0', '0'],
+    ['100', '100'],
+  ]);
+
+  // D42: a drag rotates and does not count as a click
+  const c = (await alpha(page, (a) => a.brain.screenOf()))!;
+  const yaw0 = (await alpha(page, (a) => a.humanUi())).dragYaw;
+  await page.mouse.move(c[0], c[1]);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(c[0] + i * 12, c[1]);
+  await page.mouse.up();
+  const after = await alpha(page, (a) => a.humanUi());
+  expect(after.dragYaw).toBeGreaterThan(yaw0 + 0.3);
+  expect(after.focused).toBe(false);
+
+  // a plain click still drills in
+  await page.mouse.click(c[0], c[1]);
+  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focused).toBe(true);
 });

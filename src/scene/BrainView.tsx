@@ -75,6 +75,15 @@ const VISIBILITY = {
   darkGlow: 1.25,
 } as const;
 
+/**
+ * The brain's particle budget as a share of the tier's hand budget (D46): half,
+ * so the brain reads clean and simple rather than as a dense haze.
+ */
+const BRAIN_PARTICLE_SHARE = 0.5;
+
+/** Fastest release spin, radians per second (D42). */
+const MAX_FLING = 3;
+
 /** A click within this many CSS pixels of a node picks it. */
 const NODE_PICK_PX = 14;
 
@@ -95,7 +104,14 @@ export function BrainView({ tier, reducedMotion }: Props) {
   const domElement = useThree((s) => s.gl.domElement);
 
   const cloud = useMemo(
-    () => buildHumanCloud(source, rig, brain, QUALITY[tier].particleCount, SCENE_SEED + 1),
+    () =>
+      buildHumanCloud(
+        source,
+        rig,
+        brain,
+        Math.round(QUALITY[tier].particleCount * BRAIN_PARTICLE_SHARE),
+        SCENE_SEED + 1,
+      ),
     [source, rig, brain, tier],
   );
 
@@ -229,7 +245,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
           varying float vLit;
           varying float vShell;
           void main() {
-            float a = uShow * mix(0.05, 0.13, vShell) * (1.0 + 2.2 * vLit) * uAlpha;
+            // D44: about twice the opacity, same 1-px width
+            float a = uShow * mix(0.11, 0.26, vShell) * (1.0 + 1.6 * vLit) * uAlpha;
             if (a <= 0.002) discard;
             gl_FragColor = vec4(uColor, min(1.0, a));
           }
@@ -293,9 +310,12 @@ export function BrainView({ tier, reducedMotion }: Props) {
           varying float vLit;
 
           void main() {
-            // Appear exactly where the solid has withdrawn: the plaster is
-            // visible where reveal < 1.18 * (1 - dissolve) (HumanHand.tsx).
-            float gone = 1.0 - aReveal / 1.18;
+            // Appear where the solid has withdrawn: the plaster is visible where
+            // reveal < 1.18 * (1 - dissolve) (HumanHand.tsx). The window is
+            // compressed by 0.88 so it completes by dissolve = 1: uncompressed,
+            // wrist particles (which become the back of the brain) stopped at 7 %
+            // and the back of the brain stayed faint (D43).
+            float gone = (1.0 - aReveal / 1.18) * 0.88;
             float appear = smoothstep(gone - 0.04, gone + 0.1, uDissolve);
 
             // Migrate on a delayed clock: fingertips leave first, then the hand
@@ -348,12 +368,18 @@ export function BrainView({ tier, reducedMotion }: Props) {
 
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
-            float grow = 1.0 + m * (uVis.z + uVis.w * rimK);
+            float grow = (1.0 + m * (uVis.z + uVis.w * rimK)) * (1.0 + m * 0.2 * aBrain.x);
             gl_PointSize = aSize * grow * (1.0 + 0.9 * lit) * uSizeScale / max(0.25, -mv.z);
 
             // The interior stays a touch lighter than the cortex, for depth.
             float body = mix(1.0, 0.9 + 0.1 * shell, m);
             float boost = 1.0 + m * (uVis.x + uVis.y * rimK);
+            // Front / back balance (D43), in the brain's own frame so it turns
+            // with it: the frontal pole is the sparsest part of the model and the
+            // back has the cerebellum layered under the cortex.
+            // Opacity is already saturated in the light theme, so the balance
+            // acts on coverage: front dots a little larger, back ones smaller.
+            boost *= 1.0 + m * 0.12 * aBrain.x;
             vAlpha = aTone * appear * body * boost * (0.85 + 0.15 * lit);
           }
         `,
@@ -484,8 +510,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
       applyInk(edgeMaterial, p, 1.2);
       nodeMaterial.uniforms.uColor.value.set(p.ink);
       applyInk(nodeMaterial, p);
-      linkMaterial.uniforms.uColor.value.set(p.inkSoft);
-      applyInk(linkMaterial, p, 1.25);
+      // links in full ink (not the softer ink) so they read brighter
+      linkMaterial.uniforms.uColor.value.set(p.ink);
+      applyInk(linkMaterial, p, 1.5);
     },
     [particleMaterial, edgeMaterial, nodeMaterial, linkMaterial],
   );
@@ -516,10 +543,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const off = BRAIN.offset.map((o, i) => o + (BRAIN.focusOffset[i] - o) * f);
     tmp.v.set(ANCHORS.HUMAN[0] + off[0], ANCHORS.HUMAN[1] + off[1], ANCHORS.HUMAN[2] + off[2]);
     const scale = BRAIN.scale + (BRAIN.focusScale - BRAIN.scale) * f;
-    const spin = reducedMotion ? 0 : BRAIN.spin * stage.destTime;
     tmp.e.set(
       BRAIN.tilt[0] + humanStore.dragPitch * settle,
-      BRAIN.tilt[1] + (spin + humanStore.dragYaw) * settle,
+      BRAIN.tilt[1] + (humanStore.spin + humanStore.dragYaw) * settle,
       BRAIN.tilt[2],
     );
     tmp.q.setFromEuler(tmp.e);
@@ -528,7 +554,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
 
   // ---- pointer: click to drill in, drag to turn, hover to name -----------------
   const pointerNdc = useRef<Vector2 | null>(null);
-  const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; t: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     const toNdc = (ev: PointerEvent) => {
@@ -538,15 +564,21 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const onMove = (ev: PointerEvent) => {
       pointerNdc.current = toNdc(ev);
       const d = drag.current;
-      if (d && humanStore.get().focused) {
+      // drag turns the brain, resting or drilled in (D42)
+      if (d && stage.state === 'human') {
         const dx = ev.clientX - d.x;
         const dy = ev.clientY - d.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
         if (d.moved) {
           humanStore.dragYaw += dx * 0.008;
           humanStore.dragPitch = Math.max(-1.1, Math.min(1.1, humanStore.dragPitch + dy * 0.008));
+          // velocity for the release, radians per second (smoothed)
+          const dt = Math.max(1, ev.timeStamp - d.t) / 1000;
+          const clamp = (v: number) => Math.max(-MAX_FLING, Math.min(MAX_FLING, v));
+          humanStore.spinVel = { yaw: clamp((dx * 0.008) / dt), pitch: clamp((dy * 0.008) / dt) };
           d.x = ev.clientX;
           d.y = ev.clientY;
+          d.t = ev.timeStamp;
         }
       }
     };
@@ -555,11 +587,16 @@ export function BrainView({ tier, reducedMotion }: Props) {
     };
     const onDown = (ev: PointerEvent) => {
       if (stage.state !== 'human') return;
-      drag.current = { x: ev.clientX, y: ev.clientY, moved: false };
+      drag.current = { x: ev.clientX, y: ev.clientY, t: ev.timeStamp, moved: false };
+      humanStore.dragging = true;
+      humanStore.spinVel = { yaw: 0, pitch: 0 };
     };
     const onUp = (ev: PointerEvent) => {
       const d = drag.current;
       drag.current = null;
+      humanStore.dragging = false;
+      // a pause before release means no fling
+      if (d && ev.timeStamp - d.t > 80) humanStore.spinVel = { yaw: 0, pitch: 0 };
       if (stage.state !== 'human' || !d || d.moved) return;
       const ui = humanStore.get();
       // a node under the pointer wins
@@ -604,7 +641,19 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const hp = humanProgress();
     const ph = TRANSITION.phases;
     const settle = phaseProgress(hp, ph.settle);
-    if (stage.state === 'human') stage.destTime += delta * stage.timeScale;
+    if (stage.state === 'human') {
+      stage.destTime += delta * stage.timeScale;
+      const dt = delta * stage.timeScale;
+      if (!humanStore.dragging) {
+        // release inertia, decaying; the idle spin resumes underneath it
+        const v = humanStore.spinVel;
+        humanStore.dragYaw += v.yaw * dt;
+        humanStore.dragPitch = Math.max(-1.1, Math.min(1.1, humanStore.dragPitch + v.pitch * dt));
+        const k = Math.exp(-dt * 3.2);
+        humanStore.spinVel = { yaw: v.yaw * k, pitch: v.pitch * k };
+        if (!reducedMotion) humanStore.spin += BRAIN.spin * dt;
+      }
+    }
 
     const g = groupRef.current;
     if (g) {
@@ -692,7 +741,11 @@ export function BrainView({ tier, reducedMotion }: Props) {
     nodeMaterial.uniforms.uHover.value = hovered ? GRAPH.nodes.findIndex((n) => n.id === hovered) : -1;
     nodeMaterial.uniforms.uSelected.value = ui.selected ? GRAPH.nodes.findIndex((n) => n.id === ui.selected) : -1;
     if (stage.state === 'human') {
-      domElement.style.cursor = hovered || (!ui.focused && ndc && hitBrain(ndc)) ? 'pointer' : '';
+      domElement.style.cursor = humanStore.dragging && drag.current?.moved
+        ? 'grabbing'
+        : hovered || (!ui.focused && ndc && hitBrain(ndc))
+          ? 'pointer'
+          : 'grab';
     }
   });
 
@@ -702,6 +755,10 @@ export function BrainView({ tier, reducedMotion }: Props) {
     if (w.__alpha) {
       w.__alpha.brain = {
         count: cloud.count,
+        /** Tuning hook: override the VISIBILITY vector (alpha, rimAlpha, size, rimSize). */
+        setVis(a: number, b: number, c: number, d: number) {
+          particleMaterial.uniforms.uVis.value.set(a, b, c, d);
+        },
         regions: brain.meta.regions,
         /** Screen position (CSS px) of the brain's centre and of a graph node. */
         screenOf(id?: string) {
@@ -713,7 +770,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         },
       };
     }
-  }, [cloud, brain, nodeLocal, camera, size]);
+  }, [cloud, brain, nodeLocal, camera, size, particleMaterial]);
 
   return (
     <>

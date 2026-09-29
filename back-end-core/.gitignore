@@ -1,0 +1,11 @@
+# Private runtime data must never enter version control.
+/data/*
+!/data/.gitkeep
+/logs/*
+!/logs/.gitkeep
+
+# Python tooling, if selected for the engine.
+/.venv/
+/.pytest_cache/
+__pycache__/
+*.py[cod]

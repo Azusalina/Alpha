@@ -20,6 +20,9 @@ import { TRANSITION, phaseProgress } from '../config/timing';
 import { GRAPH } from '../fixtures/graph';
 import { NodeDetail, regionLabel } from './NodeDetail';
 
+/** When the divide line draws, as a window of the transition's p (D45). */
+const DIVIDER_DRAW: readonly [number, number] = [0.7, 1.0];
+
 interface Props {
   state: SceneState;
   reducedMotion: boolean;
@@ -31,12 +34,26 @@ export function HumanPanel({ state, reducedMotion }: Props) {
   const [text, setText] = useState('');
   const arrived = state === 'human';
 
-  // opacity follows p every frame without React re-rendering
+  const dividerRef = useRef<SVGSVGElement>(null);
+
+  // opacity and the divide line follow p every frame without React re-rendering
   useEffect(() => {
     let raf = 0;
     const tick = () => {
+      const hp = humanProgress();
       const el = rootRef.current;
-      if (el) el.style.opacity = String(phaseProgress(humanProgress(), TRANSITION.phases.domReveal));
+      if (el) el.style.opacity = String(phaseProgress(hp, TRANSITION.phases.domReveal));
+      // D45: the line draws from the centre out to both corners, and back
+      const d = phaseProgress(hp, DIVIDER_DRAW);
+      const t = d * d * (3 - 2 * d);
+      const svg = dividerRef.current;
+      if (svg) {
+        const [a, b] = svg.querySelectorAll('line');
+        a.setAttribute('x2', String(50 - 50 * t));
+        a.setAttribute('y2', String(50 - 50 * t));
+        b.setAttribute('x2', String(50 + 50 * t));
+        b.setAttribute('y2', String(50 + 50 * t));
+      }
       raf = requestAnimationFrame(tick);
     };
     tick();
@@ -61,6 +78,25 @@ export function HumanPanel({ state, reducedMotion }: Props) {
   const hovered = ui.hovered ? GRAPH.nodes.find((n) => n.id === ui.hovered) : null;
 
   return (
+    <>
+    {/*
+      The divide line (IDEA §2, D45): top-left to bottom-right corner of the
+      view, 1 px, ink on the ground (white on black, black on white). Outside
+      the panel, whose opacity only arrives at p 0.9, so the line can draw from
+      p 0.7. It steps back while the brain is drilled into, which moves the
+      brain across it.
+    */}
+    <svg
+      ref={dividerRef}
+      className={`divide-line${ui.focused ? ' is-muted' : ''}`}
+      data-testid="divide-line"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <line x1="50" y1="50" x2="50" y2="50" />
+      <line x1="50" y1="50" x2="50" y2="50" />
+    </svg>
     <div
       ref={rootRef}
       className={`human-panel${ui.focused ? ' is-focused' : ''}`}
@@ -136,6 +172,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         <NodeDetail id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />
       )}
     </div>
+    </>
   );
 }
 
