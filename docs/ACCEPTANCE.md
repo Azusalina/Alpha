@@ -515,20 +515,24 @@ back-of-hand outline. That is step 2 (calibration).
 - **The unscored zones.** The left arm at x < 45 and the right arm past the wrist cut. The
   app's forearms must still leave the frame, but only the overlay shows it.
 - **Particles and motion.** Silhouette mode has no particles. Whether the particle cloud
-  keeps the hand shape (review E) is checked by `scripts/particle_shape.py` (decision
-  D10): the rule that built `right-mask.png` (compact dots, σ 7 px, level 6.5 / 1000 px²,
-  smoothing, pull-in, D12 bridge) applied to a full-mode home capture at the default
-  tier, scored against `right-mask.png`. Its gates are a **regression gate**, set just
-  below the worst of five seeds measured when D10 was decided (IoU 0.868–0.887, contour
-  mean 5.1–6.8 px, negative space 0.68–0.74, tips ≤ 7.6 px): IoU ≥ 0.85, contour mean
-  ≤ 7.5 px, negative-space IoU ≥ 0.65, index tip ≤ 8 px, other tips ≤ 9 px; contour p95
-  is reported, not gated (12–28 px across seeds). They are looser than the right mesh's
-  gates on purpose: the density rule blurs the outline a few px outward, and the app's
-  cloud is sparser than the drawing where the thumb crosses the palm and inside the
-  curled digits. So a pass means the cloud has not lost the shape, not that it matches
-  the drawing's particles; that is judged by looking (step 6). The low tier (6 000
-  particles) is not gated: its density silhouette breaks up on the back of the hand
-  (IoU 0.77–0.86). Evidence: `outputs/qa/calib/evidence/step5/d10/`;
+  keeps the hand shape (review E) is checked by `scripts/particle_shape.py` (decisions
+  D10, D27): the rule that built `right-mask.png` (compact dots, σ 7 px, level 6.5 /
+  1000 px², smoothing, pull-in, D12 bridge) applied to full-mode home captures at the
+  default tier, one per seed, scored against `right-mask.png` over the **fingers and
+  palm only** (up to 100 px before the wrist keypoint along the forearm axis), and gated
+  on the **median of five seeds**. It is a **regression gate**, set just outside the
+  worst median of every 5-seed subset of ten seeds (IoU 0.855–0.880, contour mean
+  5.71–6.65 px, negative space 0.671–0.725): IoU ≥ 0.84, contour mean ≤ 7.0 px,
+  negative-space IoU ≥ 0.65, index tip ≤ 6 px, other tips ≤ 7 px; contour p95 is
+  reported, not gated. D10's first version scored one seed over the whole hand and arm,
+  and step 6 found its margin inside its own noise (the forearm band at the wrist cut
+  broke up under reseeding), hence D27. The gates are looser than the right mesh's on
+  purpose: the density rule blurs the outline a few px outward, and the app's cloud is
+  sparser than the drawing where the thumb crosses the palm and inside the curled
+  digits. So a pass means the cloud has not lost the shape, not that it reads like the
+  drawing's particles (step 6 found it denser and without the drawing's dispersal past
+  the wrist; D28 leaves that to the next round). The low tier (6 000 particles) is not
+  gated. Evidence: `outputs/qa/calib/evidence/step5/d10/`, `step6fix/d27-seeds.json`;
   `tests/acceptance.spec.ts` runs it. The reveal, breathing and hover recovery are
   checked by the startup specs and the captures in `scripts/capture-qa.mjs`.
 - **Artistic fidelity.** The left reference is the artist's line, not a physical

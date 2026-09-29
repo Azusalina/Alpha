@@ -9,8 +9,8 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 Steps 1–5 are closed: the three foundations, both step-3 builder stages
 ("arm", "digits") and both calibrated hands passed independent verification,
 the app runs on the Blender assets, and step 5's tests and evidence are in
-(Playwright 11 / 11, D10 gate). Next is step 6, the adversarial review, as a
-multi-agent workflow (D26).
+(Playwright 11 / 11, D10 gate). Step 6 (the adversarial review, D26) is closed with D27–D30 fixed; next is
+step 7, the user's desktop run.
 Decisions D1–D30 are below. Pick up at "Resume here";
 [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
 predates step 3 closing).
@@ -585,34 +585,24 @@ by an independent skeptic; minors are unverified.
 | Particles keep the hand shape? | **Partly** — reads as a hand at home, hover recovers exactly, thumbnail D legible at 3x | 3 major (confirmed): the tail does not disperse past the wrist (review B3); the cloud is ~1.7x the drawing's ink with no tip/knuckle hierarchy; the D10 gate's margin is inside its own noise (2 of 6 fresh seeds fail, as does 1 of 3 10 % thinnings). Minors: low tier, gap line, thumb crossing |
 | Same seed reproduces? | **Partly** — the arrays are bit-identical across reloads, tiers and 4 JS engines (incl. WebKitGTK); the *frame* is per device | 1 major, rated minor by its skeptic: the shader's `fract(sin())` hash differs per GPU (SwiftShader vs Xe agree on ~1.4 % of values); 4 minor incl. idle time carried into scrubbed frames |
 
-### Step 6 fixes (D27–D30) — PAUSED 2026-09-29 at the user's request
+### Step 6 fixes (D27–D30) — done (2026-09-29)
 
-Done in the working tree and committed as work in progress (tests NOT re-run):
-- D29: per-particle constants hashed on the CPU with `hash11` (`aHash` attribute,
-  in the digest); the shader no longer uses fract(sin()).
-- D30: `stage.set()` resets `idleTime` on leaving home too; the left thumbnail's
-  exported D is inked in the contour layer (visible stretches only).
-- D28 (mass-2): lighting L4 in `AlphaScene.tsx` (key more frontal, fill from
-  below the forearm, lighter ground); in-frame forearm p5/p50 89/140 → 128/186,
-  hand p5 130 / p95 231. Evidence: `outputs/qa/calib/evidence/step6fix/`.
-- D27: `compare()` takes `extra_ignore`; `scripts/particle_shape.py` scores
-  several screenshots (median) over the fingers and palm only (up to 100 px
-  before the wrist keypoint along the forearm axis) and has `--gates-off`.
-  Measured 10 medium seeds after D28/D29 (`evidence/step6fix/d27-seeds.json`):
-  IoU 0.828–0.903, contour mean 4.2–7.1 px, negative space 0.638–0.833, tips
-  mostly ≤ 8 px (seed 9 index 11.7 px). **The gates in `GATES` are still D10's
-  and are not yet re-derived.**
-
-To resume:
-1. Start the dev server (`npx vite --host 127.0.0.1 --port 5173 --strictPort`).
-2. Re-derive `GATES` in `scripts/particle_shape.py` from 5-seed medians (e.g.
-   medians of several 5-seed subsets of the 10 seeds; gate just below the worst),
-   document it in ACCEPTANCE §7 and the script docstring.
-3. Change the D10 test in `tests/acceptance.spec.ts` to capture 5 seeds
-   (`?seed=20260919,1..4`) and pass all five screenshots to the script.
-4. Run tsc, Playwright (A2 digest changed with D29, pose test, D10), the capture
-   script (`ALPHA_HEADLESS=1 node scripts/capture-qa.mjs`), commit, push.
-5. Then step 7 (the user's desktop run) and step 8 (docs, NEXT_SESSION_PROMPT).
+- D29: per-particle constants hashed on the CPU with `hash11` (`aHash`
+  attribute, in the digest); the shader no longer uses fract(sin()).
+- D30: `stage.set()` resets `idleTime` on leaving home too; the left
+  thumbnail's exported D is inked in the contour layer (visible stretches only).
+- D28 (mass-2): lighting in `AlphaScene.tsx` (key more frontal, fill from below
+  the forearm, lighter ground); in-frame forearm p5/p50 89/140 → 128/186, hand
+  p5 130 / p95 231. Evidence: `outputs/qa/calib/evidence/step6fix/`.
+- D27: `compare()` takes `extra_ignore`; `scripts/particle_shape.py` scores the
+  median of five seeds over the fingers and palm. Gates re-derived from ten
+  seeds (every 5-seed subset's median; `evidence/step6fix/d27-seeds.json`):
+  IoU ≥ 0.84, contour mean ≤ 7.0 px, negative space ≥ 0.65, index tip ≤ 6 px,
+  others ≤ 7 px. The test's five seeds: IoU 0.863, mean 6.15 px, negative space
+  0.717, tips ≤ 5.8 px (ACCEPTANCE §7).
+- Playwright 11 / 11 (one cold-start timeout seen before `reachHome` waited
+  60 s); tsc clean; `capture-qa.mjs` re-captured the startup frames, home, hover
+  pair and the three view modes.
 
 ## Resume here
 
@@ -730,7 +720,7 @@ can run in parallel with it):
   lines, full material — at 1644 × 957.
 - Re-check startup reveal at p = 0 / 0.5 / 1 and hover recovery.
 
-**6. Adversarial review** — ✅ **reviewed** (see "Step 6"; decisions pending). Earlier notes (session 6, 2026-09-25; D26: a multi-agent workflow,
+**6. Adversarial review** — ✅ **closed** (see "Step 6", D27–D30 fixed). Earlier notes (session 6, 2026-09-25; D26: a multi-agent workflow,
 `.claude/workflows/alpha-v1-review-step6.js`). Runs `wf_0c91fbfa-2e5` (cut off by a session end) and
 `wf_4e901799-243` (stopped at the user's request, 22:40) returned nothing yet; the five reviewers'
 progress is in `outputs/qa/scratch/review6/<question>/findings.md`, which a relaunch resumes from.

@@ -9,9 +9,10 @@
  *  - pose matches: the app's `silhouette` view mode (docs/CONTRACTS.md §9),
  *    scored by scripts/overlay_check.py, passes every gate of both hands, the
  *    index-tip contact gap, and shows no stray pixels;
- *  - D10: the particle hand, at the default tier, keeps the hand shape — its
- *    particle-density silhouette (the reference right mask's own rule) passes
- *    the D10 regression gates in scripts/particle_shape.py.
+ *  - D10 / D27: the particle hand, at the default tier, keeps the hand shape —
+ *    its particle-density silhouette (the reference right mask's own rule) over
+ *    the fingers and palm, as a median over five seeds, passes the regression
+ *    gates in scripts/particle_shape.py.
  *
  * Positioning goes through the dev inspector (window.__alpha), which the spec
  * permits for measurement; nothing here asserts interaction.
@@ -40,7 +41,8 @@ async function reachHome(page: Page, url = '/'): Promise<void> {
   await page.goto(url);
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __alpha?: { state: string } }).__alpha?.state), {
-      timeout: 30_000,
+      // 60 s: the first test after a fresh dev server waits for Vite's cold compile
+      timeout: 60_000,
     })
     .toBe('home');
 }
@@ -179,22 +181,27 @@ test('pose matches — the silhouette capture passes every ACCEPTANCE gate', asy
 });
 
 test('D10 — the particle hand keeps the hand shape', async ({ page }) => {
+  test.setTimeout(180_000);
   const dir = 'outputs/qa/form';
   mkdirSync(dir, { recursive: true });
-  // the product's tier (no ?tier): the gate was set on the medium tier
-  await reachHome(page);
-  await page.mouse.move(-5, -5);
-  await page.waitForTimeout(800);
-  await page.evaluate(() =>
-    (window as unknown as { __alpha: { setTimeScale(v: number): void } }).__alpha.setTimeScale(0),
-  );
-  await page.waitForTimeout(200);
-  const shot = `${dir}/particles-full.png`;
-  await page.screenshot({ path: shot });
+  // the product's tier (no ?tier), five seeds: the gate is on their median (D27)
+  const shots: string[] = [];
+  for (const seed of [20260919, 1, 2, 3, 4]) {
+    await reachHome(page, `/?seed=${seed}`);
+    await page.mouse.move(-5, -5);
+    await page.waitForTimeout(800);
+    await page.evaluate(() =>
+      (window as unknown as { __alpha: { setTimeScale(v: number): void } }).__alpha.setTimeScale(0),
+    );
+    await page.waitForTimeout(200);
+    const shot = `${dir}/particles-full-seed${seed}.png`;
+    await page.screenshot({ path: shot });
+    shots.push(shot);
+  }
 
   let code = 0;
   try {
-    execFileSync('python3', ['scripts/particle_shape.py', shot, '--out', `${dir}/particle-shape`], { stdio: 'pipe' });
+    execFileSync('python3', ['scripts/particle_shape.py', ...shots, '--out', `${dir}/particle-shape`], { stdio: 'pipe' });
   } catch (e) {
     code = (e as { status?: number }).status ?? -1;
   }

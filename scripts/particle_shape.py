@@ -18,12 +18,15 @@ further along the forearm axis than HAND_REGION_BACK_PX before the reference
 wrist keypoint is left out, because the forearm band next to the reference's
 wrist cut broke up under reseeding and made the score swing.
 
-Gates (decision D10, the user, 2026-09-25): a regression gate set just below
-the worst of five seeds measured at the medium tier when it was chosen
-(IoU 0.868-0.887, contour mean 5.1-6.8 px, negative space 0.68-0.74, tips
-<= 7.6 px): IoU >= 0.85, contour mean <= 7.5 px, negative-space IoU >= 0.65,
-index tip <= 8 px, other tips <= 9 px. Contour p95 is reported, not gated (it
-ranged 12-28 px across seeds). These are not the right mesh's gates: the
+Gates (decisions D10 and D27, the user): a regression gate on the MEDIAN over
+five seeds (the test uses 20260919 and 1-4), set just outside the worst median
+of every 5-seed subset of ten seeds measured at the medium tier after D28/D29
+(outputs/qa/calib/evidence/step6fix/d27-seeds.json: subset medians IoU
+0.855-0.880, contour mean 5.71-6.65 px, negative space 0.671-0.725, tips
+<= 4.24 / 4.47 / 5.1 / 5.66 px): IoU >= 0.84, contour mean <= 7.0 px,
+negative-space IoU >= 0.65, index tip <= 6 px, other tips <= 7 px. Contour p95
+is reported, not gated. (D10's first version scored one seed over the whole
+unignored hand and arm; a single seed's noise was as large as its margin.) These are not the right mesh's gates: the
 density rule blurs the outline a few px outward and the app's cloud is sparser
 than the drawing where the thumb crosses the palm and inside the curled digits
 (docs/ACCEPTANCE.md §7).
@@ -63,11 +66,11 @@ def hand_region_ignore() -> np.ndarray:
     along = (xx - wx) * math.cos(a) + (yy - wy) * math.sin(a)
     return along > -HAND_REGION_BACK_PX
 
-GATES = {                    # decision D10
-    "iou_min": 0.85,
-    "contour_mean_max_px": 7.5,
+GATES = {                    # decisions D10, D27: on the median over five seeds
+    "iou_min": 0.84,
+    "contour_mean_max_px": 7.0,
     "negative_space_iou_min": 0.65,
-    "tip_max_px": {"index_tip": 8.0, "middle_tip": 9.0, "ring_tip": 9.0, "pinky_tip": 9.0},
+    "tip_max_px": {"index_tip": 6.0, "middle_tip": 7.0, "ring_tip": 7.0, "pinky_tip": 7.0},
 }
 
 
