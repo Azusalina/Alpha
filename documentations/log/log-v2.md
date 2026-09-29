@@ -5,15 +5,11 @@ Branch: developed on `claude/v1-form-acceptance` (from `main` @ `0453b74`), then
 Source: `/home/a/Documents/Alpha/alpha-v1-review/review.md` (independent review of round 1)
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 
-**Status: IN PROGRESS — session 6, 2026-09-25** (repo root, `main`).
-Steps 1–5 are closed: the three foundations, both step-3 builder stages
-("arm", "digits") and both calibrated hands passed independent verification,
-the app runs on the Blender assets, and step 5's tests and evidence are in
-(Playwright 11 / 11, D10 gate). Step 6 (the adversarial review, D26) is closed with D27–D30 fixed; next is
-step 7, the user's desktop run.
-Decisions D1–D30 are below. Pick up at "Resume here";
-[`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is out of date (it
-predates step 3 closing).
+**Status: COMPLETE — 2026-09-29, session 7** (repo root, `main`).
+Steps 1–8 are closed. Step 7 (the user's desktop run) reached home on hardware
+GL but presented a steady 31 fps; the user recorded that as a known issue for the
+next round (D31). Decisions D1–D31 are below; "Next round" (before "Resume here") lists what
+was deferred. [`NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) is current.
 
 ---
 
@@ -201,6 +197,7 @@ standing as D1–D16.
 | D28 | Step 6's aesthetic majors: planar breaks in the sculpture (mass-1), the forearm's flat dark shadow band (mass-2), the tail not dispersing past the wrist and the cloud ~1.7x the drawing's ink (particles). Which round? | **This round fixes the lighting (mass-2) only**; mass-1 and the two particle majors go to the next round (the user, 2026-09-29). |
 | D29 | Step 6 (seed-1): the shader's fract(sin()) per-particle constants differ per GPU, so the same seed gives the same frame only on the same device. Portable hash, or per-device claim? | **A GPU-portable integer hash** (the user, 2026-09-29); the home dot arrangement changes once and D10 is re-measured. |
 | D30 | Step 6 minors to fix this round? | **Ink the left thumbnail's D** (seams-2) and **reset the idle / breathing clock on leaving home** (seed-4) (the user, 2026-09-29). The gap-crossing construction line (pose-gapline), the 4.2 px contour joint (seams-3) and every other minor go to the next round. |
+| D31 | Step 7: Tauri dev on the target machine presents a steady 31 fps (p50 32 ms, p95 33 ms) at KDE 125 % / DPR 2 (buffer 2466×1365); hardware GL confirmed (Iris Xe, DMA-BUF), WebKitGTK's vblank is a 60 Hz timer. The spec's initial target is 60 fps near 1080p at DPR 1, not the measured condition. Re-measure first, close as a known issue, or investigate this round? | **Record it as a known issue and close step 7** (the user, 2026-09-29). Next round: separate WebKitGTK pacing from GPU load (DPR 1 / 100 %, `?tier=low`, the same scene in Chromium, the release build), then fix. |
 
 ---
 
@@ -604,7 +601,41 @@ by an independent skeptic; minors are unverified.
   60 s); tsc clean; `capture-qa.mjs` re-captured the startup frames, home, hover
   pair and the three view modes.
 
-## Resume here
+## Step 7 — desktop run (the user, 2026-09-29)
+
+Raw data: `docs/notes.md`; table and reading: `outputs/qa/desktop-check.md`.
+Arch, kernel 7.2.7, WebKitGTK 2.52.6, Mesa 26.2.3, Plasma 6.7.5 on Wayland,
+eDP-1 2560×1600 @ 144 Hz at 125 %. The user installed `@tauri-apps/cli` ^2.12.0
+(committed with the lockfile).
+
+- `webkit://gpu`: hardware acceleration on, Mesa Intel Iris Xe (RPL-P), DMA-BUF
+  renderer, GBM, MSAA 8, device scale 2, **VBlank: Timer, 60 Hz**.
+- Panel (Tauri dev, medium tier, 12 000 particles, 1644×910 at DPR 2, buffer
+  2466×1365), two runs plus one from the inspector: p50 32 ms, p95 33 ms, max
+  51–127 ms, 31.25 fps, 0–2 long frames; first frame 940 ms, worst startup frame
+  114 ms. The renderer shows WebKit's masked "Apple GPU", as expected.
+- Only template row 1 (at 125 %) was brought back; the other scales, 60 Hz mode,
+  release build, Chromium and the behaviour table were not. The frame rate is
+  D31, deferred to the next round.
+
+## Step 8 — documentation (2026-09-29, closed)
+
+`README.md` status, `docs/VISUAL_V1.md` (§1 landmarks, §2–3 hand sources, §4
+phases, §5 light, §7 measured alignment rewritten for round 2),
+`docs/DECISIONS.md` (§3 superseded, §6 desktop shell, §11 round-2 decisions) and
+`NEXT_SESSION_PROMPT.md` updated.
+
+## Next round (deferred by the user)
+
+- **D31** desktop frame rate (see above).
+- **D28** the sculpture's planar breaks (mass-1); the particle tail not
+  dispersing past the wrist; the cloud ~1.7× the drawing's ink density.
+- **D30** the gap-crossing construction line (pose-gapline); the 4.2 px contour
+  joint (seams-3).
+- The builder requests collected in "Step 2 closed".
+- Navigation (review §C) was out of scope for round 2.
+
+## Resume here (round 2's plan, kept for the record)
 
 Order matters: 1–3 unblock 4, and 4 is the round's main deliverable.
 

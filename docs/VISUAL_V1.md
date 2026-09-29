@@ -15,23 +15,24 @@ Two hands from *The Creation of Adam*: the human hand entering from the upper
 left, the particle hand from the lower right, index fingertips close but not
 touching.
 
-Round-1 landmarks (the script that measured them is retired; the current
-reference keypoints, named per decisions D1/D2, are
-`assets-source/reference/keypoints.json` — see `docs/ACCEPTANCE.md`. This
-table is rewritten at the end of round 2):
+Landmarks are the reference keypoints, named per decisions D1/D2
+(`assets-source/reference/keypoints.json`, with their uncertainties; gates in
+`docs/ACCEPTANCE.md`). The ones that set the composition:
 
 | Landmark | Normalised (x, y) | Reference px |
 |---|---|---|
-| Human index fingertip | 0.4775, 0.4378 | 785, 419 |
+| Human index fingertip | 0.4781, 0.4347 | 786, 416 |
 | Particle index fingertip | 0.4897, 0.4566 | 805, 437 |
-| Human thumb tip | 0.2561, 0.4681 | 421, 448 |
-| Human lowest curled fingertip | 0.3650, 0.5465 | 600, 523 |
-| Wrist entry, upper edge | 0.0316, 0.1609 | 52, 154 |
-| Wrist entry, lower edge | 0.0231, 0.2769 | 38, 265 |
-| Particle hand, far wrist | 0.9945, 0.8161 | 1635, 781 |
+| Human thumb tip (nail facing the viewer) | 0.3418, 0.4786 | 562, 458 |
+| Human middle fingertip (lowest curled) | 0.3656, 0.5465 | 601, 523 |
+| Human wrist joint | 0.1685, 0.2048 | 277, 196 |
+| Particle thumb tip | 0.5462, 0.7032 | 898, 673 |
+| Particle wrist joint | 0.7799, 0.7414 | 1282, 710 |
 
-- **Fingertip gap:** 26.9 px = **1.64 % of frame width**. This is the number the
-  render is checked against, not a visual impression.
+- **Fingertip gap:** 30.4 px between the two index silhouettes
+  (`scripts/overlay_check.py`'s contact measurement) = **1.85 % of frame
+  width**, tolerance ±6.8 px. This is the number the render is checked against,
+  not a visual impression. (Round 1 measured 26.9 px between its own landmarks.)
 - **Ink balance:** 42 843 px upper-left half vs 40 393 px lower-right half in the
   reference — the two hands carry near-equal weight.
 - **Centre:** the quiet space between the fingertips sits at 0.484, 0.447 —
@@ -39,18 +40,26 @@ table is rewritten at the end of round 2):
 
 ## 2. Human hand (left)
 
-- Soft, plaster-like solid. Volume reads from anatomy, silhouette, shading and
+- Soft, plaster-like solid: one continuous mesh built in Blender from the pose
+  file (`docs/HAND_ASSETS.md`), with knuckle relief, nail plates and a forearm
+  that continues off frame. Volume reads from anatomy, silhouette, shading and
   self-occlusion — not from outline weight and not from post-processing.
-- Geometric construction lines drawn from the same rig that generates the
-  surface: wrist sections centred on the wrist joint, a knuckle ridge through
+- Geometric construction lines drawn from the same pose rig as the mesh, plus
+  the mesh's own outer contour and the thumbnail's D, both exported by the
+  builder: wrist sections centred on the wrist joint, a knuckle ridge through
   the MCP joints, phalanx axes along the actual bone chains, proportion ticks at
   and between joints, and alignment rays carrying the hand's direction off frame.
 - The forearm continues past the frame edge; no cut-off stump is ever visible.
 
 ## 3. Particle hand (right)
 
-- A point cloud sampled from the same hand surface, mirrored and translated so
-  its index fingertip lands on the measured landmark.
+- A point cloud sampled once from the right hand's own Blender mesh
+  (`public/assets/hand-right.glb`), which is calibrated to the reference like
+  the left one. The same seed rebuilds the same cloud bit for bit, and every
+  per-particle constant comes from an integer hash on the CPU, so the same seed
+  gives the same frame on any GPU (decision D29).
+- The thumbnail's outline is traced with a small share of fine points, because
+  the plate's relief alone is too faint to read in particles (D20, D21).
 - Fingers, finger gaps, back of hand and wrist are readable; density thins along
   the lower-right diagonal into a dissipation tail.
 - Sampling is clustered, not uniform: deposits and gaps, with varied point size.
@@ -72,8 +81,8 @@ of that timeline:
 | Phase | Window | What happens |
 |---|---|---|
 | approach | 0.00 – 0.62 | Both hands travel in from their corners to the final composition |
-| constructionDraw | 0.05 – 0.72 | Scaffolding and contour drawn in order along their own arc length |
-| surfaceReveal | 0.42 – 0.95 | The plaster surface resolves outward from the wrist to the fingertips |
+| constructionDraw | 0.04 – 0.70 | Wrist structure → metacarpals → knuckles and phalanges → outer contour, each along its own arc length |
+| surfaceReveal | 0.58 – 0.97 | The plaster surface resolves out of the drawing, from the wrist to the fingertips |
 | particleGather | 0.10 – 0.90 | Floating particles condense into the hand form |
 | settle | 0.82 – 1.00 | Construction lines ease back to resting weight |
 
@@ -94,6 +103,11 @@ Hard constraints during startup and at home:
   the form read as flat.
 - Construction lines draw *over* the solid (`depthTest: false`), as they do
   in the reference. Inside the volume they are simply occluded.
+- Light (`src/scene/AlphaScene.tsx`): a hemisphere (0.45), a key from the
+  upper left and in front (2.8), a fill from below the forearm (0.8) and a
+  little ambient (0.1). The fill keeps the forearm's shadow side a graded
+  cylinder rather than a flat dark band (decision D28), while the hand's
+  brightest plaster stays below the paper.
 - **No full-screen divide line in v1.** The composition carries the axis on its
   own; an added diagonal fights the geometric reference. Recorded as an
   engineering default, open to revision.
@@ -109,17 +123,23 @@ Hard constraints during startup and at home:
 
 ## 7. Measured alignment
 
-Render against the reference at 1644 × 957 (`npm run qa:overlay`):
+Round 2, 2026-09-29: the app's `silhouette` view mode at 1644 × 957, scored by
+`scripts/overlay_check.py` against the reference masks (Playwright "pose
+matches"; gates in `docs/ACCEPTANCE.md`, `assets-source/reference/thresholds.json`):
 
-| Landmark | Offset |
-|---|---|
-| Human index fingertip | 15.3 px (0.93 % of frame width) |
-| Human thumb tip | 10.0 px (0.61 %) |
-| Human lowest curled fingertip | 21.5 px (1.31 %) |
-| Particle index fingertip | 10.3 px (0.63 %) |
+| | Left (human) | Right (particle hand's mesh) |
+|---|---|---|
+| IoU | 0.984 (gate ≥ 0.960) | 0.933 (≥ 0.918) |
+| Contour mean / p95 | 0.78 / 2.0 px (≤ 2.0 / 2.0) | 3.29 / 7.6 px (≤ 3.7 / 8.9) |
+| Negative-space IoU | 0.933 (≥ 0.865) | 0.864 (≥ 0.825) |
+| Fingertips (index, middle, ring, pinky) | 2.2, 1.4, 2.2, 1.0 px | 1.0, 1.0, 1.4, 3.2 px |
 
-Max 21.5 px, mean 14.3 px. Offsets are to the rendered silhouette, which sits a
-finger radius outside the joint it is measured against.
+Index-tip gap 29.1 px against the reference's 30.4 px (−1.3 px, tolerance
+6.8 px). The particle cloud itself, scored with the reference right mask's
+density rule over the fingers and palm, median of five seeds: IoU 0.863,
+contour mean 6.15 px, negative space 0.717 (decisions D10, D27).
+
+Round 1's landmark offsets (max 21.5 px, mean 14.3 px) are superseded.
 
 ## 8. Accessibility and preferences
 
