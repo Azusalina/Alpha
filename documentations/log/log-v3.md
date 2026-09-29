@@ -5,7 +5,7 @@ Branch: `main`, repo root `/home/a/Documents/Alpha`.
 Previous round: [`log-v2.md`](log-v2.md) (form and acceptance, D1–D31, complete).
 Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 
-**Status: part 1 (human side) complete; part 2 (system side) in progress.**
+**Status: parts 1 and 2 complete (human side and system side). Nothing pushed.**
 
 ---
 
@@ -102,12 +102,56 @@ Interfaces: [`docs/CONTRACTS.md`](../../docs/CONTRACTS.md) §12.
 - Screenshots: `outputs/qa/human/` (`p000`…`p100`, `focus`, `node`,
   `human-transition-sheet.png`). SwiftShader — functional only, no frame times.
 
-## Part 2 — system side
+## Part 2 — system side (done)
 
-(in progress)
+### Built
+
+- `tree/layout.ts` (+ `layoutCache.ts`): layered tidy layout of the same
+  GraphData — root at the left, depth along a slightly descending axis, each
+  subtree a band of slots, the crowded depth-2 level zig-zagged; the whole
+  layout scaled into a box clear of the caption and the detail panel. (A radial
+  fan was tried and dropped: height-bound, it shrank the tree until level 1
+  touched the root.)
+- `tree/mapping.ts`: right-hand particles → role 0 node cluster (a ball per
+  node, share ∝ radius², matched along the growth axis), role 1 along a tree
+  edge (22 %), role 2 tail (`dissolve ≥ 0.55`) scatters out and fades.
+- `ParticleHand`: `aTarget / aRole / aNode`, `uMorph` with per-particle delayed
+  clock and zero-ended swirl; breathing and pointer disturbance vanish as the
+  particle arrives; hovered / selected node clusters darken and grow.
+- `scene/TreeView.tsx`: tree edges drawn along their length from the root after
+  p ≈ 0.62, dashed bowed cross-links last, a construction circle round every
+  node; hover picks by projected distance; click selects.
+- `HumanHand`: auxiliary exit — plaster fades, the drawing slides up-left and fades.
+- `ui/SystemPanel.tsx` (caption, hovered record, no input box — IDEA §4),
+  `ui/NodeDetail.tsx` shared with the brain drill-in (parent, children,
+  cross-links followable). Escape: detail → home. Top-left corner returns.
+- `navigate('system')`, `systemProgress()`, `SYSTEM_PHASES`, camera to SYSTEM.
+
+### Bug found
+
+- `hotzonesArmed()` did not include `system`, so no corner existed to return
+  (caught by V08 system).
+
+### Verified
+
+- `tsc --noEmit` clean; Playwright **18/18** (adds V08 system, tree detail /
+  cross-link / Escape, V12 system ten round trips bit-identical).
+- Screenshots: `outputs/qa/system/` (`s015`…`s100`, `s-node`,
+  `system-transition-sheet.png`). SwiftShader — functional only.
+
+## Open for the user (not decided here)
+
+1. Art review of both destinations from the screenshot sheets (brain density
+   and size, tree layout, construction circles, transition timing 2.6 s).
+2. Whether the brain drill-in and the tree should share selection (select a
+   record on one side, see it highlighted on the other).
+3. Deferred from round 2 / the earlier plan: D31 desktop frame rate (the new
+   destinations add ~12 k brain particles, drawn only away from home — needs a
+   hardware measurement), black scheme, D28 / D30 art items.
+4. Push (`! git push origin main`).
 
 ## Resume here
 
-- Part 2: right hand → technology tree at SYSTEM using the same GraphData
-  (`fixtures/graph.ts`), mirrored machinery (`navigate('system')`, auxiliary
-  left-hand exit, bottom-right destination, top-left returns).
+- Both sides work end to end. Next: the user's art review of
+  `outputs/qa/human/human-transition-sheet.png` and
+  `outputs/qa/system/system-transition-sheet.png`, then the open items above.

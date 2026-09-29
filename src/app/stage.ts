@@ -7,8 +7,8 @@
  * sees the state *name* change, never the per-frame value.
  *
  * Round 1–2 implemented `loading → intro → home`. Round 3 (log-v3.md) adds
- * `home → toHuman → human → fromHuman → home`; the system side is declared but
- * not reachable yet.
+ * `home → toHuman → human → fromHuman → home` and
+ * `home → toSystem → system → fromSystem → home`.
  */
 
 import type { QualitySettings } from '../config/quality';
@@ -43,7 +43,7 @@ export function destinationsAllowed(state: SceneState): boolean {
 
 /** Navigation hot zones only arm once home is stable (spec 2, 启动). */
 export function hotzonesArmed(state: SceneState): boolean {
-  return state === 'home' || state === 'human';
+  return state === 'home' || state === 'human' || state === 'system';
 }
 
 /**
@@ -65,6 +65,14 @@ export function humanProgress(): number {
   const s = stage.state;
   if (s === 'human') return 1;
   if (s === 'toHuman' || s === 'fromHuman') return stage.progress;
+  return 0;
+}
+
+/** Same for the home ↔ system transition. */
+export function systemProgress(): number {
+  const s = stage.state;
+  if (s === 'system') return 1;
+  if (s === 'toSystem' || s === 'fromSystem') return stage.progress;
   return 0;
 }
 
@@ -148,7 +156,7 @@ class Stage {
     // depends on how long home was shown: the breathing phase is a function of
     // the seed and the time since home only (decision D30).
     if (next === 'home' || leavingHome) this.idleTime = 0;
-    if (next === 'toHuman') this.destTime = 0;
+    if (next === 'toHuman' || next === 'toSystem') this.destTime = 0;
     for (const l of this.listeners) l(next);
   }
 

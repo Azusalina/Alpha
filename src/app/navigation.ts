@@ -6,16 +6,17 @@
  * the same path with p running from 1 back to 0 — never a replay of startup.
  * While a transition runs, further requests are ignored (V09).
  *
- * Round 3 part 1 (log-v3.md, D35): home ↔ human. The system side comes next.
+ * Round 3 (log-v3.md, D35): home ↔ human, then home ↔ system.
  */
 
 import gsap from 'gsap';
 
 import { FOCUS, TRANSITION } from '../config/timing';
 import { humanStore } from './humanStore';
+import { treeStore } from './treeStore';
 import { stage } from './stage';
 
-export type Destination = 'human' | 'home';
+export type Destination = 'human' | 'system' | 'home';
 
 let driver: gsap.core.Tween | null = null;
 
@@ -33,6 +34,10 @@ export function navigate(to: Destination, reduced = false): boolean {
     run('toHuman', 'human', 0, 1, reduced);
     return true;
   }
+  if (to === 'system' && s === 'home') {
+    run('toSystem', 'system', 0, 1, reduced);
+    return true;
+  }
   if (to === 'home' && s === 'human') {
     // leave the drill-in first, as part of the same move
     if (humanStore.get().focused) focusBrain(false, reduced);
@@ -40,12 +45,17 @@ export function navigate(to: Destination, reduced = false): boolean {
     run('fromHuman', 'home', 1, 0, reduced);
     return true;
   }
+  if (to === 'home' && s === 'system') {
+    treeStore.reset();
+    run('fromSystem', 'home', 1, 0, reduced);
+    return true;
+  }
   return false;
 }
 
 function run(
-  via: 'toHuman' | 'fromHuman',
-  end: 'human' | 'home',
+  via: 'toHuman' | 'fromHuman' | 'toSystem' | 'fromSystem',
+  end: 'human' | 'system' | 'home',
   from: number,
   to: number,
   reduced: boolean,
@@ -64,7 +74,10 @@ function run(
     onComplete: () => {
       stage.progress = to;
       driver = null;
-      if (end === 'home') humanStore.reset();
+      if (end === 'home') {
+        humanStore.reset();
+        treeStore.reset();
+      }
       stage.set(end);
     },
   });
@@ -91,16 +104,16 @@ export function focusBrain(on: boolean, reduced = false): void {
   focusTween = tl;
 }
 
-/** Test/dev hook: jump the human transition to an exact p without real time. */
-export function scrubHuman(p: number): void {
+/** Test/dev hook: jump a transition to an exact p without real time. */
+export function scrubTransition(side: 'human' | 'system', p: number): void {
   driver?.kill();
   driver = null;
   const c = Math.min(1, Math.max(0, p));
   if (c >= 1) {
     stage.progress = 1;
-    stage.set('human');
+    stage.set(side);
   } else {
-    stage.set('toHuman');
+    stage.set(side === 'human' ? 'toHuman' : 'toSystem');
     stage.progress = c;
   }
 }

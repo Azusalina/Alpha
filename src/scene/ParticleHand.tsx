@@ -25,10 +25,14 @@ import {
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { digestCloud, inspection } from '../app/inspection';
-import { humanProgress, stage } from '../app/stage';
+import { humanProgress, stage, systemProgress } from '../app/stage';
+import { treeStore } from '../app/treeStore';
 import { PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
-import { IDLE, REDUCED_MOTION, STARTUP, TRANSITION, phaseProgress } from '../config/timing';
+import { IDLE, REDUCED_MOTION, STARTUP, SYSTEM_PHASES, TRANSITION, phaseProgress } from '../config/timing';
+import { GRAPH } from '../fixtures/graph';
+import { treeLayout } from '../tree/layoutCache';
+import { mapToTree } from '../tree/mapping';
 import { useHandContour, useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { dissipationDirection, sampleParticleHand, scatterOrigin } from '../hand/sampling';
@@ -98,6 +102,12 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     g.setAttribute('aDissolve', new Float32BufferAttribute(cloud.dissolve, 1));
     g.setAttribute('aRim', new Float32BufferAttribute(cloud.rim, 1));
     g.setAttribute('aHash', new Float32BufferAttribute(cloud.hash, 3));
+
+    // the technology tree this hand becomes at the system destination
+    const tree = mapToTree(cloud.home, cloud.dissolve, cloud.count, GRAPH, treeLayout());
+    g.setAttribute('aTarget', new Float32BufferAttribute(tree.target, 3));
+    g.setAttribute('aRole', new Float32BufferAttribute(tree.role, 1));
+    g.setAttribute('aNode', new Float32BufferAttribute(tree.node, 1));
     g.computeBoundingSphere();
     return g;
   }, [source, contour, rig, tier, toward]);
@@ -139,6 +149,11 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uSizeScale: { value: 1 },
           uExit: { value: 0 },
           uToward: { value: new Vector3() },
+          uMorph: { value: 0 },
+          uSettle: { value: 0 },
+          uDestTime: { value: 0 },
+          uHoverNode: { value: -1 },
+          uSelectedNode: { value: -1 },
           uColor: { value: new Color(PALETTE.ink) },
         },
         vertexShader: /* glsl */ `
@@ -149,6 +164,9 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           attribute float aDissolve;
           attribute float aRim;
           attribute vec3 aHash;
+          attribute vec3 aTarget;
+          attribute float aRole;
+          attribute float aNode;
 
           uniform float uGather;
           uniform float uTime;
@@ -160,6 +178,11 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uniform float uSizeScale;
           uniform float uExit;
           uniform vec3 uToward;
+          uniform float uMorph;
+          uniform float uSettle;
+          uniform float uDestTime;
+          uniform float uHoverNode;
+          uniform float uSelectedNode;
 
           varying float vAlpha;
 
@@ -201,13 +224,43 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             vec3 jitter = (aHash - 0.5) * vec3(0.9, 0.9, 0.6);
             pos += (uToward * (0.8 + 1.6 * h3) + jitter) * x;
 
+            // System destination (spec 3 前往右下): the hand becomes the tree.
+            // Each particle leaves on its own clock (fingertips and knuckles
+            // first, the forearm last), flies with a mid-course swirl whose
+            // envelope is zero at both ends, and settles into a node cluster or
+            // onto an edge; the tail scatters out of view instead. At uMorph = 0
+            // nothing here moves anything, so home is exact.
+            float leave = aDissolve * 0.45 + h1 * 0.2;
+            float mm = clamp((uMorph - leave) / 0.35, 0.0, 1.0);
+            mm = mm * mm * mm * (mm * (mm * 6.0 - 15.0) + 10.0);
+            float lit = 0.0;
+            if (aRole < 1.5) {
+              vec3 axis = normalize(aTarget - pos + vec3(1e-4));
+              vec3 side = normalize(cross(axis, vec3(0.0, 0.0, 1.0)) + vec3(1e-4));
+              vec3 up = cross(axis, side);
+              float ang = 6.2831853 * (h2 + mm * (0.4 + h3));
+              vec3 swirl = (side * cos(ang) + up * sin(ang)) * sin(3.14159265 * mm) * (0.08 + 0.16 * h3);
+              // a faint shimmer once the tree has settled
+              float ph = uDestTime * 0.9 + h2 * 6.2831853;
+              vec3 shimmer = vec3(sin(ph), cos(ph * 0.8), 0.0) * 0.0035 * uSettle;
+              pos = mix(pos, aTarget, mm) + swirl + shimmer;
+              float isHover = step(abs(aNode - uHoverNode), 0.5);
+              float isSel = step(abs(aNode - uSelectedNode), 0.5);
+              lit = max(isHover * 0.8, isSel) * uSettle;
+            } else {
+              pos += (uToward * (0.9 + 1.8 * h3) + (aHash - 0.5) * 0.8) * mm;
+            }
+            float fade = aRole < 1.5 ? (aRole > 0.5 ? mix(1.0, 0.6, mm) : 1.0) : 1.0 - mm;
+
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
-            gl_PointSize = aSize * uSizeScale / max(0.25, -mv.z);
+            gl_PointSize = aSize * (1.0 + 0.7 * lit) * uSizeScale / max(0.25, -mv.z);
 
             // Larger points are lighter (aTone), the tail reads lighter still, and
-            // everything fades up as it gathers.
-            vAlpha = aTone * (1.0 - 0.45 * aDissolve) * clamp(g * 1.6, 0.0, 1.0) * (1.0 - x);
+            // everything fades up as it gathers. On the tree the tail's lightness
+            // no longer applies: a node is solid ink.
+            float tailLight = mix(1.0 - 0.45 * aDissolve, 1.0, mm * step(aRole, 1.5));
+            vAlpha = aTone * tailLight * clamp(g * 1.6, 0.0, 1.0) * (1.0 - x) * fade * (1.0 + 0.3 * lit);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -239,6 +292,14 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
     material.uniforms.uGather.value = phaseProgress(p, STARTUP.phases.particleGather);
     material.uniforms.uExit.value = phaseProgress(humanProgress(), TRANSITION.phases.auxiliaryExit);
     material.uniforms.uToward.value.copy(toward);
+    const sp = systemProgress();
+    material.uniforms.uMorph.value = phaseProgress(sp, SYSTEM_PHASES.morph);
+    material.uniforms.uSettle.value = phaseProgress(sp, SYSTEM_PHASES.settle);
+    if (stage.state === 'system') stage.destTime += delta * stage.timeScale;
+    material.uniforms.uDestTime.value = stage.destTime;
+    const tree = treeStore.get();
+    material.uniforms.uHoverNode.value = tree.hovered ? GRAPH.nodes.findIndex((n) => n.id === tree.hovered) : -1;
+    material.uniforms.uSelectedNode.value = tree.selected ? GRAPH.nodes.findIndex((n) => n.id === tree.selected) : -1;
 
     if (stage.state === 'home') stage.idleTime += delta * stage.timeScale;
     material.uniforms.uTime.value = stage.idleTime / IDLE.breathPeriod;

@@ -1,5 +1,5 @@
 /**
- * Round 3 navigation checks, human side (log-v3.md; spec 12 V05–V09, V12).
+ * Round 3 navigation checks, both sides (log-v3.md; spec 12 V05–V09, V12).
  *
  * Interaction is driven with real pointer and keyboard input; the dev
  * inspector is used only to read state and to freeze the clock for the
@@ -13,7 +13,9 @@ type Alpha = {
   state: string;
   progress: number;
   setTimeScale(v: number): void;
-  navigate(to: 'human' | 'home'): boolean;
+  navigate(to: 'human' | 'system' | 'home'): boolean;
+  treeUi(): { selected: string | null; hovered: string | null };
+  tree: { screenOf(id: string): [number, number] | null };
   humanUi(): { focused: boolean; selected: string | null; reply: string | null; focusP: number; growP: number };
   brain: { screenOf(id?: string): [number, number] | null };
 };
@@ -45,6 +47,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('V08 human — dwell top-left travels to the brain, dwell bottom-right returns', async ({ page }) => {
+  test.setTimeout(90_000); // two full-length transitions on a software renderer
   await page.goto('/');
   await waitFor(page, 'home');
   await expect(page.getByTestId('particle-brain')).toHaveCount(0);
@@ -133,6 +136,69 @@ test('V12 — ten round trips land on the same home frame', async ({ page }) => 
     await waitFor(page, 'home', 10_000);
   }
   await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  await page.waitForTimeout(300);
+  const after = await page.screenshot();
+  expect(after.equals(before)).toBe(true);
+});
+
+test('V08 system — dwell bottom-right grows the tree from the right hand, dwell top-left returns', async ({ page }) => {
+  test.setTimeout(90_000); // two full-length transitions on a software renderer
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await expect(page.getByTestId('technology-tree')).toHaveCount(0);
+
+  await dwell(page, 'hotzone-system');
+  await waitFor(page, 'system', 10_000);
+  await expect(page.getByTestId('technology-tree')).toBeVisible();
+  // natural language has one entrance only, on the human side (IDEA §4)
+  expect(await page.locator('input, textarea').count()).toBe(0);
+  await expect(page.getByTestId('hotzone-system')).toHaveCount(0);
+
+  await dwell(page, 'hotzone-human');
+  await waitFor(page, 'home', 10_000);
+  await expect(page.getByTestId('technology-tree')).toHaveCount(0);
+  expect((page as unknown as { __errors: string[] }).__errors).toEqual([]);
+});
+
+test('tree — a node opens its detail, a linked record can be followed, Escape closes then returns', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await dwell(page, 'hotzone-system');
+  await waitFor(page, 'system', 10_000);
+
+  const n = await alpha(page, (a) => a.tree.screenOf('n07'));
+  await page.mouse.move(n![0], n![1]);
+  await expect.poll(async () => (await alpha(page, (a) => a.treeUi())).hovered).toBe('n07');
+  await page.mouse.click(n![0], n![1]);
+  const detail = page.getByTestId('node-detail');
+  await expect(detail).toContainText('示例记录 07');
+  await detail.getByRole('button', { name: '示例记录 15' }).click();
+  await expect(detail).toContainText('示例记录 15');
+
+  await page.keyboard.press('Escape');
+  await expect(detail).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await waitFor(page, 'home', 10_000);
+});
+
+test('V12 system — ten round trips land on the same home frame', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitFor(page, 'home');
+  await alpha(page, (a) => a.setTimeScale(0));
+  await page.mouse.move(-5, -5);
+  const trip = async () => {
+    expect(await alpha(page, (a) => a.navigate('system'))).toBe(true);
+    await waitFor(page, 'system', 10_000);
+    expect(await alpha(page, (a) => a.navigate('home'))).toBe(true);
+    await waitFor(page, 'home', 10_000);
+  };
+  await trip();
+  await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  const before = await page.screenshot();
+  for (let i = 0; i < 10; i++) await trip();
   await page.waitForTimeout(300);
   const after = await page.screenshot();
   expect(after.equals(before)).toBe(true);

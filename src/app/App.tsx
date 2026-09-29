@@ -20,9 +20,11 @@ import { AlphaScene } from '../scene/AlphaScene';
 import { Diagnostics } from '../ui/Diagnostics';
 import { Hotzones } from '../ui/Hotzones';
 import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
+import { SystemPanel } from '../ui/SystemPanel';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
 import { humanStore } from './humanStore';
-import { focusBrain, navigate, scrubHuman } from './navigation';
+import { focusBrain, navigate, scrubTransition } from './navigation';
+import { treeStore } from './treeStore';
 import {
   armedCorners,
   hotzonesArmed,
@@ -115,14 +117,14 @@ export function App() {
       resumeStartup() {
         gsap.globalTimeline.resume();
       },
-      /** Round 3: travel as a dwell would ('human' | 'home'); false if not applicable. */
-      navigate(to: 'human' | 'home') {
+      /** Round 3: travel as a dwell would ('human' | 'system' | 'home'); false if not applicable. */
+      navigate(to: 'human' | 'system' | 'home') {
         return navigate(to, reducedMotion);
       },
-      /** Jump the home → human transition to an exact p (screenshots). */
-      scrubHuman(p: number) {
+      /** Jump a home → destination transition to an exact p (screenshots). */
+      scrubTransition(side: 'human' | 'system', p: number) {
         gsap.globalTimeline.pause();
-        scrubHuman(p);
+        scrubTransition(side, p);
       },
       resumeTime() {
         gsap.globalTimeline.resume();
@@ -134,21 +136,36 @@ export function App() {
       humanUi() {
         return { ...humanStore.get(), focusP: humanStore.focusP, growP: humanStore.growP };
       },
+      treeUi() {
+        return treeStore.get();
+      },
       quality: QUALITY[tier],
     });
   }, [tier, reducedMotion]);
 
   useHumanKeys(reducedMotion);
 
-  // Dwell on a live corner travels (spec 3 table). The system side is not built
-  // yet (round 3 part 2), so its corner at home only marks itself.
+  // Dwell on a live corner travels (spec 3 table): from home toward that
+  // corner; from a destination, the opposite corner returns home.
   const onDwell = useCallback(
     (corner: 'human' | 'system') => {
-      if (stage.state === 'home' && corner === 'human') navigate('human', reducedMotion);
+      if (stage.state === 'home') navigate(corner, reducedMotion);
       else if (stage.state === 'human' && corner === 'system') navigate('home', reducedMotion);
+      else if (stage.state === 'system' && corner === 'human') navigate('home', reducedMotion);
     },
     [reducedMotion],
   );
+
+  // Escape at the system side: close the detail, then return.
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || stage.state !== 'system') return;
+      if (treeStore.get().selected) treeStore.set({ selected: null });
+      else navigate('home', reducedMotion);
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  }, [reducedMotion]);
 
   // Pause the frame loop when the window is hidden (spec 9).
   const [visible, setVisible] = useState(() => !document.hidden);
@@ -190,6 +207,9 @@ export function App() {
 
       {(sceneState === 'toHuman' || sceneState === 'human' || sceneState === 'fromHuman') && (
         <HumanPanel state={sceneState} reducedMotion={reducedMotion} />
+      )}
+      {(sceneState === 'toSystem' || sceneState === 'system' || sceneState === 'fromSystem') && (
+        <SystemPanel state={sceneState} />
       )}
 
       {/* Dev / VITE_ALPHA_DIAGNOSTICS=1 only; renders nothing until Ctrl+Shift+D. */}

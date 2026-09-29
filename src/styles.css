@@ -310,3 +310,39 @@ body {
   font-size: 0.74rem;
   color: var(--alpha-construction);
 }
+
+/* System destination (round 3 part 2): caption top left, detail on the right. */
+.system-panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--alpha-ink);
+}
+
+.system-panel button {
+  font: inherit;
+  color: inherit;
+}
+
+.system-panel .node-detail {
+  top: auto;
+  bottom: 12%;
+}
+
+.system-panel__caption {
+  position: absolute;
+  left: 4%;
+  bottom: 6%;
+}
+
+.system-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.system-panel__hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: var(--alpha-construction);
+}

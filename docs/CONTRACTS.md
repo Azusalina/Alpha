@@ -340,15 +340,21 @@ in `dist/`).
   hashes. At home they are not drawn.
 - **GraphData** (`fixtures/graph.ts`): 27 neutral placeholder nodes (root, five
   branches, children, leaves) with stable ids `n00`–`n26`, tree edges plus four
-  cross-links. Shared by the brain and (next) the technology tree.
+  cross-links. Shared by the brain and the technology tree.
+- **Technology tree** (`tree/layout.ts`, `tree/mapping.ts`): node world
+  positions around SYSTEM; right-hand particles get `aTarget`, `aRole`
+  (0 node, 1 edge, 2 tail) and `aNode`. `systemProgress()` / `SYSTEM_PHASES`
+  mirror the human side.
 - **Particle size**: every point shader scales by
   `devicePixelsPerUnitDepth(canvasHeightCss, dpr) × POINT_SIZE / viewDepth`
   (never R3F `viewport.factor`, which R3F recomputes from wherever the camera is
   when the Canvas re-renders).
 - **Dev inspector additions** (`window.__alpha`, dev / diagnostics builds only):
-  `navigate('human' | 'home') → boolean`, `scrubHuman(p)`, `resumeTime()`,
+  `navigate('human' | 'system' | 'home') → boolean`, `scrubTransition(side, p)`, `resumeTime()`,
+  `treeUi()`, `tree.screenOf(id)`,
   `focusBrain(on)`, `humanUi()` (focused, selected, hovered, hoverRegion, reply,
   focusP, growP), `brain.screenOf(id?)` (CSS px of the brain centre or a node).
 - **Destination DOM**: `data-testid="particle-brain"` (the panel; exists only in
   `toHuman` / `human` / `fromHuman`, `inert` until `human`), `human-input`,
-  `brain-open` (keyboard way into the brain), `node-detail`.
+  `brain-open` (keyboard way into the brain), `node-detail`;
+  `data-testid="technology-tree"` (system panel, no input box).

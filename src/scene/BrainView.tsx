@@ -558,8 +558,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
     u.uHoverRegion.value = region;
     nodeMaterial.uniforms.uHover.value = hovered ? GRAPH.nodes.findIndex((n) => n.id === hovered) : -1;
     nodeMaterial.uniforms.uSelected.value = ui.selected ? GRAPH.nodes.findIndex((n) => n.id === ui.selected) : -1;
-    domElement.style.cursor =
-      stage.state === 'human' && (hovered || (!ui.focused && ndc && hitBrain(ndc))) ? 'pointer' : '';
+    if (stage.state === 'human') {
+      domElement.style.cursor = hovered || (!ui.focused && ndc && hitBrain(ndc)) ? 'pointer' : '';
+    }
   });
 
   useEffect(() => {

@@ -94,6 +94,24 @@ export const TRANSITION = {
   },
 } as const;
 
+/**
+ * home ↔ system (spec 3 前往右下): the right hand is the primary form and
+ * becomes the technology tree; the left hand is auxiliary and exits along its
+ * construction lines. Same duration and driver as the human side.
+ */
+export const SYSTEM_PHASES = {
+  /** Particles leave the hand for their node / edge targets, each on its own clock. */
+  morph: [0.05, 0.9],
+  /** Tree lines draw after the layout has mostly formed (spec 7.3: p ≈ 0.65). */
+  edges: [0.62, 0.95],
+  /** The left hand: plaster fades, the drawing slides out to the upper left and fades. */
+  leftExit: [0.0, 0.42],
+  /** Destination DOM. */
+  domReveal: [0.9, 1.0],
+  /** Idle shimmer at the destination blends in at the end. */
+  settle: [0.86, 1.0],
+} as const;
+
 /** Drill-in to the brain (decision D34). */
 export const FOCUS = {
   duration: 0.9,

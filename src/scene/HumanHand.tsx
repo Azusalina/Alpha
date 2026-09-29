@@ -28,9 +28,9 @@ import {
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { inspection } from '../app/inspection';
-import { humanProgress, stage } from '../app/stage';
+import { humanProgress, stage, systemProgress } from '../app/stage';
 import { PALETTE } from '../config/composition';
-import { STARTUP, TRANSITION, phaseProgress } from '../config/timing';
+import { STARTUP, SYSTEM_PHASES, TRANSITION, phaseProgress } from '../config/timing';
 import { useHandContour, useHandGeometry } from '../hand/assets';
 import { buildConstructionGeometry } from '../hand/constructionLines';
 import { handRig } from '../hand/pose';
@@ -42,6 +42,9 @@ const APPROACH_OFFSET: [number, number, number] = [-0.55, 0.42, -0.15];
 
 /** The reveal runs past 1 so the soft edge clears the fingertips entirely. */
 const REVEAL_OVERSHOOT = 1.18;
+
+/** Where the drawing slides as it leaves for the system side (world units, up-left). */
+const EXIT_OFFSET: [number, number, number] = [-0.7, 0.42, 0];
 
 /** Cubic ease-out; the hands arrive slowing down rather than snapping. */
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -178,11 +181,16 @@ export function HumanHand() {
     const reveal = phaseProgress(p, STARTUP.phases.surfaceReveal);
     const settle = phaseProgress(p, STARTUP.phases.settle);
 
+    // Auxiliary exit toward the system side (spec 3 前往右下): the plaster fades
+    // and the drawing slides out to the upper left, fading. 0 at home.
+    const exit = phaseProgress(systemProgress(), SYSTEM_PHASES.leftExit);
+    const slide = exit * exit;
+
     if (groupRef.current) {
       groupRef.current.position.set(
-        APPROACH_OFFSET[0] * (1 - approach),
-        APPROACH_OFFSET[1] * (1 - approach),
-        APPROACH_OFFSET[2] * (1 - approach),
+        APPROACH_OFFSET[0] * (1 - approach) + EXIT_OFFSET[0] * slide,
+        APPROACH_OFFSET[1] * (1 - approach) + EXIT_OFFSET[1] * slide,
+        APPROACH_OFFSET[2] * (1 - approach) + EXIT_OFFSET[2] * slide,
       );
     }
     // Toward the human destination the hand is used up (spec 3 前往左上): the
@@ -195,12 +203,13 @@ export function HumanHand() {
 
     lineMaterial.uniforms.uDraw.value = draw;
     lineMaterial.uniforms.uSettle.value = settle;
-    lineMaterial.uniforms.uFade.value = fade * fade;
+    lineMaterial.uniforms.uFade.value = fade * fade * (1 - exit);
     // the dev view modes show the finished form whatever the timeline says
     const finished = stage.viewMode !== 'full';
     surfaceMaterial.userData.uniforms.uReveal.value =
       (finished ? REVEAL_OVERSHOOT : reveal * REVEAL_OVERSHOOT) * (1 - dissolve);
-    surfaceMaterial.userData.uniforms.uOpacity.value = finished ? 1 : Math.min(1, reveal * 1.4);
+    surfaceMaterial.userData.uniforms.uOpacity.value =
+      (finished ? 1 : Math.min(1, reveal * 1.4)) * (1 - Math.min(1, exit * 1.6));
   });
 
   return (

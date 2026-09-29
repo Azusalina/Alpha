@@ -18,20 +18,7 @@ import { focusBrain, navigate } from '../app/navigation';
 import { humanProgress, stage, type SceneState } from '../app/stage';
 import { TRANSITION, phaseProgress } from '../config/timing';
 import { GRAPH } from '../fixtures/graph';
-
-/** Placeholder region names (the reference model's), shown as such (D36). */
-const REGION_LABEL: Record<string, string> = {
-  semantic: '语义',
-  episodic: '情景',
-  process: '程序',
-  analytic: '分析',
-  affective: '情感',
-  amygdala: '杏仁核',
-  cerebellum: '小脑',
-  brainstem: '脑干',
-  bridge: '脑桥',
-};
-const REGIONS = ['semantic', 'episodic', 'process', 'analytic', 'affective', 'amygdala', 'cerebellum', 'brainstem', 'bridge'];
+import { NodeDetail, regionLabel } from './NodeDetail';
 
 interface Props {
   state: SceneState;
@@ -66,20 +53,12 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     const region = h % 5;
     humanStore.pulse([0, 0, 0], region);
     humanStore.set({
-      reply: `原型演示：已收到「${t.length > 24 ? `${t.slice(0, 24)}…` : t}」，点亮了占位脑区「${REGION_LABEL[REGIONS[region]]}」。未运行模型，也未保存。`,
+      reply: `原型演示：已收到「${t.length > 24 ? `${t.slice(0, 24)}…` : t}」，点亮了占位脑区「${regionLabel(region)}」。未运行模型，也未保存。`,
     });
     setText('');
   };
 
-  const selected = ui.selected ? GRAPH.nodes.find((n) => n.id === ui.selected) : null;
   const hovered = ui.hovered ? GRAPH.nodes.find((n) => n.id === ui.hovered) : null;
-  const parent = selected?.parent ? GRAPH.nodes.find((n) => n.id === selected.parent) : null;
-  const children = selected ? GRAPH.nodes.filter((n) => n.parent === selected.id) : [];
-  const links = selected
-    ? GRAPH.edges
-        .filter((e) => e.kind === 'link' && (e.from === selected.id || e.to === selected.id))
-        .map((e) => GRAPH.nodes.find((n) => n.id === (e.from === selected.id ? e.to : e.from))!)
-    : [];
 
   return (
     <div
@@ -132,9 +111,9 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           </button>
           <p className="human-panel__hint">
             {hovered
-              ? `${hovered.label} · 占位脑区「${REGION_LABEL[REGIONS[hovered.region]]}」`
+              ? `${hovered.label} · 占位脑区「${regionLabel(hovered.region)}」`
               : ui.hoverRegion >= 0
-                ? `占位脑区「${REGION_LABEL[REGIONS[ui.hoverRegion]]}」`
+                ? `占位脑区「${regionLabel(ui.hoverRegion)}」`
                 : '拖动旋转 · 点节点看详情 · Esc 收起'}
           </p>
           <ul className="human-panel__nodes" aria-label="示例记录">
@@ -153,59 +132,8 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         </div>
       )}
 
-      {ui.focused && selected && (
-        <aside className="node-detail" data-testid="node-detail" aria-label="节点详情">
-          <header>
-            <span className="node-detail__tag">原型演示</span>
-            <button type="button" aria-label="关闭详情" onClick={() => humanStore.set({ selected: null })}>
-              ×
-            </button>
-          </header>
-          <h2>{selected.label}</h2>
-          <dl>
-            <dt>编号</dt>
-            <dd>{selected.id}</dd>
-            <dt>层级</dt>
-            <dd>{selected.depth}</dd>
-            <dt>占位脑区</dt>
-            <dd>{REGION_LABEL[REGIONS[selected.region]]}</dd>
-            {parent && (
-              <>
-                <dt>上级</dt>
-                <dd>
-                  <button type="button" onClick={() => humanStore.set({ selected: parent.id })}>
-                    {parent.label}
-                  </button>
-                </dd>
-              </>
-            )}
-            {children.length > 0 && (
-              <>
-                <dt>下级</dt>
-                <dd>
-                  {children.map((c) => (
-                    <button key={c.id} type="button" onClick={() => humanStore.set({ selected: c.id })}>
-                      {c.label}
-                    </button>
-                  ))}
-                </dd>
-              </>
-            )}
-            {links.length > 0 && (
-              <>
-                <dt>关联</dt>
-                <dd>
-                  {links.map((c) => (
-                    <button key={c.id} type="button" onClick={() => humanStore.set({ selected: c.id })}>
-                      {c.label}
-                    </button>
-                  ))}
-                </dd>
-              </>
-            )}
-          </dl>
-          <p className="node-detail__note">示例记录，不代表真实记忆；分类体系尚未定义。</p>
-        </aside>
+      {ui.focused && ui.selected && (
+        <NodeDetail id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />
       )}
     </div>
   );
