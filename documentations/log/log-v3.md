@@ -316,6 +316,29 @@ move the line or the hand; the user chose the hand.
   lost — open item 5) both passed when rerun alone.
 - Screens: `outputs/qa/scratch/r3/home-{dark,light}.png`.
 
+## Part 8 — low-poly brain and directional signals (session 10)
+
+> 粒子脑像西兰花；加强输入后的反应效果
+
+Committed by the user as `5bc3495` ("the great improvement", together with the
+back-end model/translator work); recorded and verified here in session 11.
+
+| # | Decision |
+|---|---|
+| **D52** | The brain is a **low-poly net**: `scripts/build_brain_mesh.py` (Blender) unions balls over every region mesh of the 3dbrain model, meshes the outer skin, smooths it and collapses it to ≈ 900 vertices (`public/assets/brain-mesh.json`, 901 vertices, 2 697 edges, 1 798 faces). 3 particles per vertex (≈ 2 700, down from ≈ 12 k) land together as one dot; every edge is a line; the far side stays a faint echo. The point asset `brain.bin` is kept but no longer drawn. |
+| **D53** | The brain **answers directionally**: a click starts a discharge at the nearest vertex; an input-box answer flies as a comet from the input box to its region (0.75 s), then runs along the edges (11 hops/s, 9 hops reach); the region stays lit 3 s and fades over 1.2 s, its name shown beside the strike. |
+
+### Verified (session 11)
+
+- `tsc` clean. Playwright 22 / 24 passed, 1 skipped; the one failure was D10
+  (ring tip lost — open item 5), which passed when rerun alone.
+- Back end: `python3 -m unittest discover -s tests` 23 / 23,
+  `translator.test_translator` 6 / 6.
+- Screens: `outputs/qa/scratch/r3/brain-v{1,2,3}-{dark,light}*.png` (rest, then
+  0.3–4.4 s after an input, captured with the clock frozen via
+  `brain.setSignalTime`).
+- Not checked: frame time on the desktop build (open item 3).
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
@@ -338,6 +361,8 @@ move the line or the hand; the user chose the hand.
 
 ## Resume here
 
+- Part 8 (D52–D53) done: low-poly brain net and directional signals. Next: the
+  user's art review of `outputs/qa/scratch/r3/brain-v3-*.png`, then the open items above.
 - Part 7 (D51) done: the particle hand moved clear of the home divide line.
 - Part 6 (D47–D50) done: home divide line, glass tree from the wrist, node
   detail page. Next: the user's art review of `outputs/qa/scratch/r3/r5-*-sheet.png`,

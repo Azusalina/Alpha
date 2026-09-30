@@ -350,6 +350,17 @@ in `dist/`).
     positions centred, largest half-extent 1.
   - `public/assets/brain.json` — `{count, regions[], regionCounts, extent, source}`.
     Region names are **placeholders** (D36).
+- **Low-poly brain** (D52, `blender -b --factory-startup -P scripts/build_brain_mesh.py -- <BrainUVs.obj> [TARGET_VERTS]`):
+  `public/assets/brain-mesh.json` — `{vertices: [x,y,z,…], edges: [a,b,…],
+  faces: [a,b,c,…], region: [r,…], regions[], params, source}`; one outer skin
+  (≈ 900 vertices, same frame as `brain.bin`, so `BRAIN.tilt` applies unchanged).
+  The app draws `PER_VERTEX` (3) particles per vertex and a line per edge;
+  `brain.bin` is no longer drawn.
+- **Signal** (D53, `humanStore.signal`): `{kind: 'click'|'input', t, region,
+  vertex, …}` — a click starts at the nearest vertex; an input flies from the
+  input box (CSS px) to its region's vertex (`SIGNAL.FLIGHT`), then runs along
+  the edges (`HOP_RATE`, `REACH` hops). `humanStore.label` places the lit
+  region's name beside the strike.
 - **Left-hand particles** (`brain/humanCloud.ts`): sampled once from
   `hand-left.glb` with seed `SCENE_SEED + 1`, count = the tier's `particleCount`;
   each keeps hand position, brain position, region, reveal and three integer
@@ -369,7 +380,8 @@ in `dist/`).
   `navigate('human' | 'system' | 'home') → boolean`, `scrubTransition(side, p)`, `resumeTime()`,
   `treeUi()`, `tree.screenOf(id)`,
   `focusBrain(on)`, `humanUi()` (focused, selected, hovered, hoverRegion, reply,
-  focusP, growP), `brain.screenOf(id?)` (CSS px of the brain centre or a node).
+  focusP, growP), `brain.screenOf(id?)` (CSS px of the brain centre or a node),
+  `brain.signal()`, `brain.setSignalTime(t)` (with the clock frozen, D53).
 - **Destination DOM**: `data-testid="particle-brain"` (the panel; exists only in
   `toHuman` / `human` / `fromHuman`, `inert` until `human`), `human-input`,
   `brain-open` (keyboard way into the brain), `node-detail`;
