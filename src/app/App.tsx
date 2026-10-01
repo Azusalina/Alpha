@@ -12,6 +12,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { Vector3 } from 'three';
+import { startGraphSync } from '../graph/graphStore';
 import { wristWorld } from '../tree/layout';
 import gsap from 'gsap';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -178,6 +179,9 @@ export function App() {
   useEffect(() => {
     connectDesktopOnStart();
   }, []);
+
+  // The record graph the brain and the tree draw follows the model (D65).
+  useEffect(() => startGraphSync(), []);
 
   // Dwell on a live corner travels (spec 3 table): from home toward that
   // corner; from a destination, the opposite corner returns home.

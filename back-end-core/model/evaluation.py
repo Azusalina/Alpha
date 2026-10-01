@@ -14,16 +14,19 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from core.access import AccessError, AccessSession, authorize_database, check_authorized
 from .catalog import BASELINE_PATH, PARAMETERS, PRIOR_STRENGTH
 from .ranking import VALUE_PARAMETERS, rank_from_state, validate_options
+from translator.evaluation import load_manifest as _load_manifest, validate_json_strings
 
 DOMAINS = ("daily", "study", "interpersonal")
 MAX_CASES = 1000
 MAX_FILE_BYTES = 10_000_000
 
 
-def read_snapshot(path: str | Path) -> dict:
+def read_snapshot(path: str | Path, *, access_session: AccessSession | None = None) -> dict:
     """Read one consistent SQLite snapshot; never initialize a missing database."""
+    check_authorized(path, session=access_session)
     uri = Path(path).resolve().as_uri() + "?mode=ro"
     db = sqlite3.connect(uri, uri=True)
     db.row_factory = sqlite3.Row
@@ -71,6 +74,7 @@ def _text(value: object) -> bool:
 
 
 def validate_cases(manifest: dict, training_source_ids: list[str]) -> list[dict]:
+    validate_json_strings(manifest)
     if (not isinstance(manifest, dict) or set(manifest) != {"schema_version", "cases"}
             or type(manifest["schema_version"]) is not int or manifest["schema_version"] != 1):
         raise ValueError("evaluation manifest needs schema_version=1 and cases")
@@ -85,7 +89,7 @@ def validate_cases(manifest: dict, training_source_ids: list[str]) -> list[dict]
         if not _text(case["id"]) or case["id"] in seen:
             raise ValueError("case ids must be nonempty and unique")
         seen.add(case["id"])
-        if case["domain"] not in DOMAINS or case["held_out"] is not True:
+        if not isinstance(case["domain"], str) or case["domain"] not in DOMAINS or case["held_out"] is not True:
             raise ValueError("case needs a known domain and explicit held_out=true")
         source_ids = case["source_ids"]
         if (not isinstance(source_ids, list) or any(not _text(s) for s in source_ids)
@@ -93,7 +97,15 @@ def validate_cases(manifest: dict, training_source_ids: list[str]) -> list[dict]
             raise ValueError("source_ids must be distinct text identifiers")
         if training.intersection(source_ids):
             raise ValueError("held-out case overlaps an agreed training source")
-        validate_options(case["options"])
+        options = case["options"]
+        if (not isinstance(options, list) or not 2 <= len(options) <= 100
+                or any(not isinstance(option, dict) or set(option) != {"id", "impacts"}
+                       for option in options)):
+            raise ValueError("options need exactly id and impacts, with 2 to 100 options")
+        try:
+            validate_options(options)
+        except ValueError:
+            raise ValueError("invalid option identifiers or impacts") from None
         if len(case["options"]) > 100:
             raise ValueError("each evaluation case supports at most 100 options")
         option_ids = {option["id"] for option in case["options"]}
@@ -157,8 +169,8 @@ def _run(cases: list[dict], rational: dict, excluded: tuple[str, ...] = ()) -> d
             "by_domain": by_domain, "predictions": predictions}
 
 
-def evaluate_database(path: str | Path, manifest: dict) -> dict:
-    snapshot = read_snapshot(path)
+def evaluate_database(path: str | Path, manifest: dict, *, access_session: AccessSession | None = None) -> dict:
+    snapshot = read_snapshot(path, access_session=access_session)
     cases = validate_cases(manifest, snapshot["training_source_ids"])
     full = _run(cases, snapshot["rational"])
     ablations = {}
@@ -192,17 +204,9 @@ def evaluate_database(path: str | Path, manifest: dict) -> dict:
                             "no_statistical_or_psychological_validity_claim"]}
 
 
-def _unique_object(pairs: list[tuple]) -> dict:
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("duplicate JSON field")
-        result[key] = value
-    return result
-
-
-def _invalid_number(value: str):
-    raise ValueError("non-finite JSON numbers are not supported")
+def load_manifest(path: str | Path) -> object:
+    """Bounded regular-file strict JSON, shared with the translator evaluator."""
+    return _load_manifest(path, max_bytes=MAX_FILE_BYTES)
 
 
 def main() -> None:
@@ -211,14 +215,13 @@ def main() -> None:
     parser.add_argument("--cases", required=True, type=Path)
     args = parser.parse_args()
     try:
-        with args.cases.open("rb") as stream:
-            raw = stream.read(MAX_FILE_BYTES + 1)
-        if len(raw) > MAX_FILE_BYTES:
-            raise ValueError("evaluation manifest exceeds size limit")
-        manifest = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_object, parse_constant=_invalid_number)
-        report = evaluate_database(args.db, manifest)
-    except (OSError, ValueError, sqlite3.Error) as error:
-        parser.exit(2, f"evaluation failed: {type(error).__name__}: {error}\n")
+        manifest = load_manifest(args.cases)
+        session = authorize_database(args.db)
+        report = evaluate_database(args.db, manifest, access_session=session)
+    except AccessError:
+        parser.exit(2, "evaluation access denied; no snapshot was read\n")
+    except (OSError, ValueError, sqlite3.Error, RecursionError) as error:
+        parser.exit(2, f"evaluation failed: {type(error).__name__}; check the local manifest and snapshot\n")
     json.dump(report, sys.stdout, ensure_ascii=True, allow_nan=False, indent=2)
     sys.stdout.write("\n")
 

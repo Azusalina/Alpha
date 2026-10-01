@@ -19,6 +19,8 @@ use tokio::{
 const MAX_REQUEST_BYTES: usize = 6_004_096;
 const MAX_RESPONSE_BYTES: usize = 16_000_000;
 const QUEUE_SIZE: usize = 32;
+const TRACE_PREFIX: &str = "[alpha.model] ";
+const MAX_TRACE_LINE: usize = 4096;
 const UNAVAILABLE: &str =
     "local backend unavailable; check the host Python and backend installation";
 const UNCERTAIN: &str = "backend exchange failed or timed out; a write may have committed; inspect state before retrying";
@@ -142,6 +144,152 @@ struct Session {
     stderr: tokio::task::JoinHandle<()>,
 }
 
+// Only bounded, known telemetry can reach the host terminal. Ordinary Python
+// stderr, private diagnostics and trace-shaped text payloads are discarded.
+fn terminal_trace(line: &[u8], db: &std::path::Path) -> Option<String> {
+    if line.len() > MAX_TRACE_LINE {
+        return None;
+    }
+    let text = std::str::from_utf8(line).ok()?.strip_prefix(TRACE_PREFIX)?;
+    let record: Value = serde_json::from_str(text).ok()?;
+    let object = record.as_object()?;
+    let event = object.get("event")?.as_str()?;
+    if !matches!(
+        event,
+        "ready"
+            | "operation_received"
+            | "operation_committed"
+            | "operation_failed"
+            | "data_saved"
+            | "judgement"
+            | "param_update"
+            | "fit_committed"
+            | "fit_skipped"
+            | "source_deleted"
+            | "model_reset"
+    ) {
+        return None;
+    }
+    object.get("time_ms")?.as_u64()?;
+    if event != "ready" && !object.contains_key("operation") {
+        return None;
+    }
+    for (key, value) in object {
+        let valid = match key.as_str() {
+            "event" => true,
+            "time_ms" | "char_count" | "support_before" | "support_after" | "revision"
+            | "model_epoch" | "previous_epoch" | "parameter_count" | "observed_terms" => {
+                value.as_u64().is_some()
+            }
+            "operation" => value.as_str().is_some_and(|s| {
+                matches!(
+                    s,
+                    "submit"
+                        | "review"
+                        | "review_version"
+                        | "correction_reopen"
+                        | "replay_reopen"
+                        | "revoke"
+                        | "input_edit"
+                        | "input_delete"
+                        | "correction_set"
+                        | "reset_model"
+                )
+            }),
+            "source_id" => value.as_str().is_some_and(|s| {
+                s.len() == 32
+                    && s.bytes()
+                        .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+            }),
+            "partition" => value
+                .as_str()
+                .is_some_and(|s| matches!(s, "rational" | "emotional" | "crazy")),
+            "status" => value
+                .as_str()
+                .is_some_and(|s| matches!(s, "pending" | "agreed" | "disagreed" | "revoked")),
+            "immediate" | "exclamation" | "restored_fit" | "translator_preserved" => {
+                value.is_boolean()
+            }
+            "confirm" => value.is_boolean() || value.is_null(),
+            "reason" => value
+                .as_str()
+                .is_some_and(|s| matches!(s, "unchanged" | "not_dual_true")),
+            "error_type" => value.as_str().is_some_and(|s| {
+                matches!(
+                    s,
+                    "ValueError"
+                        | "KeyError"
+                        | "RuntimeError"
+                        | "OSError"
+                        | "OperationalError"
+                        | "IntegrityError"
+                        | "DatabaseError"
+                        | "Exception"
+                )
+            }),
+            "parameter" => value.as_str().is_some_and(|s| {
+                matches!(
+                    s,
+                    "value.autonomy"
+                        | "value.fairness"
+                        | "value.care"
+                        | "value.truth"
+                        | "value.security"
+                        | "value.growth"
+                        | "value.achievement"
+                        | "value.connection"
+                        | "affect.disappointment"
+                        | "affect.sadness"
+                        | "affect.happiness"
+                        | "affect.anger"
+                        | "expression.less_initiative"
+                )
+            }),
+            "before" | "after" | "delta" => value
+                .as_f64()
+                .is_some_and(|n| n.is_finite() && (-2.0..=2.0).contains(&n)),
+            "db_path" => matches!(event, "ready" | "data_saved") && value.as_str() == db.to_str(),
+            _ => false,
+        };
+        if !valid {
+            return None;
+        }
+    }
+    Some(format!(
+        "{TRACE_PREFIX}{}",
+        serde_json::to_string(&record).ok()?
+    ))
+}
+
+#[derive(Default)]
+struct TraceLines {
+    line: Vec<u8>,
+    oversized: bool,
+}
+
+impl TraceLines {
+    fn feed(&mut self, bytes: &[u8], db: &std::path::Path, mut emit: impl FnMut(String)) {
+        for &byte in bytes {
+            if byte == b'\n' {
+                if !self.oversized {
+                    if let Some(line) = terminal_trace(&self.line, db) {
+                        emit(line);
+                    }
+                }
+                self.line.clear();
+                self.oversized = false;
+            } else if !self.oversized {
+                if self.line.len() < MAX_TRACE_LINE {
+                    self.line.push(byte);
+                } else {
+                    self.line.clear();
+                    self.oversized = true;
+                }
+            }
+        }
+    }
+}
+
 impl Session {
     fn start(config: &HostConfig) -> Result<Self, &'static str> {
         if !config.root.is_absolute()
@@ -163,14 +311,20 @@ impl Session {
         let stdin = child.stdin.take().ok_or(UNAVAILABLE)?;
         let stdout = child.stdout.take().ok_or(UNAVAILABLE)?;
         let mut stderr = child.stderr.take().ok_or(UNAVAILABLE)?;
-        // Drain bounded chunks; never copy potentially personal diagnostics to
-        // webviews, logs, or an unbounded buffer.
+        // Drain bounded chunks. Forward only validated telemetry to the host
+        // terminal, never ordinary stderr or any content to the webview.
+        let trace_db = config.db.clone();
         let stderr = tokio::spawn(async move {
             let mut buffer = [0u8; 4096];
+            let mut lines = TraceLines::default();
             while let Ok(n) = stderr.read(&mut buffer).await {
                 if n == 0 {
                     break;
                 }
+                lines.feed(&buffer[..n], &trace_db, |line| {
+                    // Ignore terminal failures: logging cannot panic this drain.
+                    let _ = writeln!(io::stderr().lock(), "{line}");
+                });
             }
         });
         Ok(Self {
@@ -363,6 +517,81 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use tempfile::TempDir;
+
+    #[test]
+    fn trace_filter_is_bounded_and_never_relays_private_stderr() {
+        let db = PathBuf::from("/tmp/model.sqlite3");
+        let line = format!(
+            "{TRACE_PREFIX}{}",
+            json!({"event":"judgement", "time_ms":1,
+            "operation":"review", "immediate":true, "confirm":true, "status":"agreed"})
+        );
+        assert!(terminal_trace(line.as_bytes(), &db).is_some());
+        for operation in ["review_version", "correction_reopen", "replay_reopen"] {
+            let mut record = json!({"event":"operation_committed", "time_ms":1,
+                "operation":operation});
+            let allowed = format!("{TRACE_PREFIX}{record}");
+            assert!(terminal_trace(allowed.as_bytes(), &db).is_some());
+            for field in ["password", "payload", "corrections", "text"] {
+                record[field] = json!("private fixture");
+                let denied = format!("{TRACE_PREFIX}{record}");
+                assert!(terminal_trace(denied.as_bytes(), &db).is_none());
+                record.as_object_mut().unwrap().remove(field);
+            }
+        }
+        let baseline: Value =
+            serde_json::from_str(include_str!("../../back-end-core/model/baseline.json")).unwrap();
+        for parameter in baseline["parameters"].as_object().unwrap().keys() {
+            let parameter_line = format!(
+                "{TRACE_PREFIX}{}",
+                json!({
+                    "event":"param_update", "time_ms":1, "operation":"review",
+                    "parameter":parameter, "before":0.0, "after":0.2, "delta":0.2,
+                    "support_before":0, "support_after":1, "model_epoch":0, "revision":1
+                })
+            );
+            assert!(
+                terminal_trace(parameter_line.as_bytes(), &db).is_some(),
+                "{parameter}"
+            );
+        }
+        let saved = format!(
+            "{TRACE_PREFIX}{}",
+            json!({"event":"data_saved",
+            "time_ms":1, "operation":"submit", "db_path":db.to_str().unwrap()})
+        );
+        assert!(terminal_trace(saved.as_bytes(), &db).is_some());
+        for bad in [
+            "private diary text".to_owned(),
+            format!(
+                "{TRACE_PREFIX}{}",
+                json!({"event":"param_update", "time_ms":1,
+                "operation":"review", "parameter":"private diary text"})
+            ),
+            format!(
+                "{TRACE_PREFIX}{}",
+                json!({"event":"operation_failed", "time_ms":1,
+                "operation":"review", "error_type":"RuntimeError", "message":"private diary text"})
+            ),
+            format!(
+                "{TRACE_PREFIX}{}",
+                json!({"event":"ready", "time_ms":1, "db_path":"private diary text"})
+            ),
+        ] {
+            assert!(terminal_trace(bad.as_bytes(), &db).is_none());
+        }
+        let mut framing = TraceLines::default();
+        let mut accepted = vec![];
+        framing.feed(&vec![b'x'; MAX_TRACE_LINE + 100], &db, |s| accepted.push(s));
+        framing.feed(line.as_bytes(), &db, |s| accepted.push(s));
+        framing.feed(b"\n", &db, |s| accepted.push(s));
+        assert!(accepted.is_empty());
+        for chunk in format!("{line}\n").as_bytes().chunks(3) {
+            framing.feed(chunk, &db, |s| accepted.push(s));
+        }
+        assert_eq!(accepted.len(), 1);
+        assert!(framing.line.len() <= MAX_TRACE_LINE);
+    }
 
     fn request(id: &str, method: &str, params: Value) -> Value {
         json!({"schema_version":1,"id":id,"method":method,"params":params})

@@ -6,6 +6,10 @@
 
 ## 使用
 
+数据库外的草稿采集、来源分组／时间／暴露声明与严格导出见
+[`readiness.md`](readiness.md)。目前没有真实留出文件；只交付模板与工具。
+未知标签不会作为负例，未知暴露不会被宣称未训练。API／F14 仍推迟。
+
 在 `back-end-core` 中，对已经初始化／训练过的数据库执行：
 
 ```bash
@@ -21,6 +25,13 @@ python -m model.evaluation --db data/brain.sqlite3 --cases docs/evaluation.examp
 历史训练来源 ID、基线 hash、effect revision。不会初始化不存在的库、
 导入测试材料、更新词汇／参数或修复不一致的状态。
 
+读取前先执行 `core.access.check_authorized`。`read_snapshot(path, *, access_session=None)`
+与 `evaluate_database(path, manifest, *, access_session=None)` 保留旧位置参数。
+未配置访问保护的库兼容原调用；已配置时，库调用必须提供已解锁且路径匹配的
+AccessSession，否则在打开 SQLite 前拒绝。库调用不弹密码框。CLI 使用
+`authorize_database` 安全 getpass 授权后传入 session；失败只输出通用错误。
+没有 `core.api` 集成改动。测试仅使用临时合成数据库。
+
 F6 编辑保留不含原文的 ever-fitted 标志：清除旧拟合后，该来源仍不能成为独立留出样本。
 硬删会删除该标志；来源 ID 检查因此不能证明删除后重导入文本或间接规则暴露的独立性。
 
@@ -32,11 +43,13 @@ F6 编辑保留不含原文的 ever-fitted 标志：清除旧拟合后，该来�
 - `domain`：`daily`、`study` 或 `interpersonal`。
 - `held_out: true`：明确声明没有将这个测试事件用于拟合／纠错学习。
 - `source_ids`：该事件涉及的所有后端原文 ID；从未导入的事件填 `[]`。
+  此明确 never-imported 旧格式路径保持兼容；空 ID 不是未知暴露的独立性证明。
   曾拟合过的任何分区材料都会被排除，包括当前 agreed／revoked，以及
   再次判为 false 的 disagreed；即使没有参数 effect，也可能已参与词汇学习。
   再次判定／撤销不抹除历史训练暴露。工具只检查 ID 重叠，
   无法检测复制、改写、漏填 ID 或人工调参带来的语义泄漏。
 - `options`：2–100 个互异 `id` 的选项，每项有 `impacts`。
+  每个选项严格只有 `id`、`impacts`，不能带额外字段。
   impacts 的键只能是当前 `value.*` 参数，值为 `[-1,1]` 有限数，
   未填参数对评分的贡献为 0。这些影响要由人标注，尚不由自然语言推断。
 - `actual_choice`：用户实际上选择的选项 ID，未知填 `null`。
@@ -85,6 +98,9 @@ F6 编辑保留不含原文的 ever-fitted 标志：清除旧拟合后，该来�
 报告带 `snapshot.fingerprint`、`cases_sha256`、`ranking_sha256`、
 `evaluation_sha256`，用于确认模型状态、测试文件内容、评分与指标实现
 是否变化；这不是隐私保护或数据加密。
+
+CLI 文件读取限 10,000,000 字节普通文件，拒绝 FIFO／设备、所有层级的重复 JSON
+键、无效 UTF-8／JSON、非有限数（含指数溢出）、代理字符及任何位置的 NUL。
 
 ## 尚未完成
 

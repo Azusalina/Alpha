@@ -15,6 +15,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from core.store import MemoryStore
+from core.extraction import deterministic_candidates
 from translator import translate
 from translator.learning import learnable_terms, own_chat_text
 from translator.discourse import POLICY_VERSION
@@ -25,6 +26,7 @@ from .corrections import apply_local, latest_corrections, learned_rules, validat
 from .evidence import Contribution, extract_contributions
 from .ranking import rank_from_state
 from . import sources, reset
+from .tracing import ModelTrace, traced
 
 
 def _now() -> str:
@@ -38,7 +40,8 @@ def _score(net: int, support: int) -> float:
 class BrainModel:
     """One SQLite-backed active model; `baseline.json` is never rewritten."""
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, trace: bool = False):
+        self.trace = ModelTrace(path, trace)
         self.store = MemoryStore(path)
         self.store.initialize()
         baseline_hash = hashlib.sha256(BASELINE_PATH.read_bytes()).hexdigest()
@@ -127,12 +130,15 @@ class BrainModel:
             initialize_approvals(db, _now())
             sources.initialize(db)
             reset.initialize(db)
+            sources.initialize_versions(db)
+        self.trace.emit('ready', db_path=self.trace.path)
 
     def reset_info(self) -> dict:
         with self.store._connect() as db:
             db.execute("BEGIN")
             return reset.info(db)
 
+    @traced('reset_model')
     def reset_model(self, *, confirmation: str, expected_epoch: int, expected_revision: int) -> dict:
         """Explicit model-only reset; never erase sources or translator learning."""
         with self.store._connect() as db:
@@ -152,6 +158,7 @@ class BrainModel:
                                   source_ref=source_ref, immediate=immediate,
                                   exclamation=exclamation)["source_id"]
 
+    @traced('submit')
     def submit_result(self, text: str, *, partition: str, kind: str = "diary",
                       self_speaker: str | None = None, source_ref: str | None = None,
                       immediate: bool = True, exclamation: bool = False) -> dict:
@@ -193,6 +200,7 @@ class BrainModel:
             raise KeyError("brain input not found")
         return row
 
+    @traced('input_edit')
     def input_edit(self, source_id: str, text: str, immediate: bool, *,
                    kind=sources.UNSET, self_speaker=sources.UNSET) -> dict:
         """Replace an inactive source, purging its old text-bearing history."""
@@ -229,13 +237,14 @@ class BrainModel:
             db.execute("UPDATE sources SET body=?, origin=? WHERE id=?", (text, new_kind, source_id))
             db.execute("UPDATE brain_inputs SET kind=?, self_speaker=?, immediate=?, confirm=NULL, "
                        "exclamation=0, confirmed_by=NULL, reason=?, status=?, reviewed_at=NULL, "
-                       "edited_at=? WHERE source_id=?",
+                       "edited_at=?, source_version=0 WHERE source_id=?",
                        (new_kind, speaker, int(immediate), None if immediate else "immediate_false",
                         "pending" if immediate else "disagreed", timestamp, source_id))
             sources.bump_generation(db)
             updated = self._input(db, source_id)
             return sources.public_record(updated, text)
 
+    @traced('input_delete')
     def input_delete(self, source_id: str) -> dict:
         """Atomically deactivate and hard-delete this source's application records."""
         with self.store._connect() as db:
@@ -274,7 +283,7 @@ class BrainModel:
         rows = db.execute(
             "SELECT t.term, COUNT(*) AS documents FROM brain_terms t "
             "JOIN brain_inputs i ON i.source_id = t.source_id "
-            "WHERE i.partition = ? AND i.status = 'agreed' GROUP BY t.term",
+            "WHERE i.partition = ? AND i.status = 'agreed' AND t.source_version=i.source_version GROUP BY t.term",
             (partition,),
         ).fetchall()
         return {row["term"]: row["documents"] for row in rows}
@@ -296,8 +305,29 @@ class BrainModel:
         contributions = apply_local(contributions, corrections)
         context = {"correction_revision": revision, "corrections": corrections,
                    "learned_rules": semantic_feedback, "evidence_policy": POLICY_VERSION, **diagnostics}
+        translation = translate(row['body'], kind='diary' if row['kind'] == 'philosophy' else row['kind'],
+                                self_speaker=row['self_speaker'])
+        context['translation'] = self._annotate_translation(translation, corrections)
+        context['memories'] = deterministic_candidates(row['body'], row['kind'], row['self_speaker'],
+                                                       context['translation'], corrections)
         return before_terms, terms, contributions, context
 
+    @staticmethod
+    def _annotate_translation(translation: dict, corrections: list[dict]) -> dict:
+        translation = json.loads(json.dumps(translation))
+        for correction in corrections:
+            if 'type' not in correction or correction['sign'] != 0:
+                continue
+            family = correction['type']
+            field = 'cues' if family == 'event' else 'candidates'
+            translation[field] = [r for r in translation[field] if not (
+                all(r[k] == correction[k] for k in ('value', 'evidence', 'span'))
+                and (family != 'event' or r['category'] == 'event_word')
+                and (family != 'tone' or r['type'] == 'textual_emotion')
+                and (family != 'intent' or r['type'] == 'contact_intention'))]
+        return translation
+
+    @traced('correction_set')
     def correction_set(self, source_id: str, *, corrections: list[dict], expected_revision: int) -> dict:
         """Append pending feedback; whole-input agreement still gates fitting."""
         if type(expected_revision) is not int or expected_revision < 0:
@@ -314,8 +344,10 @@ class BrainModel:
             if revision != expected_revision:
                 raise ValueError("correction revision changed; refresh correction_history")
             checked = validate_corrections(row["body"], row["kind"], row["self_speaker"], corrections)
-            cursor = db.execute("INSERT INTO brain_corrections(source_id, payload, created_at) VALUES (?, ?, ?)",
-                                (source_id, json.dumps(checked, ensure_ascii=False), _now()))
+            cursor = db.execute("INSERT INTO brain_corrections(source_id, payload, created_at, source_version) "
+                                "VALUES (?, ?, ?, ?)",
+                                (source_id, json.dumps(checked, ensure_ascii=False), _now(), row['source_version']))
+            sources.bump_generation(db)
             return {"source_id": source_id, "revision": cursor.lastrowid,
                     "status": "pending", "corrections": checked}
 
@@ -328,12 +360,185 @@ class BrainModel:
             history = db.execute("SELECT revision, payload, created_at FROM brain_corrections "
                                  "WHERE source_id = ? ORDER BY revision", (source_id,)).fetchall()
             context = db.execute("SELECT payload FROM brain_fit_context WHERE source_id = ?", (source_id,)).fetchone()
+            archives = db.execute('SELECT * FROM brain_source_versions WHERE source_id=? ORDER BY source_version',
+                                  (source_id,)).fetchall()
         records = [{"revision": item["revision"], "corrections": json.loads(item["payload"]),
                     "created_at": item["created_at"]} for item in history]
         return {"source_id": source_id, "status": source["status"],
                 "revision": records[-1]["revision"] if records else 0,
                 "corrections": records[-1]["corrections"] if records else [], "history": records,
-                "fit_context": json.loads(context["payload"]) if context else None}
+                "fit_context": json.loads(context["payload"]) if context else None,
+                "version_history": [self._public_archive(item) for item in archives]}
+
+    @staticmethod
+    def _public_archive(item: sqlite3.Row) -> dict:
+        payload = json.loads(item['payload'])
+        contexts = payload['brain_fit_context']
+        return {'source_version': item['source_version'], 'model_epoch': item['model_epoch'],
+                'created_at': item['created_at'], 'approval': payload['approval'],
+                'fit_context': json.loads(contexts[0]['payload']) if contexts else None,
+                'contributions': [{k: c[k] for k in ('parameter', 'sign', 'evidence', 'start_offset',
+                                                    'end_offset', 'rule_id')}
+                                  for c in payload['brain_contributions']],
+                'terms': {t['term']: t['occurrences'] for t in payload['brain_terms']},
+                'corrections': [{'revision': c['revision'], 'corrections': json.loads(c['payload']),
+                                 'created_at': c['created_at'], 'source_version': c['source_version']}
+                                for c in payload['brain_corrections']]}
+
+    @staticmethod
+    def _guards(db: sqlite3.Connection, row: sqlite3.Row, *, expected_source_version: int,
+                expected_revision: int, expected_epoch: int, allow_reenlist: bool = False) -> None:
+        if any(type(v) is not int or v < 0 for v in
+               (expected_source_version, expected_revision, expected_epoch)):
+            raise ValueError("expected source version, revision and epoch must be nonnegative integers")
+        if (row['source_version'] != expected_source_version or reset.revision(db) != expected_revision
+                or reset.epoch(db) != expected_epoch):
+            raise ValueError("source or model changed; refresh version and reset-info")
+        if not allow_reenlist and row['ever_fitted'] and row['model_epoch'] != reset.epoch(db):
+            raise ValueError("source excluded by model reset; version operations cannot re-enlist it")
+
+    @staticmethod
+    def _version_result(db: sqlite3.Connection, result: dict) -> dict:
+        version = db.execute('SELECT source_version FROM brain_inputs WHERE source_id=?',
+                             (result['source_id'],)).fetchone()[0]
+        return {**result, 'source_version': version, 'input_revision': reset.revision(db),
+                'model_epoch': reset.epoch(db)}
+
+    @traced('review_version')
+    def review_version(self, source_id: str, *, agree: bool, expected_source_version: int,
+                       expected_revision: int, expected_epoch: int) -> dict:
+        if type(agree) is not bool:
+            raise ValueError('agree must be a boolean')
+        with self.store._connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self._input(db, source_id)
+            self._guards(db, row, expected_source_version=expected_source_version,
+                         expected_revision=expected_revision, expected_epoch=expected_epoch,
+                         allow_reenlist=True)
+            result = self._review(db, row, agree=agree, confirmed_by='manual')
+            return self._version_result(db, result)
+
+    def _reopen(self, db: sqlite3.Connection, row: sqlite3.Row, corrections: list[dict],
+                immediate: bool) -> dict:
+        source_id = row['source_id']
+        timestamp = _now()
+        sources.archive_version(db, row, timestamp)
+        removed = self._decision_result(row)
+        if row['status'] == 'agreed':
+            removed = self._deactivate(db, row, status='revoked', reason='user_revoked',
+                                       confirmed_by=row['confirmed_by'], action='revoke')
+        for table in ('brain_fit_context', 'brain_terms', 'brain_contributions', 'brain_corrections'):
+            db.execute(f'DELETE FROM {table} WHERE source_id=?', (source_id,))
+        version = row['source_version'] + 1
+        db.execute("UPDATE brain_inputs SET source_version=?, status=?, immediate=?, confirm=NULL, "
+                   "exclamation=0, confirmed_by=NULL, reason=?, reviewed_at=NULL WHERE source_id=?",
+                   (version, 'pending' if immediate else 'disagreed', int(immediate),
+                    None if immediate else 'immediate_false', source_id))
+        cursor = db.execute('INSERT INTO brain_corrections(source_id,payload,created_at,source_version) '
+                            'VALUES (?,?,?,?)', (source_id, json.dumps(corrections, ensure_ascii=False),
+                                               timestamp, version))
+        updated = self._input(db, source_id)
+        record_review(db, source_id, 'review', {**approval_metadata(row), 'source_version': row['source_version']},
+                      {**approval_metadata(updated), 'source_version': version, 'reopened': True}, [], timestamp)
+        sources.bump_generation(db)
+        result = self._decision_result(updated, removed['effects'], removed['translator_effects'])
+        return self._version_result(db, {**result, 'correction_revision': cursor.lastrowid,
+                                         'corrections': corrections})
+
+    @traced('correction_reopen')
+    def correction_reopen(self, source_id: str, *, corrections: list[dict], immediate: bool,
+                          expected_source_version: int, expected_revision: int,
+                          expected_epoch: int) -> dict:
+        """Validate the complete request before withdrawing anything, then recheck under lock."""
+        if type(immediate) is not bool:
+            raise ValueError('immediate must be a boolean')
+        guards = dict(expected_source_version=expected_source_version,
+                      expected_revision=expected_revision, expected_epoch=expected_epoch)
+        with self.store._connect() as db:
+            db.execute('BEGIN')
+            row = self._input(db, source_id)
+            self._guards(db, row, **guards)
+            if not row['ever_fitted']:
+                raise ValueError('unfitted source must use pending correction_set')
+            checked = validate_corrections(row['body'], row['kind'], row['self_speaker'], corrections)
+        with self.store._connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self._input(db, source_id)
+            self._guards(db, row, **guards)
+            checked = validate_corrections(row['body'], row['kind'], row['self_speaker'], checked)
+            return self._reopen(db, row, checked, immediate)
+
+    @staticmethod
+    def _replay_ids(source_ids: list[str]) -> None:
+        if (not isinstance(source_ids, list) or not 1 <= len(source_ids) <= 16
+                or any(not isinstance(s, str) or not s for s in source_ids)
+                or len(set(source_ids)) != len(source_ids)):
+            raise ValueError('source_ids must contain 1 to 16 unique source identities')
+
+    def _replay_item(self, db: sqlite3.Connection, row: sqlite3.Row) -> dict:
+        source_id = row['source_id']
+        saved = db.execute('SELECT payload FROM brain_fit_context WHERE source_id=?', (source_id,)).fetchone()
+        context = json.loads(saved[0]) if saved else {}
+        contributions = [dict(r) for r in db.execute('SELECT parameter,sign,evidence,start_offset,end_offset,rule_id '
+                                                     'FROM brain_contributions WHERE source_id=? ORDER BY parameter',
+                                                     (source_id,))]
+        terms = {r['term']: r['occurrences'] for r in db.execute('SELECT * FROM brain_terms WHERE source_id=?', (source_id,))}
+        _, fresh_terms, fresh, fresh_context = self._observations(db, row)
+        fresh_contributions = sorted([{'parameter': c.parameter, 'sign': c.sign, 'evidence': c.evidence,
+                                      'start_offset': c.start, 'end_offset': c.end, 'rule_id': c.rule_id}
+                                     for c in fresh], key=lambda c: c['parameter'])
+        supporters = sorted({s for rule in context.get('learned_rules', [])
+                             for s in rule['support_source_ids']})
+        dependents = []
+        for other in db.execute('SELECT source_id,payload FROM brain_fit_context WHERE source_id!=?', (source_id,)):
+            if any(source_id in rule['support_source_ids'] for rule in json.loads(other['payload']).get('learned_rules', [])):
+                dependents.append(other['source_id'])
+        before = {'contributions': contributions, 'terms': terms, 'interpretation': context,
+                  'memories': context.get('memories', [])}
+        after = {'contributions': fresh_contributions, 'terms': fresh_terms, 'interpretation': fresh_context,
+                 'memories': fresh_context['memories']}
+        return {'source_id': source_id, 'source_version': row['source_version'],
+                'eligible': bool(saved) and row['model_epoch'] == reset.epoch(db),
+                'dependencies': {'support_source_ids': supporters, 'terms': sorted(terms),
+                                 'dependent_source_ids': sorted(dependents)},
+                'diff': {'before': before, 'after': after},
+                'semantic_change': (contributions != fresh_contributions or terms != fresh_terms
+                                    or before['memories'] != after['memories']
+                                    or context.get('translation') != fresh_context.get('translation'))}
+
+    def replay_preview(self, source_ids: list[str]) -> dict:
+        self._replay_ids(source_ids)
+        with self.store._connect() as db:
+            db.execute('BEGIN')
+            return {'items': [self._replay_item(db, self._input(db, s)) for s in source_ids],
+                    'input_revision': reset.revision(db), 'model_epoch': reset.epoch(db)}
+
+    @traced('replay_reopen')
+    def replay_reopen(self, source_ids: list[str], *, immediate: bool,
+                      expected_source_versions: dict[str, int], expected_revision: int,
+                      expected_epoch: int) -> dict:
+        self._replay_ids(source_ids)
+        if type(immediate) is not bool or not isinstance(expected_source_versions, dict) or set(expected_source_versions) != set(source_ids):
+            raise ValueError('immediate must be boolean and versions must cover exactly the selected sources')
+        def validate(db):
+            rows = [self._input(db, s) for s in source_ids]
+            for row in rows:
+                self._guards(db, row, expected_source_version=expected_source_versions[row['source_id']],
+                             expected_revision=expected_revision, expected_epoch=expected_epoch)
+                if db.execute('SELECT 1 FROM brain_fit_context WHERE source_id=?', (row['source_id'],)).fetchone() is None:
+                    raise ValueError('replay requires a frozen fit; no automatic re-enlistment')
+            return [(r, validate_corrections(r['body'], r['kind'], r['self_speaker'],
+                                            latest_corrections(db, r['source_id'])[1])) for r in rows]
+        with self.store._connect() as db:
+            db.execute('BEGIN')
+            validate(db)  # Full bounded batch preflight, no partial withdrawal.
+        with self.store._connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            selected = validate(db)
+            items = [self._reopen(db, r, c, immediate) for r, c in selected]
+            # All items carry the final batch token, not intermediate transaction tokens.
+            items = [self._version_result(db, item) for item in items]
+            return {'items': items, 'input_revision': reset.revision(db), 'model_epoch': reset.epoch(db)}
 
     def preview(self, source_id: str) -> dict:
         """Preview any inactive source; restore frozen evidence if previously fitted."""
@@ -371,7 +576,7 @@ class BrainModel:
                  "source_id": source_id}
                 for term in sorted(terms) if before_terms.get(term, 0) == 1
             ]
-            translation = translate(row["body"],
+            translation = context.get('translation') or translate(row["body"],
                                     kind="diary" if row["kind"] == "philosophy" else row["kind"],
                                     self_speaker=row["self_speaker"])
         return {
@@ -384,8 +589,8 @@ class BrainModel:
 
     def _fit_observations(self, db: sqlite3.Connection, row: sqlite3.Row
                           ) -> tuple[dict[str, int], dict[str, int], list[Contribution], dict]:
-        context = db.execute("SELECT payload FROM brain_fit_context WHERE source_id=?",
-                             (row["source_id"],)).fetchone()
+        context = db.execute("SELECT payload FROM brain_fit_context WHERE source_id=? AND source_version=?",
+                             (row["source_id"], row['source_version'])).fetchone()
         if context is None:
             return self._observations(db, row)
         terms = {item["term"]: item["occurrences"] for item in db.execute(
@@ -406,7 +611,8 @@ class BrainModel:
         aggregate = db.execute(
             "SELECT COUNT(*) AS support, COALESCE(SUM(c.sign), 0) AS net "
             "FROM brain_contributions c JOIN brain_inputs i ON i.source_id = c.source_id "
-            "WHERE i.partition = ? AND i.status = 'agreed' AND c.parameter = ? AND i.model_epoch=?",
+            "WHERE i.partition = ? AND i.status = 'agreed' AND c.parameter = ? AND i.model_epoch=? "
+            "AND c.source_version=i.source_version",
             (partition, parameter, reset.epoch(db)),
         ).fetchone()
         support, net = aggregate["support"], aggregate["net"]
@@ -418,11 +624,12 @@ class BrainModel:
         cursor = db.execute(
             "INSERT INTO brain_effects(source_id, partition, parameter, before_value, "
             "after_value, before_support, after_support, evidence, start_offset, "
-            "end_offset, rule_id, action, created_at, model_epoch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "end_offset, rule_id, action, created_at, model_epoch, source_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (source_id, partition, parameter, before["value"], after_value,
-             before["support"], support, evidence, start, end, rule_id, action, timestamp, reset.epoch(db)),
+             before["support"], support, evidence, start, end, rule_id, action, timestamp, reset.epoch(db),
+             self._input(db, source_id)['source_version']),
         )
-        return {
+        effect = {
             "revision": cursor.lastrowid, "model_epoch": reset.epoch(db), "source_id": source_id,
             "partition": partition, "parameter": parameter,
             "before": before["value"], "after": after_value,
@@ -431,14 +638,20 @@ class BrainModel:
             "evidence": evidence, "span": [start, end], "rule_id": rule_id,
             "action": action, "created_at": timestamp,
         }
+        self.trace.collect(effect)
+        return effect
 
+    @traced('review')
     def review(self, source_id: str, *, agree: bool) -> dict:
         """Set the second whole-source judgement, including explicit re-review."""
         if type(agree) is not bool:
             raise ValueError("agree must be a boolean")
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            return self._review(db, self._input(db, source_id), agree=agree, confirmed_by="manual")
+            row = self._input(db, source_id)
+            if row['source_version'] != 0:
+                raise ValueError("reopened source requires guarded review_version")
+            return self._review(db, row, agree=agree, confirmed_by="manual")
 
     def _review(self, db: sqlite3.Connection, row: sqlite3.Row, *, agree: bool,
                 confirmed_by: str) -> dict:
@@ -454,23 +667,25 @@ class BrainModel:
         before_terms, terms, contributions, context = self._fit_observations(db, row)
         frozen = db.execute("SELECT 1 FROM brain_fit_context WHERE source_id=?", (source_id,)).fetchone()
         if frozen is None:
-            db.execute("INSERT INTO brain_fit_context(source_id, payload) VALUES (?, ?)",
-                       (source_id, json.dumps(context, ensure_ascii=False)))
+            db.execute("INSERT INTO brain_fit_context(source_id, payload, source_version) VALUES (?, ?, ?)",
+                       (source_id, json.dumps(context, ensure_ascii=False), row['source_version']))
             db.executemany(
-                "INSERT INTO brain_terms(source_id, term, occurrences) VALUES (?, ?, ?)",
-                [(source_id, term, count) for term, count in terms.items()],
+                "INSERT INTO brain_terms(source_id, term, occurrences, source_version) VALUES (?, ?, ?, ?)",
+                [(source_id, term, count, row['source_version']) for term, count in terms.items()],
             )
             db.executemany(
                 "INSERT INTO brain_contributions(source_id, parameter, sign, evidence, "
-                "start_offset, end_offset, rule_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "start_offset, end_offset, rule_id, source_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [(source_id, item.parameter, item.sign, item.evidence, item.start, item.end,
-                  item.rule_id)
+                  item.rule_id, row['source_version'])
                  for item in contributions],
             )
         timestamp = _now()
         db.execute("UPDATE brain_inputs SET status='agreed', confirm=1, ever_fitted=1, confirmed_by=?, "
                    "reason=NULL, reviewed_at=?, model_epoch=? WHERE source_id=?",
                    (confirmed_by, timestamp, reset.epoch(db), source_id))
+        if frozen is None:
+            self.store.publish_deterministic(db, source_id, row['source_version'], context['memories'])
         effects = [self._recompute(db, partition, item.parameter, source_id,
                                    item.evidence, item.start, item.end, item.rule_id, "approve")
                    for item in contributions]
@@ -513,6 +728,7 @@ class BrainModel:
                       effects, timestamp)
         return self._decision_result(updated, effects, translator_effects)
 
+    @traced('revoke')
     def revoke(self, source_id: str) -> dict:
         """Remove an agreed source from the active fit; retain audit history."""
         with self.store._connect() as db:
@@ -566,7 +782,7 @@ class BrainModel:
             rows = db.execute(
                 "SELECT t.term, COUNT(*) AS documents, SUM(t.occurrences) AS occurrences "
                 "FROM brain_terms t JOIN brain_inputs i ON i.source_id = t.source_id "
-                "WHERE i.partition = ? AND i.status = 'agreed' GROUP BY t.term "
+                "WHERE i.partition = ? AND i.status = 'agreed' AND t.source_version=i.source_version GROUP BY t.term "
                 "HAVING COUNT(*) >= ? ORDER BY documents DESC, occurrences DESC, t.term",
                 (partition, min_documents),
             ).fetchall()

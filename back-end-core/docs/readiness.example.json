@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "protocol": {
+    "development_end": "2026-09-20T00:00:00Z",
+    "held_out_start": "2026-09-21T00:00:00Z",
+    "frozen_at": "2026-09-30T00:00:00Z"
+  },
+  "cases": [
+    {
+      "id": "synthetic-choice-draft", "group_id": "synthetic-group-1",
+      "source_ids": ["synthetic-source-1"], "backend_source_ids": [],
+      "task": "choice", "split": "held_out", "event_at": null, "labelled_at": null,
+      "annotator_id": null, "blind_to_outputs": null, "authenticity": null,
+      "exposure": {"import_status": "unknown", "model_fit": "unknown", "rule_development": "unknown", "manual_tuning": "unknown"},
+      "annotations": {"options": "pending", "actual_choice": "pending", "endorsed_choice": "pending"},
+      "data": {"domain": "daily", "options": null, "actual_choice": null, "endorsed_choice": null}
+    },
+    {
+      "id": "synthetic-extraction-draft", "group_id": "synthetic-group-2",
+      "source_ids": ["synthetic-source-2"], "backend_source_ids": [],
+      "task": "translator", "split": "development", "event_at": null, "labelled_at": null,
+      "annotator_id": null, "blind_to_outputs": null, "authenticity": null,
+      "exposure": {"import_status": "unknown", "model_fit": "unknown", "rule_development": "unknown", "manual_tuning": "unknown"},
+      "annotations": {"extraction": "pending"},
+      "data": {"domain": "daily", "partition": "rational", "kind": "diary", "text": "合成模板：今天写下一段记录。", "label_scope": [], "expected": []}
+    }
+  ]
+}

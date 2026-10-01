@@ -30,7 +30,26 @@ MAX_FILE_BYTES = 32_000_000
 _ID = re.compile(r"[A-Za-z0-9_.-]{1,80}\Z")
 
 
+def validate_json_strings(value: object) -> None:
+    """Reject NUL/surrogates anywhere, including keys and unused fields."""
+    if isinstance(value, str):
+        if "\x00" in value:
+            raise ValueError("NUL characters are not permitted")
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("surrogate code points are not permitted") from None
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            validate_json_strings(key)
+            validate_json_strings(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            validate_json_strings(item)
+
+
 def validate_cases(manifest: object) -> list[dict]:
+    validate_json_strings(manifest)
     if (not isinstance(manifest, dict) or set(manifest) != {"schema_version", "cases"}
             or type(manifest["schema_version"]) is not int or manifest["schema_version"] != 1):
         raise ValueError("corpus needs schema_version=1 and cases")
@@ -201,6 +220,8 @@ def evaluate_manifest(manifest: object, *, case_details: bool = False) -> dict:
                             "split": case["split"], "errors": errors,
                             "ignored_predictions": case_counts["ignored_predictions"]})
     report = {"schema_version": 1, "evaluation": "base_translator_extraction",
+            "cases_sha256": hashlib.sha256(json.dumps(manifest, sort_keys=True, allow_nan=False).encode("utf-8")).hexdigest(),
+            "evaluation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "evidence_policy": POLICY_VERSION, "personal_rules_used": False,
             "overall": _summary(overall), "by_split": {key: _summary(value) for key, value in by_split.items()},
             "by_domain": {key: _summary(value) for key, value in by_domain.items()},
@@ -231,17 +252,25 @@ def _invalid_constant(value: str):
     raise ValueError("non-finite JSON numbers are not permitted")
 
 
-def load_manifest(path: str | Path) -> object:
+def load_manifest(path: str | Path, *, max_bytes: int = MAX_FILE_BYTES) -> object:
+    if type(max_bytes) is not int or max_bytes < 1:
+        raise ValueError("file byte limit must be a positive integer")
     # Avoid waiting on a FIFO/device; only regular, explicitly selected files.
     descriptor = os.open(Path(path), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
     with os.fdopen(descriptor, "rb") as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise ValueError("corpus must be a regular file")
-        data = stream.read(MAX_FILE_BYTES + 1)
-    if len(data) > MAX_FILE_BYTES:
+        # Keep the module limit patchable for existing callers/tests.
+        limit = min(max_bytes, MAX_FILE_BYTES)
+        data = stream.read(limit + 1)
+    if len(data) > limit:
         raise ValueError("corpus exceeds file byte limit")
     try:
-        return json.loads(data.decode("utf-8"), object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+        manifest = json.loads(data.decode("utf-8"), object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+        validate_json_strings(manifest)
+        # JSON's exponent syntax can overflow without invoking parse_constant.
+        json.dumps(manifest, allow_nan=False)
+        return manifest
     except (UnicodeError, ValueError, RecursionError):
         raise ValueError("corpus must be bounded, strict UTF-8 JSON without duplicate fields or non-finite numbers") from None
 

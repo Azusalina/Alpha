@@ -20,6 +20,12 @@ fit while retaining the source and effect history.
 Manual re-review can reject an agreed source or restore an inactive one using
 its frozen fit, without duplicate support. Decision history is retained.
 
+Confirmed policy (2026-10-01), pending implementation/verification: automatically
+publish extracted candidate memories on whole-source double approval, checking
+the current source/version. Do not silently publish legacy pending/rejected
+candidates during migration. The last verified baseline uses explicit review;
+concurrent worker changes require evidence before recording delivery.
+
 Model-only reset is available through a deliberately confirmed local CLI:
 all three parameter partitions return to unobserved zero while translator
 vocabulary/correction learning, approvals and history survive. Old sources
@@ -28,6 +34,12 @@ This is not a factory reset or a hidden JSON API. See
 [`../docs/model-reset.md`](../docs/model-reset.md) for exact scope and commands.
 
 ## Setup
+
+Terminal CLI/API processes now print text-free live model status to stderr:
+receipt, storage address, dual judgement, committed fit and parameter changes.
+Tauri forwards validated records to its launching terminal. Use `--quiet` or
+`ALPHA_BRAIN_TRACE=0` to disable; embedded Python defaults remain quiet. See
+[`../docs/terminal-tracing.md`](../docs/terminal-tracing.md).
 
 The one external tool is [jieba](https://github.com/fxsjy/jieba), MIT licensed,
 cloned at `../../ext-refs/jieba` (reviewed commit
@@ -69,7 +81,13 @@ if another source is approved or revoked before review; the review result is
 authoritative. The JSON API now provides `correction_set` and
 `correction_history` for pending interpretation feedback; see
 [`../docs/api.md`](../docs/api.md). Corrections preserve raw text and require
-whole-input agreement before fitting. Already reviewed inputs remain frozen.
+whole-input agreement before fitting. Already reviewed inputs currently remain
+frozen. The user confirmed a separate reviewed-source semantic revision path:
+withdraw the current contribution and require renewed `immediate`/`confirm`
+consent before fitting the revised interpretation. That path and explicit
+downstream replay remain pending; ordinary re-review still restores frozen fits.
+Preserve historical effects and model-reset exclusions, and do not confuse this
+semantic revision with F6 text replacement.
 
 ## What is actually learned
 
@@ -105,8 +123,8 @@ whole-input agreement before fitting. Already reviewed inputs remain frozen.
 
 Each effect records old/new score, support, exact source excerpt and character
 span, source ID, partition, and revision. The frontend can consume this JSON
-without depending on a visual representation. MMPI report import is deferred in
-[`../docs/TODO.md`](../docs/TODO.md).
+without depending on a visual representation. Current scope exclusions and
+pending work are recorded in [`../docs/TODO.md`](../docs/TODO.md).
 The complete active/deferred parameter register is
 [`../docs/parameters.md`](../docs/parameters.md).
 
@@ -114,14 +132,27 @@ F6 source governance is available through the application API: edit inactive
 sources without retaining their old text-bearing history, or delete any source
 and atomically remove its active contribution and source-specific history.
 Other inputs' old effects/frozen contexts stay untouched; external files and
-backups are not deleted. There is no password gate or secure-erasure claim.
+backups are not deleted. F13 application access control and encrypted backups
+are now confirmed in scope, with implementation/integration/verification pending;
+whole-database encryption is outside this round and SQLite remains plaintext.
+The gate must cover excerpts, evidence, histories and writes as well as raw text;
+it does not prevent direct file access by the same OS user. Recovery must validate
+into an explicit fresh target. F6 does not claim secure erasure.
 Editing resets confirmation and clears old terms/labels/frozen evidence before
 any fresh fit. A non-text internal ever-fitted flag survives editing for held-out
 source-overlap checks; it is deleted with the source. See
 [`../docs/api.md`](../docs/api.md#source-editing-and-deletion-f6-implemented).
+Latest frontend ledger reports capability-based F6 activation and model activity/
+epoch handling verified through browser real-Python tests. Native F6,
+reset/reconnect/failure acceptance and release runtime packaging remain pending;
+no live reset endpoint/UI exists.
 
 Offline held-out evaluation uses the same pure ranking function as the live
 model, reads a consistent SQLite snapshot without writing, separates actual
 and retrospectively endorsed choices, and reports coverage plus static
 leave-one-value-parameter-out comparisons. See
 [`../docs/evaluation.md`](../docs/evaluation.md); the supplied example is synthetic.
+No real private held-out material is available this round. Requested work is local
+collection templates/readiness tools, pending worker verification, with independent
+labels and leakage checks. Real coverage/predictive validity remains unverified;
+offline tools do not enable the deferred F14 frontend feedback contract.

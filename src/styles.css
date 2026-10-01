@@ -513,19 +513,27 @@ body {
   visibility: hidden;
 }
 
-/* cross-links: the same flat ink, dashed */
-.tree-edge--link {
-  stroke-dasharray: 4 5;
+/* a line something forks off is the trunk (D65) */
+.tree-edge--trunk {
+  stroke-width: 2px;
 }
 
 .tree-edge.is-hot {
   stroke-width: 2px;
-  /* edges are snapped to x.5 so 1 px is one crisp row; a 2 px stroke needs a
-     whole-pixel centre or it renders soft-solid-soft over three rows */
-  transform: translate(-0.5px, -0.5px);
+}
+
+.tree-edge--trunk.is-hot {
+  stroke-width: 3px;
+}
+
+/* where an input forks off a line */
+.tree-junction {
+  fill: var(--tree-ink);
+  visibility: hidden;
 }
 
 .tree-node {
+  touch-action: none;
   position: absolute;
   left: 0;
   top: 0;
@@ -550,11 +558,20 @@ body {
 .tree-node--d0 {
   width: 42px;
   height: 42px;
+  /* the main node sits inside the wrist: see-through (D67) */
+  opacity: 0.4;
 }
 
 .tree-node--d1 {
   width: 30px;
   height: 30px;
+}
+
+/* an input: the smallest disc */
+.tree-node--input {
+  width: 14px;
+  height: 14px;
+  border-width: 1.5px;
 }
 
 /* a hit area 2 px wider than the disc on every side (inset is measured from the
@@ -591,9 +608,9 @@ body {
   outline-offset: 5px;
 }
 
-/* the label stands above its node, on a ground-colour backing: edges leave
-   to the sides, so nothing ever runs through the text (a sibling of the disc,
-   moved by TreeOverlay, so it is not scaled or blurred with the hover growth) */
+/* the label stands beyond its node, away from the main node, on a ground-colour
+   backing, so nothing runs through the text (a sibling of the disc, moved by
+   TreeOverlay, so it is not scaled or blurred with the hover growth) */
 .tree-label {
   position: absolute;
   left: 0;

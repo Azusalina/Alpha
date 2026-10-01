@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 from translator.pipeline import MAX_CHARS
+from core.access import AccessError, authorize_database
 
 from .engine import BrainModel
 from .reset import verify_existing
@@ -18,6 +20,7 @@ DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
 def main() -> None:
     parser = argparse.ArgumentParser(description="Alpha local self-model v1")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    parser.add_argument('--quiet', action='store_true', help='disable model terminal tracing')
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("baseline")
     actions.add_parser("reset-info", help="inspect model epoch and input revision before reset")
@@ -62,9 +65,10 @@ def main() -> None:
         if args.action == "baseline":
             result = BrainModel.baseline()
         else:
+            authorize_database(args.db)
             if args.action in {"reset", "reset-info"}:
                 verify_existing(args.db)
-            model = BrainModel(args.db)
+            model = BrainModel(args.db, trace=not args.quiet and os.environ.get('ALPHA_BRAIN_TRACE') != '0')
             if args.action == "reset-info":
                 result = model.reset_info()
             elif args.action == "reset":
@@ -100,6 +104,8 @@ def main() -> None:
                                              min_documents=args.min_documents)
             else:
                 result = model.rank_options(json.loads(args.options_json))
+    except AccessError:
+        parser.exit(1, "access is locked\n")
     except (OSError, UnicodeError, ValueError, KeyError, RuntimeError, json.JSONDecodeError) as error:
         parser.error(str(error))
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2)

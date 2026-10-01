@@ -3,8 +3,17 @@
 These are **local modeling hypotheses**, not standardized psychological scores.
 All numeric personal values start at 0 in `model/baseline.json`; `support=0`
 means unobserved. Each of the three partitions has its own copy. A source can
-contribute at most once to any one parameter. Only whole-input `agree=true`
-sources contribute; `revoke` removes them from the active fit.
+contribute at most once to any one parameter. Only sources with whole-input
+`immediate=true` and `confirm=true` contribute in the current model epoch;
+`revoke` removes them from the active fit. Approval history alone is not current
+model participation (`model_active`/`model_epoch`).
+
+Confirmed decisions (2026-10-01), pending implementation/verification: extracted
+candidate memories will publish automatically on current-source double approval,
+without silently publishing legacy pending/rejected candidates. This does not
+activate the deferred parameter hypotheses below. Reviewed semantic revisions
+must withdraw current contributions and obtain renewed double consent before
+fitting; explicit replay must preserve historical effects and reset exclusions.
 
 ## Active in v1
 
@@ -46,5 +55,10 @@ coverage/abstention and ranking quality, and keep a parameter only when the
 data support its benefit. Until such labels exist, `rank_options` is a
 provisional *value-alignment* utility, not “the user's most likely choice.”
 
-MMPI report parsing remains a separate deferred source type in `TODO.md`, not
-a value-model parameter or text-derived diagnosis.
+No real private held-out material is available this round; deliver local collection
+templates/readiness tools only, pending worker verification. Independent real
+labels and coverage/predictive validation remain external prerequisites; synthetic
+fixtures do not justify activating or pruning parameters. F14 frontend choice
+feedback remains deferred. See `TODO.md` for current scope exclusions and the
+confirmed, still-pending F13 access-gate/encrypted-backup work; the current SQLite
+database remains plaintext and whole-database encryption is outside this round.

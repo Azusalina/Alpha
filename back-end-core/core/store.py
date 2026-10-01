@@ -1,8 +1,9 @@
 """SQLite source and candidate memory store for the local brain.
 
-The model is deliberately absent here: a candidate can be supplied by a human,
-an extractor, or an import tool. Publishing it to the memory graph is an
-explicit, separate operation, so the UI can choose its own review policy.
+Candidates can be supplied by humans or extractors. Brain candidates publish
+under current whole-source dual approval; standalone legacy sources still use
+explicit candidate review. Model fitting and automatic publication share a caller
+transaction.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ def _nonempty(value: str, name: str) -> str:
 
 
 class MemoryStore:
-    """One local SQLite database; callers decide when to accept candidates."""
+    """One local SQLite database with source-gated and legacy candidate policies."""
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -140,7 +141,7 @@ class MemoryStore:
                 raise KeyError(f"source not found: {source_id}")
             author_text = source["body"]
             if self._has_brain_inputs(db):
-                review = db.execute("SELECT status, kind, self_speaker FROM brain_inputs WHERE source_id = ?",
+                review = db.execute("SELECT * FROM brain_inputs WHERE source_id = ?",
                                     (source_id,)).fetchone()
                 if review is not None and review["status"] != "agreed":
                     raise ValueError("brain source must be agreed before proposing a memory")
@@ -157,13 +158,32 @@ class MemoryStore:
                     raise ValueError("chat memory evidence must come from the self speaker")
                 checked.append((claim, evidence))
             timestamp = _now()
-            db.executemany(
-                "INSERT INTO candidates(id, source_id, claim, evidence, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                [(item_id, source_id, claim, evidence, timestamp)
-                 for item_id, (claim, evidence) in zip(ids, checked)],
-            )
+            versioned = self._has_brain_inputs(db) and review is not None and 'source_version' in review.keys()
+            if versioned:
+                db.executemany(
+                    "INSERT INTO candidates(id,source_id,claim,evidence,created_at,status,resolved_at,source_version) "
+                    "VALUES (?,?,?,?,?,'accepted',?,?)",
+                    [(item_id, source_id, claim, evidence, timestamp, timestamp, review['source_version'])
+                     for item_id, (claim, evidence) in zip(ids, checked)])
+                from model.sources import bump_generation
+                bump_generation(db)
+            else:
+                db.executemany(
+                    "INSERT INTO candidates(id,source_id,claim,evidence,created_at) VALUES (?,?,?,?,?)",
+                    [(item_id, source_id, claim, evidence, timestamp)
+                     for item_id, (claim, evidence) in zip(ids, checked)])
         return ids
+
+    @staticmethod
+    def publish_deterministic(db: sqlite3.Connection, source_id: str, source_version: int,
+                              items: list[dict]) -> None:
+        """Caller owns approval transaction; no publication during frozen restores."""
+        timestamp = _now()
+        for item in items:
+            db.execute("INSERT INTO candidates(id,source_id,claim,evidence,status,created_at,resolved_at,"
+                       "source_version) VALUES (?,?,?,?,'accepted',?,?,?)",
+                       (uuid4().hex, source_id, item['claim'], item['evidence'], timestamp, timestamp,
+                        source_version))
 
     def list_candidates(self, *, status: str | None = None) -> list[dict]:
         if status is not None and status not in {"pending", "accepted", "rejected"}:
@@ -185,12 +205,14 @@ class MemoryStore:
             db.execute("BEGIN IMMEDIATE")
             if accept and self._has_brain_inputs(db):
                 source = db.execute(
-                    "SELECT i.status AS brain_status FROM candidates c "
+                    "SELECT i.status AS brain_status, i.source_version AS current_version, c.source_version FROM candidates c "
                     "LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
                     "WHERE c.id = ?", (candidate_id,),
                 ).fetchone()
                 if source is not None and source["brain_status"] not in (None, "agreed"):
                     raise ValueError("brain source must be agreed before accepting a memory")
+                if source is not None and source['current_version'] is not None and source['source_version'] != source['current_version']:
+                    raise ValueError("candidate belongs to a superseded source version")
             changed = db.execute(
                 "UPDATE candidates SET status = ?, resolved_at = ? "
                 "WHERE id = ? AND status = 'pending'",
@@ -199,6 +221,9 @@ class MemoryStore:
             if not changed:
                 raise ValueError("candidate not found or already resolved")
             row = db.execute("SELECT * FROM candidates WHERE id = ?", (candidate_id,)).fetchone()
+            if self._has_brain_inputs(db):
+                from model.sources import bump_generation
+                bump_generation(db)
         return dict(row)
 
     def list_memories(self) -> list[dict]:
@@ -209,7 +234,7 @@ class MemoryStore:
                     "SELECT c.* FROM candidates c "
                     "LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
                     "WHERE c.status = 'accepted' "
-                    "AND (i.source_id IS NULL OR i.status = 'agreed') "
+                    "AND (i.source_id IS NULL OR (i.status = 'agreed' AND c.source_version=i.source_version)) "
                     "ORDER BY c.created_at, c.id"
                 ).fetchall()
             else:
@@ -231,7 +256,7 @@ class MemoryStore:
         with self._connect() as db:
             joined = (" LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
                       if self._has_brain_inputs(db) else "")
-            visible = (" AND (i.source_id IS NULL OR i.status = 'agreed') "
+            visible = (" AND (i.source_id IS NULL OR (i.status = 'agreed' AND c.source_version=i.source_version)) "
                        if joined else "")
             rows = db.execute(
                 "SELECT c.id, c.claim, c.evidence, c.source_id, c.created_at, "

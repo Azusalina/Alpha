@@ -406,21 +406,53 @@ Everything the UI knows about the model goes through `src/backend` (types in
 `useBackend()`, never a transport. Back-end contract and the open requests are
 negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
 
+Scope decisions (2026-10-01), pending implementation and worker verification:
+automatically publish extracted candidate memories on current-source/version
+double approval without migration publication of legacy pending/rejected items;
+reviewed semantic revisions withdraw current contributions and require renewed
+double consent before fitting. Explicit replay must preserve historical effects
+and model-reset exclusions. F13 application access control and encrypted backups
+are in scope; API integration and frontend unlock wiring remain pending. Cover
+raw text, excerpts, evidence, histories and writes. SQLite remains plaintext;
+whole-database encryption is outside this round, and the gate does not prevent
+direct same-OS-user file access. Recovery validates into an explicit fresh target.
+No private held-out material is available: this round requests local templates/
+tools only, not acceptance of real coverage or predictive validity. F14 remains
+deferred. Current scope exclusions are recorded once in `back-end-core/docs/TODO.md`;
+dated historical conversation remains in the communication ledger.
+
 - **Adapters** (`src/backend/`): `UnavailableAdapter` (product default, "后端未连接"),
   `MockBrainAdapter` (demo: in memory, label "演示数据 · 未运行模型", `trains: false`,
   every `rule_id` prefixed `mock.`, lost on reload), `RemoteBrainAdapter` (api.md
   envelope over a `Transport`; `twoJudgements` from `health.features`,
-  `proposedMethods` off). `tauriTransport.ts` talks to the host command
+  `proposedMethods` enabled by `probe` when `health.methods` includes
+  `input_edit`/`input_delete` and `features.source_edit`/`source_delete` are true).
+  `tauriTransport.ts` talks to the host command
   `brain_call` through `window.__TAURI_INTERNALS__`; `app/desktop.ts` connects once
-  at start when a Tauri host exists. **Not verified on the native WebKitGTK build.**
+  at start when a Tauri host exists. Browser real-Python wiring and basic Xvfb
+  native connection/submit/review are reported verified in the ledger; native
+  F6, reset/reconnect/failure acceptance and release packaging remain pending.
 - **Two judgements per input** (D55): `immediate` (given at input) and `confirm`
   (second, inside the zoomed-in brain). Trained only when both are true.
   `exclamation` makes the back end set both true at submit (the response carries the
   formal effects). Statuses: `pending` 待确认, `agreed` 已认可, `disagreed` 不同意
   (reason `immediate_false` / `confirm_false`), `revoked` 已撤销 (reason `user_revoked`).
-  Edit / delete exist only in the mock (back end F6 open); against a real back end
-  they are greyed out ("后端暂不支持"). Delete is a hard delete of any status including
-  the whole history (an agreed input stops training with it) — the user's decision.
+  Real-backend F6 edit/delete are implemented and capability-activated, with
+  browser real-Python acceptance recorded. Editing is limited to non-agreed
+  sources (revoke first if agreed), clears old source-specific text/history and
+  resets confirmation without training. Delete hard-deletes any status and its
+  source-specific history, withdrawing active support. Other sources' frozen
+  effects, external files and backups stay untouched; no secure-erasure claim.
+  Older backends lacking capabilities keep buttons disabled. Native F6 acceptance
+  remains pending.
+- **Model activity**: consume `health.model_epoch`, records' `model_active`/
+  `model_epoch` and formal effects' `model_epoch`. An agreed inactive record is
+  still approved but outside the current model; re-enlistment requires deliberate
+  `review(agree=true)`, never automatic review on reconnect. Reconnect clears old
+  caches/in-flight operations and reloads health/state/the first input page;
+  historical effects keep their epoch and must not play as new training. Browser
+  handling is reported verified; native reset/reconnect remains pending. No live
+  reset endpoint/UI exists.
 - **Spans** are Unicode code points, end exclusive: use `src/backend/spans.ts`
   (`codePointSlice`, `highlight`, `evidenceMatches`), never slice a JS string with a span.
 - **Text**: `readTextFile` (.txt/.md only, strict UTF-8, ≤ 4 MB, BOM stripped, NUL refused),
@@ -453,5 +485,7 @@ negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
   global exists. `ui/shared/WithheldNotes.tsx` shows `interpretation.withheld_values` ("自动提取暂不采纳",
   reason labels, unknown reasons shown raw, v1 and v2 policies); it never hides an effect.
   Native check (Tauri debug binary, Xvfb, XTest clicks): connected, submit, preview, confirm T, state
-  read back from the database. Not verified: real GPU, release build / Python packaging, fault paths.
-
+  read back from the database. Latest browser tests also cover F6, NUL validation
+  and model activity/epoch handling. Not verified: native F6/reset/reconnect/fault
+  paths, large-list acceptance, real GPU, release build / Python/backend/jieba
+  packaging. These boundaries are not closed by parallel workers' ongoing work.

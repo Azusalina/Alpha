@@ -25,7 +25,8 @@ import { inputStore } from '../app/inputStore';
 import { focusBrain, navigate } from '../app/navigation';
 import { humanProgress, stage, type SceneState } from '../app/stage';
 import { TRANSITION, phaseProgress } from '../config/timing';
-import { GRAPH } from '../fixtures/graph';
+import { describeNode } from '../graph/describe';
+import { useGraph } from '../graph/graphStore';
 import { EntryPanel } from './entry/EntryPanel';
 import { NodeDetail, regionLabel } from './NodeDetail';
 import { RecordsPanel } from './records/RecordsPanel';
@@ -84,7 +85,8 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const hovered = ui.hovered ? GRAPH.nodes.find((n) => n.id === ui.hovered) : null;
+  const graph = useGraph();
+  const hovered = ui.hovered ? graph.nodes.find((n) => n.id === ui.hovered) : null;
 
   return (
     <>
@@ -135,7 +137,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           </button>
           <p className="human-panel__hint">
             {hovered
-              ? `${hovered.label} · 占位脑区「${regionLabel(hovered.region)}」`
+              ? `${hovered.label} · ${describeNode(hovered)}`
               : ui.hoverRegion >= 0
                 ? `占位脑区「${regionLabel(ui.hoverRegion)}」`
                 : '拖动旋转 · 点节点看详情 · Esc 收起'}

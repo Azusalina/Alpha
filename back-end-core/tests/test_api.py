@@ -57,9 +57,9 @@ class BrainAPITests(unittest.TestCase):
         self.assertEqual(self.result("memory_list"), [])
         self.result("review", source_id=source, agree=True)
         candidate = self.result("candidate_propose", source_id=source,
-                                claim="重视公平", evidence="我重视公平")["candidate_id"]
-        self.assertEqual(self.result("memory_list"), [])
-        self.result("candidate_review", candidate_id=candidate, accept=True)
+                                claim="重视公平", evidence="我重视公平")
+        self.assertEqual(candidate["status"], "accepted")
+        self.assertEqual(self.result("memory_list")[0]["id"], candidate["candidate_id"])
         active = self.result("memory_search", query="公平", partition="rational")
         self.assertEqual(active[0]["source_id"], source)
         self.assertEqual(active[0]["source_ref"], "diary.md")
@@ -76,8 +76,8 @@ class BrainAPITests(unittest.TestCase):
             source = self.result("submit", text="我喜欢画画。", partition=partition)["source_id"]
             self.result("review", source_id=source, agree=True)
             candidate = self.result("candidate_propose", source_id=source,
-                                    claim="喜欢画画", evidence="喜欢画画")["candidate_id"]
-            self.result("candidate_review", candidate_id=candidate, accept=True)
+                                    claim="喜欢画画", evidence="喜欢画画")
+            self.assertEqual(candidate["status"], "accepted")
         rows = self.result("memory_search", query="画画", partition="rational", limit=1)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["partition"], "rational")
@@ -119,7 +119,8 @@ class BrainAPITests(unittest.TestCase):
         spy = ModelSpy()
         candidate = self.api.brain.extract_memories(source, spy)[0]
         self.assertNotIn("台北", spy.prompt)
-        self.result("candidate_review", candidate_id=candidate, accept=True)
+        self.assertEqual(self.result("candidate_list")[0]["id"], candidate)
+        self.assertEqual(self.result("candidate_list")[0]["status"], "accepted")
         response = self.call("candidate_propose", source_id=source,
                              claim="住台北", evidence="我住台北")
         self.assertFalse(response["ok"])

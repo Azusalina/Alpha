@@ -7,6 +7,7 @@
 //! docs/DESKTOP_CHECK.md for the measurement procedure and fallbacks.
 
 mod brain_host;
+mod runtime_paths;
 
 use brain_host::{BrainHost, HostConfig};
 use serde_json::Value;
@@ -35,26 +36,27 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             // Environment is a trusted desktop-launch configuration, never IPC.
-            let root = std::env::var_os("ALPHA_BRAIN_ROOT")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| {
-                    if cfg!(debug_assertions) {
+            let (python, root) = if cfg!(debug_assertions) {
+                let root = std::env::var_os("ALPHA_BRAIN_ROOT")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| {
                         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                             .parent()
                             .unwrap()
                             .join("back-end-core")
-                    } else {
-                        app.path()
-                            .resource_dir()
-                            .unwrap_or_default()
-                            .join("back-end-core")
-                    }
-                });
+                    });
+                (std::env::var_os("ALPHA_BRAIN_PYTHON").unwrap_or_else(|| "python3".into()), root)
+            } else {
+                runtime_paths::release_paths(
+                    &app.path().resource_dir()?.join("brain-runtime"),
+                    std::env::var_os("ALPHA_BRAIN_PYTHON"),
+                    std::env::var_os("ALPHA_BRAIN_ROOT"),
+                )?
+            };
             let db = match std::env::var_os("ALPHA_BRAIN_DB") {
                 Some(path) => PathBuf::from(path),
                 None => app.path().app_local_data_dir()?.join("brain.sqlite3"),
             };
-            let python = std::env::var_os("ALPHA_BRAIN_PYTHON").unwrap_or_else(|| "python3".into());
             app.manage(Arc::new(BrainHost::new(HostConfig {
                 python,
                 root,

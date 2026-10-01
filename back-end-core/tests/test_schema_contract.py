@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import uuid
 from contextlib import closing
 from pathlib import Path
 
@@ -71,6 +72,21 @@ class SchemaContractTests(unittest.TestCase):
         errors = list(self.validators[name].iter_errors(value))
         self.assertFalse(errors, [(list(error.absolute_path), error.message) for error in errors])
 
+    def legacy_pending(self, source):
+        """Seed a historical pending candidate; new proposals are auto-accepted."""
+        candidate = uuid.uuid4().hex
+        version = self.api.brain.input_get(source)["source_version"]
+        with closing(sqlite3.connect(self.api.path)) as db, db:
+            db.execute("INSERT INTO candidates(id,source_id,claim,evidence,status,created_at,source_version) "
+                       "VALUES (?,?,'重视公平','公平','pending','synthetic-legacy-time',?)",
+                       (candidate, source, version))
+        return candidate
+
+    def guards(self, source):
+        info = self.api.brain.model.reset_info()
+        return dict(expected_source_version=self.api.brain.input_get(source)["source_version"],
+                    expected_revision=info["input_revision"], expected_epoch=info["model_epoch"])
+
     def call(self, method, **params):
         request = {"schema_version": 1, "id": "schema-test", "method": method, "params": params}
         self.validate("request", request)
@@ -100,9 +116,12 @@ class SchemaContractTests(unittest.TestCase):
             self.validate("partitionState" if params.get("partition") is not None else "allState", result)
         return result
 
-    def test_all_23_methods_have_live_request_and_envelope_examples(self):
+    def test_all_methods_have_live_request_and_envelope_examples(self):
         self.call("health")
         self.call("baseline")
+        self.call("access_status")
+        self.call("unlock", password="synthetic unconfigured password")
+        self.call("lock")
         source = self.call("submit", text="😀我重视公平。\r\n我很开心。", partition="rational")["source_id"]
         self.call("input_get", source_id=source)
         self.call("input_list", partition="rational", status="pending")
@@ -117,12 +136,24 @@ class SchemaContractTests(unittest.TestCase):
         self.call("terms", partition="rational", min_documents=1)
         self.call("rank", options=[{"id": "fair", "impacts": {"value.fairness": 1}},
                                    {"id": "other", "impacts": {}}])
-        candidate = self.call("candidate_propose", source_id=source,
-                              claim="重视公平", evidence="我重视公平")["candidate_id"]
-        self.call("candidate_review", candidate_id=candidate, accept=True)
+        self.assertEqual(self.call("candidate_propose", source_id=source,
+                                  claim="重视公平", evidence="我重视公平")["status"], "accepted")
+        self.call("candidate_review", candidate_id=self.legacy_pending(source), accept=True)
         self.call("candidate_list")
         self.call("memory_list", partition="rational")
         self.call("memory_search", query="公平", partition="rational")
+        self.call("replay_preview", source_ids=[source])
+        reopened = self.call("correction_reopen", source_id=source, corrections=[], immediate=True,
+                             **self.guards(source))
+        self.assertTrue(reopened["effects"])
+        self.call("correction_history", source_id=source)
+        self.call("review_history", source_id=source)
+        self.call("review_version", source_id=source, agree=True, **self.guards(source))
+        info = self.api.brain.model.reset_info()
+        self.call("replay_reopen", source_ids=[source], immediate=True,
+                  expected_source_versions={source: self.api.brain.input_get(source)["source_version"]},
+                  expected_revision=info["input_revision"], expected_epoch=info["model_epoch"])
+        self.call("review_version", source_id=source, agree=True, **self.guards(source))
         self.call("revoke", source_id=source)
         self.call("input_edit", source_id=source, text="我重视自由。", immediate=True)
         self.call("input_delete", source_id=source)
@@ -256,7 +287,7 @@ class SchemaContractTests(unittest.TestCase):
             {"schema_version": 1, "id": "", "ok": True, "result": {}}))
         self.assertFalse(self.validators["response"].is_valid(
             {"schema_version": 1, "id": "bad", "ok": False,
-             "error": {"code": "LOCKED", "message": "not implemented"}}))
+             "error": {"code": "UNKNOWN_ERROR", "message": "not implemented"}}))
 
     def test_invalid_diagnostics_cannot_pass_the_public_definition(self):
         source = self.call("submit", text="我重视公平吗？", partition="rational")["source_id"]
@@ -342,8 +373,10 @@ class SchemaContractTests(unittest.TestCase):
 
     def test_candidate_and_active_memory_records_keep_different_status_boundaries(self):
         source = self.call("submit", text="我重视公平。", partition="rational", exclamation=True)["source_id"]
-        candidate_ids = [self.call("candidate_propose", source_id=source, claim="重视公平", evidence="公平")["candidate_id"]
-                         for _ in range(3)]
+        self.assertEqual(self.call("candidate_propose", source_id=source, claim="重视公平", evidence="公平")["status"], "accepted")
+        candidate_ids = [self.legacy_pending(source) for _ in range(3)]
+        self.api = BrainAPI(self.api.path)
+        self.assertEqual(len(self.call("candidate_list", status="pending")), 3)
         self.call("candidate_review", candidate_id=candidate_ids[0], accept=True)
         self.call("candidate_review", candidate_id=candidate_ids[1], accept=False)
         rows = self.call("candidate_list")
@@ -353,7 +386,7 @@ class SchemaContractTests(unittest.TestCase):
         self.call("revoke", source_id=source)
         self.assertEqual(self.call("memory_list"), [])
         self.assertEqual(self.call("memory_search", query="公平"), [])
-        self.assertEqual(len(self.call("candidate_list")), 3)
+        self.assertEqual(len(self.call("candidate_list")), 4)
         self.call("candidate_review", candidate_id=candidate_ids[2], accept=False)
         malformed = copy.deepcopy(active)
         malformed[0]["source_status"] = "revoked"

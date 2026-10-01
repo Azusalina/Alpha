@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from .store import MemoryStore
+from .access import AccessError, authorize_database
 
 
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
@@ -36,6 +37,10 @@ def main() -> None:
     search.add_argument("--limit", type=int, default=20)
     args = parser.parse_args()
 
+    try:
+        authorize_database(args.db)
+    except AccessError:
+        parser.exit(1, "access is locked\n")
     store = MemoryStore(args.db)
     store.initialize()
     if args.action == "init":

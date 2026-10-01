@@ -1,11 +1,15 @@
-/** The one technology-tree layout of the session (deterministic; computed on first use). */
+/** The layout of the current graph, computed once per graph snapshot. */
 
-import { GRAPH } from '../fixtures/graph';
+import type { GraphData } from '../fixtures/graph';
 import { layoutTree, type TreeLayout } from './layout';
 
+let cachedFor: GraphData | null = null;
 let cached: TreeLayout | null = null;
 
-export function treeLayout(): TreeLayout {
-  if (!cached) cached = layoutTree(GRAPH);
+export function treeLayout(graph: GraphData): TreeLayout {
+  if (cachedFor !== graph || !cached) {
+    cached = layoutTree(graph);
+    cachedFor = graph;
+  }
   return cached;
 }

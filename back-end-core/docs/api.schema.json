@@ -9,6 +9,49 @@
     "partition": {"enum": ["rational", "emotional", "crazy"]},
     "optionalPartition": {"enum": ["rational", "emotional", "crazy", null]},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    "revision": {"type": "integer", "minimum": 0},
+    "sourceIds": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+    "password": {"type": "string", "minLength": 1, "maxLength": 1024, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}, "description": "Runtime additionally caps UTF-8 encoding at 1024 bytes; never trim or log."},
+    "accessStatus": {
+      "type": "object", "required": ["configured", "locked"], "additionalProperties": false,
+      "properties": {"configured": {"type": "boolean"}, "locked": {"type": "boolean"}},
+      "if": {"properties": {"configured": {"const": false}}}, "then": {"properties": {"locked": {"const": false}}}
+    },
+    "extractedMemories": {"type": "array", "maxItems": 16, "items": {
+      "type": "object", "required": ["claim", "evidence", "span"], "additionalProperties": false,
+      "properties": {"claim": {"$ref": "#/$defs/text"}, "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}}
+    }},
+    "contributions": {"type": "array", "maxItems": 13, "items": {
+      "type": "object", "required": ["parameter", "sign", "evidence", "start_offset", "end_offset", "rule_id"], "additionalProperties": false,
+      "properties": {"parameter": {"$ref": "#/$defs/parameter"}, "sign": {"type": "integer", "enum": [-1, 1]}, "evidence": {"$ref": "#/$defs/text"}, "start_offset": {"$ref": "#/$defs/revision"}, "end_offset": {"type": "integer", "minimum": 1}, "rule_id": {"$ref": "#/$defs/text"}}
+    }},
+    "termCounts": {"type": "object", "propertyNames": {"$ref": "#/$defs/text"}, "additionalProperties": {"type": "integer", "minimum": 1}},
+    "replaySnapshot": {
+      "type": "object", "required": ["contributions", "terms", "interpretation", "memories"], "additionalProperties": false,
+      "properties": {"contributions": {"$ref": "#/$defs/contributions"}, "terms": {"$ref": "#/$defs/termCounts"}, "interpretation": {"oneOf": [{"$ref": "#/$defs/interpretation"}, {"$ref": "#/$defs/empty"}]}, "memories": {"$ref": "#/$defs/extractedMemories"}}
+    },
+    "replayItem": {
+      "type": "object", "required": ["source_id", "source_version", "eligible", "dependencies", "diff", "semantic_change"], "additionalProperties": false,
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "source_version": {"$ref": "#/$defs/revision"}, "eligible": {"type": "boolean"}, "semantic_change": {"type": "boolean"},
+        "dependencies": {"type": "object", "required": ["support_source_ids", "terms", "dependent_source_ids"], "additionalProperties": false,
+          "properties": {"support_source_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}}, "terms": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}}, "dependent_source_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}}}},
+        "diff": {"type": "object", "required": ["before", "after"], "additionalProperties": false, "properties": {"before": {"$ref": "#/$defs/replaySnapshot"}, "after": {"$ref": "#/$defs/replaySnapshot"}}}
+      }
+    },
+    "versionArchive": {
+      "type": "object", "required": ["source_version", "model_epoch", "created_at", "approval", "fit_context", "contributions", "terms", "corrections"], "additionalProperties": false,
+      "properties": {"source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}, "created_at": {"$ref": "#/$defs/text"}, "approval": {"$ref": "#/$defs/approvalSnapshot"}, "fit_context": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/interpretation"}]}, "contributions": {"$ref": "#/$defs/contributions"}, "terms": {"$ref": "#/$defs/termCounts"}, "corrections": {"type": "array", "items": {"$ref": "#/$defs/correctionRecord"}}}
+    },
+    "reopenDecision": {
+      "allOf": [{"$ref": "#/$defs/approvalMetadata"}], "unevaluatedProperties": false,
+      "required": ["source_id", "partition", "effects", "translator_effects", "source_version", "input_revision", "model_epoch", "correction_revision", "corrections"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"}, "status": {"enum": ["pending", "disagreed"]}, "confirm": {"const": null}, "exclamation": {"const": false}, "confirmed_by": {"const": null},
+        "effects": {"type": "array", "maxItems": 13, "items": {"allOf": [{"$ref": "#/$defs/committedEffect"}], "properties": {"action": {"const": "revoke"}}}}, "translator_effects": {"type": "array", "items": {"$ref": "#/$defs/translatorEffect"}},
+        "source_version": {"type": "integer", "minimum": 1}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}, "correction_revision": {"type": "integer", "minimum": 1}, "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}
+      }
+    },
     "cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048, "pattern": "^[A-Za-z0-9_-]+\\.[0-9a-f]{64}(?![\\s\\S])"},
     "inputMetadata": {
       "type": "object",
@@ -24,7 +67,7 @@
         "source_ref": {"type": ["string", "null"]}, "created_at": {"type": "string"},
         "excerpt": {"type": "string", "maxLength": 80}, "char_count": {"type": "integer", "minimum": 1},
         "edited_at": {"type": ["string", "null"], "minLength": 1},
-        "model_active": {"type": "boolean"}, "model_epoch": {"type": "integer", "minimum": 0}
+        "model_active": {"type": "boolean"}, "model_epoch": {"type": "integer", "minimum": 0}, "source_version": {"$ref": "#/$defs/revision"}
       },
       "allOf": [{"$ref": "#/$defs/approvalMetadata"}]
     },
@@ -67,7 +110,15 @@
     },
     "span": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
     "parameter": {"enum": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection", "affect.disappointment", "affect.sadness", "affect.happiness", "affect.anger", "expression.less_initiative"]},
-    "correction": {
+    "correction": {"oneOf": [{"$ref": "#/$defs/parameterCorrection"}, {"$ref": "#/$defs/typedCorrection"}]},
+    "typedCorrection": {
+      "type": "object", "required": ["type", "value", "sign", "evidence", "span"], "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["event", "intent", "tone", "candidate"]}, "value": {"$ref": "#/$defs/text"},
+        "sign": {"type": "integer", "enum": [0, 1]}, "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}
+      }
+    },
+    "parameterCorrection": {
       "type": "object", "required": ["parameter", "sign", "evidence", "span"], "additionalProperties": false,
       "properties": {
         "parameter": {"$ref": "#/$defs/parameter"}, "sign": {"type": "integer", "enum": [-1, 0, 1]},
@@ -87,20 +138,22 @@
       "type": "object", "required": ["correction_revision", "corrections", "learned_rules"], "additionalProperties": false,
       "properties": {
         "correction_revision": {"type": "integer", "minimum": 0},
-        "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}},
+        "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}},
         "learned_rules": {"type": "array", "items": {
           "type": "object", "required": ["parameter", "evidence", "boundary", "status", "sign", "support_source_ids", "support"], "additionalProperties": false,
           "properties": {
             "parameter": {"$ref": "#/$defs/parameter"}, "evidence": {"$ref": "#/$defs/text"},
             "boundary": {"type": "string", "maxLength": 1}, "status": {"enum": ["active", "insufficient", "conflict"]},
             "sign": {"enum": [-1, 0, 1, null]}, "support_source_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
-            "support": {"type": "integer", "minimum": 1}
+            "support": {"type": "integer", "minimum": 1},
+            "support_source_versions": {"type": "object", "propertyNames": {"$ref": "#/$defs/text"}, "additionalProperties": {"$ref": "#/$defs/revision"}}
           }
         }},
         "evidence_policy": {"enum": ["assertion-guards-v1", "assertion-guards-v2"]},
         "withheld_values": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/withheldValue"}},
         "withheld_count": {"type": "integer", "minimum": 0}, "withheld_truncated": {"type": "boolean"},
-        "legacy_context_unavailable": {"const": true}
+        "legacy_context_unavailable": {"const": true},
+        "translation": {"$ref": "#/$defs/translation"}, "memories": {"$ref": "#/$defs/extractedMemories"}
       },
       "allOf": [
         {"if": {"required": ["evidence_policy"]}, "then": {"required": ["withheld_values", "withheld_count", "withheld_truncated"]}},
@@ -140,7 +193,7 @@
         "limitations": {"type": "array", "items": {"type": "string"}}
       }
     },
-    "approvalSnapshot": {"allOf": [{"$ref": "#/$defs/approvalMetadata"}], "unevaluatedProperties": false},
+    "approvalSnapshot": {"allOf": [{"$ref": "#/$defs/approvalMetadata"}], "properties": {"source_version": {"$ref": "#/$defs/revision"}, "reopened": {"const": true}}, "unevaluatedProperties": false},
     "legacyApprovalSnapshot": {
       "type": "object", "required": ["status"], "additionalProperties": false,
       "properties": {"status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}}
@@ -174,7 +227,7 @@
     "committedEffect": {
       "allOf": [{"$ref": "#/$defs/effectFields"}], "unevaluatedProperties": false,
       "required": ["revision", "created_at"],
-      "properties": {"action": {"enum": ["approve", "revoke"]}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"$ref": "#/$defs/text"}, "model_epoch": {"type": "integer", "minimum": 0}}
+      "properties": {"action": {"enum": ["approve", "revoke"]}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"$ref": "#/$defs/text"}, "model_epoch": {"type": "integer", "minimum": 0}, "source_version": {"$ref": "#/$defs/revision"}}
     },
     "translatorEffect": {
       "type": "object", "required": ["term", "documents_before", "documents_after", "source_id"], "additionalProperties": false,
@@ -213,13 +266,13 @@
     },
     "correctionRecord": {
       "type": "object", "required": ["revision", "corrections", "created_at"], "additionalProperties": false,
-      "properties": {"revision": {"type": "integer", "minimum": 1}, "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}, "created_at": {"$ref": "#/$defs/text"}}
+      "properties": {"revision": {"type": "integer", "minimum": 1}, "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}, "created_at": {"$ref": "#/$defs/text"}, "source_version": {"$ref": "#/$defs/revision"}}
     },
     "candidateFields": {
       "type": "object", "required": ["id", "source_id", "claim", "evidence", "status", "created_at", "resolved_at"],
       "properties": {
         "id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "claim": {"$ref": "#/$defs/text"}, "evidence": {"$ref": "#/$defs/text"},
-        "status": {"enum": ["pending", "accepted", "rejected"]}, "created_at": {"$ref": "#/$defs/text"}, "resolved_at": {"type": ["string", "null"]}
+        "status": {"enum": ["pending", "accepted", "rejected"]}, "created_at": {"$ref": "#/$defs/text"}, "resolved_at": {"type": ["string", "null"]}, "source_version": {"$ref": "#/$defs/revision"}
       },
       "if": {"properties": {"status": {"const": "pending"}}}, "then": {"properties": {"resolved_at": {"const": null}}}, "else": {"properties": {"resolved_at": {"$ref": "#/$defs/text"}}}
     },
@@ -233,15 +286,33 @@
     },
     "results": {
       "$defs": {
+        "access_status": {"$ref": "#/$defs/accessStatus"},
+        "unlock": {"$ref": "#/$defs/accessStatus"},
+        "lock": {"$ref": "#/$defs/accessStatus"},
+        "review_version": {
+          "allOf": [{"$ref": "#/$defs/decisionFields"}], "unevaluatedProperties": false,
+          "required": ["source_version", "input_revision", "model_epoch"],
+          "properties": {"status": {"enum": ["agreed", "disagreed", "revoked"]}, "source_version": {"$ref": "#/$defs/revision"}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}
+        },
+        "correction_reopen": {"$ref": "#/$defs/reopenDecision"},
+        "replay_preview": {
+          "type": "object", "required": ["items", "input_revision", "model_epoch"], "additionalProperties": false,
+          "properties": {"items": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/replayItem"}}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}
+        },
+        "replay_reopen": {
+          "type": "object", "required": ["items", "input_revision", "model_epoch"], "additionalProperties": false,
+          "properties": {"items": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/reopenDecision"}}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}
+        },
         "health": {
-          "type": "object", "required": ["schema_version", "candidate_publication", "llm_runtime_configured", "methods", "features"], "additionalProperties": false,
+          "type": "object", "required": ["schema_version", "contract_revision", "candidate_publication", "llm_runtime_configured", "methods", "features", "access"], "additionalProperties": false,
           "properties": {
-            "schema_version": {"const": 1}, "candidate_publication": {"const": "manual"}, "llm_runtime_configured": {"const": false},
+            "schema_version": {"const": 1}, "contract_revision": {"const": 2}, "access": {"$ref": "#/$defs/accessStatus"}, "candidate_publication": {"const": "automatic_double_approval"}, "llm_runtime_configured": {"const": false},
             "model_epoch": {"type": "integer", "minimum": 0},
-            "methods": {"type": "array", "minItems": 23, "maxItems": 23, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
+            "methods": {"type": "array", "minItems": 30, "maxItems": 30, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
             "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
-              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}}}
-          }
+              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}}}
+          },
+          "allOf": [{"if": {"properties": {"access": {"properties": {"configured": {"const": true}}}}}, "then": {"not": {"required": ["model_epoch"]}}}]
         },
         "baseline": {
           "type": "object", "required": ["schema_version", "partitions", "parameters"], "additionalProperties": false,
@@ -284,13 +355,13 @@
         },
         "correction_set": {
           "type": "object", "required": ["source_id", "revision", "status", "corrections"], "additionalProperties": false,
-          "properties": {"source_id": {"$ref": "#/$defs/text"}, "revision": {"type": "integer", "minimum": 1}, "status": {"const": "pending"}, "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}}
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "revision": {"type": "integer", "minimum": 1}, "status": {"const": "pending"}, "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}}
         },
         "correction_history": {
           "type": "object", "required": ["source_id", "status", "revision", "corrections", "history", "fit_context"], "additionalProperties": false,
           "properties": {
             "source_id": {"$ref": "#/$defs/text"}, "status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}, "revision": {"type": "integer", "minimum": 0},
-            "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}, "history": {"type": "array", "items": {"$ref": "#/$defs/correctionRecord"}},
+            "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}, "history": {"type": "array", "items": {"$ref": "#/$defs/correctionRecord"}}, "source_version": {"$ref": "#/$defs/revision"}, "version_history": {"type": "array", "items": {"$ref": "#/$defs/versionArchive"}},
             "fit_context": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/interpretation"}]}
           }
         },
@@ -316,7 +387,7 @@
         },
         "candidate_propose": {
           "type": "object", "required": ["candidate_id", "source_id", "status"], "additionalProperties": false,
-          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "status": {"const": "pending"}}
+          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "status": {"enum": ["pending", "accepted"]}}
         },
         "candidate_review": {"allOf": [{"$ref": "#/$defs/candidateFields"}], "unevaluatedProperties": false, "properties": {"status": {"enum": ["accepted", "rejected"]}}},
         "candidate_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/candidateRow"}},
@@ -334,11 +405,29 @@
       "properties": {
         "schema_version": {"const": 1},
         "id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search"]},
+        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search", "access_status", "unlock", "lock", "correction_reopen", "review_version", "replay_preview", "replay_reopen"]},
         "params": {"type": "object"}
       },
       "allOf": [
-        {"if": {"properties": {"method": {"enum": ["health", "baseline"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
+        {"if": {"properties": {"method": {"enum": ["health", "baseline", "access_status", "lock"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
+        {"if": {"properties": {"method": {"const": "unlock"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["password"], "additionalProperties": false, "properties": {"password": {"$ref": "#/$defs/password"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "review_version"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "agree", "expected_source_version", "expected_revision", "expected_epoch"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "agree": {"type": "boolean"}, "expected_source_version": {"$ref": "#/$defs/revision"}, "expected_revision": {"$ref": "#/$defs/revision"}, "expected_epoch": {"$ref": "#/$defs/revision"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "correction_reopen"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "corrections", "immediate", "expected_source_version", "expected_revision", "expected_epoch"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}, "immediate": {"type": "boolean"}, "expected_source_version": {"$ref": "#/$defs/revision"}, "expected_revision": {"$ref": "#/$defs/revision"}, "expected_epoch": {"$ref": "#/$defs/revision"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "replay_preview"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_ids"], "additionalProperties": false, "properties": {"source_ids": {"$ref": "#/$defs/sourceIds"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "replay_reopen"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_ids", "immediate", "expected_source_versions", "expected_revision", "expected_epoch"], "additionalProperties": false,
+          "properties": {"source_ids": {"$ref": "#/$defs/sourceIds"}, "immediate": {"type": "boolean"}, "expected_source_versions": {"type": "object", "minProperties": 1, "maxProperties": 16, "propertyNames": {"$ref": "#/$defs/text"}, "additionalProperties": {"$ref": "#/$defs/revision"}}, "expected_revision": {"$ref": "#/$defs/revision"}, "expected_epoch": {"$ref": "#/$defs/revision"}}
+        }}}},
         {"if": {"properties": {"method": {"enum": ["input_get", "input_delete", "preview", "review_history", "correction_history", "revoke"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/source"}}}},
         {"if": {"properties": {"method": {"const": "input_edit"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["source_id", "text", "immediate"], "additionalProperties": false,
@@ -348,7 +437,7 @@
           "type": "object", "required": ["source_id", "corrections", "expected_revision"], "additionalProperties": false,
           "properties": {
             "source_id": {"$ref": "#/$defs/text"}, "expected_revision": {"type": "integer", "minimum": 0},
-            "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}
+            "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}}
           }
         }}}},
         {"if": {"properties": {"method": {"const": "submit"}}}, "then": {"properties": {"params": {
@@ -416,7 +505,7 @@
     "response": {
       "oneOf": [
         {"type": "object", "required": ["schema_version", "id", "ok", "result"], "additionalProperties": false, "properties": {"schema_version": {"const": 1}, "id": {"type": "string", "minLength": 1, "maxLength": 128}, "ok": {"const": true}, "result": {}}},
-        {"type": "object", "required": ["schema_version", "id", "ok", "error"], "additionalProperties": false, "properties": {"schema_version": {"const": 1}, "id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128}, "ok": {"const": false}, "error": {"type": "object", "required": ["code", "message"], "additionalProperties": false, "properties": {"code": {"enum": ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "METHOD_NOT_FOUND", "INVALID_ARGUMENT", "STALE_CURSOR", "NOT_FOUND", "MODEL_UNAVAILABLE", "STORAGE_ERROR", "INTERNAL_ERROR"]}, "message": {"type": "string"}}}}}
+        {"type": "object", "required": ["schema_version", "id", "ok", "error"], "additionalProperties": false, "properties": {"schema_version": {"const": 1}, "id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128}, "ok": {"const": false}, "error": {"type": "object", "required": ["code", "message"], "additionalProperties": false, "properties": {"code": {"enum": ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "METHOD_NOT_FOUND", "INVALID_ARGUMENT", "STALE_CURSOR", "NOT_FOUND", "MODEL_UNAVAILABLE", "STORAGE_ERROR", "INTERNAL_ERROR", "LOCKED"]}, "message": {"type": "string"}}}}}
       ]
     }
   }

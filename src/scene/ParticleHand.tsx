@@ -26,6 +26,7 @@ import {
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
 import { digestCloud, inspection } from '../app/inspection';
 import { humanProgress, stage, systemProgress } from '../app/stage';
+import { wristWorld } from '../tree/layout';
 import { PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { QUALITY, SCENE_SEED, type QualityTier } from '../config/quality';
 import { IDLE, REDUCED_MOTION, STARTUP, SYSTEM_PHASES, TRANSITION, phaseProgress } from '../config/timing';
@@ -151,6 +152,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uExit: { value: 0 },
           uToward: { value: new Vector3() },
           uGhost: { value: 0 },
+          uWrist: { value: new Vector3(...wristWorld()) },
+          uKeep: { value: 0.3 },
           uColor: { value: new Color(PALETTE.ink) },
           uAlpha: { value: 1 },
           uGlow: { value: 0 },
@@ -175,6 +178,8 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
           uniform float uExit;
           uniform vec3 uToward;
           uniform float uGhost;
+          uniform vec3 uWrist;       // D65: world position of the wrist
+          uniform float uKeep;       // D65: radius around the wrist that stays on the tree page
 
           varying float vAlpha;
 
@@ -221,6 +226,10 @@ export function ParticleHand({ tier, pointer, reducedMotion }: Props) {
             // forearm tail, which runs under the tree, fades almost entirely.
             // 0 at home, so home is exact.
             float ghost = uGhost * mix(0.55, 0.95, smoothstep(0.08, 0.4, aDissolve));
+            // D65: of the hand only the wrist stays on the tree page (top-left); the
+            // fingers and the forearm go out completely, the wrist is hardly ghosted.
+            float farFromWrist = smoothstep(uKeep * 0.75, uKeep * 1.25, distance(pos, uWrist));
+            ghost = uGhost * mix(0.12, 1.0, farFromWrist);
 
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;

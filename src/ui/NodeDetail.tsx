@@ -1,10 +1,11 @@
 /**
  * Detail of one GraphData node, shared by the brain drill-in and the
- * technology tree (spec 4: the same records seen two ways). Neutral example
- * content, labelled as a prototype demonstration.
+ * technology tree (spec 4: the same records seen two ways): what the node is,
+ * where it hangs, what hangs from it (D65).
  */
 
-import { GRAPH } from '../fixtures/graph';
+import { describeNode } from '../graph/describe';
+import { useGraph } from '../graph/graphStore';
 
 /** Placeholder region names (the reference brain model's), shown as such (D36). */
 export const REGIONS = [
@@ -39,14 +40,12 @@ interface Props {
 }
 
 export function NodeDetail({ id, onSelect }: Props) {
-  const selected = GRAPH.nodes.find((n) => n.id === id);
+  const graph = useGraph();
+  const selected = graph.nodes.find((n) => n.id === id);
   if (!selected) return null;
-  const find = (x: string) => GRAPH.nodes.find((n) => n.id === x)!;
+  const find = (x: string) => graph.nodes.find((n) => n.id === x)!;
   const parent = selected.parent ? find(selected.parent) : null;
-  const children = GRAPH.nodes.filter((n) => n.parent === selected.id);
-  const links = GRAPH.edges
-    .filter((e) => e.kind === 'link' && (e.from === selected.id || e.to === selected.id))
-    .map((e) => find(e.from === selected.id ? e.to : e.from));
+  const children = graph.nodes.filter((n) => n.parent === selected.id);
 
   const list = (items: typeof children) =>
     items.map((c) => (
@@ -58,19 +57,15 @@ export function NodeDetail({ id, onSelect }: Props) {
   return (
     <aside className="node-detail" data-testid="node-detail" aria-label="节点详情">
       <header>
-        <span className="node-detail__tag">原型演示</span>
+        <span className="node-detail__tag">{describeNode(selected)}</span>
         <button type="button" aria-label="关闭详情" onClick={() => onSelect(null)}>
           ×
         </button>
       </header>
       <h2>{selected.label}</h2>
       <dl>
-        <dt>编号</dt>
-        <dd>{selected.id}</dd>
         <dt>层级</dt>
         <dd>{selected.depth}</dd>
-        <dt>占位脑区</dt>
-        <dd>{regionLabel(selected.region)}</dd>
         {parent && (
           <>
             <dt>上级</dt>
@@ -83,14 +78,8 @@ export function NodeDetail({ id, onSelect }: Props) {
             <dd>{list(children)}</dd>
           </>
         )}
-        {links.length > 0 && (
-          <>
-            <dt>关联</dt>
-            <dd>{list(links)}</dd>
-          </>
-        )}
       </dl>
-      <p className="node-detail__note">示例记录，不代表真实记忆；分类体系尚未定义。</p>
+      <p className="node-detail__note">脑区只是占位的分组，不代表这条内容在大脑里的位置。</p>
     </aside>
   );
 }

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "target": "x86_64-unknown-linux-gnu",
+  "python_version": "3.13.15",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.13.15%2B20260929-x86_64-unknown-linux-gnu-install_only.tar.gz",
+  "sha256": "d6b4e09474dfc219befabeae16264466f09615a991dcd080ae698833bdb3ed44",
+  "jieba_commit": "67fa2e36e72f69d9134b8a1037b83fbb070b9775"
+}

@@ -17,11 +17,12 @@ class BrainCore:
 
     Legacy store-only sources stay accessible via the old CLI, but are not
     included in this application's inputs, candidates, or active memories.
-    Candidate publication keeps the existing explicit review policy.
+    Current brain candidates publish under whole-source double approval.
+    Legacy pending candidates retain their explicit review operation.
     """
 
-    def __init__(self, path: str | Path):
-        self.model = BrainModel(path)
+    def __init__(self, path: str | Path, *, trace: bool = False):
+        self.model = BrainModel(path, trace=trace)
         self.store = self.model.store
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -141,6 +142,27 @@ class BrainCore:
     def review(self, source_id: str, *, agree: bool) -> dict:
         return self.model.review(source_id, agree=agree)
 
+    def correction_reopen(self, source_id: str, *, corrections: list[dict], immediate: bool,
+                          expected_source_version: int, expected_revision: int, expected_epoch: int) -> dict:
+        return self.model.correction_reopen(source_id, corrections=corrections, immediate=immediate,
+            expected_source_version=expected_source_version, expected_revision=expected_revision,
+            expected_epoch=expected_epoch)
+
+    def review_version(self, source_id: str, *, agree: bool, expected_source_version: int,
+                       expected_revision: int, expected_epoch: int) -> dict:
+        return self.model.review_version(source_id, agree=agree, expected_source_version=expected_source_version,
+                                         expected_revision=expected_revision, expected_epoch=expected_epoch)
+
+    def replay_preview(self, source_ids: list[str]) -> dict:
+        return self.model.replay_preview(source_ids)
+
+    def replay_reopen(self, source_ids: list[str], *, immediate: bool,
+                      expected_source_versions: dict[str, int], expected_revision: int,
+                      expected_epoch: int) -> dict:
+        return self.model.replay_reopen(source_ids, immediate=immediate,
+            expected_source_versions=expected_source_versions, expected_revision=expected_revision,
+            expected_epoch=expected_epoch)
+
     def review_history(self, source_id: str) -> dict:
         return self.model.review_history(source_id)
 
@@ -170,7 +192,7 @@ class BrainCore:
     def candidate_propose(self, source_id: str, claim: str, evidence: str) -> dict:
         self.input_get(source_id)
         candidate_id = self.store.propose(source_id, claim, evidence)
-        return {"candidate_id": candidate_id, "source_id": source_id, "status": "pending"}
+        return {"candidate_id": candidate_id, "source_id": source_id, "status": "accepted"}
 
     def extract_memories(self, source_id: str, model: TextModel) -> list[str]:
         """Optional Python-only adapter; no text model is configured by the API."""
@@ -193,7 +215,8 @@ class BrainCore:
         self._limit(limit)
         clauses, values = [], []
         if active:
-            clauses.extend(("c.status = 'accepted'", "i.status = 'agreed'"))
+            clauses.extend(("c.status = 'accepted'", "i.status = 'agreed'",
+                            "c.source_version = i.source_version"))
         elif status is not None:
             if status not in ("pending", "accepted", "rejected"):
                 raise ValueError("invalid candidate status")

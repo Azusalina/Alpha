@@ -12,7 +12,42 @@ UNSET = object()
 GENERATION_KEY = "input_mutation_generation"
 DEPENDENT_TABLES = ("candidates", "brain_effects", "brain_review_history",
                     "brain_corrections", "brain_fit_context", "brain_terms",
-                    "brain_contributions")
+                    "brain_contributions", "brain_source_versions")
+
+
+def initialize_versions(db: sqlite3.Connection) -> None:
+    """Add provenance without extracting, fitting, or publishing legacy records."""
+    tables = ("brain_inputs", "candidates", "brain_contributions", "brain_terms",
+              "brain_fit_context", "brain_corrections", "brain_effects")
+    marker = db.execute("SELECT value FROM brain_meta WHERE key='version_schema'").fetchone()
+    columns = {table: {r['name'] for r in db.execute(f'PRAGMA table_info({table})')}
+               for table in tables}
+    if marker:
+        if marker[0] != '1' or any('source_version' not in names for names in columns.values()):
+            raise RuntimeError("unsupported source version schema; explicit migration required")
+        return
+    if any('source_version' in names for names in columns.values()):
+        raise RuntimeError("partial source version schema; explicit migration required")
+    for table in tables:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN source_version INTEGER NOT NULL DEFAULT 0 "
+                   "CHECK (source_version >= 0)")
+    db.execute("CREATE TABLE brain_source_versions (source_id TEXT NOT NULL "
+               "REFERENCES brain_inputs(source_id), source_version INTEGER NOT NULL, "
+               "model_epoch INTEGER NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, "
+               "PRIMARY KEY(source_id, source_version))")
+    db.execute("INSERT INTO brain_meta(key,value) VALUES ('version_schema','1')")
+
+
+def archive_version(db: sqlite3.Connection, row: sqlite3.Row, timestamp: str) -> None:
+    """Archive interpretation evidence, never an additional raw source body."""
+    import json
+    payload = {"approval": approval_metadata(row)}
+    for table in ("brain_contributions", "brain_terms", "brain_fit_context", "brain_corrections"):
+        payload[table] = [dict(r) for r in db.execute(
+            f"SELECT * FROM {table} WHERE source_id=?", (row['source_id'],))]
+    db.execute("INSERT INTO brain_source_versions VALUES (?, ?, ?, ?, ?)",
+               (row['source_id'], row['source_version'], row['model_epoch'],
+                json.dumps(payload, ensure_ascii=False), timestamp))
 
 
 def validate_text(text: str) -> None:
@@ -68,5 +103,6 @@ def public_record(row: sqlite3.Row | dict, text: str) -> dict:
     fields = ("source_id", "partition", "kind", "self_speaker", "reviewed_at",
               "source_ref", "created_at", "edited_at")
     return {**{field: row[field] for field in fields}, **approval_metadata(row),
+            "source_version": row["source_version"],
             "model_active": bool(row["model_active"]), "model_epoch": row["model_epoch"],
             "excerpt": text[:80], "char_count": len(text)}

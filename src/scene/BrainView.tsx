@@ -64,7 +64,7 @@ import { ANCHORS, BRAIN, PALETTE, devicePixelsPerUnitDepth } from '../config/com
 import { SCENE_SEED, type QualityTier } from '../config/quality';
 import { STATE_PALETTE, themeStore } from '../config/theme';
 import { TRANSITION, phaseProgress } from '../config/timing';
-import { GRAPH } from '../fixtures/graph';
+import { useGraph } from '../graph/graphStore';
 import { useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { focusBrain } from '../app/navigation';
@@ -367,6 +367,9 @@ interface Props {
 
 export function BrainView({ tier, reducedMotion }: Props) {
   const brain = useBrainMesh();
+  const graph = useGraph();
+  /** How many levels the tree inside the brain grows through (the growth clock runs 0 .. levels). */
+  const levels = useMemo(() => Math.max(...graph.nodes.map((n) => n.depth)) + 1, [graph]);
   const source = useHandGeometry('left');
   const rig = handRig('left');
   const camera = useThree((s) => s.camera);
@@ -399,7 +402,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     return g;
   }, [cloud]);
 
-  const nodeLocal = useMemo(() => nodeBrainPositions(brain, GRAPH.nodes), [brain]);
+  const nodeLocal = useMemo(() => nodeBrainPositions(brain, graph.nodes), [brain, graph]);
 
   /** Graph edges inside the brain: arcs bowed outward, ordered root → leaves for growth. */
   const edges = useMemo(() => {
@@ -407,13 +410,13 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const pos: number[] = [];
     const order: number[] = [];
     const kind: number[] = [];
-    const depth = new Map(GRAPH.nodes.map((n) => [n.id, n.depth]));
+    const depth = new Map(graph.nodes.map((n) => [n.id, n.depth]));
     const a = new Vector3();
     const b = new Vector3();
     const mid = new Vector3();
     const q = new Vector3();
     const prev = new Vector3();
-    for (const e of GRAPH.edges) {
+    for (const e of graph.edges) {
       a.fromArray(nodeLocal.get(e.from)!);
       b.fromArray(nodeLocal.get(e.to)!);
       mid.addVectors(a, b).multiplyScalar(0.5);
@@ -446,7 +449,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const pos: number[] = [];
     const depth: number[] = [];
     const index: number[] = [];
-    GRAPH.nodes.forEach((n, i) => {
+    graph.nodes.forEach((n, i) => {
       pos.push(...nodeLocal.get(n.id)!);
       depth.push(n.depth);
       index.push(i);
@@ -1649,8 +1652,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
     // on the scene clock, so a frozen clock (tests, captures) holds the signal still
     runSignal(delta * stage.timeScale, settle);
 
-    edgeMaterial.uniforms.uGrow.value = humanStore.growP * 4;
-    nodeMaterial.uniforms.uGrow.value = humanStore.growP * 4;
+    edgeMaterial.uniforms.uGrow.value = humanStore.growP * levels;
+    nodeMaterial.uniforms.uGrow.value = humanStore.growP * levels;
 
     if (pointsRef.current) pointsRef.current.visible = hp > 0;
     if (linksRef.current) linksRef.current.visible = settle > 0;
@@ -1662,7 +1665,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     const ndc = pointerNdc.current;
     if (ui.focused && humanStore.growP > 0.5 && ndc && g) {
       let best = NODE_PICK_PX;
-      GRAPH.nodes.forEach((n) => {
+      graph.nodes.forEach((n) => {
         tmp.proj.fromArray(nodeLocal.get(n.id)!).applyMatrix4(g.matrixWorld).project(camera);
         const dx = ((tmp.proj.x - ndc.x) / 2) * size.width;
         const dy = ((tmp.proj.y - ndc.y) / 2) * size.height;
@@ -1681,8 +1684,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
     humanStore.set({ hovered, hoverRegion: region });
     u.uHoverRegion.value = region;
     lu.uHoverRegion.value = region;
-    nodeMaterial.uniforms.uHover.value = hovered ? GRAPH.nodes.findIndex((n) => n.id === hovered) : -1;
-    nodeMaterial.uniforms.uSelected.value = ui.selected ? GRAPH.nodes.findIndex((n) => n.id === ui.selected) : -1;
+    nodeMaterial.uniforms.uHover.value = hovered ? graph.nodes.findIndex((n) => n.id === hovered) : -1;
+    nodeMaterial.uniforms.uSelected.value = ui.selected ? graph.nodes.findIndex((n) => n.id === ui.selected) : -1;
     if (stage.state === 'human') {
       domElement.style.cursor = humanStore.dragging && drag.current?.moved
         ? 'grabbing'

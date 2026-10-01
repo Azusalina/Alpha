@@ -14,13 +14,14 @@ import { useEffect, useRef } from 'react';
 import { systemProgress, type SceneState } from '../app/stage';
 import { useTreeUi } from '../app/treeStore';
 import { SYSTEM_PHASES, phaseProgress } from '../config/timing';
-import { GRAPH } from '../fixtures/graph';
-import { regionLabel } from './NodeDetail';
+import { describeNode } from '../graph/describe';
+import { useGraph } from '../graph/graphStore';
 import { NodePage } from './NodePage';
 import { TreeOverlay } from './TreeOverlay';
 
 export function SystemPanel({ state }: { state: SceneState }) {
   const ui = useTreeUi();
+  const graph = useGraph();
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function SystemPanel({ state }: { state: SceneState }) {
   }, []);
 
   const focusId = ui.hovered ?? ui.selected;
-  const hovered = focusId ? GRAPH.nodes.find((n) => n.id === focusId) : null;
+  const hovered = focusId ? graph.nodes.find((n) => n.id === focusId) : null;
 
   return (
     <>
@@ -51,8 +52,8 @@ export function SystemPanel({ state }: { state: SceneState }) {
         <p className="system-panel__title">结构化记录</p>
         <p className="system-panel__hint">
           {hovered
-            ? `${hovered.label} · 层级 ${hovered.depth} · 占位脑区「${regionLabel(hovered.region)}」`
-            : '原型演示 · 悬停或点击节点 · 双击进入 · Esc 返回'}
+            ? `${hovered.label} · ${describeNode(hovered)}`
+            : '悬停或点击节点 · 双击进入 · Esc 返回'}
         </p>
       </div>
       {ui.opened && <NodePage id={ui.opened} />}

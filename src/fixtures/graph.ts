@@ -1,72 +1,53 @@
 /**
- * Placeholder GraphData shared by the particle brain and (next) the technology
- * tree (spec 4: one structure, two ways of looking at it; decision D36).
+ * The record graph shared by the particle brain and the technology tree (spec 4:
+ * one structure, two ways of looking at it; decisions D36, D65).
  *
- * Labels are neutral numbered records and regions are the reference brain
- * model's region names, marked as placeholders: the real classification of the
- * user's data is not defined yet (IDEA §6). Ids are stable — the brain and the
- * tree must agree on them.
+ * Only the types live here. The graph itself is built from what the model really
+ * holds (`src/graph/build.ts`, kept current by `src/graph/graphStore.ts`): a main
+ * node, the three states, the parameters that have evidence, and the inputs that
+ * trained them. A fresh install therefore shows the main node and the three
+ * states only; nothing is a placeholder.
  */
 
+import type { ParameterId, Partition } from '../backend/types';
+
+export type GraphNodeKind = 'root' | 'partition' | 'parameter' | 'input';
+
 export interface GraphNode {
+  /** Stable: `root`, `p:<partition>`, `m:<partition>:<parameter>`, `i:<source_id>`. */
   id: string;
   label: string;
-  /** Tree depth: 0 is the root. */
+  /** Tree depth: 0 is the main node. */
   depth: number;
   parent: string | null;
-  /** Index into the brain asset's `regions` (placeholder grouping). */
+  /** Index into the brain asset's `regions` (placeholder grouping: one region per state). */
   region: number;
+  kind: GraphNodeKind;
+  partition?: Partition;
+  parameter?: ParameterId;
+  /** `input` nodes: the source it stands for. */
+  sourceId?: string;
+  /** `input` nodes: the change it made to its parameter (its largest effect). */
+  delta?: number;
+  /**
+   * Set when the node forks off the LINE from its parent to the node `forkOn`
+   * (that line is then a trunk), instead of growing from a node's end.
+   */
+  forkOn?: string;
+  /** An example branch (D66), not something the model holds. */
+  example?: true;
 }
 
 export interface GraphEdge {
   from: string;
   to: string;
-  /** `tree` edges form the hierarchy; `link` edges are cross-associations. */
+  /** `tree` edges form the hierarchy. (`link` is kept for the brain's shaders; nothing produces it.) */
   kind: 'tree' | 'link';
+  /** A line fork: the edge starts at the middle of the line `from` → `onLine` rather than at `from`. */
+  onLine?: string;
 }
 
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
-
-/** Cortex regions of the brain asset that hold records (0–4; see brain.json). */
-const RECORD_REGIONS = [0, 1, 2, 3, 4];
-
-function build(): GraphData {
-  const nodes: GraphNode[] = [{ id: 'n00', label: '示例根节点', depth: 0, parent: null, region: 0 }];
-  // Five branches, one per placeholder region; each has 2–3 children, some with a leaf.
-  const shape = [3, 2, 3, 2, 3];
-  let k = 1;
-  const id = () => `n${String(k).padStart(2, '0')}`;
-  shape.forEach((children, b) => {
-    const region = RECORD_REGIONS[b];
-    const branch = id();
-    nodes.push({ id: branch, label: `示例记录 ${String(k).padStart(2, '0')}`, depth: 1, parent: 'n00', region });
-    k++;
-    for (let c = 0; c < children; c++) {
-      const child = id();
-      nodes.push({ id: child, label: `示例记录 ${String(k).padStart(2, '0')}`, depth: 2, parent: branch, region });
-      k++;
-      if ((b + c) % 2 === 0) {
-        nodes.push({ id: id(), label: `示例记录 ${String(k).padStart(2, '0')}`, depth: 3, parent: child, region });
-        k++;
-      }
-    }
-  });
-  const edges: GraphEdge[] = nodes
-    .filter((n) => n.parent)
-    .map((n) => ({ from: n.parent as string, to: n.id, kind: 'tree' as const }));
-  // a few cross-associations between branches
-  for (const [a, b] of [
-    ['n03', 'n09'],
-    ['n07', 'n15'],
-    ['n12', 'n20'],
-    ['n18', 'n05'],
-  ]) {
-    if (nodes.some((n) => n.id === a) && nodes.some((n) => n.id === b)) edges.push({ from: a, to: b, kind: 'link' });
-  }
-  return { nodes, edges };
-}
-
-export const GRAPH: GraphData = build();

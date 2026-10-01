@@ -24,7 +24,8 @@ export const transport: Transport = {
 先探测 `health.features.two_judgements=true`，再为 RemoteBrainAdapter 设置
 `twoJudgements=true`；旧后端仍保持 false。F6 后端现有 23 个方法，
 source_edit/source_delete=true；前端核对能力后可启用 proposedMethods。
-F6 真实 UI 与原生编辑／删除验收仍待前端完成，不能仅因接口存在就标为全链路完成。
+F6 浏览器／真实 Python 验收已由前端完成；原生编辑／删除验收仍待完成，
+不能仅因接口存在就标为原生全链路完成。
 `input_list` 现返回摘要，不再需要逐条 input_get。分页另接新增 input_page，
 不要把旧 input_list 的数组当分页对象；STALE_CURSOR 时丢弃旧页并重新取第一页。
 前端已同步“exclamation 直接设双 true”，不要在前端自动从文字推断。
@@ -68,8 +69,10 @@ Python 初始化所选数据库的零基线，但不会认可任何材料或训�
   source_id，先查询输入列表，避免盲目再次提交造成重复材料。
 - 应用 `RunEvent::Exit` 时通知 worker 退出；空闲进程收到 stdin EOF，
   必要时强制结束并等待回收。新调用被拒绝，排队调用不再发送。
-- stderr 按小块持续读取后丢弃，防止填满管道；不复制私人诊断内容到
-  webview、磁盘日志或无限内存缓冲。需要诊断依赖时可独立运行 Python CLI。
+- stderr 按小块持续读取；仅把 `[alpha.model]` 中白名单字段／值经过校验的
+  状态追踪转发至宿主终端（单行上限 4096 字节），不转发原文／异常堆栈。
+  其余 stderr 丢弃，不发给 webview、不自动写磁盘。详见
+  [terminal-tracing.md](terminal-tracing.md)，可用 ALPHA_BRAIN_TRACE=0 关闭。
 
 ## 权限与限制
 

@@ -24,8 +24,10 @@
   labels, domain metrics, coverage/abstention and static value-parameter ablations.
   Shared ranking logic preserves live API behavior. Synthetic fixture tests
   prove tool behavior only; no real-user predictive validation has occurred.
-- Candidate publication retains existing explicit review while the user's
-  preferred policy is pending. UI remains outside the backend implementation.
+- The last verified candidate-publication baseline retains explicit review. The user confirmed
+  automatic publication on whole-source double approval; implementation and
+  verification remain pending. Legacy pending/rejected candidates must not be
+  silently published by migration. UI remains outside the backend implementation.
 - `src-tauri`: fixed `brain_call` host, main/local ACL, serialized bounded queue,
   total timeout, response validation, stderr draining and child cleanup. Genuine
   Python and Tauri MockRuntime command/ACL tests exist. React Transport is wired;
@@ -76,15 +78,11 @@
   and Actions references. Local Python 3.14 passes; online CI and its Python 3.10
   job have not been executed yet. Schema shapes are not model-validity evidence.
 
-## Deferred: MMPI report import
+## Current scope note (2026-10-01)
 
-- Not part of brain/model v1. The user will decide the version and input format later.
-- If implemented, parse a user-provided official report as a separate source type,
-  preserving test version, report date, scale names, supplied scores, validity
-  notices, original interpretation, and source references.
-- Do not reconstruct proprietary test scoring from items, generate a diagnosis,
-  or automatically overwrite the user's value/decision model with clinical
-  report fields. Interpretation and weighting require a separate decision.
+MMPI report import/analysis is temporarily outside the current scope at the
+user's request, with no active or deferred implementation requirement. Historical
+conversation is retained; bringing it back requires a separate user request.
 
 ## Model v1 decisions recorded
 
@@ -123,8 +121,10 @@
 
 ## Pending decisions for model v1
 
-- Extend targeted correction beyond the implemented parameter overrides and
-  exact clauses; evaluate meaning/generalization with representative examples.
+- Broader event/semantic correction needs typed, evidence-bound labels and
+  representative examples. The reviewed-source policy is decided: withdraw the
+  current contribution and require renewed immediate/confirm consent for the
+  revised interpretation; implementation and verification are still pending.
 - Evaluate whether candidate parameters improve predictions using future
   retrospectively endorsed choice labels; remove ineffective parameters.
 - Define the user's retrospectively endorsed choice labels and the model's
@@ -132,13 +132,23 @@
 
 ## Current backend queue (2026-10-01)
 
+- [x] Terminal telemetry: CLI/API default-on stderr traces and bounded/validated
+  Rust host forwarding; no raw evidence, no response/schema changes. Commit-only
+  param/fit reporting, receipt vs save/fit distinction, rollback and broken-sink
+  checks. Nine synthetic Python tests and one Rust filter/framing test added.
+  See terminal-tracing.md; no automatic on-disk logger or private-text logging.
+- [x] Frontend reports browser real-Python acceptance for F6, NUL and model
+  epoch/activity metadata with deliberate old-source re-enlistment. Verified
+  current adapter/record wiring read-only; native acceptance still pending.
 - [x] Model-only reset: confirmed local CLI with exact existing absolute DB
   target, epoch/revision checks and atomic zeroing. Translator, approvals and
   history preserved; old fits excluded until explicit re-review. Twelve synthetic
   reset tests plus one post-reset result-schema test. `model-reset.md` is the contract.
-- [ ] Frontend: consume model_active/model_epoch and separate approved history
-  from current-model participation; clear old caches on reset/reconnect, never
-  auto-review or replay historical effects. No live reset endpoint/UI yet.
+- [x] Frontend browser activation: consume model_active/model_epoch, distinguish
+  approved history from current-model participation, and deliberately re-enlist
+  old sources. Latest ledger reports cache/in-flight invalidation on reconnect
+  and browser acceptance; native reset/reconnect acceptance remains pending.
+  No live reset endpoint/UI yet.
 - [ ] Native acceptance of administrative reset/reconnect and F6 edits/deletes;
   basic browser real-Python tests do not validate native failure/recovery paths.
 - [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
@@ -146,12 +156,17 @@
 - [x] P0: F5 summaries and input_page pagination implemented and regression-tested.
 - [x] P0: F6 source editing/deletion and NUL validation implemented; final contract
   and frontend activation/acceptance steps in `../../front-back-communicate.md`.
-- [ ] P0: protected backup/recovery policy and general downstream-fit replay;
+- [ ] P0: protected backup/recovery delivery and general downstream-fit replay;
   current F6 removes only this source's records and future teaching support,
   preserving other inputs' frozen fits and historical effects.
-- [ ] P0: password/access boundary and protected backups; no encryption or
-  password gate exists yet. Protect summary excerpts, evidence and correction
-  history too, not just input_get, when designing the raw-text access gate.
+- [ ] P0 / F13: application access gate and encrypted backup/recovery are
+  confirmed in scope, no longer deferred. Implementation, API integration,
+  frontend unlock wiring and verification remain pending. Cover raw text,
+  summary excerpts, evidence, histories and writes, not just input_get.
+  The current SQLite database remains plaintext; whole-database encryption is
+  outside this round. The gate is not protection from direct same-OS-user file
+  access. Recovery must validate into an explicit fresh target, never silently
+  overwrite the live database.
 - [ ] P1: native failure/restart/F6 acceptance, packaged Python/backend/jieba
   and subsequent contract migrations remain.
   Host transport/lifecycle/timeout/ACL code is implemented (`desktop-bridge.md`),
@@ -164,14 +179,28 @@
 - [ ] P1: evaluate cluttered diary/chat, quotation, negation and philosophy
   coverage using corrections; add local NLP only where evidence justifies it.
   Base guards and synthetic regression examples are implemented; real held-out
-  corrected text and broader subject/irony/indirect-language handling remain.
+  validation and broader subject/irony/indirect-language handling remain.
   The scoped/grouped read-only extraction benchmark now exists. V2 fixes the
   known familiar-actor value leak; next collect independently labelled
   representative cases; do not equate tool tests with real coverage validation.
+  No private held-out material is available this round: deliver local collection
+  templates/readiness tools only, with independent labels and leakage checks.
+  Template/tool delivery awaits worker verification; real coverage acceptance
+  remains an external prerequisite, not a promise to collect private data now.
 - [ ] P1: held-out choice labels and parameter ablations before supervised ML;
   the offline evaluation/ablation tool is implemented (`evaluation.md`), but
-  real labels, split design and parameter decisions remain. Factual choices
-  and retrospective endorsement are different labels; no frontend contract
+  real labels, split design and parameter decisions remain. This round supplies
+  templates/tools only; no real predictive-validity claim can be accepted.
+  Factual choices and retrospective endorsement are different labels; no frontend contract
   or automatic parameter pruning is implemented.
-- [ ] Pending policy: candidate publication remains manual unless changed.
-- [ ] Deferred: MMPI import, future choice-feedback contract, sphere v2.
+- [ ] Confirmed policy to implement: automatically publish extracted candidate
+  memories when the current source/version has immediate=true and confirm=true;
+  preserve legacy pending/rejected statuses without migration auto-publication.
+- [ ] Confirmed policy to implement: reviewed-source semantic revisions withdraw
+  current contributions and require renewed double consent before fitting;
+  version-bound revisions and explicit replay must preserve old effect numbers,
+  frozen history and model-reset exclusions. F6 text editing is a separate path.
+- [ ] Deferred: F14 future choice-feedback contract and sphere v2.
+
+The decisions above record scope, not completion of parallel feature work. Update
+pending boxes only after worker evidence and independent verification are reviewed.
