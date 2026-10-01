@@ -53,6 +53,14 @@ class TranslatorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             translate("x" * 1_000_001)
 
+    def test_unicode_scalar_text_and_crlf_offsets(self):
+        for text in ("\ud800", "\udfff", "\ud83d\ude00"):
+            with self.assertRaises(ValueError):
+                translate(text)
+        text = "😀我开心。\r\n我失望。"
+        for item in translate(text)["cues"]:
+            self.assertEqual(text[slice(*item["span"])], item["evidence"])
+
 
 if __name__ == "__main__":
     unittest.main()

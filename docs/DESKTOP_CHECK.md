@@ -13,7 +13,15 @@ on the day you measure (step 5).
 
 ## 1. What already exists and what has been verified
 
-- `src-tauri/`: a minimal Tauri 2 shell with one 1644×957 resizable window titled
+Backend update (2026-09-30): the shell now exposes the narrow `brain_call`
+command to the main local webview, with an owned Python JSON-lines process.
+The earlier shell/ACL measurements below predate this addition; they are not
+acceptance evidence for the new command. See
+[desktop-bridge.md](../back-end-core/docs/desktop-bridge.md) for the new ACL,
+host settings and transport tests. React wiring and native WebKitGTK acceptance
+of the brain flow remain pending; no rendering workarounds were added.
+
+- Earlier measured baseline: a minimal Tauri 2 shell with one 1644×957 resizable window titled
   "Alpha". It has no plugins and no commands, its capability allows exactly one
   IPC command (`plugin:app|tauri_version`, via `core:app:allow-tauri-version`;
   decision D7), and it sets no WebKit environment variables.

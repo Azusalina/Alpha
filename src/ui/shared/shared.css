@@ -428,3 +428,46 @@
     transition: none;
   }
 }
+
+/* what the basic rules did not take (WithheldNotes): a quiet ruled list, not a warning */
+.withheld {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0 0;
+  border-top: 1px solid var(--alpha-construction);
+}
+.withheld__h {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.withheld__lead,
+.withheld__policy {
+  margin: 0 0 0.4rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--alpha-construction-text, var(--alpha-construction));
+}
+.withheld__list {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+}
+.withheld__item {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0 0.35rem 0.6rem;
+  border-left: 1px solid var(--alpha-construction);
+  margin-bottom: 0.3rem;
+}
+.withheld__reason {
+  font-size: 0.72rem;
+  color: var(--alpha-construction-text, var(--alpha-construction));
+}
+.withheld__evidence {
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+.withheld__meta {
+  font-size: 0.7rem;
+  color: var(--alpha-construction-text, var(--alpha-construction));
+}

@@ -40,6 +40,7 @@ import type { InputState } from '../../app/inputStore';
 import type { AdapterMethod, InputRecord } from '../../backend';
 import type { BackendMode } from '../../backend';
 import { CONFIRMED_BY_LABELS, KIND_LABELS, PARTITION_LABELS, partitionColor, statusHint } from '../shared/labels';
+import { WithheldNotes } from '../shared/WithheldNotes';
 import { EffectsTable } from '../shared/EffectsTable';
 import { HighlightedText, marksFromEffects } from '../shared/HighlightedText';
 import { StatusChip } from '../shared/StatusChip';
@@ -346,11 +347,14 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                     <p className="rec__quiet">读取预览…</p>
                   ) : (
                     preview && (
-                      <EffectsTable
-                        effects={preview.effects}
-                        activeId={preview.effects === primary ? activeEffect : null}
-                        onActiveChange={preview.effects === primary ? setActiveEffect : undefined}
-                      />
+                      <>
+                        <EffectsTable
+                          effects={preview.effects}
+                          activeId={preview.effects === primary ? activeEffect : null}
+                          onActiveChange={preview.effects === primary ? setActiveEffect : undefined}
+                        />
+                        <WithheldNotes interpretation={preview.interpretation} />
+                      </>
                     )
                   )}
                 </>

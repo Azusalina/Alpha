@@ -29,10 +29,64 @@ The repository's existing frontend is React/TypeScript and Tauri 2. The
 backend may use a different language, but its interface must preserve the
 product's single natural-language input and local-only data boundary.
 
+When a source enters through `model.submit`, `core/extraction.py` and candidate
+memory publication require that source's whole-input review to be `agreed`.
+Revoking the source hides its accepted candidate memories from active listing
+and search while retaining their audit records. Legacy `core.cli add-source`
+sources remain a separate prototype path; the final auto/individual candidate
+publication policy remains to be confirmed.
+
+`core/brain.py` now provides the unified application entry point. Its input,
+candidate and active-memory queries exclude legacy store-only sources and
+support partition filters. `core/api.py` exposes that entry point as a local
+JSON-lines process for a desktop adapter; see [docs/api.md](docs/api.md) and
+[docs/api.schema.json](docs/api.schema.json). Start it from this directory with
+`python -m core.api --db data/brain.sqlite3`. The Tauri command/process host is
+implemented; React Transport wiring and runtime distribution remain pending.
+See [docs/desktop-bridge.md](docs/desktop-bridge.md); the desktop's default
+database is its app-local-data file, not the repository's development database.
+Candidate memories retain the current separate explicit review step.
+The model now requires two whole-input judgements, with an explicit exclamation
+shortcut setting both true. Re-review/removal/restoration and decision history
+are implemented; original-text editing/deletion remain unavailable.
+Input lists now include bounded code-point summaries; `input_page` supplies
+total and revision-checked cursor pagination without returning full journals.
+
 The model's commands and limitations are in [model/README.md](model/README.md),
 with active/deferred parameters in [docs/parameters.md](docs/parameters.md).
+Read-only held-out choice evaluation and static parameter ablations are in
+[docs/evaluation.md](docs/evaluation.md): `python -m model.evaluation --db
+data/brain.sqlite3 --cases docs/evaluation.example.json`. The example is synthetic,
+not evidence of personal predictive accuracy; evaluation never trains on cases.
 Run both `python -m unittest discover -s tests -v` and
 `python -m unittest discover -s translator -p 'test_*.py' -v`.
+
+New assertion guards and their frontend-visible omission diagnostics are
+documented in [docs/evidence-policy.md](docs/evidence-policy.md). They do not
+reinterpret old frozen fits or establish real-user predictive validity.
+Base extraction can be measured against independent human labels with
+`python -m translator.evaluation --cases docs/translator-evaluation.example.json`.
+The separate read-only tool never opens the model database or trains;
+see [docs/translator-evaluation.md](docs/translator-evaluation.md). Its example
+regresses a v1 other-subject false positive fixed by assertion-guards-v2;
+all its cases are synthetic development material, not a verified user benchmark.
+
+For optional schema conformance checks, create a development virtual environment
+and run `python -m pip install '.[test-schema]'` from this directory, then rerun
+the test commands above. Without the extra, twelve schema tests explicitly skip;
+the normal runtime still has no additional package dependency. The checks cover
+all 21 request/response envelopes and method result bodies, including shorter
+no-op decisions, legacy contexts, ranking and candidate-status variants.
+Clients select `#/$defs/results/$defs/METHOD` for successful bodies using the
+retained request method; generic envelope validation alone is insufficient.
+Cross-field identity/evidence equality still needs behavior/runtime checks.
+The root `.github/workflows/backend-contract.yml` requires the extra and runs
+only synthetic fixtures with temporary databases, using the pinned jieba
+reference under `ext-refs/`. Its Python 3.10/3.14 matrix is configured but has
+not yet been executed on GitHub. Workflow setup follows the official
+[Python action](https://github.com/actions/setup-python) and
+[checkout action](https://github.com/actions/checkout) instructions; both are
+pinned by commit and have read-only repository permissions.
 
 ## Try the local core
 

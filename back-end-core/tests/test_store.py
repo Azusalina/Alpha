@@ -38,6 +38,13 @@ class MemoryStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.resolve(first, accept=False)
 
+    def test_resolution_requires_a_real_boolean(self):
+        source_id = self.store.add_source("我在學英文。")
+        candidate_id = self.store.propose(source_id, "在學英文", "學英文")
+        with self.assertRaises(ValueError):
+            self.store.resolve(candidate_id, accept="false")
+        self.assertEqual(self.store.list_candidates()[0]["status"], "pending")
+
     def test_text_is_stored_as_data(self):
         body = "'); DROP TABLE sources; --"
         source_id = self.store.add_source(body)

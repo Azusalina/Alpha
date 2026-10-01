@@ -17,9 +17,13 @@ crate-type = ["rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# No plugins: the front end opens no URLs, touches no files and runs no shell
-# commands. Diagnostics run in the web view; their one IPC call reads the Tauri
-# version (`plugin:app|tauri_version`), the only permission the capability
-# grants (`core:app:allow-tauri-version`, decision D7 in log-v2).
+# No shell/filesystem plugins. The host owns the fixed Python backend process;
+# the main local webview gets only brain_call and the diagnostic version read.
 [dependencies]
 tauri = { version = "2", features = [] }
+serde_json = "1"
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros"] }
+
+[dev-dependencies]
+tempfile = "3"
+tauri = { version = "2", features = ["test"] }

@@ -9,6 +9,9 @@ description = "Local memory engine prototype for Alpha"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+test-schema = ["jsonschema==4.26.0"]
+
 [tool.setuptools.packages.find]
 include = ["core*", "translator*", "model*"]
 
@@ -18,3 +21,4 @@ model = ["baseline.json"]
 [project.scripts]
 alpha-brain = "core.cli:main"
 alpha-model = "model.__main__:main"
+alpha-brain-api = "core.api:main"

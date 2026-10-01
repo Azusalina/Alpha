@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from .discourse import AssertionGuards
 
 MAX_CHARS = 1_000_000
 _CHAT_LINE = re.compile(r"^\s*([^:：\s]{1,32})\s*[:：]\s*(.*)$")
@@ -75,6 +76,10 @@ def translate(text: str, *, kind: str = "diary", self_speaker: str | None = None
         raise ValueError("text must contain content")
     if len(text) > MAX_CHARS:
         raise ValueError(f"text exceeds {MAX_CHARS} characters")
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("text must not contain surrogate code points") from None
     if kind not in {"diary", "chat"}:
         raise ValueError("kind must be diary or chat")
     if kind == "chat" and (not isinstance(self_speaker, str) or not self_speaker.strip()):
@@ -83,13 +88,16 @@ def translate(text: str, *, kind: str = "diary", self_speaker: str | None = None
         raise ValueError("self_speaker must contain text")
 
     parts, skipped = _parts(text, kind, self_speaker)
+    guards = AssertionGuards(text, kind, self_speaker)
     cues: list[dict] = []
     candidates: list[dict] = []
     for segment, start, speaker in parts:
         hedged = bool(re.search(r"可能|也許|也许|或許|或许|大概", segment))
         for category, value, pattern in _CUE_RULES:
             for match in pattern.finditer(segment):
-                before = segment[:match.start()]
+                # Existing subject/negation patterns have bounded lookbehind;
+                # don't repeatedly copy a long paragraph's entire prefix.
+                before = segment[max(0, match.start() - 32):match.start()]
                 negated = category == "emotion_word" and bool(_NEGATION.search(before))
                 span = [start + match.start(), start + match.end()]
                 cues.append({
@@ -97,6 +105,9 @@ def translate(text: str, *, kind: str = "diary", self_speaker: str | None = None
                     "span": span, "speaker": speaker, "negated": negated,
                 })
                 if category != "emotion_word" or negated:
+                    continue
+                clause_start, clause_end = guards.clause_span(start + match.start(), start, start + len(segment))
+                if guards.reason(clause_start, clause_end):
                     continue
                 # Quoted/reported feelings are not evidence of the writer's mood.
                 clause = re.split(r"[，,、]", before)[-1]
@@ -110,21 +121,24 @@ def translate(text: str, *, kind: str = "diary", self_speaker: str | None = None
                     "status": "pending_review",
                 })
         intent = _LESS_CONTACT.search(segment)
-        if intent and _CONTACT_VERB.search(segment):
+        if intent:
+            intent_start, intent_end = guards.clause_span(start + intent.start(), start, start + len(segment))
+            intent_text = text[intent_start:intent_end]
+        if intent and _CONTACT_VERB.search(intent_text) and not guards.reason(intent_start, intent_end):
             # Only explicit first-person language can create an intention cue.
-            if (re.search(r"我|自己", segment)
-                    and not re.search(r"(?:他|她).{0,8}(?:主動|主动)", segment)
-                    and not _REPORTED.search(segment[:intent.start()])):
+            if (re.search(r"我|自己", intent_text)
+                    and not re.search(r"(?:他|她).{0,8}(?:主動|主动)", intent_text)
+                    and not _REPORTED.search(intent_text[:start + intent.start() - intent_start])):
                 candidates.append({
                     "type": "contact_intention", "value": "less_initiative",
-                    "evidence": segment, "span": [start, start + len(segment)],
+                    "evidence": intent_text, "span": [intent_start, intent_end],
                     "speaker": speaker, "certainty": "hedged" if hedged else "explicit_word",
                     "status": "pending_review",
                 })
     return {
         "schema_version": 1, "kind": kind, "self_speaker": self_speaker,
         "cues": cues, "candidates": candidates, "skipped": skipped,
-        "limitations": ["lexical_rules_only", "no_trait_or_diagnosis"],
+        "limitations": ["lexical_rules_only", "no_trait_or_diagnosis", "non_assertive_candidates_withheld"],
     }
 
 

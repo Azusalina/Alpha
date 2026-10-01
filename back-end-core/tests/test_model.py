@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from core.extraction import extract_candidates
 from model import BrainModel
 from model.catalog import BASELINE_PATH
 
@@ -28,8 +29,111 @@ class BrainModelTests(unittest.TestCase):
         self.assertEqual(result["effects"], [])
         self.assertEqual(self.model.store.get_source(source)["body"], "我重视公平。")
         self.assertEqual(self.model.learned_terms(partition="rational", min_documents=1), [])
+        self.assertEqual(self.model.review(source, agree=True)["status"], "agreed")
+        self.assertEqual(self.model.state("rational")["value.fairness"]["support"], 1)
+
+    def test_preview_is_read_only_and_matches_approval(self):
+        text = "我重视公平和自由。"
+        source = self.model.submit(text, partition="rational", kind="philosophy")
+        state_before = self.model.state()
+        preview = self.model.preview(source)
+        self.assertTrue(preview["hypothetical"])
+        self.assertEqual(preview["status"], "pending")
+        self.assertEqual({item["parameter"] for item in preview["effects"]},
+                         {"value.fairness", "value.autonomy"})
+        self.assertEqual(self.model.state(), state_before)
+        self.assertEqual(self.model.effects(source_id=source), [])
+        self.assertEqual(self.model.learned_terms(partition="rational", min_documents=1), [])
+        self.assertEqual(self.model.store.get_source(source)["body"], text)
+        approved = self.model.review(source, agree=True)
+        for hypothetical, actual in zip(preview["effects"], approved["effects"]):
+            for key in ("parameter", "before", "after", "delta", "support_before",
+                        "support_after", "evidence", "span", "rule_id"):
+                self.assertEqual(hypothetical[key], actual[key])
         with self.assertRaises(ValueError):
-            self.model.review(source, agree=True)
+            self.model.preview(source)
+
+    def test_preview_chat_ignores_other_speakers(self):
+        text = "阿明: 我重视公平。\n我: 我重视自由。"
+        source = self.model.submit(text, partition="rational", kind="chat", self_speaker="我")
+        preview = self.model.preview(source)
+        self.assertEqual([item["parameter"] for item in preview["effects"]],
+                         ["value.autonomy"])
+        self.assertEqual(preview["translation"]["self_speaker"], "我")
+        self.assertEqual(self.model.state("rational")["value.autonomy"]["support"], 0)
+
+    def test_preview_rejects_unknown_but_allows_inactive_reviewed_source(self):
+        with self.assertRaises(KeyError):
+            self.model.preview("nonexistent")
+        source = self.model.submit("我重视公平。", partition="rational")
+        self.model.review(source, agree=False)
+        self.assertEqual(self.model.preview(source)["status"], "disagreed")
+        self.assertFalse(self.model.state("rational")["value.fairness"]["observed"])
+
+    def test_unagreed_sources_cannot_enter_candidate_memory_pipeline(self):
+        pending = self.model.submit("我在學英文。", partition="rational")
+        with self.assertRaises(ValueError):
+            self.model.store.propose(pending, "正在學英文", "學英文")
+        class ModelSpy:
+            called = False
+
+            def generate(self, prompt):
+                self.called = True
+                return '{"candidates":[]}'
+
+        spy = ModelSpy()
+        with self.assertRaises(ValueError):
+            extract_candidates(self.model.store, pending, spy)
+        self.assertFalse(spy.called)
+        self.model.review(pending, agree=False)
+        with self.assertRaises(ValueError):
+            extract_candidates(self.model.store, pending, spy)
+        self.assertFalse(spy.called)
+        self.assertEqual(self.model.store.list_memories(), [])
+
+    def test_revocation_hides_but_preserves_accepted_memories(self):
+        source = self.model.submit("我在學英文。", partition="rational")
+        self.model.review(source, agree=True)
+        candidate = self.model.store.propose(source, "正在學英文", "學英文")
+        self.model.store.resolve(candidate, accept=True)
+        self.assertEqual([row["id"] for row in self.model.store.list_memories()], [candidate])
+        self.assertEqual([row["id"] for row in self.model.store.search_memories("英文")],
+                         [candidate])
+        self.model.revoke(source)
+        self.assertEqual(self.model.store.list_memories(), [])
+        self.assertEqual(self.model.store.search_memories("英文"), [])
+        self.assertEqual(self.model.store.list_candidates(status="accepted")[0]["id"],
+                         candidate)
+        with self.assertRaises(ValueError):
+            self.model.store.propose(source, "再次學英文", "學英文")
+
+    def test_model_extraction_uses_same_reviewed_source_and_stages_candidates(self):
+        class ModelSpy:
+            called = False
+
+            def generate(self, prompt):
+                self.called = True
+                return '{"candidates":[{"claim":"正在學英文","evidence":"學英文"}]}'
+
+        source = self.model.submit("我在學英文。", partition="rational")
+        self.model.review(source, agree=True)
+        spy = ModelSpy()
+        candidate = extract_candidates(self.model.store, source, spy)[0]
+        self.assertTrue(spy.called)
+        self.assertEqual(self.model.store.list_candidates()[0]["source_id"], source)
+        self.assertEqual(self.model.store.list_memories(), [])
+        self.model.store.resolve(candidate, accept=True)
+        self.assertEqual(self.model.store.list_memories()[0]["source_id"], source)
+
+    def test_pending_candidate_cannot_be_accepted_after_source_revocation(self):
+        source = self.model.submit("我在學英文。", partition="rational")
+        self.model.review(source, agree=True)
+        candidate = self.model.store.propose(source, "正在學英文", "學英文")
+        self.model.revoke(source)
+        with self.assertRaises(ValueError):
+            self.model.store.resolve(candidate, accept=True)
+        self.assertEqual(self.model.store.list_candidates(status="pending")[0]["id"],
+                         candidate)
 
     def test_approved_philosophy_updates_only_rational_and_can_revoke(self):
         before_hash = hashlib.sha256(BASELINE_PATH.read_bytes()).hexdigest()

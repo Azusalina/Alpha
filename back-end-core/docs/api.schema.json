@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:alpha:brain-api:v1",
+  "title": "Alpha brain API v1 request",
+  "$ref": "#/$defs/request",
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "partition": {"enum": ["rational", "emotional", "crazy"]},
+    "optionalPartition": {"enum": ["rational", "emotional", "crazy", null]},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    "cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048, "pattern": "^[A-Za-z0-9_-]+\\.[0-9a-f]{64}(?![\\s\\S])"},
+    "inputMetadata": {
+      "type": "object",
+      "required": ["source_id", "partition", "kind", "self_speaker", "status", "reviewed_at", "immediate", "confirm", "exclamation", "confirmed_by", "reason", "source_ref", "created_at", "excerpt", "char_count", "edited_at"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"},
+        "kind": {"enum": ["diary", "chat", "philosophy"]}, "self_speaker": {"type": ["string", "null"]},
+        "status": {"enum": ["pending", "agreed", "disagreed", "revoked"]},
+        "reviewed_at": {"type": ["string", "null"]}, "immediate": {"type": "boolean"},
+        "confirm": {"type": ["boolean", "null"]}, "exclamation": {"type": "boolean"},
+        "confirmed_by": {"enum": ["manual", "exclamation", "legacy", null]},
+        "reason": {"enum": ["immediate_false", "confirm_false", "user_revoked", null]},
+        "source_ref": {"type": ["string", "null"]}, "created_at": {"type": "string"},
+        "excerpt": {"type": "string", "maxLength": 80}, "char_count": {"type": "integer", "minimum": 1},
+        "edited_at": {"const": null}
+      },
+      "allOf": [{"$ref": "#/$defs/approvalMetadata"}]
+    },
+    "inputRecord": {"allOf": [{"$ref": "#/$defs/inputMetadata"}], "unevaluatedProperties": false},
+    "inputDetail": {
+      "allOf": [{"$ref": "#/$defs/inputMetadata"}], "unevaluatedProperties": false,
+      "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1, "maxLength": 1000000}}
+    },
+    "inputPage": {
+      "type": "object", "required": ["items", "total", "next_cursor", "revision"], "additionalProperties": false,
+      "properties": {
+        "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/inputRecord"}},
+        "total": {"type": "integer", "minimum": 0}, "next_cursor": {"$ref": "#/$defs/cursor"},
+        "revision": {"type": "integer", "minimum": 0}
+      }
+    },
+    "approvalMetadata": {
+      "type": "object", "required": ["status", "immediate", "confirm", "exclamation", "confirmed_by", "reason"],
+      "properties": {
+        "status": {"enum": ["pending", "agreed", "disagreed", "revoked"]},
+        "immediate": {"type": "boolean"}, "confirm": {"type": ["boolean", "null"]},
+        "exclamation": {"type": "boolean"}, "confirmed_by": {"enum": ["manual", "exclamation", "legacy", null]},
+        "reason": {"enum": ["immediate_false", "confirm_false", "user_revoked", null]}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "pending"}}}, "then": {"properties": {
+          "immediate": {"const": true}, "confirm": {"const": null}, "reason": {"const": null}, "confirmed_by": {"const": null}
+        }}},
+        {"if": {"properties": {"status": {"const": "agreed"}}}, "then": {"properties": {
+          "immediate": {"const": true}, "confirm": {"const": true}, "reason": {"const": null}, "confirmed_by": {"enum": ["manual", "exclamation", "legacy"]}
+        }}},
+        {"if": {"properties": {"status": {"const": "disagreed"}}}, "then": {"oneOf": [
+          {"properties": {"immediate": {"const": false}, "confirm": {"const": null}, "reason": {"const": "immediate_false"}, "confirmed_by": {"const": null}}},
+          {"properties": {"immediate": {"const": true}, "confirm": {"const": false}, "reason": {"const": "confirm_false"}, "confirmed_by": {"enum": ["manual", "exclamation", "legacy"]}}}
+        ]}},
+        {"if": {"properties": {"status": {"const": "revoked"}}}, "then": {"properties": {
+          "immediate": {"const": true}, "confirm": {"const": false}, "reason": {"const": "user_revoked"}, "confirmed_by": {"enum": ["manual", "exclamation", "legacy"]}
+        }}}
+      ]
+    },
+    "span": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+    "parameter": {"enum": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection", "affect.disappointment", "affect.sadness", "affect.happiness", "affect.anger", "expression.less_initiative"]},
+    "correction": {
+      "type": "object", "required": ["parameter", "sign", "evidence", "span"], "additionalProperties": false,
+      "properties": {
+        "parameter": {"$ref": "#/$defs/parameter"}, "sign": {"type": "integer", "enum": [-1, 0, 1]},
+        "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}
+      },
+      "allOf": [{"if": {"properties": {"parameter": {"pattern": "^(affect|expression)\\."}}}, "then": {"properties": {"sign": {"enum": [0, 1]}}}}]
+    },
+    "withheldValue": {
+      "type": "object", "required": ["reason", "parameters", "evidence", "span"], "additionalProperties": false,
+      "properties": {
+        "reason": {"enum": ["quoted_text", "code_text", "markdown_quote", "question", "reported_speech", "hypothetical", "other_subject_value", "hedged_value", "ambiguous_negation", "ambiguous_opposition", "ambiguous_normative_negation", "ambiguous_comparison"]},
+        "parameters": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"allOf": [{"$ref": "#/$defs/parameter"}, {"pattern": "^value\\."}]}},
+        "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}
+      }
+    },
+    "interpretation": {
+      "type": "object", "required": ["correction_revision", "corrections", "learned_rules"], "additionalProperties": false,
+      "properties": {
+        "correction_revision": {"type": "integer", "minimum": 0},
+        "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}},
+        "learned_rules": {"type": "array", "items": {
+          "type": "object", "required": ["parameter", "evidence", "boundary", "status", "sign", "support_source_ids", "support"], "additionalProperties": false,
+          "properties": {
+            "parameter": {"$ref": "#/$defs/parameter"}, "evidence": {"$ref": "#/$defs/text"},
+            "boundary": {"type": "string", "maxLength": 1}, "status": {"enum": ["active", "insufficient", "conflict"]},
+            "sign": {"enum": [-1, 0, 1, null]}, "support_source_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+            "support": {"type": "integer", "minimum": 1}
+          }
+        }},
+        "evidence_policy": {"enum": ["assertion-guards-v1", "assertion-guards-v2"]},
+        "withheld_values": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/withheldValue"}},
+        "withheld_count": {"type": "integer", "minimum": 0}, "withheld_truncated": {"type": "boolean"},
+        "legacy_context_unavailable": {"const": true}
+      },
+      "allOf": [
+        {"if": {"required": ["evidence_policy"]}, "then": {"required": ["withheld_values", "withheld_count", "withheld_truncated"]}},
+        {"if": {"anyOf": [{"required": ["withheld_values"]}, {"required": ["withheld_count"]}, {"required": ["withheld_truncated"]}]}, "then": {"required": ["evidence_policy"]}},
+        {"if": {"required": ["evidence_policy"], "properties": {"evidence_policy": {"const": "assertion-guards-v1"}}}, "then": {"properties": {"withheld_values": {"items": {"properties": {"reason": {"not": {"const": "other_subject_value"}}}}}}}}
+      ]
+    },
+    "translation": {
+      "description": "Lexical report in preview.translation; philosophy sources use the diary lexical pipeline. Local corrections affect interpretation/effects, not this raw report.",
+      "type": "object", "required": ["schema_version", "kind", "self_speaker", "cues", "candidates", "skipped", "limitations"], "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1}, "kind": {"enum": ["diary", "chat"]},
+        "self_speaker": {"type": ["string", "null"], "minLength": 1},
+        "cues": {"type": "array", "items": {
+          "type": "object", "required": ["category", "value", "evidence", "span", "speaker", "negated"], "additionalProperties": false,
+          "properties": {
+            "category": {"enum": ["event_word", "frequency_word", "contrast_word", "uncertainty_word", "emotion_word"]},
+            "value": {"enum": ["cancellation", "claimed_repetition", "contrast", "hedge", "disappointment", "sadness", "happiness", "anger"]},
+            "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"},
+            "speaker": {"$ref": "#/$defs/text"}, "negated": {"type": "boolean"}
+          }
+        }},
+        "candidates": {"type": "array", "items": {
+          "type": "object", "required": ["type", "value", "evidence", "span", "speaker", "certainty", "status"], "additionalProperties": false,
+          "properties": {
+            "type": {"enum": ["textual_emotion", "contact_intention"]},
+            "value": {"enum": ["disappointment", "sadness", "happiness", "anger", "less_initiative"]},
+            "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"},
+            "speaker": {"$ref": "#/$defs/text"}, "certainty": {"enum": ["hedged", "explicit_word"]},
+            "status": {"const": "pending_review"}
+          }
+        }},
+        "skipped": {"type": "array", "items": {
+          "type": "object", "required": ["span", "reason"], "additionalProperties": false,
+          "properties": {"span": {"$ref": "#/$defs/span"}, "reason": {"const": "unlabeled_chat_line"}}
+        }},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "approvalSnapshot": {"allOf": [{"$ref": "#/$defs/approvalMetadata"}], "unevaluatedProperties": false},
+    "legacyApprovalSnapshot": {
+      "type": "object", "required": ["status"], "additionalProperties": false,
+      "properties": {"status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}}
+    },
+    "parameterState": {
+      "type": "object", "required": ["value", "support", "observed"], "additionalProperties": false,
+      "properties": {"value": {"type": "number", "minimum": -1, "maximum": 1}, "support": {"type": "integer", "minimum": 0}, "observed": {"type": "boolean"}},
+      "allOf": [{"if": {"properties": {"support": {"const": 0}}}, "then": {"properties": {"observed": {"const": false}, "value": {"const": 0}}}, "else": {"properties": {"observed": {"const": true}}}}]
+    },
+    "partitionState": {
+      "type": "object", "minProperties": 13, "maxProperties": 13,
+      "propertyNames": {"$ref": "#/$defs/parameter"}, "additionalProperties": {"$ref": "#/$defs/parameterState"}
+    },
+    "allState": {
+      "type": "object", "required": ["rational", "emotional", "crazy"], "additionalProperties": false,
+      "properties": {"rational": {"$ref": "#/$defs/partitionState"}, "emotional": {"$ref": "#/$defs/partitionState"}, "crazy": {"$ref": "#/$defs/partitionState"}}
+    },
+    "effectFields": {
+      "type": "object", "required": ["source_id", "partition", "parameter", "before", "after", "delta", "support_before", "support_after", "evidence", "span", "rule_id", "action"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"}, "parameter": {"$ref": "#/$defs/parameter"},
+        "before": {"type": "number", "minimum": -1, "maximum": 1}, "after": {"type": "number", "minimum": -1, "maximum": 1}, "delta": {"type": "number", "minimum": -2, "maximum": 2},
+        "support_before": {"type": "integer", "minimum": 0}, "support_after": {"type": "integer", "minimum": 0},
+        "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}, "rule_id": {"$ref": "#/$defs/text"}
+      }
+    },
+    "previewEffect": {
+      "allOf": [{"$ref": "#/$defs/effectFields"}], "unevaluatedProperties": false,
+      "properties": {"action": {"const": "preview"}}
+    },
+    "committedEffect": {
+      "allOf": [{"$ref": "#/$defs/effectFields"}], "unevaluatedProperties": false,
+      "required": ["revision", "created_at"],
+      "properties": {"action": {"enum": ["approve", "revoke"]}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"$ref": "#/$defs/text"}}
+    },
+    "translatorEffect": {
+      "type": "object", "required": ["term", "documents_before", "documents_after", "source_id"], "additionalProperties": false,
+      "properties": {"term": {"$ref": "#/$defs/text"}, "documents_before": {"type": "integer", "minimum": 0}, "documents_after": {"type": "integer", "minimum": 0}, "source_id": {"$ref": "#/$defs/text"}}
+    },
+    "decisionFields": {
+      "allOf": [
+        {"$ref": "#/$defs/approvalMetadata"},
+        {"if": {"properties": {"status": {"const": "agreed"}}}, "then": {"properties": {"effects": {"items": {"properties": {"action": {"const": "approve"}}}}}}},
+        {"if": {"properties": {"status": {"enum": ["disagreed", "revoked"]}}}, "then": {"properties": {"effects": {"items": {"properties": {"action": {"const": "revoke"}}}}}}},
+        {"if": {"properties": {"status": {"const": "pending"}}}, "then": {"properties": {"effects": {"const": []}, "translator_effects": {"const": []}}}}
+      ],
+      "required": ["source_id", "partition", "effects", "translator_effects"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"},
+        "effects": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/committedEffect"}},
+        "translator_effects": {"type": "array", "items": {"$ref": "#/$defs/translatorEffect"}},
+        "observed_terms": {"type": "integer", "minimum": 0}, "interpretation": {"$ref": "#/$defs/interpretation"}, "restored_fit": {"type": "boolean"}
+      },
+      "dependentRequired": {"observed_terms": ["interpretation", "restored_fit"], "interpretation": ["observed_terms", "restored_fit"], "restored_fit": ["observed_terms", "interpretation"]},
+      "if": {"required": ["interpretation"]}, "then": {"properties": {"status": {"const": "agreed"}}}
+    },
+    "reviewEvent": {
+      "type": "object", "required": ["revision", "action", "before", "after", "effect_revisions", "created_at"], "additionalProperties": false,
+      "properties": {
+        "revision": {"type": "integer", "minimum": 1}, "action": {"enum": ["submit", "review", "revoke", "migrate"]},
+        "before": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/approvalSnapshot"}, {"$ref": "#/$defs/legacyApprovalSnapshot"}]},
+        "after": {"$ref": "#/$defs/approvalSnapshot"}, "created_at": {"$ref": "#/$defs/text"},
+        "effect_revisions": {"type": "array", "maxItems": 13, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}}
+      },
+      "allOf": [
+        {"if": {"properties": {"action": {"const": "submit"}}}, "then": {"properties": {"before": {"const": null}}}},
+        {"if": {"properties": {"action": {"const": "migrate"}}}, "then": {"properties": {"before": {"$ref": "#/$defs/legacyApprovalSnapshot"}}}},
+        {"if": {"properties": {"action": {"enum": ["review", "revoke"]}}}, "then": {"properties": {"before": {"$ref": "#/$defs/approvalSnapshot"}}}}
+      ]
+    },
+    "correctionRecord": {
+      "type": "object", "required": ["revision", "corrections", "created_at"], "additionalProperties": false,
+      "properties": {"revision": {"type": "integer", "minimum": 1}, "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}, "created_at": {"$ref": "#/$defs/text"}}
+    },
+    "candidateFields": {
+      "type": "object", "required": ["id", "source_id", "claim", "evidence", "status", "created_at", "resolved_at"],
+      "properties": {
+        "id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "claim": {"$ref": "#/$defs/text"}, "evidence": {"$ref": "#/$defs/text"},
+        "status": {"enum": ["pending", "accepted", "rejected"]}, "created_at": {"$ref": "#/$defs/text"}, "resolved_at": {"type": ["string", "null"]}
+      },
+      "if": {"properties": {"status": {"const": "pending"}}}, "then": {"properties": {"resolved_at": {"const": null}}}, "else": {"properties": {"resolved_at": {"$ref": "#/$defs/text"}}}
+    },
+    "candidateRow": {
+      "allOf": [{"$ref": "#/$defs/candidateFields"}], "unevaluatedProperties": false,
+      "required": ["partition", "source_status", "source_ref"],
+      "properties": {"partition": {"$ref": "#/$defs/partition"}, "source_status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}, "source_ref": {"type": ["string", "null"]}}
+    },
+    "activeMemoryRow": {
+      "allOf": [{"$ref": "#/$defs/candidateRow"}], "properties": {"status": {"const": "accepted"}, "source_status": {"const": "agreed"}}
+    },
+    "results": {
+      "$defs": {
+        "health": {
+          "type": "object", "required": ["schema_version", "candidate_publication", "llm_runtime_configured", "methods", "features"], "additionalProperties": false,
+          "properties": {
+            "schema_version": {"const": 1}, "candidate_publication": {"const": "manual"}, "llm_runtime_configured": {"const": false},
+            "methods": {"type": "array", "minItems": 21, "maxItems": 21, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
+            "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
+              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": false}, "source_delete": {"const": false}}}
+          }
+        },
+        "baseline": {
+          "type": "object", "required": ["schema_version", "partitions", "parameters"], "additionalProperties": false,
+          "properties": {
+            "schema_version": {"const": 1}, "partitions": {"const": ["rational", "emotional", "crazy"]},
+            "parameters": {"type": "object", "minProperties": 13, "maxProperties": 13, "propertyNames": {"$ref": "#/$defs/parameter"}, "additionalProperties": {"const": 0}}
+          }
+        },
+        "submit": {
+          "allOf": [{"$ref": "#/$defs/decisionFields"}], "unevaluatedProperties": false,
+          "properties": {"status": {"enum": ["pending", "disagreed", "agreed"]}},
+          "if": {"properties": {"status": {"const": "agreed"}}}, "then": {"required": ["observed_terms", "interpretation", "restored_fit"], "properties": {"exclamation": {"const": true}, "confirmed_by": {"const": "exclamation"}, "restored_fit": {"const": false}}},
+          "else": {"properties": {"exclamation": {"const": false}, "effects": {"const": []}, "translator_effects": {"const": []}}}
+        },
+        "input_get": {"$ref": "#/$defs/inputDetail"},
+        "input_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/inputRecord"}},
+        "input_page": {"$ref": "#/$defs/inputPage"},
+        "preview": {
+          "allOf": [{"$ref": "#/$defs/approvalMetadata"}], "unevaluatedProperties": false,
+          "required": ["source_id", "partition", "kind", "hypothetical", "effects", "translator_effects", "observed_terms", "translation", "interpretation"],
+          "properties": {
+            "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"}, "kind": {"enum": ["diary", "chat", "philosophy"]},
+            "status": {"enum": ["pending", "disagreed", "revoked"]}, "hypothetical": {"const": true},
+            "effects": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/previewEffect"}}, "translator_effects": {"type": "array", "items": {"$ref": "#/$defs/translatorEffect"}},
+            "observed_terms": {"type": "integer", "minimum": 0}, "translation": {"$ref": "#/$defs/translation"}, "interpretation": {"$ref": "#/$defs/interpretation"}
+          }
+        },
+        "review": {"allOf": [{"$ref": "#/$defs/decisionFields"}], "unevaluatedProperties": false, "properties": {"status": {"enum": ["agreed", "disagreed", "revoked"]}}},
+        "review_history": {
+          "allOf": [{"$ref": "#/$defs/approvalMetadata"}], "unevaluatedProperties": false,
+          "required": ["source_id", "history"], "properties": {"source_id": {"$ref": "#/$defs/text"}, "history": {"type": "array", "items": {"$ref": "#/$defs/reviewEvent"}}}
+        },
+        "correction_set": {
+          "type": "object", "required": ["source_id", "revision", "status", "corrections"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "revision": {"type": "integer", "minimum": 1}, "status": {"const": "pending"}, "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}}
+        },
+        "correction_history": {
+          "type": "object", "required": ["source_id", "status", "revision", "corrections", "history", "fit_context"], "additionalProperties": false,
+          "properties": {
+            "source_id": {"$ref": "#/$defs/text"}, "status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}, "revision": {"type": "integer", "minimum": 0},
+            "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}, "history": {"type": "array", "items": {"$ref": "#/$defs/correctionRecord"}},
+            "fit_context": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/interpretation"}]}
+          }
+        },
+        "revoke": {
+          "allOf": [{"$ref": "#/$defs/decisionFields"}], "unevaluatedProperties": false,
+          "properties": {"status": {"const": "revoked"}, "reason": {"const": "user_revoked"}}, "not": {"required": ["interpretation"]}
+        },
+        "state": {"oneOf": [{"$ref": "#/$defs/partitionState"}, {"$ref": "#/$defs/allState"}]},
+        "effects": {"type": "array", "items": {"$ref": "#/$defs/committedEffect"}},
+        "terms": {
+          "type": "array", "items": {"type": "object", "required": ["term", "documents", "occurrences"], "additionalProperties": false,
+            "properties": {"term": {"$ref": "#/$defs/text"}, "documents": {"type": "integer", "minimum": 1}, "occurrences": {"type": "integer", "minimum": 1}}}
+        },
+        "rank": {
+          "oneOf": [
+            {"type": "object", "required": ["status", "reason", "ranked"], "additionalProperties": false,
+              "properties": {"status": {"const": "abstain"}, "reason": {"enum": ["insufficient_confirmed_value_evidence", "options_indistinguishable_with_current_evidence"]}, "ranked": {"const": []}}},
+            {"type": "object", "required": ["status", "basis", "not_a_probability", "used_parameters", "ranked"], "additionalProperties": false,
+              "properties": {"status": {"const": "provisional"}, "basis": {"const": "confirmed_value_alignment_only"}, "not_a_probability": {"const": true},
+                "used_parameters": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"allOf": [{"$ref": "#/$defs/parameter"}, {"pattern": "^value\\."}]}},
+                "ranked": {"type": "array", "minItems": 2, "items": {"type": "object", "required": ["id", "alignment_score"], "additionalProperties": false, "properties": {"id": {"$ref": "#/$defs/text"}, "alignment_score": {"type": "number", "minimum": -8, "maximum": 8}}}}}}
+          ]
+        },
+        "candidate_propose": {
+          "type": "object", "required": ["candidate_id", "source_id", "status"], "additionalProperties": false,
+          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "status": {"const": "pending"}}
+        },
+        "candidate_review": {"allOf": [{"$ref": "#/$defs/candidateFields"}], "unevaluatedProperties": false, "properties": {"status": {"enum": ["accepted", "rejected"]}}},
+        "candidate_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/candidateRow"}},
+        "memory_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/activeMemoryRow"}},
+        "memory_search": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/activeMemoryRow"}}
+      }
+    },
+    "empty": {"type": "object", "additionalProperties": false},
+    "source": {"type": "object", "required": ["source_id"], "properties": {"source_id": {"$ref": "#/$defs/text"}}, "additionalProperties": false},
+    "list": {"type": "object", "properties": {"partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}}, "additionalProperties": false},
+    "request": {
+      "type": "object",
+      "required": ["schema_version", "id", "method", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search"]},
+        "params": {"type": "object"}
+      },
+      "allOf": [
+        {"if": {"properties": {"method": {"enum": ["health", "baseline"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
+        {"if": {"properties": {"method": {"enum": ["input_get", "preview", "review_history", "correction_history", "revoke"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/source"}}}},
+        {"if": {"properties": {"method": {"const": "correction_set"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "corrections", "expected_revision"], "additionalProperties": false,
+          "properties": {
+            "source_id": {"$ref": "#/$defs/text"}, "expected_revision": {"type": "integer", "minimum": 0},
+            "corrections": {"type": "array", "maxItems": 13, "items": {"$ref": "#/$defs/correction"}}
+          }
+        }}}},
+        {"if": {"properties": {"method": {"const": "submit"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["text", "partition"], "additionalProperties": false,
+          "properties": {
+            "text": {"type": "string", "minLength": 1, "maxLength": 1000000},
+            "partition": {"$ref": "#/$defs/partition"},
+            "kind": {"enum": ["diary", "chat", "philosophy"]},
+            "immediate": {"type": "boolean", "default": true},
+            "exclamation": {"type": "boolean", "default": false},
+            "self_speaker": {"type": ["string", "null"], "minLength": 1},
+            "source_ref": {"type": ["string", "null"], "minLength": 1}
+          },
+          "allOf": [{"if": {"required": ["kind"], "properties": {"kind": {"const": "chat"}}}, "then": {"required": ["self_speaker"], "properties": {"self_speaker": {"$ref": "#/$defs/text"}}}}]
+        }}}},
+        {"if": {"properties": {"method": {"const": "review"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "agree"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "agree": {"type": "boolean"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "input_list"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "status": {"enum": ["pending", "agreed", "disagreed", "revoked", null]}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "input_page"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "status": {"enum": ["pending", "agreed", "disagreed", "revoked", null]}, "cursor": {"$ref": "#/$defs/cursor"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "state"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false, "properties": {"partition": {"$ref": "#/$defs/optionalPartition"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "effects"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false, "properties": {"source_id": {"type": ["string", "null"], "minLength": 1}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "terms"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["partition"], "additionalProperties": false,
+          "properties": {"partition": {"$ref": "#/$defs/partition"}, "min_documents": {"type": "integer", "minimum": 1}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "rank"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["options"], "additionalProperties": false,
+          "properties": {"options": {"type": "array", "minItems": 2, "items": {
+            "type": "object", "required": ["id", "impacts"], "properties": {
+              "id": {"$ref": "#/$defs/text"}, "impacts": {"type": "object", "propertyNames": {"enum": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection"]}, "additionalProperties": {"type": "number", "minimum": -1, "maximum": 1}}
+            }
+          }}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "candidate_propose"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "claim", "evidence"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "claim": {"$ref": "#/$defs/text"}, "evidence": {"$ref": "#/$defs/text"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "candidate_review"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["candidate_id", "accept"], "additionalProperties": false,
+          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "accept": {"type": "boolean"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "candidate_list"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "status": {"enum": ["pending", "accepted", "rejected", null]}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "memory_list"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/list"}}}},
+        {"if": {"properties": {"method": {"const": "memory_search"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["query"], "additionalProperties": false,
+          "properties": {"query": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}}
+        }}}}
+      ]
+    },
+    "response": {
+      "oneOf": [
+        {"type": "object", "required": ["schema_version", "id", "ok", "result"], "additionalProperties": false, "properties": {"schema_version": {"const": 1}, "id": {"type": "string", "minLength": 1, "maxLength": 128}, "ok": {"const": true}, "result": {}}},
+        {"type": "object", "required": ["schema_version", "id", "ok", "error"], "additionalProperties": false, "properties": {"schema_version": {"const": 1}, "id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128}, "ok": {"const": false}, "error": {"type": "object", "required": ["code", "message"], "additionalProperties": false, "properties": {"code": {"enum": ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "METHOD_NOT_FOUND", "INVALID_ARGUMENT", "STALE_CURSOR", "NOT_FOUND", "MODEL_UNAVAILABLE", "STORAGE_ERROR", "INTERNAL_ERROR"]}, "message": {"type": "string"}}}}}
+      ]
+    }
+  }
+}

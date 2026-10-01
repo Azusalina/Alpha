@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "synthetic-fairness", "group_id": "example-fairness", "split": "development",
+      "domain": "daily", "partition": "rational", "kind": "diary", "text": "我重视公平。",
+      "label_scope": ["value.fairness"],
+      "expected": [{"parameter": "value.fairness", "sign": 1, "evidence": "我重视公平", "span": [0, 5]}]
+    },
+    {
+      "id": "synthetic-question", "group_id": "example-question", "split": "development",
+      "domain": "study", "partition": "rational", "kind": "diary", "text": "我重视公平吗？",
+      "label_scope": "all", "expected": []
+    },
+    {
+      "id": "synthetic-emotion", "group_id": "example-emotion", "split": "development",
+      "domain": "interpersonal", "partition": "emotional", "kind": "chat", "self_speaker": "我",
+      "text": "朋友: 我很生气。\r\n我: 😀我很开心。",
+      "label_scope": ["affect.happiness", "affect.anger"],
+      "expected": [{"parameter": "affect.happiness", "sign": 1, "evidence": "开心", "span": [17, 19]}]
+    },
+    {
+      "id": "synthetic-philosophy", "group_id": "example-philosophy", "split": "development",
+      "domain": "philosophy", "partition": "rational", "kind": "philosophy", "text": "人应该诚实。",
+      "label_scope": ["value.truth"],
+      "expected": [{"parameter": "value.truth", "sign": 1, "evidence": "人应该诚实", "span": [0, 5]}]
+    },
+    {
+      "id": "synthetic-other-view", "group_id": "example-other-view", "split": "development",
+      "domain": "interpersonal", "partition": "rational", "kind": "diary", "text": "我觉得她把自由看得很重要。",
+      "label_scope": ["value.autonomy"], "expected": []
+    }
+  ]
+}

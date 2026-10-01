@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-brain-call"
+description = "Enables the brain_call command without any pre-configured scope."
+commands.allow = ["brain_call"]
+
+[[permission]]
+identifier = "deny-brain-call"
+description = "Denies the brain_call command without any pre-configured scope."
+commands.deny = ["brain_call"]

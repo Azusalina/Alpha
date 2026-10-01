@@ -23,11 +23,18 @@ def main() -> None:
     submit.add_argument("--partition", required=True, choices=("rational", "emotional", "crazy"))
     submit.add_argument("--kind", choices=("diary", "chat", "philosophy"), default="diary")
     submit.add_argument("--self-speaker")
+    submit.add_argument("--immediate", action=argparse.BooleanOptionalAction, default=True)
+    submit.add_argument("--exclamation", action="store_true",
+                        help="explicitly set both judgements true and fit during submit")
     source = submit.add_mutually_exclusive_group(required=True)
     source.add_argument("--text")
     source.add_argument("--file", type=Path)
+    preview = actions.add_parser("preview")
+    preview.add_argument("source_id")
     review = actions.add_parser("review")
     review.add_argument("source_id")
+    history = actions.add_parser("review-history")
+    history.add_argument("source_id")
     choice = review.add_mutually_exclusive_group(required=True)
     choice.add_argument("--agree", action="store_true")
     choice.add_argument("--disagree", action="store_true")
@@ -60,11 +67,15 @@ def main() -> None:
                     source_ref = str(args.file)
                 else:
                     text, source_ref = args.text, None
-                result = {"source_id": model.submit(text, partition=args.partition,
-                                                     kind=args.kind, self_speaker=args.self_speaker,
-                                                     source_ref=source_ref), "status": "pending"}
+                result = model.submit_result(text, partition=args.partition, kind=args.kind,
+                                             self_speaker=args.self_speaker, source_ref=source_ref,
+                                             immediate=args.immediate, exclamation=args.exclamation)
+            elif args.action == "preview":
+                result = model.preview(args.source_id)
             elif args.action == "review":
                 result = model.review(args.source_id, agree=args.agree)
+            elif args.action == "review-history":
+                result = model.review_history(args.source_id)
             elif args.action == "revoke":
                 result = model.revoke(args.source_id)
             elif args.action == "state":

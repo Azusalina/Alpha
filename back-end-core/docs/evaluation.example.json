@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "synthetic-daily-example-not-real-user-data",
+      "domain": "daily",
+      "held_out": true,
+      "source_ids": [],
+      "options": [
+        {"id": "A", "impacts": {"value.fairness": 1, "value.truth": -0.5}},
+        {"id": "B", "impacts": {"value.fairness": -1, "value.truth": 1}}
+      ],
+      "actual_choice": "B",
+      "endorsed_choice": "A"
+    }
+  ]
+}

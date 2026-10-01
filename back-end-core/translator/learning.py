@@ -63,9 +63,15 @@ def learnable_terms(text: str, *, personal_phrases: tuple[str, ...] = ()) -> dic
 
 def own_chat_text(text: str, self_speaker: str) -> str:
     """Exclude other speakers from personal vocabulary learning."""
-    result = []
-    for line in text.splitlines():
-        match = _CHAT_LINE.match(line)
+    return "\n".join(text[start:end] for start, end in own_chat_ranges(text, self_speaker))
+
+
+def own_chat_ranges(text: str, self_speaker: str) -> list[tuple[int, int]]:
+    """Original character ranges for the selected speaker's message bodies."""
+    result, offset = [], 0
+    for line in text.splitlines(keepends=True):
+        match = _CHAT_LINE.match(line.rstrip("\r\n"))
         if match is not None and match.group(1) == self_speaker:
-            result.append(match.group(2))
-    return "\n".join(result)
+            result.append((offset + match.start(2), offset + match.end(2)))
+        offset += len(line)
+    return result

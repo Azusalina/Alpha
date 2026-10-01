@@ -26,6 +26,7 @@ import type { TranslationCue } from '../../backend';
 import { inputStore, type SubmitOutcome, useInputs } from '../../app/inputStore';
 import { codePointLength } from '../../backend';
 import { EffectsTable } from '../shared/EffectsTable';
+import { WithheldNotes } from '../shared/WithheldNotes';
 import { HighlightedText, marksFromEffects } from '../shared/HighlightedText';
 import { KIND_LABELS, PARTITION_LABELS, partitionColor } from '../shared/labels';
 import { StatusChip } from '../shared/StatusChip';
@@ -203,6 +204,7 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
       <EntryError actions={['preview']} id={result.source_id} />
 
       {result.status === 'pending' && result.preview && <Cues cues={result.preview.translation.cues} />}
+      <WithheldNotes interpretation={result.trained ? result.interpretation : result.preview?.interpretation} />
 
       {(result.trained || (result.status === 'pending' && result.previewState === 'ready')) && (
         <div className="entry-result__evidence">

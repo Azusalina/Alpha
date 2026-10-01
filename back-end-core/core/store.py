@@ -82,6 +82,13 @@ class MemoryStore:
                     ON candidates(status);
             """)
 
+    @staticmethod
+    def _has_brain_inputs(db: sqlite3.Connection) -> bool:
+        """The older standalone store must also work without the model tables."""
+        return db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'brain_inputs'"
+        ).fetchone() is not None
+
     def add_source(self, body: str, *, origin: str = "input", source_ref: str | None = None) -> str:
         body = _nonempty(body, "body")
         origin = _nonempty(origin, "origin")
@@ -96,6 +103,20 @@ class MemoryStore:
     def get_source(self, source_id: str) -> dict | None:
         with self._connect() as db:
             row = db.execute("SELECT * FROM sources WHERE id = ?", (source_id,)).fetchone()
+        return dict(row) if row else None
+
+    def brain_status(self, source_id: str) -> str | None:
+        """Return the whole-input review status, or None for legacy sources."""
+        row = self.brain_input_info(source_id)
+        return row["status"] if row else None
+
+    def brain_input_info(self, source_id: str) -> dict | None:
+        """Review and author metadata, absent on a standalone legacy source."""
+        with self._connect() as db:
+            if not self._has_brain_inputs(db):
+                return None
+            row = db.execute("SELECT * FROM brain_inputs WHERE source_id = ?",
+                             (source_id,)).fetchone()
         return dict(row) if row else None
 
     def list_sources(self) -> list[dict]:
@@ -113,15 +134,27 @@ class MemoryStore:
             raise ValueError("items must be a list of at most 16 candidates")
         ids = [uuid4().hex for _ in items]
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             source = db.execute("SELECT body FROM sources WHERE id = ?", (source_id,)).fetchone()
             if source is None:
                 raise KeyError(f"source not found: {source_id}")
+            author_text = source["body"]
+            if self._has_brain_inputs(db):
+                review = db.execute("SELECT status, kind, self_speaker FROM brain_inputs WHERE source_id = ?",
+                                    (source_id,)).fetchone()
+                if review is not None and review["status"] != "agreed":
+                    raise ValueError("brain source must be agreed before proposing a memory")
+                if review is not None and review["kind"] == "chat":
+                    from translator.learning import own_chat_text
+                    author_text = own_chat_text(source["body"], review["self_speaker"])
             checked = []
             for claim, evidence in items:
                 claim = _nonempty(claim, "claim")
                 evidence = _nonempty(evidence, "evidence")
                 if evidence not in source["body"]:
                     raise ValueError("evidence must be an exact excerpt from the source")
+                if evidence not in author_text:
+                    raise ValueError("chat memory evidence must come from the self speaker")
                 checked.append((claim, evidence))
             timestamp = _now()
             db.executemany(
@@ -145,8 +178,19 @@ class MemoryStore:
         return [dict(row) for row in rows]
 
     def resolve(self, candidate_id: str, *, accept: bool) -> dict:
+        if type(accept) is not bool:
+            raise ValueError("accept must be a boolean")
         status = "accepted" if accept else "rejected"
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if accept and self._has_brain_inputs(db):
+                source = db.execute(
+                    "SELECT i.status AS brain_status FROM candidates c "
+                    "LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
+                    "WHERE c.id = ?", (candidate_id,),
+                ).fetchone()
+                if source is not None and source["brain_status"] not in (None, "agreed"):
+                    raise ValueError("brain source must be agreed before accepting a memory")
             changed = db.execute(
                 "UPDATE candidates SET status = ?, resolved_at = ? "
                 "WHERE id = ? AND status = 'pending'",
@@ -159,7 +203,21 @@ class MemoryStore:
 
     def list_memories(self) -> list[dict]:
         """Accepted candidates form the current graph's node inventory."""
-        return self.list_candidates(status="accepted")
+        with self._connect() as db:
+            if self._has_brain_inputs(db):
+                rows = db.execute(
+                    "SELECT c.* FROM candidates c "
+                    "LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
+                    "WHERE c.status = 'accepted' "
+                    "AND (i.source_id IS NULL OR i.status = 'agreed') "
+                    "ORDER BY c.created_at, c.id"
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    "SELECT * FROM candidates WHERE status = 'accepted' "
+                    "ORDER BY created_at, id"
+                ).fetchall()
+        return [dict(row) for row in rows]
 
     def search_memories(self, query: str, *, limit: int = 20) -> list[dict]:
         """Find accepted claims with their source references.
@@ -171,13 +229,19 @@ class MemoryStore:
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
             raise ValueError("limit must be an integer from 1 to 100")
         with self._connect() as db:
+            joined = (" LEFT JOIN brain_inputs i ON i.source_id = c.source_id "
+                      if self._has_brain_inputs(db) else "")
+            visible = (" AND (i.source_id IS NULL OR i.status = 'agreed') "
+                       if joined else "")
             rows = db.execute(
                 "SELECT c.id, c.claim, c.evidence, c.source_id, c.created_at, "
                 "s.origin, s.source_ref "
                 "FROM candidates AS c JOIN sources AS s ON s.id = c.source_id "
+                + joined +
                 "WHERE c.status = 'accepted' AND "
                 "(instr(lower(c.claim), lower(?)) > 0 OR "
                 "instr(lower(c.evidence), lower(?)) > 0) "
+                + visible +
                 "ORDER BY c.created_at, c.id LIMIT ?",
                 (query, query, limit),
             ).fetchall()

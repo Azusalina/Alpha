@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from typing import Protocol
 
+from translator.learning import own_chat_text
+
 from .store import MemoryStore
 
 
@@ -20,7 +22,14 @@ def extract_candidates(store: MemoryStore, source_id: str, model: TextModel) -> 
     source = store.get_source(source_id)
     if source is None:
         raise KeyError(f"source not found: {source_id}")
-    if len(source["body"]) > 12_000:
+    info = store.brain_input_info(source_id)
+    if info is not None and info["status"] != "agreed":
+        raise ValueError("brain source must be agreed before model extraction")
+    author_text = (own_chat_text(source["body"], info["self_speaker"])
+                   if info is not None and info["kind"] == "chat" else source["body"])
+    if not author_text.strip():
+        return []
+    if len(author_text) > 12_000:
         raise ValueError("source too long for one extraction; split it first")
 
     prompt = (
@@ -31,7 +40,7 @@ def extract_candidates(store: MemoryStore, source_id: str, model: TextModel) -> 
         "[{\"claim\": \"...\", \"evidence\": \"exact excerpt\"}]}. "
         "Evidence must be copied exactly from the source. "
         "An empty list is valid when nothing worth remembering is stated.\n"
-        "SOURCE_JSON:\n" + json.dumps(source["body"], ensure_ascii=False)
+        "SOURCE_JSON:\n" + json.dumps(author_text, ensure_ascii=False)
     )
     raw = model.generate(prompt)
     if not isinstance(raw, str) or len(raw) > 65_536:
