@@ -398,3 +398,49 @@ in `dist/`).
   exactly 1 and 0 (the light frame is unchanged by theming).
 - Inspector: `themeName()`, `setTheme(t)`. DOM: `data-testid="theme-toggle"`
   (top right, only in `full` view mode, from first home on); key **T**.
+
+## 14. Entry and feedback flow (round 3 part 9, D54–D59)
+
+Everything the UI knows about the model goes through `src/backend` (types in
+`src/backend/types.ts`). UI code imports `BrainAdapter` / `getAdapter()` /
+`useBackend()`, never a transport. Back-end contract and the open requests are
+negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
+
+- **Adapters** (`src/backend/`): `UnavailableAdapter` (product default, "后端未连接"),
+  `MockBrainAdapter` (demo: in memory, label "演示数据 · 未运行模型", `trains: false`,
+  every `rule_id` prefixed `mock.`, lost on reload), `RemoteBrainAdapter` (api.md
+  envelope over a `Transport`; `twoJudgements` from `health.features`,
+  `proposedMethods` off). `tauriTransport.ts` talks to the host command
+  `brain_call` through `window.__TAURI_INTERNALS__`; `app/desktop.ts` connects once
+  at start when a Tauri host exists. **Not verified on the native WebKitGTK build.**
+- **Two judgements per input** (D55): `immediate` (given at input) and `confirm`
+  (second, inside the zoomed-in brain). Trained only when both are true.
+  `exclamation` makes the back end set both true at submit (the response carries the
+  formal effects). Statuses: `pending` 待确认, `agreed` 已认可, `disagreed` 不同意
+  (reason `immediate_false` / `confirm_false`), `revoked` 已撤销 (reason `user_revoked`).
+  Edit / delete exist only in the mock (back end F6 open); against a real back end
+  they are greyed out ("后端暂不支持").
+- **Spans** are Unicode code points, end exclusive: use `src/backend/spans.ts`
+  (`codePointSlice`, `highlight`, `evidenceMatches`), never slice a JS string with a span.
+- **Text**: `readTextFile` (.txt/.md only, strict UTF-8, ≤ 4 MB, BOM stripped, NUL refused),
+  `normalizeForSubmit`, `validateEntry` (chat needs `self_speaker`; no matching `name: text`
+  line is a warning only). Limit 1,000,000 code points.
+- **Orchestration**: `app/inputStore.ts` (`inputStore`, `useInputs`) holds records,
+  per-record caches, the entry result and errors; the panels only call it. A training
+  event (agreed result) calls `humanStore.perform`.
+- **Brain performance** (D57): `humanStore.perform({partition, intensity 0..1, fromCss, seed?})`;
+  `signal.kind === 'perform'`. rational = one or two calm bolts in a single muted hue;
+  emotional = several branching, many-coloured bolts; crazy = a whole-brain performance
+  (reduced motion: a plain colour wash, no shake, ≤ 3 Hz). Bolts are polylines along the
+  mesh edges (`brain/bolts.ts`). No parameter-to-region mapping (IDEA §6). Resting frame is
+  bit-identical to before (hash-checked, both themes).
+- **UI**: entry panel `ui/entry/*` (upper right, above the divide line; `data-testid="human-input"`
+  is the text area); records panel `ui/records/*` (right column while drilled in: tabs 输入记录 /
+  模型状态); shared pieces `ui/shared/*` (`EffectsTable`, `HighlightedText`, `BackendBanner`,
+  `EvidenceValue` → "尚无证据", `AbstainNote` → "资料不足"; no effects → "未提取到可拟合的证据").
+- **Tree** (D58): flat pure black (light) / white (dark) discs, solid 1 px elbow edges
+  (`ui/TreeOverlay.tsx`, `tree/layout.ts`); tokens `--tree-ink`, `--tree-ground`.
+- **Inspector additions** (dev / diagnostics only): `window.__alpha.backend`
+  `{mode(), enterDemo(), leaveDemo()}`, `window.__alpha.inputs` `{list(), get(id), expanded()}`,
+  `brain.perform(partition, intensity)`; `brain.signal()` / `setSignalTime(t)` as in §12.
+

@@ -67,6 +67,39 @@ export const PALETTES: Record<Theme, Palette> = {
   },
 };
 
+/**
+ * Colours of the brain's answer to an input, by state (D57). There is no
+ * parameter-to-region mapping (IDEA section 6 leaves the classification
+ * undefined), so the performance is keyed by the input's state alone:
+ *
+ * - rational  one steady, muted hue (a deep slate-teal on paper, a pale steel
+ *             blue on black): calm and composed;
+ * - emotional a vivid spread, coral / amber / magenta / cyan / lime, darker and
+ *             more saturated on white, luminous on black;
+ * - crazy     the whole hue wheel, cycling; `s` and `v` are the saturation and
+ *             value the shader gives that wheel in each theme.
+ *
+ * The names are the user's situational states, not a diagnosis.
+ */
+export interface StatePalette {
+  rational: string;
+  emotional: [string, string, string, string, string];
+  crazy: { s: number; v: number };
+}
+
+export const STATE_PALETTE: Record<Theme, StatePalette> = {
+  light: {
+    rational: '#2a6a78',
+    emotional: ['#d8402f', '#cc7a00', '#b71f78', '#0a86a6', '#4f9412'],
+    crazy: { s: 0.92, v: 0.8 },
+  },
+  dark: {
+    rational: '#7aa3cf',
+    emotional: ['#ff7566', '#ffc247', '#ff52bd', '#4fe0ff', '#b4f25a'],
+    crazy: { s: 0.78, v: 1 },
+  },
+};
+
 const STORAGE_KEY = 'alpha.theme';
 
 /**

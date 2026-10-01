@@ -1,0 +1,430 @@
+/*
+ * Shared pieces of the entry and records panels (round 3, part 9, D54-D57).
+ * Paper and ink (IDEA section 5): ruled lines, small type, no cards, no fills
+ * behind text. The per-state colours are small marks only (a dot, a thin rule).
+ * Everything follows --alpha-ink / --alpha-paper / --alpha-construction /
+ * --alpha-accent, so both themes work; dark is the default.
+ */
+
+:root {
+  /*
+   * Construction grey for TEXT. --alpha-construction (#7b7d85) is right for
+   * rules and lines but only 3.67:1 on the light paper, under WCAG AA for the
+   * 10-12 px text these panels use; text takes this darker tone (5.5:1) while
+   * lines keep the original. Dark already passes, so it keeps its tone.
+   */
+  --alpha-construction-text: #5f6169;
+  /* readable on the paper ground; used as marks only (D57) */
+  --alpha-state-rational: #2a6a78;
+  --alpha-state-emotional: #c2265f;
+  --alpha-state-crazy: #6a2fe0;
+  --alpha-warn: #9a5a00;
+}
+
+:root[data-theme='dark'] {
+  --alpha-construction-text: var(--alpha-construction);
+  --alpha-state-rational: #a9c6e2;
+  --alpha-state-emotional: #ff6b9a;
+  --alpha-state-crazy: #b58cff;
+  --alpha-warn: #e0b060;
+}
+
+/* ---- backend banner ---------------------------------------------------- */
+
+.backend-banner {
+  pointer-events: auto;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--alpha-construction-text);
+  border-top: 1px solid var(--alpha-construction);
+  border-bottom: 1px solid var(--alpha-construction);
+  padding: 0.35rem 0;
+  margin-bottom: 0.9rem;
+  user-select: text;
+}
+
+.backend-banner p {
+  margin: 0;
+}
+
+.backend-banner__title {
+  color: var(--alpha-ink);
+  letter-spacing: 0.06em;
+}
+
+.backend-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  margin-top: 0.25rem;
+}
+
+.backend-banner--demo,
+.backend-banner--remote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.8rem;
+  border-top: 0;
+  padding: 0.25rem 0;
+}
+
+.backend-banner__demo {
+  color: var(--alpha-ink);
+  letter-spacing: 0.04em;
+}
+
+.backend-banner__demo::before {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 0.45em;
+  margin-right: 0.5em;
+  vertical-align: 0.05em;
+  border-radius: 50%;
+  border: 1px solid var(--alpha-ink);
+}
+
+.backend-banner__ok {
+  opacity: 1; /* was 0.75: faded text under 4.5:1 in the light theme */
+}
+
+.backend-banner__missing,
+.backend-banner__error {
+  color: var(--alpha-warn);
+}
+
+.backend-banner button.backend-banner__btn {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0;
+  font: inherit;
+  color: var(--alpha-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--alpha-construction);
+}
+
+.backend-banner button.backend-banner__btn:hover {
+  text-decoration-color: var(--alpha-ink);
+}
+
+.backend-banner button.backend-banner__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.backend-banner button:focus-visible {
+  outline: 1px dashed var(--alpha-construction);
+  outline-offset: 3px;
+}
+
+/* ---- status chip --------------------------------------------------------- */
+
+.status-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  color: var(--alpha-ink);
+  white-space: nowrap;
+}
+
+/* shapes differ, so the status does not rest on colour alone */
+.status-chip__dot {
+  flex: none;
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  border: 1px solid var(--alpha-ink);
+  align-self: center;
+}
+
+.status-chip--agreed .status-chip__dot {
+  background: var(--alpha-ink);
+}
+
+.status-chip--disagreed .status-chip__dot {
+  width: 0.75em;
+  height: 0;
+  border-radius: 0;
+  border-width: 1px 0 0;
+}
+
+.status-chip--revoked .status-chip__dot {
+  border-style: dashed;
+  color: var(--alpha-construction-text);
+}
+
+.status-chip--disagreed,
+.status-chip--revoked {
+  color: var(--alpha-construction-text);
+}
+
+/* ---- highlighted text ---------------------------------------------------- */
+
+.hl {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  user-select: text;
+}
+
+.hl p {
+  margin: 0;
+}
+
+.hl__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hl__mark {
+  color: inherit;
+  background: transparent;
+  border-bottom: 2px solid var(--alpha-accent);
+  padding: 0 0.05em;
+  transition: background-color 120ms ease;
+}
+
+.hl__mark.is-active {
+  background: color-mix(in srgb, var(--alpha-accent) 28%, transparent);
+  border-bottom-color: var(--alpha-ink);
+}
+
+.hl__fold {
+  font-size: 0.72rem;
+  color: var(--alpha-construction-text);
+  margin: 0.25rem 0;
+}
+
+.hl__fold button,
+.hl__warn button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--alpha-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hl__warn {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--alpha-warn);
+}
+
+/* ---- effects ------------------------------------------------------------- */
+
+.effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  user-select: text;
+}
+
+.effect {
+  padding: 0.5rem 0 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--alpha-construction) 55%, transparent);
+  outline: none;
+}
+
+.effect:last-child {
+  border-bottom: 1px solid color-mix(in srgb, var(--alpha-construction) 55%, transparent);
+}
+
+.effect.is-active,
+.effect:focus-visible {
+  box-shadow: inset 2px 0 0 var(--alpha-accent);
+  padding-left: 0.5rem;
+}
+
+.effect__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.effect__param {
+  color: var(--alpha-ink);
+}
+
+.effect__param code,
+.effect__meta code {
+  margin-left: 0.4em;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  color: var(--alpha-construction-text);
+  overflow-wrap: anywhere;
+}
+
+.effect__action {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--alpha-construction-text);
+  border: 1px solid var(--alpha-construction);
+  border-radius: 2px;
+  padding: 0 0.35em;
+  white-space: nowrap;
+}
+
+.effect__action--preview {
+  border-style: dashed;
+}
+
+.effect__nums,
+.effect__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 1rem;
+  color: var(--alpha-construction-text);
+}
+
+.effect__nums b {
+  font-weight: normal;
+  margin-right: 0.3em;
+}
+
+.effect__nums span {
+  color: var(--alpha-ink);
+}
+
+.effect__nums span b {
+  color: var(--alpha-construction-text);
+}
+
+.effect__delta {
+  font-style: normal;
+  margin-left: 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.effect__delta--up {
+  color: var(--alpha-ink);
+}
+
+.effect__delta--down,
+.effect__delta--flat {
+  color: var(--alpha-construction-text);
+}
+
+.effect__evidence {
+  margin: 0.25rem 0;
+  padding: 0 0 0 0.6rem;
+  border-left: 1px solid var(--alpha-construction);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--alpha-ink);
+}
+
+.effect__meta {
+  font-size: 0.7rem;
+}
+
+.effect__demo {
+  margin-left: 0.4em;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  color: var(--alpha-warn);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 0 0.3em;
+}
+
+.effects-empty {
+  margin: 0.4rem 0;
+  font-size: 0.76rem;
+  color: var(--alpha-construction-text);
+}
+
+/* ---- parameter state / abstain ------------------------------------------ */
+
+.ev {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.76rem;
+  color: var(--alpha-ink);
+}
+
+.ev__label {
+  min-width: 4.5em;
+  color: var(--alpha-construction-text);
+}
+
+.ev__none {
+  color: var(--alpha-construction-text);
+  font-style: italic;
+}
+
+/* a thin bar centred on 0; there is no bar at all for "尚无证据" */
+.ev__bar {
+  position: relative;
+  display: inline-block;
+  width: 4.5rem;
+  height: 0.4rem;
+  border-left: 1px solid var(--alpha-construction);
+  border-right: 1px solid var(--alpha-construction);
+}
+
+.ev__bar::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -0.15rem;
+  bottom: -0.15rem;
+  border-left: 1px solid var(--alpha-construction);
+}
+
+.ev__bar i {
+  position: absolute;
+  top: 0.12rem;
+  height: 0.16rem;
+  background: var(--alpha-ink);
+}
+
+.ev__num {
+  font-variant-numeric: tabular-nums;
+}
+
+.ev__support {
+  color: var(--alpha-construction-text);
+}
+
+.abstain {
+  margin: 0.4rem 0;
+  font-size: 0.78rem;
+  color: var(--alpha-ink);
+}
+
+.abstain__reason {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: var(--alpha-construction-text);
+}
+
+/* the mark of a state: a dot, never a fill behind text (D57) */
+.state-dot {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  margin-right: 0.4em;
+  vertical-align: 0.05em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl__mark {
+    transition: none;
+  }
+}

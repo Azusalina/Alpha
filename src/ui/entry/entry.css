@@ -1,0 +1,533 @@
+/*
+ * The entry panel (round 3 part 9, D54-D57). Paper and ink (IDEA section 5):
+ * ruled lines, small type, no cards and no fills behind text. The per-state
+ * colours (--alpha-state-*, shared.css) appear only as the small mark of a
+ * choice. Everything follows --alpha-ink / --alpha-paper / --alpha-construction /
+ * --alpha-accent, so light and dark both work.
+ *
+ * Geometry: the panel sits in the upper-right triangle above the divide line.
+ * EntryPanel measures how tall it may be (--entry-max-h) and the body scrolls
+ * inside that, so a long result never crosses the line.
+ */
+
+.human-panel__input.entry-panel {
+  top: 4.5%;
+  display: flex;
+  flex-direction: column;
+  max-height: var(--entry-max-h, 55vh);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.entry-panel .entry-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* what may scroll: the form's fields (its issues and 写入 stay in view) or the whole result */
+.entry-panel .entry-form__scroll,
+.entry-panel .entry-result {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--alpha-construction) transparent;
+  overscroll-behavior: contain;
+}
+
+.entry-form__foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem 0.1rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--alpha-construction) 55%, transparent);
+}
+
+.entry-panel p,
+.entry-panel ul,
+.entry-panel ol,
+.entry-panel h3 {
+  margin: 0;
+}
+
+.entry-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.entry-panel button:focus-visible,
+.entry-panel input:focus-visible,
+.entry-panel h3:focus-visible {
+  outline: 1px dashed var(--alpha-construction);
+  outline-offset: 3px;
+}
+
+/* the ruled fields show focus by their rule turning to ink, not by a box */
+.entry-panel input[type='text']:focus-visible,
+.entry-panel textarea:focus-visible {
+  outline: none;
+}
+
+/* ---- text buttons ------------------------------------------------------- */
+
+.entry-panel button.entry-link {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--alpha-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--alpha-construction);
+}
+
+.entry-panel button.entry-link:hover {
+  text-decoration-color: var(--alpha-ink);
+}
+
+/* ---- fields ------------------------------------------------------------- */
+
+.entry-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.entry-form__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.entry-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.9rem;
+}
+
+.entry-field__label {
+  flex: none;
+  min-width: 2.4em;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--alpha-construction-text);
+}
+
+.entry-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1.1rem;
+}
+
+.entry-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  cursor: pointer;
+  color: var(--alpha-ink);
+}
+
+/* the radio IS the mark: a ring in the state's colour, filled when chosen */
+.entry-choice input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 0.72rem;
+  height: 0.72rem;
+  margin: 0;
+  border: 1px solid var(--c, var(--alpha-ink));
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.entry-choice input:checked {
+  background: var(--c, var(--alpha-ink));
+  box-shadow: inset 0 0 0 2px var(--alpha-paper);
+}
+
+.entry-choice:has(input:checked) > span {
+  text-decoration: underline;
+  text-decoration-color: var(--c, var(--alpha-ink));
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.entry-note {
+  font-size: 0.68rem;
+  color: var(--alpha-construction-text);
+}
+
+.entry-speaker {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.entry-speaker input {
+  width: 100%;
+  padding: 0.15rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--alpha-construction);
+  background: transparent;
+  outline: none;
+  font-size: 0.86rem;
+}
+
+.entry-speaker input:focus {
+  border-bottom-color: var(--alpha-ink);
+}
+
+.entry-speaker small {
+  font-size: 0.68rem;
+  color: var(--alpha-construction-text);
+}
+
+/* ---- text --------------------------------------------------------------- */
+
+.entry-text {
+  position: relative;
+}
+
+.entry-text.is-dragging {
+  outline: 1px dashed var(--alpha-accent);
+  outline-offset: 4px;
+}
+
+.entry-text__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.entry-count {
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--alpha-construction-text);
+}
+
+.entry-count.is-over {
+  color: var(--alpha-warn);
+}
+
+.entry-panel .entry-text textarea {
+  display: block;
+  width: 100%;
+  min-height: 3.7rem;
+  max-height: 16rem;
+  margin: 0.15rem 0 0.3rem;
+  padding: 0.3rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--alpha-ink);
+  background: transparent;
+  resize: vertical;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  outline: none;
+}
+
+:root[data-theme='dark'] .entry-panel .entry-text textarea {
+  border-bottom-color: var(--alpha-construction);
+}
+
+.entry-panel .entry-text textarea:focus {
+  border-bottom-color: var(--alpha-ink);
+}
+
+.entry-panel .entry-text textarea::placeholder {
+  color: var(--alpha-construction-text);
+}
+
+.entry-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.8rem;
+  font-size: 0.72rem;
+  color: var(--alpha-construction-text);
+}
+
+.entry-file__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.entry-file__name {
+  color: var(--alpha-ink);
+  overflow-wrap: anywhere;
+}
+
+/* ---- the two judgements -------------------------------------------------- */
+
+.entry-judgements {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.15rem 0.9rem;
+}
+
+.entry-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  cursor: pointer;
+  color: var(--alpha-ink);
+  white-space: nowrap;
+}
+
+.entry-check input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 0.78rem;
+  height: 0.78rem;
+  margin: 0;
+  border: 1px solid var(--alpha-ink);
+  border-radius: 1px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.entry-check input:checked {
+  background: var(--alpha-ink);
+  box-shadow: inset 0 0 0 2px var(--alpha-paper);
+}
+
+/* locked: checked by the assertion, not by the user */
+.entry-check.is-locked {
+  color: var(--alpha-construction-text);
+  cursor: default;
+}
+
+.entry-check.is-locked input {
+  border-style: dashed;
+  cursor: default;
+}
+
+.entry-check__note {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--alpha-construction-text);
+}
+
+/* ---- issues, errors, submit --------------------------------------------- */
+
+.entry-issues {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.entry-issue {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  padding-left: 1.1em;
+  text-indent: -1.1em;
+  color: var(--alpha-construction-text);
+}
+
+.entry-issue::before {
+  display: inline-block;
+  width: 1.1em;
+  text-indent: 0;
+}
+
+.entry-issue--error::before {
+  content: '×';
+}
+
+.entry-issue--warn {
+  color: var(--alpha-warn);
+}
+
+.entry-issue--warn::before {
+  content: '!';
+}
+
+.entry-error {
+  padding: 0.35rem 0 0.4rem 0.6rem;
+  border-left: 2px solid var(--alpha-warn);
+  color: var(--alpha-ink);
+  font-size: 0.74rem;
+}
+
+.entry-error code {
+  margin-left: 0.6em;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  color: var(--alpha-warn);
+}
+
+.entry-error__msg {
+  color: var(--alpha-construction-text);
+  overflow-wrap: anywhere;
+}
+
+.entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 0.2rem;
+}
+
+.entry-panel button.entry-submit {
+  padding: 0.3rem 1.4rem;
+  border: 1px solid var(--alpha-ink);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--alpha-ink);
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.entry-panel button.entry-submit:hover:not(:disabled) {
+  background: var(--alpha-ink);
+  color: var(--alpha-paper);
+}
+
+.entry-panel button.entry-submit:disabled {
+  border-style: dashed;
+  border-color: var(--alpha-construction);
+  color: var(--alpha-construction-text);
+  cursor: not-allowed;
+}
+
+/* ---- result -------------------------------------------------------------- */
+
+.entry-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.entry-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.7rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--alpha-ink);
+}
+
+.entry-summary__title {
+  font-size: 0.86rem;
+  font-weight: normal;
+  letter-spacing: 0.12em;
+  outline: none;
+}
+
+.entry-summary__facts {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--alpha-construction-text);
+}
+
+.entry-result__block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--alpha-construction);
+  color: var(--alpha-ink);
+}
+
+.entry-result[data-trained='true'] .entry-result__block {
+  border-left-color: var(--alpha-ink);
+  border-left-width: 2px;
+}
+
+/* more content below the visible part: the last visible rows fade out */
+.entry-panel .entry-result[data-more='true'] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.8rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.8rem), transparent);
+}
+
+.entry-result__fine {
+  font-size: 0.7rem;
+  color: var(--alpha-construction-text);
+}
+
+.entry-result__evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.entry-cues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.entry-cues ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+}
+
+.entry-cue {
+  padding: 0 0.5em;
+  border: 1px solid var(--alpha-construction);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: var(--alpha-ink);
+  white-space: nowrap;
+}
+
+.entry-cue__text {
+  display: inline-block;
+  max-width: 11em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.entry-cue small {
+  margin-left: 0.45em;
+  font-size: 0.64rem;
+  color: var(--alpha-construction-text);
+}
+
+.entry-cue i {
+  font-style: normal;
+  margin-right: 0.3em;
+  color: var(--alpha-construction-text);
+}
+
+.entry-cue--more {
+  border-style: dashed;
+  color: var(--alpha-construction-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-panel * {
+    transition-duration: 1ms !important;
+  }
+}

@@ -19,6 +19,14 @@
  * tree inside it (root at the centre, one branch per placeholder region).
  * Drag turns it; hovering names a region or a node; clicking a node opens its
  * detail. Escape or the back button leaves the drill-in.
+ *
+ * The brain answers an input with a performance (D57, humanStore.perform): bolts
+ * that run along the net's edges in the state's own colours, and for the crazy
+ * state a whole-brain eruption. Everything for it is prebuilt and bounded: one
+ * quad-strip mesh per bank (two banks, so a new performance can take over while
+ * the old one fades), written once per performance, animated in the shader on
+ * the scene clock; the underglow on the dots and lines reuses the D53 hop
+ * waves. With no performance running nothing of it is drawn or changed.
  */
 
 import { useFrame, useThree } from '@react-three/fiber';
@@ -26,6 +34,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   BufferGeometry,
   Color,
+  DoubleSide,
   Euler,
   Float32BufferAttribute,
   Group,
@@ -35,17 +44,21 @@ import {
   Ray,
   ShaderMaterial,
   Sphere,
+  Uint16BufferAttribute,
   Vector2,
   Vector3,
+  type Mesh,
 } from 'three';
 
 import { DIAGNOSTICS_ENABLED } from '../app/diagnostics';
-import { humanStore } from '../app/humanStore';
+import { humanStore, type Signal } from '../app/humanStore';
 import { humanProgress, stage } from '../app/stage';
 import { buildHumanCloud, nodeBrainPositions } from '../brain/humanCloud';
 import { hopDistances, nearestVertex, useBrainMesh } from '../brain/brainAsset';
+import { FLIGHT, MAX_EDGES, MODES, hopField, performEnvelope, planBolts, type BoltPlan } from '../brain/bolts';
 import { ANCHORS, BRAIN, PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { SCENE_SEED, type QualityTier } from '../config/quality';
+import { STATE_PALETTE, themeStore } from '../config/theme';
 import { TRANSITION, phaseProgress } from '../config/timing';
 import { GRAPH } from '../fixtures/graph';
 import { useHandGeometry } from '../hand/assets';
@@ -89,17 +102,60 @@ const SIGNAL_GLSL = /* glsl */ `
   uniform float uReach;
   uniform float uSigRegion;  // region held lit, -1 = none
   uniform float uHold;       // 0..1 envelope of the held region
+  uniform float uPerfMode;   // D57: 0 = none (D53), 1 rational, 2 emotional, 3 crazy
+  uniform float uSigGain;    // brightness of the discharge; 1 for D53
   // brightness of the travelling discharge at this many hops from the impact
   float discharge(float hop) {
     if (uSigT < 0.0) return 0.0;
+    if (uPerfMode > 2.5) {
+      // crazy: the nearest origin's wave has reached this vertex, and ripples on
+      // there, interfering with the waves of the other origins
+      float reached = 1.0 - smoothstep(uSigT * uHopRate - 1.5, uSigT * uHopRate + 1.5, hop);
+      float ripple = 0.5 + 0.5 * sin(hop * 0.9 - uSigT * 8.5);
+      return clamp(reached * (0.25 + 0.75 * ripple), 0.0, 1.0) * uSigGain;
+    }
     float front = uSigT * uHopRate;
     float band = exp(-pow((hop - front) / 1.1, 2.0));
     // a short afterglow behind the front, all of it fading with distance
     float wake = step(hop, front) * exp(-(front - hop) * 0.9) * 0.35;
-    return max(band, wake) * exp(-hop / uReach);
+    return max(band, wake) * exp(-hop / uReach) * uSigGain;
   }
   float held(float region) {
     return uSigRegion < 0.0 ? 0.0 : step(abs(region - uSigRegion), 0.5) * uHold;
+  }
+`;
+
+/** The state palettes (D57), shared by the dots, the lines and the bolts. */
+const PALETTE_GLSL = /* glsl */ `
+  uniform vec3 uPal[6];      // 0-4 the emotional colours, 5 the rational one
+  uniform float uSat;        // saturation and value of the crazy hue wheel
+  uniform float uVal;
+  vec3 perfHsv(float h) {
+    vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    return uVal * mix(vec3(1.0), k, uSat);
+  }
+  vec3 perfRamp(float h) {
+    float x = fract(h) * 5.0;
+    int i = int(floor(x));
+    return mix(uPal[i], uPal[(i + 1) % 5], smoothstep(0.0, 1.0, fract(x)));
+  }
+`;
+
+/** The underglow's colour at a brain-local point p, `hop` hops from its origin. */
+const PERF_COLOR_GLSL = /* glsl */ `
+  uniform float uPerfT;
+  uniform float uPerfSeed;
+  uniform float uJit;        // vertex jitter, brain-local (crazy)
+  vec3 perfColor(vec3 p, float hop) {
+    if (uPerfMode < 1.5) return uPal[5];
+    if (uPerfMode < 2.5) return perfRamp(dot(p, vec3(0.5, 0.32, 0.25)) * 0.8 + hop * 0.03 + uPerfSeed);
+    return perfHsv(fract(hop * 0.045 + dot(p, vec3(0.35, 0.3, 0.45)) + uPerfT * 0.5 + uPerfSeed));
+  }
+  // the whole-brain shudder of the crazy state: a jitter of the vertices, brain-local
+  vec3 perfJitter(vec3 p) {
+    float jh = fract(dot(p, vec3(12.9898, 78.233, 37.719)));
+    float tick = floor(uPerfT * 14.0);
+    return (fract(sin(vec3(jh * 91.7 + tick * 1.3, jh * 47.1 + tick * 2.9, jh * 13.3 + tick * 4.1)) * 43758.5453) - 0.5) * uJit * 2.0;
   }
 `;
 
@@ -110,6 +166,151 @@ const signalUniforms = () => ({
   uSigRegion: { value: -1 },
   uHold: { value: 0 },
 });
+
+/**
+ * Bolts (D57). Each path edge is 2 sub-segments x 3 colour channels x a quad, all
+ * of it written once per performance into these fixed buffers (no allocation
+ * per frame), bent, grown and lit in the vertex shader. An unused channel or an
+ * edge the head has not reached collapses to nothing.
+ */
+const SUB = 2;
+const CHAN = 3;
+const QUADS_PER_EDGE = SUB * CHAN;
+const VERTS_PER_EDGE = QUADS_PER_EDGE * 4;
+const FADE_OUT = 0.25;
+
+function makeBoltGeometry(): BufferGeometry {
+  const V = MAX_EDGES * VERTS_PER_EDGE;
+  const g = new BufferGeometry();
+  const cn = new Float32Array(V * 4);
+  const index = new Uint16Array(MAX_EDGES * QUADS_PER_EDGE * 6);
+  for (let e = 0; e < MAX_EDGES; e++) {
+    for (let q = 0; q < QUADS_PER_EDGE; q++) {
+      const sub = Math.floor(q / CHAN);
+      const chan = q % CHAN;
+      const base = e * VERTS_PER_EDGE + q * 4;
+      for (let c = 0; c < 4; c++) {
+        cn[(base + c) * 4] = sub;
+        cn[(base + c) * 4 + 1] = chan;
+        cn[(base + c) * 4 + 2] = c;
+        cn[(base + c) * 4 + 3] = 1;
+      }
+      index.set([base, base + 1, base + 2, base + 2, base + 1, base + 3], (e * QUADS_PER_EDGE + q) * 6);
+    }
+  }
+  // `position` is the edge's start; aP1 its end; aTm: head reaches the start / the end, colour, brightness
+  g.setAttribute('position', new Float32BufferAttribute(new Float32Array(V * 3), 3));
+  g.setAttribute('aP1', new Float32BufferAttribute(new Float32Array(V * 3), 3));
+  g.setAttribute('aTm', new Float32BufferAttribute(new Float32Array(V * 4), 4));
+  g.setAttribute('aCn', new Float32BufferAttribute(cn, 4));
+  g.setIndex(new Uint16BufferAttribute(index, 1));
+  g.setDrawRange(0, 0);
+  return g;
+}
+
+const BOLT_VERT = /* glsl */ `
+  attribute vec3 aP1;
+  attribute vec4 aTm;   // head reaches the start, the end, colour parameter, brightness
+  attribute vec4 aCn;   // sub-segment, colour channel, corner, width factor
+  uniform float uPT;    // seconds since the bolts started
+  uniform float uMode;
+  uniform float uFade;  // 0..1: brightness of the whole bank (fade in and out)
+  uniform float uWidth;
+  uniform float uJitter;
+  uniform float uFlickHz;
+  uniform float uFlash;
+  uniform float uTau;
+  uniform float uSplit;
+  uniform float uSeed;
+  uniform vec2 uRes;
+  ${PALETTE_GLSL}
+  varying vec3 vCol;
+  varying float vI;
+  varying float vSide;
+  float hash1(float x) { return fract(sin(x * 127.1 + 311.7) * 43758.5453); }
+  void main() {
+    float sub = aCn.x;
+    float chan = aCn.y;
+    float corner = aCn.z;
+    float atEnd = step(1.5, corner);
+    vSide = mod(corner, 2.0) * 2.0 - 1.0;
+
+    // the edge, bent at its midpoint; the bend is redrawn uFlickHz times a second
+    vec3 a = position;
+    vec3 b = aP1;
+    float len = length(b - a);
+    vec3 d = (b - a) / max(len, 1e-5);
+    float seed = dot(a + b, vec3(12.9898, 78.233, 37.719)) + uSeed;
+    float tick = uFlickHz > 0.0 ? floor(uPT * uFlickHz) : 0.0;
+    vec3 r = vec3(hash1(seed + tick * 1.7), hash1(seed + 5.3 + tick * 2.3), hash1(seed + 9.1 + tick * 3.1)) - 0.5;
+    r -= d * dot(r, d);
+    vec3 m = 0.5 * (a + b) + r * len * uJitter * 2.0;
+    vec3 s0 = sub < 0.5 ? a : m;
+    vec3 s1 = sub < 0.5 ? m : b;
+
+    // the head grows the edge; behind it the light fades
+    float f = clamp((uPT - aTm.x) / max(aTm.y - aTm.x, 1e-4), 0.0, 1.0);
+    float fs = clamp(f * 2.0 - sub, 0.0, 1.0);
+    float since = max(uPT - aTm.y, 0.0);
+    float chanOn = (chan < 0.5 || uSplit > 0.0) ? 1.0 : 0.0;
+    float live = step(0.0001, fs) * step(0.001, aTm.w) * step(0.001, uFade) * chanOn;
+
+    mat4 mvp = projectionMatrix * modelViewMatrix;
+    vec4 c0 = mvp * vec4(s0 * 1.012, 1.0);
+    vec4 c1 = mvp * vec4(mix(s0, s1, fs) * 1.012, 1.0);
+    vec2 n0 = c0.xy / c0.w;
+    vec2 n1 = c1.xy / c1.w;
+    vec2 dpx = (n1 - n0) * uRes * 0.5;
+    float dl = length(dpx);
+    vec2 dn = dl > 1e-3 ? dpx / dl : vec2(1.0, 0.0);
+    vec2 perp = vec2(-dn.y, dn.x);
+    float wpx = uWidth * aCn.w;
+    vec4 c = atEnd > 0.5 ? c1 : c0;
+    // a quad is as wide as the bolt and overhangs by half of it, so the joints close
+    vec2 off = (perp * vSide + dn * (atEnd * 2.0 - 1.0)) * wpx / uRes;
+    // colour-channel split (crazy): each channel is nudged its own way, in bursts
+    float ang = hash1(aTm.z * 91.7 + uSeed) * 6.2831853;
+    float glitch = 0.3 + 0.7 * step(0.5, hash1(floor(uPT * 5.0) + aTm.z * 17.0));
+    vec2 sp = vec2(cos(ang), sin(ang)) * (chan - 1.0) * uSplit * glitch * 2.0 / uRes;
+    c.xy += (off + sp) * c.w;
+    gl_Position = live > 0.5 ? c : vec4(2.0, 2.0, 2.0, 1.0);
+
+    // the side of the net facing the viewer carries the bolt; the far side is an echo (as the lines)
+    vec4 mvA = modelViewMatrix * vec4(a, 1.0);
+    float front = smoothstep(-0.3, 0.4, dot(normalize(normalMatrix * normalize(a)), normalize(-mvA.xyz)));
+    float flick = 1.0 - (uFlickHz > 0.0 ? 0.18 * (0.5 + 0.5 * sin(uPT * 15.0 + aTm.z * 40.0)) : 0.0);
+    float glow = exp(-since / uTau);
+    float flash = 1.0 + uFlash * exp(-since * 9.0);
+    vI = aTm.w * uFade * glow * flash * flick * mix(0.28, 1.0, front);
+
+    float h = aTm.z;
+    if (uMode < 1.5) vCol = uPal[5];
+    else if (uMode < 2.5) vCol = perfRamp(h + aTm.x * 0.5);
+    else vCol = perfHsv(fract(h + chan / 3.0 + uPT * 0.6 + aTm.x * 0.3));
+  }
+`;
+
+const BOLT_FRAG = /* glsl */ `
+  uniform float uAlpha;
+  uniform float uDark;
+  uniform float uMode;
+  varying vec3 vCol;
+  varying float vI;
+  varying float vSide;
+  void main() {
+    float e = abs(vSide);
+    float soft = 1.0 - smoothstep(0.55, 1.0, e);
+    float core = 1.0 - smoothstep(0.0, 0.5, e);
+    // a hot core: paler on black, deeper on white
+    // (calm rational bolts keep their hue: only a touch of white; the state palettes are already
+    // the darker saturated variants on white, so the light theme adds nothing to the core)
+    float white = uMode < 1.5 ? 0.3 : 0.6;
+    vec3 col = uDark > 0.5 ? mix(vCol, vec3(1.0), white * core * min(1.0, vI)) : vCol;
+    float a = vI * soft * uAlpha;
+    if (a < 0.003) discard;
+    gl_FragColor = vec4(col, min(1.0, a));
+  }
+`;
 
 
 /** Fastest release spin, radians per second (D42). */
@@ -133,6 +334,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
   const size = useThree((s) => s.size);
   const dpr = useThree((s) => s.viewport.dpr);
   const domElement = useThree((s) => s.gl.domElement);
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
 
   const cloud = useMemo(
     () =>
@@ -248,6 +451,27 @@ export function BrainView({ tier, reducedMotion }: Props) {
     return g;
   }, []);
 
+  /**
+   * What the dots, the lines and the bolts share while a performance runs
+   * (D57): one set of uniform objects, so one write reaches all of them. At
+   * rest every value is the one the shaders had before (mode 0, gain 1, bulge
+   * 0.02, no jitter), so the resting frame is unchanged bit for bit.
+   */
+  const perfU = useMemo(
+    () => ({
+      uPerfMode: { value: 0 },
+      uSigGain: { value: 1 },
+      uPerfT: { value: 0 },
+      uPerfSeed: { value: 0 },
+      uBulge: { value: 0.02 },
+      uJit: { value: 0 },
+      uPal: { value: Array.from({ length: 6 }, () => new Color()) },
+      uSat: { value: 0.9 },
+      uVal: { value: 0.8 },
+    }),
+    [],
+  );
+
   const linkMaterial = useMemo(
     () =>
       new ShaderMaterial({
@@ -259,6 +483,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uHoverRegion: { value: -1 },
           uFocus: { value: 0 },
           ...signalUniforms(),
+          ...perfU,
           uColor: { value: new Color(PALETTE.inkSoft) },
           uAccent: { value: new Color(PALETTE.inkSoft) },
           uAlpha: { value: 1 },
@@ -273,12 +498,18 @@ export function BrainView({ tier, reducedMotion }: Props) {
           varying float vHover;
           varying float vHeld;
           varying float vFront;
+          varying vec3 vLocal;
           ${SIGNAL_GLSL}
+          ${PALETTE_GLSL}
+          ${PERF_COLOR_GLSL}
           void main() {
             vHop = aHop;
             vHover = step(abs(aRegion - uHoverRegion), 0.5) * uFocus;
             vHeld = held(aRegion);
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            vLocal = position;
+            vec3 lp = position;
+            if (uJit > 0.0) lp += perfJitter(position);
+            vec4 mv = modelViewMatrix * vec4(lp, 1.0);
             // the side of the net facing the viewer carries the lines; the far
             // side stays a faint echo, so the polyhedron reads in depth (D52)
             vec3 n = normalize(normalMatrix * aNormal);
@@ -295,7 +526,10 @@ export function BrainView({ tier, reducedMotion }: Props) {
           varying float vHover;
           varying float vHeld;
           varying float vFront;
+          varying vec3 vLocal;
           ${SIGNAL_GLSL}
+          ${PALETTE_GLSL}
+          ${PERF_COLOR_GLSL}
           void main() {
             // the hop varies along the edge, so the discharge runs down it
             float w = discharge(vHop);
@@ -303,6 +537,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
             float a = uShow * mix(0.06, 0.34, vFront) * (1.0 + 2.2 * lit) * uAlpha;
             if (a <= 0.002) discard;
             vec3 col = mix(uColor, uAccent, clamp(vHeld * 0.9 + w * 0.45, 0.0, 1.0));
+            // a performance (D57) tints the lines its wave has reached with the state's colour
+            if (uPerfMode > 0.5) col = mix(col, perfColor(vLocal, vHop), clamp(w * 2.4, 0.0, 1.0));
             gl_FragColor = vec4(col, min(1.0, a));
           }
         `,
@@ -326,6 +562,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uFocus: { value: 0 },
           uHoverRegion: { value: -1 },
           ...signalUniforms(),
+          ...perfU,
           uSwirl: { value: 1 },
           uSizeScale: { value: 1 },
           uColor: { value: new Color(PALETTE.ink) },
@@ -353,10 +590,16 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uniform float uSwirl;
           uniform float uSizeScale;
 
+          uniform float uBulge;
+
           varying float vAlpha;
           varying float vLit;
           varying float vHeld;
+          varying float vTint;
+          varying vec3 vTintCol;
           ${SIGNAL_GLSL}
+          ${PALETTE_GLSL}
+          ${PERF_COLOR_GLSL}
 
           void main() {
             // Appear where the solid has withdrawn: the plaster is visible where
@@ -374,6 +617,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
             m = m * m * m * (m * (m * 6.0 - 15.0) + 10.0);
 
             vec3 target = (uBrain * vec4(aBrain, 1.0)).xyz;
+            // the shudder of the crazy state (D57): the vertices jitter, brain-local
+            if (uJit > 0.0) target += (uBrain * vec4(perfJitter(aBrain), 0.0)).xyz;
             vec3 pos = mix(position, target, m);
 
             // Mid-flight the particles spiral about the travel axis (the
@@ -397,11 +642,18 @@ export function BrainView({ tier, reducedMotion }: Props) {
             vec3 nrm = normalize(mat3(uBrain) * aNormal);
             float w = discharge(aHop) * uSettle;
             float hold = held(aRegion) * uSettle;
-            pos += nrm * w * 0.02;
+            pos += nrm * w * uBulge;
             // Hovered region, while drilled in.
             float hover = step(abs(aRegion - uHoverRegion), 0.5) * uFocus * 0.65;
             vLit = max(max(w, hold), hover);
             vHeld = clamp(hold * 0.9 + w * 0.45, 0.0, 1.0);
+            // a performance (D57) tints the dots its wave has reached with the state's colour
+            vTint = 0.0;
+            vTintCol = vec3(0.0);
+            if (uPerfMode > 0.5) {
+              vTint = clamp(w * 2.4, 0.0, 1.0);
+              vTintCol = perfColor(aBrain, aHop);
+            }
 
             // Arrived, the net (D52): every vertex one clean dot, the side
             // facing the viewer full, the far side a faint echo.
@@ -426,13 +678,17 @@ export function BrainView({ tier, reducedMotion }: Props) {
           varying float vAlpha;
           varying float vLit;
           varying float vHeld;
+          varying float vTint;
+          varying vec3 vTintCol;
           void main() {
             vec2 c = gl_PointCoord - 0.5;
             float r = dot(c, c);
             if (r > 0.25) discard;
             float a = vAlpha * (1.0 - smoothstep(mix(0.16, 0.0, uGlow), 0.25, r));
             if (a <= 0.004) discard;
-            gl_FragColor = vec4(mix(uColor, uAccent, vHeld), min(1.0, a) * uAlpha);
+            vec3 col = mix(uColor, uAccent, vHeld);
+            if (vTint > 0.0) col = mix(col, vTintCol, vTint);
+            gl_FragColor = vec4(col, min(1.0, a) * uAlpha);
           }
         `,
       }),
@@ -584,8 +840,66 @@ export function BrainView({ tier, reducedMotion }: Props) {
     [],
   );
 
+  /** The bolts (D57): two banks, so a new performance can start while the old one fades out. */
+  const banks = useMemo(
+    () =>
+      [0, 1].map(() => ({
+        geometry: makeBoltGeometry(),
+        material: new ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          side: DoubleSide,
+          blending: NormalBlending,
+          uniforms: {
+            ...perfU,
+            uPT: { value: 0 },
+            uMode: { value: 1 },
+            uFade: { value: 0 },
+            uWidth: { value: 2.4 },
+            uJitter: { value: 0.1 },
+            uFlickHz: { value: 0 },
+            uFlash: { value: 0.5 },
+            uTau: { value: 0.5 },
+            uSplit: { value: 0 },
+            uSeed: { value: 0 },
+            uRes: { value: new Vector2(1, 1) },
+            uAlpha: { value: 1 },
+            uDark: { value: 0 },
+          },
+          vertexShader: BOLT_VERT,
+          fragmentShader: BOLT_FRAG,
+        }),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // The bolt meshes are hidden until the first performance, so their shader would be compiled
+  // (and linked) in the middle of that first frame. renderer.compile walks the whole scene,
+  // hidden meshes included, so the first lightning finds its program ready.
+  useEffect(() => {
+    try {
+      gl.compile(scene, camera);
+    } catch {
+      // a pre-warm only: the first performance compiles on demand as before
+    }
+  }, [gl, scene, camera, banks]);
+
   useThemeBinding(
     (p) => {
+      // the state palettes (D57)
+      const sp = STATE_PALETTE[p.glow ? 'dark' : 'light'];
+      // These shaders write their colour straight to the canvas (no output colour-space step), so a
+      // hex set the usual way (sRGB -> linear) came out darker than its name: the light theme's
+      // slate-teal #2a6a78 drew as (6,37,48), nearly the ink. The palette is set as display values.
+      sp.emotional.forEach((c, i) => perfU.uPal.value[i].set(c).convertLinearToSRGB());
+      perfU.uPal.value[5].set(sp.rational).convertLinearToSRGB();
+      perfU.uSat.value = sp.crazy.s;
+      perfU.uVal.value = sp.crazy.v;
+      for (const b of banks) {
+        b.material.uniforms.uDark.value = p.glow ? 1 : 0;
+        applyInk(b.material, p, 1.4);
+      }
       particleMaterial.uniforms.uColor.value.set(p.ink);
       particleMaterial.uniforms.uAccent.value.set(p.accent);
       applyInk(particleMaterial, p, 1.25);
@@ -601,7 +915,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
       cometMaterial.uniforms.uAccent.value.set(p.accent);
       applyInk(cometMaterial, p, 1.4);
     },
-    [particleMaterial, edgeMaterial, nodeMaterial, linkMaterial, cometMaterial],
+    [particleMaterial, edgeMaterial, nodeMaterial, linkMaterial, cometMaterial, banks[0].material, banks[1].material],
   );
 
   const groupRef = useRef<Group>(null);
@@ -770,9 +1084,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
     return best;
   };
 
-  /** Write the hop distances from `start` into the dots and the lines. */
-  const writeHops = (start: number) => {
-    const hop = hopDistances(brain, start);
+  /** Write per-vertex hop distances into the dots and the lines. */
+  const writeHopArray = (hop: Float32Array) => {
     const pa = geometry.getAttribute('aHop');
     for (let k = 0; k < cloud.count; k++) pa.array[k] = hop[cloud.vertex[k]];
     pa.needsUpdate = true;
@@ -781,7 +1094,41 @@ export function BrainView({ tier, reducedMotion }: Props) {
     la.needsUpdate = true;
   };
 
-  const runSignal = (delta: number, settle: number) => {
+  /** Write the hop distances from `start` into the dots and the lines. */
+  const writeHops = (start: number) => writeHopArray(hopDistances(brain, start));
+
+  /** The comet from `s.fromCss` across the divide into vertex `s.vertex`, `flight` seconds long. */
+  const flyComet = (s: Signal, flight: number) => {
+    const cu = cometMaterial.uniforms;
+    const r = domElement.getBoundingClientRect();
+    vertexWorld(s.vertex, tmp.b);
+    const depth = tmp.proj.copy(tmp.b).project(camera).z;
+    tmp.a
+      .set(((s.fromCss![0] - r.left) / r.width) * 2 - 1, -((s.fromCss![1] - r.top) / r.height) * 2 + 1, depth)
+      .unproject(camera);
+    // bow the path upward, a third of its length
+    tmp.c.addVectors(tmp.a, tmp.b).multiplyScalar(0.5);
+    tmp.c.y += tmp.a.distanceTo(tmp.b) * 0.33;
+    const arr = comet.getAttribute('position');
+    for (let i = 0; i < SIGNAL.TRAIL; i++) {
+      const t = Math.min(1, Math.max(0, (s.t - i * SIGNAL.TRAIL_DT) / flight));
+      const e = t * t * (3 - 2 * t);
+      const k0 = (1 - e) * (1 - e);
+      const k1 = 2 * (1 - e) * e;
+      const k2 = e * e;
+      arr.setXYZ(
+        i,
+        tmp.a.x * k0 + tmp.c.x * k1 + tmp.b.x * k2,
+        tmp.a.y * k0 + tmp.c.y * k1 + tmp.b.y * k2,
+        tmp.a.z * k0 + tmp.c.z * k1 + tmp.b.z * k2,
+      );
+    }
+    arr.needsUpdate = true;
+    // fade in over the first tenth, out as the tail lands
+    cu.uShow.value = Math.min(1, s.t / 0.08) * Math.min(1, Math.max(0, (flight + SIGNAL.TRAIL * SIGNAL.TRAIL_DT - s.t) / 0.25));
+  };
+
+  const runD53Signal = (delta: number, settle: number) => {
     const s = humanStore.signal;
     const g = groupRef.current;
     const pu = particleMaterial.uniforms;
@@ -818,34 +1165,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     pu.uHold.value = lu.uHold.value = Math.max(0, hold);
 
     // the comet: from the input box across the divide into the vertex
-    if (s.kind === 'input' && s.fromCss && s.t < flight + SIGNAL.TRAIL * SIGNAL.TRAIL_DT) {
-      const r = domElement.getBoundingClientRect();
-      vertexWorld(s.vertex, tmp.b);
-      const depth = tmp.proj.copy(tmp.b).project(camera).z;
-      tmp.a
-        .set(((s.fromCss[0] - r.left) / r.width) * 2 - 1, -((s.fromCss[1] - r.top) / r.height) * 2 + 1, depth)
-        .unproject(camera);
-      // bow the path upward, a third of its length
-      tmp.c.addVectors(tmp.a, tmp.b).multiplyScalar(0.5);
-      tmp.c.y += tmp.a.distanceTo(tmp.b) * 0.33;
-      const arr = comet.getAttribute('position');
-      for (let i = 0; i < SIGNAL.TRAIL; i++) {
-        const t = Math.min(1, Math.max(0, (s.t - i * SIGNAL.TRAIL_DT) / flight));
-        const e = t * t * (3 - 2 * t);
-        const k0 = (1 - e) * (1 - e);
-        const k1 = 2 * (1 - e) * e;
-        const k2 = e * e;
-        arr.setXYZ(
-          i,
-          tmp.a.x * k0 + tmp.c.x * k1 + tmp.b.x * k2,
-          tmp.a.y * k0 + tmp.c.y * k1 + tmp.b.y * k2,
-          tmp.a.z * k0 + tmp.c.z * k1 + tmp.b.z * k2,
-        );
-      }
-      arr.needsUpdate = true;
-      // fade in over the first tenth, out as the tail lands
-      cu.uShow.value = Math.min(1, s.t / 0.08) * Math.min(1, Math.max(0, (flight + SIGNAL.TRAIL * SIGNAL.TRAIL_DT - s.t) / 0.25));
-    }
+    if (s.kind === 'input' && s.fromCss && s.t < flight + SIGNAL.TRAIL * SIGNAL.TRAIL_DT) flyComet(s, flight);
 
     // name the lit region next to where it was struck
     if (hold > 0.02) {
@@ -857,6 +1177,295 @@ export function BrainView({ tier, reducedMotion }: Props) {
         region: s.region,
       };
     }
+  };
+
+  // ---- the performance (D57) -----------------------------------------------------
+  const boltRefs = useRef<(Mesh | null)[]>([null, null]);
+
+  /** Plain fields for the frame loop; nothing here is React state and nothing is allocated per frame. */
+  const perf = useMemo(
+    () => ({
+      /** The performance signal the current bank belongs to, and its bank (-1 = none yet). */
+      sig: null as Signal | null,
+      cur: -1,
+      built: false,
+      plan: null as BoltPlan | null,
+      hop: new Float32Array(brain.count),
+      /** Per bank: drawing, its own clock, its length, seconds since it was replaced (-1 = not). */
+      on: [false, false],
+      t: [0, 0],
+      life: [0, 0],
+      fade: [-1, -1],
+      /** The crazy shudder's smoothed strength 0..1 and the clock it runs on. */
+      shake: 0,
+      shakeT: 0,
+      cometTinted: false,
+    }),
+    [brain],
+  );
+
+  const smooth01 = (a: number, b: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+
+  const endBank = (i: number) => {
+    perf.on[i] = false;
+    perf.fade[i] = -1;
+    banks[i].geometry.setDrawRange(0, 0);
+    const m = boltRefs.current[i];
+    if (m) m.visible = false;
+  };
+
+  /** The running performance ends or is replaced: its bolts fade out over FADE_OUT on their own clock. */
+  const releaseCurrent = () => {
+    if (perf.cur >= 0 && perf.on[perf.cur]) perf.fade[perf.cur] = 0;
+    perf.cur = -1;
+    perf.built = false;
+  };
+
+  /** The vertex facing the input: nearest `fromCss` on screen, else the brain's upper right; the visible side wins. */
+  const inputVertex = (fromCss: [number, number] | null): number => {
+    const g = groupRef.current!;
+    tmp.eye.setFromMatrixPosition(camera.matrixWorld);
+    const r = domElement.getBoundingClientRect();
+    const scale = size.height * 0.3;
+    let best = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < brain.count; i++) {
+      vertexWorld(i, tmp.a);
+      tmp.n.fromArray(brain.normal, i * 3).transformDirection(g.matrixWorld);
+      const facing = tmp.n.dot(tmp.b.subVectors(tmp.eye, tmp.a).normalize());
+      tmp.proj.copy(tmp.a).project(camera);
+      const sx = ((tmp.proj.x + 1) / 2) * size.width;
+      const sy = ((1 - tmp.proj.y) / 2) * size.height;
+      const toward = fromCss
+        ? -Math.hypot(sx - (fromCss[0] - r.left), sy - (fromCss[1] - r.top)) / scale
+        : ((sx - sy) * 0.7071) / scale;
+      const score = toward + 0.9 * Math.max(facing, -0.2);
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  };
+
+  /** Everything the shaders read for a performance goes back to what they read at rest. */
+  const restUniforms = () => {
+    perfU.uPerfMode.value = 0;
+    perfU.uSigGain.value = 1;
+    perfU.uBulge.value = 0.02;
+    perfU.uJit.value = 0;
+    particleMaterial.uniforms.uHopRate.value = linkMaterial.uniforms.uHopRate.value = SIGNAL.HOP_RATE;
+    particleMaterial.uniforms.uReach.value = linkMaterial.uniforms.uReach.value = SIGNAL.REACH;
+  };
+
+  /** Plan the bolts, write them into a free bank, lay the underglow's hop field. */
+  const buildPerformance = (s: Signal) => {
+    const partition = s.partition ?? 'rational';
+    const mode = MODES[partition];
+    const seed = s.seed ?? 0;
+    if (s.vertex < 0) s.vertex = inputVertex(s.fromCss);
+    const plan = planBolts(brain, partition, s.vertex, s.intensity ?? 0.5, seed);
+    perf.plan = plan;
+
+    // a free bank, else the one that has been fading longest
+    let i = !perf.on[0] ? 0 : !perf.on[1] ? 1 : perf.fade[0] >= perf.fade[1] ? 0 : 1;
+    if (perf.on[i]) endBank(i);
+    perf.cur = i;
+    perf.on[i] = true;
+    perf.t[i] = -1;
+    perf.life[i] = mode.life;
+    perf.fade[i] = -1;
+
+    const g = banks[i].geometry;
+    const P0 = g.getAttribute('position').array as Float32Array;
+    const P1 = g.getAttribute('aP1').array as Float32Array;
+    const TM = g.getAttribute('aTm').array as Float32Array;
+    const CN = g.getAttribute('aCn').array as Float32Array;
+    const pos = brain.position;
+    for (let e = 0; e < plan.count; e++) {
+      const a = plan.a[e] * 3;
+      const b = plan.b[e] * 3;
+      for (let v = 0; v < VERTS_PER_EDGE; v++) {
+        const k = e * VERTS_PER_EDGE + v;
+        P0[k * 3] = pos[a];
+        P0[k * 3 + 1] = pos[a + 1];
+        P0[k * 3 + 2] = pos[a + 2];
+        P1[k * 3] = pos[b];
+        P1[k * 3 + 1] = pos[b + 1];
+        P1[k * 3 + 2] = pos[b + 2];
+        TM[k * 4] = plan.t0[e];
+        TM[k * 4 + 1] = plan.t1[e];
+        TM[k * 4 + 2] = plan.hue[e];
+        TM[k * 4 + 3] = plan.gain[e];
+        CN[k * 4 + 3] = plan.level[e];
+      }
+    }
+    for (const n of ['position', 'aP1', 'aTm', 'aCn']) g.getAttribute(n).needsUpdate = true;
+    g.setDrawRange(0, plan.count * QUADS_PER_EDGE * 6);
+
+    const bu = banks[i].material.uniforms;
+    bu.uMode.value = mode.id;
+    bu.uWidth.value = mode.width;
+    bu.uJitter.value = reducedMotion ? 0 : mode.jitter;
+    bu.uFlickHz.value = reducedMotion ? 0 : mode.flickHz;
+    bu.uFlash.value = mode.flash;
+    bu.uTau.value = mode.tau;
+    bu.uSplit.value = reducedMotion ? 0 : mode.split;
+    bu.uSeed.value = (seed % 1000) * 0.137;
+
+    // the underglow runs out of every bolt's origin at that bolt's time
+    const rate = reducedMotion ? 4.5 : mode.hopRate;
+    hopField(brain, plan.origins, plan.delays.map((d) => d * rate), perf.hop);
+    writeHopArray(perf.hop);
+
+    // the comet wears the state's colours
+    const sp = STATE_PALETTE[themeStore.get()];
+    const cu = cometMaterial.uniforms;
+    if (partition === 'rational') {
+      cu.uColor.value.set(sp.rational);
+      cu.uAccent.value.set(sp.rational);
+    } else {
+      const o = partition === 'crazy' ? 2 : 0;
+      cu.uColor.value.set(sp.emotional[(seed + o) % 5]);
+      cu.uAccent.value.set(sp.emotional[(seed + o + 1) % 5]);
+    }
+    perf.cometTinted = true;
+    perf.built = true;
+  };
+
+  const runPerform = (s: Signal, delta: number) => {
+    const partition = s.partition ?? 'rational';
+    const mode = MODES[partition];
+    const intensity = s.intensity ?? 0.5;
+    const flight = s.fromCss ? FLIGHT : 0;
+    const pu = particleMaterial.uniforms;
+    const lu = linkMaterial.uniforms;
+    if (!perf.built) buildPerformance(s);
+    s.t += delta;
+    const T = s.t - flight;
+    if (T > mode.life) {
+      // over: everything is back to what it was at rest
+      humanStore.signal = null;
+      if (perf.cur >= 0) endBank(perf.cur);
+      perf.cur = -1;
+      perf.sig = null;
+      perf.built = false;
+      restUniforms();
+      pu.uSigT.value = lu.uSigT.value = -1;
+      pu.uHold.value = lu.uHold.value = 0;
+      return;
+    }
+    perf.t[perf.cur] = T;
+
+    // the underglow on the dots and the lines
+    const env = performEnvelope(mode, T, reducedMotion);
+    const k = 0.6 + 0.4 * intensity;
+    perfU.uPerfMode.value = mode.id;
+    perfU.uPerfT.value = T;
+    perfU.uPerfSeed.value = ((s.seed ?? 0) % 1000) / 1000;
+    perfU.uSigGain.value = mode.gain * k * env * (reducedMotion ? 0.7 : 1);
+    perfU.uBulge.value = reducedMotion ? 0.008 : mode.bulge;
+    perfU.uJit.value = reducedMotion ? 0 : mode.jit * env * k;
+    pu.uHopRate.value = lu.uHopRate.value = reducedMotion ? 4.5 : mode.hopRate;
+    pu.uReach.value = lu.uReach.value = reducedMotion ? 18 : mode.reach;
+    pu.uSigT.value = lu.uSigT.value = T;
+    pu.uSigRegion.value = lu.uSigRegion.value = -1;
+    pu.uHold.value = lu.uHold.value = 0;
+
+    if (s.fromCss && s.t < flight + SIGNAL.TRAIL * SIGNAL.TRAIL_DT) flyComet(s, flight);
+
+    // the state's name beside where the bolts start
+    const alpha = smooth01(0, 0.15, T) * (1 - smooth01(mode.life * 0.5, mode.life * 0.8, T));
+    if (alpha > 0.02) {
+      vertexWorld(s.vertex, tmp.proj).project(camera);
+      humanStore.label = {
+        x: ((tmp.proj.x + 1) / 2) * size.width,
+        y: ((1 - tmp.proj.y) / 2) * size.height,
+        alpha,
+        region: -1,
+        text: partition === 'rational' ? '理性' : partition === 'emotional' ? '感性' : '癫狂',
+      };
+    }
+  };
+
+  /** The bolts' uniforms and visibility for this frame; two banks at most, one usually. */
+  const applyBanks = (delta: number, settle: number) => {
+    for (let i = 0; i < 2; i++) {
+      if (!perf.on[i]) continue;
+      if (perf.fade[i] >= 0) {
+        // replaced: run on until faded
+        perf.t[i] += delta;
+        perf.fade[i] += delta;
+        if (perf.fade[i] >= FADE_OUT || perf.t[i] > perf.life[i]) {
+          endBank(i);
+          continue;
+        }
+      }
+      const m = boltRefs.current[i];
+      if (!m) continue;
+      const draw = !reducedMotion && settle > 0 && perf.t[i] >= 0;
+      m.visible = draw;
+      if (!draw) continue;
+      const bu = banks[i].material.uniforms;
+      const t = perf.t[i];
+      bu.uPT.value = t;
+      bu.uFade.value =
+        (1 - smooth01(perf.life[i] - 0.35, perf.life[i], t)) * (perf.fade[i] >= 0 ? Math.max(0, 1 - perf.fade[i] / FADE_OUT) : 1);
+      bu.uRes.value.set(size.width, size.height);
+    }
+  };
+
+  const runSignal = (delta: number, settle: number) => {
+    const s = humanStore.signal;
+    const g = groupRef.current;
+    const p = s && s.kind === 'perform' ? s : null;
+    // a new performance, or none: the one that was running fades out
+    if (perf.sig !== p) {
+      releaseCurrent();
+      perf.sig = p;
+    }
+    if (settle <= 0) for (let i = 0; i < 2; i++) if (perf.on[i]) endBank(i);
+    if (!p && perf.cometTinted) {
+      const pal = themeStore.palette();
+      cometMaterial.uniforms.uColor.value.set(pal.ink);
+      cometMaterial.uniforms.uAccent.value.set(pal.accent);
+      perf.cometTinted = false;
+    }
+    if (p && g && settle > 0) {
+      cometMaterial.uniforms.uShow.value = 0;
+      humanStore.label = null;
+      runPerform(p, delta);
+    } else {
+      restUniforms();
+      runD53Signal(delta, settle);
+    }
+    applyBanks(delta, settle);
+  };
+
+  /** The crazy state's shudder: a small displacement and a scale pulse of the whole brain, then exactly none. */
+  const shudder = (g: Group, delta: number) => {
+    const s = humanStore.signal;
+    const crazy = !reducedMotion && s && s.kind === 'perform' && s.partition === 'crazy' && perf.sig === s && perf.built;
+    let target = 0;
+    if (crazy) {
+      perf.shakeT = s.t - (s.fromCss ? FLIGHT : 0);
+      target = performEnvelope(MODES.crazy, perf.shakeT, false) * (0.5 + 0.5 * (s.intensity ?? 0.5));
+    } else {
+      perf.shakeT += delta;
+    }
+    // smoothed, so replacing a crazy performance does not snap; a frozen clock shows the exact value
+    perf.shake = delta > 0 ? perf.shake + (target - perf.shake) * (1 - Math.exp(-delta * 14)) : target;
+    if (target === 0 && perf.shake < 1e-3) perf.shake = 0;
+    if (perf.shake <= 0) return;
+    const a = perf.shake;
+    const t = perf.shakeT;
+    g.position.x += a * 0.014 * (Math.sin(t * 47.3) + 0.6 * Math.sin(t * 71.9 + 1.3));
+    g.position.y += a * 0.011 * (Math.sin(t * 53.1 + 2.1) + 0.6 * Math.sin(t * 83.7));
+    g.position.z += a * 0.006 * Math.sin(t * 39.7 + 0.4);
+    g.scale.multiplyScalar(1 + a * (0.03 * Math.sin(t * 9.5) + 0.012 * Math.sin(t * 37.1)));
   };
 
   // ---- frame ---------------------------------------------------------------------
@@ -884,6 +1493,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
       g.position.copy(tmp.v);
       g.quaternion.copy(tmp.q);
       g.scale.setScalar(s);
+      shudder(g, delta * stage.timeScale);
       g.updateMatrixWorld(true);
       particleMaterial.uniforms.uBrain.value.copy(g.matrixWorld);
     }
@@ -962,6 +1572,20 @@ export function BrainView({ tier, reducedMotion }: Props) {
         regions: brain.regions,
         /** The running signal (D53): kind, seconds, region, vertex; null when quiet. */
         signal: () => (humanStore.signal ? { ...humanStore.signal } : null),
+        /**
+         * Start a performance (D57): the same call the UI makes. `fromCss` null =
+         * from the brain's upper right; the same seed gives the same bolts.
+         */
+        perform(partition: 'rational' | 'emotional' | 'crazy', intensity = 0.7, seed?: number, fromCss: [number, number] | null = null) {
+          humanStore.perform({ partition, intensity, fromCss, seed });
+        },
+        /** The bolts in flight: path edges planned, banks drawing, shudder strength. */
+        perfInfo: () => ({
+          edges: perf.plan?.count ?? 0,
+          banksOn: [...perf.on],
+          drawn: boltRefs.current.map((m) => !!m?.visible),
+          shake: perf.shake,
+        }),
         /** Capture hook: put the running signal at `t` seconds (with the clock frozen). */
         setSignalTime(t: number) {
           if (humanStore.signal) humanStore.signal.t = t;
@@ -983,6 +1607,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
       <points ref={pointsRef} geometry={geometry} material={particleMaterial} frustumCulled={false} visible={false} />
       <points ref={cometRef} geometry={comet} material={cometMaterial} renderOrder={30} frustumCulled={false} />
       <group ref={groupRef}>
+        <mesh ref={(m) => (boltRefs.current[0] = m)} geometry={banks[0].geometry} material={banks[0].material} renderOrder={8} frustumCulled={false} visible={false} />
+        <mesh ref={(m) => (boltRefs.current[1] = m)} geometry={banks[1].geometry} material={banks[1].material} renderOrder={8} frustumCulled={false} visible={false} />
         <lineSegments ref={linksRef} geometry={links} material={linkMaterial} renderOrder={5} frustumCulled={false} visible={false} />
         <lineSegments geometry={edges} material={edgeMaterial} renderOrder={20} frustumCulled={false} />
         <points geometry={nodes} material={nodeMaterial} renderOrder={21} frustumCulled={false} />

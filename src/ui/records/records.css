@@ -1,0 +1,571 @@
+/*
+ * The records panel (round 3 part 9, D55): the RIGHT column of the drilled-in
+ * brain. Paper and ink: ruled lines, small type, no cards, no fills behind
+ * text. The partition accents (--alpha-state-*, see ../shared/shared.css) are
+ * small marks only. Both themes through the tokens.
+ */
+
+.records-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  color: var(--alpha-ink);
+  /*
+   * At narrow widths the brain reaches under this column and its lines would
+   * cut the text. A sheet of the ground colour that fades in from the left
+   * keeps the type legible without a card edge (the region label does the same).
+   */
+  padding-left: 1.1rem;
+  background: linear-gradient(to right, transparent 0, color-mix(in srgb, var(--alpha-paper) 94%, transparent) 1.1rem);
+}
+
+/*
+ * Below ~1400 px the brain reaches 100 px or so under the column (1280 wide):
+ * there the sheet is fully opaque, so mesh lines never show through list text.
+ * Wider windows keep the faint sheet (no overlap there, and the divide line
+ * stays visible).
+ */
+@media (max-width: 1400px) {
+  .records-panel {
+    background: linear-gradient(to right, transparent 0, var(--alpha-paper) 1.1rem);
+  }
+}
+
+.records-panel__tabs {
+  flex: none;
+  display: flex;
+  gap: 1.4rem;
+  border-bottom: 1px solid var(--alpha-construction);
+  margin-bottom: 0.5rem;
+}
+
+.records-panel .records-panel__tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  padding: 0.3rem 0.05rem 0.35rem;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  color: var(--alpha-construction-text);
+  cursor: pointer;
+}
+
+.records-panel .records-panel__tab small {
+  margin-left: 0.4em;
+  font-size: 0.7rem;
+}
+
+.records-panel .records-panel__tab.is-on {
+  color: var(--alpha-ink);
+  border-bottom-color: var(--alpha-ink);
+}
+
+.records-panel .records-panel__tab:hover {
+  color: var(--alpha-ink);
+}
+
+.records-panel button:focus-visible,
+.records-panel input:focus-visible {
+  outline: 1px dashed var(--alpha-ink);
+  outline-offset: 2px;
+}
+
+.records-panel textarea:focus-visible {
+  outline: 0;
+  border-color: var(--alpha-ink);
+}
+
+.records-panel__error {
+  flex: none;
+}
+
+/* the one scrolling region; scrollbar kept thin and quiet */
+.records-panel__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.3rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--alpha-construction) transparent;
+  overscroll-behavior: contain;
+}
+
+/* ---- list ---------------------------------------------------------------- */
+
+.recs__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  margin: 0 0 0.35rem;
+}
+
+.recs .recs__chip {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0;
+  font-size: 0.74rem;
+  color: var(--alpha-construction-text);
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+
+.recs .recs__chip span {
+  font-variant-numeric: tabular-nums;
+}
+
+.recs .recs__chip.is-on {
+  color: var(--alpha-ink);
+  border-bottom-color: var(--alpha-ink);
+}
+
+.recs .recs__chip:hover {
+  color: var(--alpha-ink);
+}
+
+.recs__empty {
+  margin: 0.8rem 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--alpha-construction-text);
+}
+
+.recs__empty small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+}
+
+.recs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recs__foot {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.7rem;
+  color: var(--alpha-construction-text);
+}
+
+.recs__foot small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.66rem;
+}
+
+.recs__foot button,
+.rec__error button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--alpha-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- one row -------------------------------------------------------------- */
+
+.rec {
+  border-top: 1px solid color-mix(in srgb, var(--alpha-construction) 55%, transparent);
+}
+
+.rec:last-child {
+  border-bottom: 1px solid color-mix(in srgb, var(--alpha-construction) 55%, transparent);
+}
+
+.rec .rec__head {
+  display: grid;
+  grid-template-columns: 0.7rem 1fr;
+  column-gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0.1rem 0.5rem 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.rec .rec__head:hover .rec__excerpt {
+  text-decoration: underline;
+  text-decoration-color: var(--alpha-construction);
+  text-underline-offset: 3px;
+}
+
+/* the bullet: the partition's accent, a dot (D57) */
+.rec__mark {
+  grid-row: 1 / span 2;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.42rem;
+  border-radius: 50%;
+  background: var(--rec-accent);
+}
+
+.rec__excerpt {
+  grid-column: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--alpha-ink);
+}
+
+.rec--disagreed .rec__excerpt,
+.rec--revoked .rec__excerpt {
+  color: var(--alpha-construction-text);
+}
+
+.rec__meta {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.05rem 0.7rem;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--alpha-construction-text);
+}
+
+.rec__j b {
+  font-weight: normal;
+  margin-right: 0.2em;
+}
+
+.rec__j {
+  font-variant-numeric: tabular-nums;
+  color: var(--alpha-ink);
+}
+
+.rec__j b {
+  color: var(--alpha-construction-text);
+}
+
+/* exclamation: a small ringed bang */
+.rec__bang {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  border: 1px solid var(--alpha-ink);
+  border-radius: 50%;
+  font-size: 0.68rem;
+  line-height: 1;
+  color: var(--alpha-ink);
+  align-self: center;
+}
+
+.rec__when {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* the open row: the accent as a thin rule on the left of its body */
+.rec.is-open > .rec__head .rec__excerpt {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  display: block;
+}
+
+.rec__body {
+  margin: 0 0 0.7rem 1.2rem;
+  padding: 0.1rem 0 0 0.7rem;
+  border-left: 1px solid var(--rec-accent);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.rec__body p {
+  margin: 0.2rem 0;
+}
+
+.rec__facts {
+  /* a long source_ref / speaker without a break must wrap, not run off the edge */
+  overflow-wrap: anywhere;
+  font-size: 0.7rem;
+  color: var(--alpha-construction-text);
+}
+
+.rec__explain {
+  color: var(--alpha-ink);
+  font-size: 0.74rem;
+}
+
+.rec__h {
+  margin: 0.7rem 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  color: var(--alpha-construction-text);
+}
+
+.rec__quiet {
+  font-size: 0.72rem;
+  color: var(--alpha-construction-text);
+}
+
+.rec__error {
+  margin: 0.4rem 0;
+  font-size: 0.72rem;
+  color: var(--alpha-warn);
+  overflow-wrap: anywhere;
+}
+
+.rec__error code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  margin-right: 0.3em;
+}
+
+.rec__error button {
+  color: var(--alpha-ink);
+}
+
+.rec__unsupported {
+  font-size: 0.7rem;
+  color: var(--alpha-warn);
+}
+
+/* ---- actions --------------------------------------------------------------- */
+
+.rec__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin: 0.7rem 0 0.2rem;
+}
+
+.rec .rec__act {
+  border: 1px solid var(--alpha-ink);
+  border-radius: 2px;
+  background: transparent;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  color: var(--alpha-ink);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.rec .rec__act--primary:hover:not(:disabled) {
+  background: var(--alpha-ink);
+  color: var(--alpha-paper);
+}
+
+.rec .rec__act--plain {
+  border-color: var(--alpha-construction);
+}
+
+.rec .rec__act--plain:hover:not(:disabled),
+.rec .rec__act--danger:hover:not(:disabled) {
+  border-color: var(--alpha-ink);
+  background: color-mix(in srgb, var(--alpha-ink) 10%, transparent);
+}
+
+.rec .rec__act--danger {
+  border-style: dashed;
+}
+
+.rec .rec__act:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-style: dashed;
+}
+
+.rec__tag {
+  display: inline-block;
+  margin-left: 0.5em;
+  line-height: 1.3;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: var(--alpha-warn);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 0 0.3em;
+}
+
+.rec__confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  font-size: 0.76rem;
+}
+
+.rec__confirm em {
+  display: block;
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--alpha-warn);
+}
+
+/* ---- editor ---------------------------------------------------------------- */
+
+.rec__editor .rec__h {
+  margin-top: 0.5rem;
+}
+
+.rec__textarea {
+  display: block;
+  width: 100%;
+  min-height: 6rem;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px solid var(--alpha-construction);
+  border-radius: 2px;
+  background: transparent;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  resize: vertical;
+  user-select: text;
+}
+
+.rec__check {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.rec__check input {
+  accent-color: var(--alpha-ink);
+}
+
+/* ---- model state ------------------------------------------------------------ */
+
+.mstate__lead {
+  margin: 0.1rem 0 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--alpha-construction-text);
+}
+
+.mstate__pip {
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: var(--alpha-accent);
+  vertical-align: 0.1em;
+}
+
+.mstate__block {
+  margin: 0 0 0.9rem;
+  border-top: 1px solid var(--alpha-construction);
+}
+
+.mstate__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.4rem 0 0.25rem;
+  font-size: 0.82rem;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+}
+
+.mstate__title small {
+  margin-left: auto;
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  color: var(--alpha-construction-text);
+}
+
+.mstate__mark {
+  align-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--rec-accent);
+}
+
+.mstate__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.12rem 0 0.12rem 0.5rem;
+  border-left: 2px solid transparent;
+}
+
+.mp .ev {
+  min-width: 0;
+}
+
+.mp .ev__label {
+  min-width: 6.4em;
+  font-size: 0.74rem;
+}
+
+.mp .ev__bar {
+  width: 3.6rem;
+  height: 0.5rem;
+}
+
+.mp .ev__bar i {
+  top: 0.12rem;
+  height: 0.26rem;
+}
+
+.mp .ev__support {
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.mp.is-changed {
+  border-left-color: var(--alpha-accent);
+}
+
+.mp__tags {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  flex: none;
+}
+
+.mp__rev {
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--alpha-construction-text);
+  border: 1px solid var(--alpha-construction);
+  border-radius: 2px;
+  padding: 0 0.3em;
+}
+
+.mp__changed {
+  font-size: 0.64rem;
+  color: var(--alpha-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rec .rec__act {
+    transition: none;
+  }
+}

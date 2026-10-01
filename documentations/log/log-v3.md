@@ -339,6 +339,43 @@ back-end model/translator work); recorded and verified here in session 11.
   `brain.setSignalTime`).
 - Not checked: frame time on the desktop build (open item 3).
 
+## Part 9 — entry and feedback flow, flat tree, state animations (sessions 11–12)
+
+> 实现与现有后端匹配的前端录入与反馈流程；particle hand tree 的节点改为纯黑/白、无 3D、修正排版；清理 outputs/qa
+
+Asked before starting; the user's answers (and later corrections):
+
+| # | Decision |
+|---|---|
+| **D54** | One entrance: the existing input box area grows into the entry form: 理性 / 感性 / 癫狂 selector, kind (diary / chat / philosophy), `self_speaker` for chat, text area, .txt/.md, the T/F box "是否为真（当下）" (`immediate`, default unchecked) and "断言为真" (`exclamation`). No separate page. |
+| **D55** | Two judgements: `immediate` at input, `confirm` later in the zoomed-in brain (right-hand bulleted list of past inputs: T → train with a brain performance, F → edit / delete). Trained only when both are true. `exclamation` skips the second step: the back end sets both true (user's correction, replacing the front end's first rule "only with immediate true"). Agreed by `[back]` in `front-back-communicate.md`. |
+| **D56** | UI talks to a `BrainAdapter`; product default "后端未连接" with a manual "进入演示模式"; the mock is labelled everywhere and never trains. |
+| **D57** | Feedback visuals keyed by state, not by parameter: rational calm tones, emotional vivid colours (both as lightning-like bolts through the brain), crazy a whole-brain performance. |
+| **D58** | Technology tree: nodes pure black (light) / white (dark), flat; layout rebuilt (elbow edges, even rows). |
+| **D59** | `outputs/qa` cleaned 1.8 GB → 98 MB: `scratch/` except `r3/`, `tmp/`, `playwright-report/` and 29 early-stage screenshots (root `*.png`, `views/`). Docs that mention them now point at removed images. Kept: `calib/` (a test reads `*-mesh-report.json`), `reference/`, `form/`, `theme/`, `human/`, `system/`, `desktop*`. |
+
+### Built
+
+- `src/backend/*` adapter layer (82 pure-logic tests, incl. mock = real Python rules on shared samples, span invariant, a run against the real `core.api` process), `app/inputStore.ts`, `ui/entry/*`, `ui/records/*`, `ui/shared/*`, `brain/bolts.ts` + `humanStore.perform`, flat tree.
+- Back end (`codex`, `back-end-core/`, not touched by this part) accepted F1–F5, F7–F11 of our requests during the session, including `brain_call` for Tauri and `input_page`; edit/delete (F6) is still open.
+- 16 agents built it (disjoint file ownership), 5 independent verifiers reviewed it (29 findings, 6 major, all fixed or documented), 4 fixers.
+
+### Verified
+
+- `tsc` clean. Full Playwright suite run alone: **146 / 146** (including D10).
+- Resting brain frame bit-identical before / after (hash, both themes, resting and drilled in).
+- Screens: `outputs/qa/scratch/r4/{entry,records,tree,brain}/`. SwiftShader — functional only, no frame times.
+
+### Not done / open
+
+- Desktop path (`connectDesktopOnStart`, Tauri shim) is **unverified on the native build**; the desktop DB is the app-local-data file unless `ALPHA_BRAIN_DB` is set.
+- Edit / delete: mock only until `[back]` finishes F6 (history of an edited text and delete semantics are theirs to define).
+- The mock lacks the real back end's assertion guards (quotes, questions, hypotheticals, reported speech); its translations carry `mock_no_assertion_guards`.
+- Light-theme small grey text elsewhere in `src/styles.css` is below AA (`--alpha-construction` 3.67:1); only the new panels use `--alpha-construction-text`.
+- At 1280 px width the records column covers ~100 px of the drilled-in brain.
+- Cross-links in the tree still cross edges (unavoidable for this graph); `rank` has no UI yet (AbstainNote exists and is tested).
+- Back-end note for `[back]`: a text starting with U+0000 gives `STORAGE_ERROR` instead of `INVALID_ARGUMENT`.
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
@@ -361,6 +398,7 @@ back-end model/translator work); recorded and verified here in session 11.
 
 ## Resume here
 
+- Part 9 (D54–D59) done: entry / feedback flow against the adapter, flat tree, state animations, qa cleanup. Next: the user's art review of `outputs/qa/scratch/r4/*`, native desktop check of the back-end connection, then F6 with `[back]`.
 - Part 8 (D52–D53) done: low-poly brain net and directional signals. Next: the
   user's art review of `outputs/qa/scratch/r3/brain-v3-*.png`, then the open items above.
 - Part 7 (D51) done: the particle hand moved clear of the home divide line.

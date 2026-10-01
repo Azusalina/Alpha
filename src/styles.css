@@ -160,7 +160,9 @@ body {
 }
 
 .human-panel button,
-.human-panel input {
+.human-panel input,
+.human-panel textarea,
+.human-panel select {
   font: inherit;
   color: inherit;
 }
@@ -201,25 +203,7 @@ body {
   margin-bottom: 0.4rem;
 }
 
-.human-panel__row {
-  display: flex;
-  gap: 0.6rem;
-  border-bottom: 1px solid var(--alpha-ink);
-}
-
-.human-panel__row input {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  padding: 0.45rem 0;
-  font-size: 1.15rem;
-  outline: none;
-  user-select: text;
-}
-
-.human-panel__row button,
 .human-panel__back,
-.human-panel__nodes button,
 .node-detail button {
   border: 0;
   background: transparent;
@@ -227,13 +211,7 @@ body {
   cursor: pointer;
 }
 
-.human-panel__row button {
-  color: var(--alpha-construction);
-}
-
-.human-panel__row button:hover,
 .human-panel__back:hover,
-.human-panel__nodes button:hover,
 .node-detail button:hover {
   color: var(--alpha-ink);
   text-decoration: underline;
@@ -270,22 +248,58 @@ body {
   min-height: 2.4em;
 }
 
-.human-panel__nodes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  font-size: 0.8rem;
-  line-height: 1.55;
+/*
+ * Drilled in (round 3 part 9): the RIGHT column is the records list (D55), the
+ * left keeps the back button, the hint and, when a node of the brain is
+ * clicked, its detail. The panels' own rules live next to them
+ * (ui/entry, ui/records); this is only where they sit.
+ */
+.human-panel__records {
+  position: absolute;
+  right: 3%;
+  top: 5%;
+  bottom: 5%;
+  width: min(25rem, 32%);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
 }
 
-.human-panel__nodes button {
-  color: var(--alpha-construction);
-  text-align: left;
+.human-panel__focus {
+  overflow-y: auto;
 }
 
-.human-panel__nodes button.is-selected {
-  color: var(--alpha-ink);
+.human-panel__focus .node-detail {
+  position: static;
+  width: auto;
+  margin-top: 0.4rem;
+  padding-left: 0.8rem;
+}
+
+.human-panel__focus .node-detail h2 {
+  font-size: 1.1rem;
+}
+
+.human-panel__focus .node-detail dl {
+  font-size: 0.78rem;
+  gap: 0.25rem 0.6rem;
+}
+
+/* the placeholder form of the entry stub; ui/entry replaces it */
+.human-panel__input textarea {
+  display: block;
+  width: 100%;
+  min-height: 5rem;
+  margin: 0.4rem 0;
+  padding: 0.4rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--alpha-ink);
+  background: transparent;
+  resize: vertical;
+  font-size: 1rem;
+  outline: none;
+  user-select: text;
 }
 
 .node-detail {
@@ -412,10 +426,6 @@ body {
   text-shadow: 0 0 10px rgba(242, 242, 242, 0.25);
 }
 
-:root[data-theme='dark'] .human-panel__row {
-  border-bottom-color: var(--alpha-construction);
-}
-
 /* Divide line at the human destination (D45): corner to corner, 1 px, drawn
    from the centre outward (HumanPanel moves the end points each frame). */
 .divide-line {
@@ -438,8 +448,8 @@ body {
 }
 
 /*
- * Technology tree as glass (D48–D50): frosted discs over the canvas, solid
- * 1.5 px edges. The overlay lets the pointer through; only nodes take it.
+ * Glass tokens: used by the node detail page and its chips (D49) below. The
+ * tree itself is no longer glass (D58); it has its own flat tokens further on.
  */
 :root {
   --glass-fill: rgba(255, 255, 255, 0.42);
@@ -448,8 +458,6 @@ body {
   --glass-edge: rgba(27, 27, 29, 0.28);
   --glass-shadow: 0 6px 18px rgba(27, 27, 29, 0.14), 0 1px 3px rgba(27, 27, 29, 0.12);
   --glass-tint: rgba(27, 27, 29, 0.05);
-  --tree-line: rgba(27, 27, 29, 0.42);
-  --tree-line-hot: rgba(27, 27, 29, 0.85);
 }
 
 :root[data-theme='dark'] {
@@ -459,8 +467,23 @@ body {
   --glass-edge: rgba(255, 255, 255, 0.22);
   --glass-shadow: 0 0 22px rgba(255, 255, 255, 0.08), 0 6px 18px rgba(0, 0, 0, 0.5);
   --glass-tint: rgba(255, 255, 255, 0.03);
-  --tree-line: rgba(242, 242, 242, 0.38);
-  --tree-line-hot: rgba(242, 242, 242, 0.9);
+}
+
+/*
+ * Technology tree, flat (D58; was glass, D48-D50). Every node is a pure black
+ * (light theme) or pure white (dark theme) disc, ink on ground like the divide
+ * line (D45): no gradient, no highlight, no shadow, no blur, no translucency.
+ * Edges are solid 1 px ink. Hover / select inverts the disc (ground fill, 2 px
+ * ink ring), lets it grow a little (TreeOverlay) and thickens its edges to
+ * 2 px. The overlay lets the pointer through; only nodes take it.
+ */
+:root {
+  --tree-ink: #000;
+  --tree-ground: var(--alpha-paper);
+}
+
+:root[data-theme='dark'] {
+  --tree-ink: #fff;
 }
 
 .tree-overlay {
@@ -478,42 +501,50 @@ body {
 }
 
 .tree-edge {
-  stroke: var(--tree-line);
-  stroke-width: 1.5px;
-  stroke-linecap: round;
-  transition: stroke 180ms ease;
+  fill: none;
+  stroke: var(--tree-ink);
+  stroke-width: 1px;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  /* hidden until the frame hook has placed and grown it: before its first run
+     a path has no data and a node sits at the viewport's top-left corner, which
+     with flat solid discs would show as a hard 42 px blob (the hook sets
+     visibility inline once grown) */
+  visibility: hidden;
 }
 
+/* cross-links: the same flat ink, dashed */
 .tree-edge--link {
   stroke-dasharray: 4 5;
-  stroke-width: 1px;
 }
 
 .tree-edge.is-hot {
-  stroke: var(--tree-line-hot);
+  stroke-width: 2px;
+  /* edges are snapped to x.5 so 1 px is one crisp row; a 2 px stroke needs a
+     whole-pixel centre or it renders soft-solid-soft over three rows */
+  transform: translate(-0.5px, -0.5px);
 }
 
 .tree-node {
   position: absolute;
   left: 0;
   top: 0;
+  box-sizing: border-box;
   width: 22px;
   height: 22px;
   padding: 0;
+  margin: 0;
   border-radius: 50%;
-  border: 1px solid var(--glass-edge);
-  background:
-    radial-gradient(circle at 32% 28%, var(--glass-rim) 0, transparent 38%),
-    linear-gradient(160deg, var(--glass-fill), var(--glass-tint));
-  box-shadow: var(--glass-shadow), inset 0 1px 1px var(--glass-rim), inset 0 -2px 6px var(--glass-tint);
-  -webkit-backdrop-filter: blur(6px) saturate(140%);
-  backdrop-filter: blur(6px) saturate(140%);
+  border: 2px solid var(--tree-ink);
+  background: var(--tree-ink);
+  appearance: none;
   pointer-events: auto;
   cursor: pointer;
-  opacity: 0;
-  will-change: transform, opacity;
+  will-change: transform;
   font: inherit;
   color: var(--alpha-ink);
+  /* nothing shows before the frame hook's first run (see .tree-edge) */
+  visibility: hidden;
 }
 
 .tree-node--d0 {
@@ -526,57 +557,55 @@ body {
   height: 30px;
 }
 
-/* inner scale so hover/select enlarge without fighting the per-frame transform */
+/* a hit area 2 px wider than the disc on every side (inset is measured from the
+   padding box, inside the 2 px border; so 26 px for the smallest 22 px disc),
+   drawn as nothing. Not wider: the tightest node gap is about 9 px */
+.tree-node::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+}
+
+/* selection ring: a second, thin ring outside the disc */
 .tree-node::after {
   content: '';
   position: absolute;
-  inset: -1px;
+  inset: -6px;
   border-radius: 50%;
   border: 1px solid transparent;
-  transition: border-color 180ms ease, transform 180ms ease;
+  pointer-events: none;
 }
 
 .tree-node.is-hot {
-  background:
-    radial-gradient(circle at 32% 28%, var(--glass-rim) 0, transparent 42%),
-    linear-gradient(160deg, var(--glass-fill-hot), var(--glass-tint));
-  border-color: var(--tree-line-hot);
+  background: var(--tree-ground);
   z-index: 2;
 }
 
-.tree-node.is-hot::after {
-  transform: scale(1.35);
-  border-color: var(--tree-line);
-}
-
 .tree-node.is-selected::after {
-  border-color: var(--tree-line-hot);
+  border-color: var(--tree-ink);
 }
 
 .tree-node:focus-visible {
-  outline: 1px solid var(--tree-line-hot);
-  outline-offset: 3px;
+  outline: 2px solid var(--tree-ink);
+  outline-offset: 5px;
 }
 
-.tree-node__label {
+/* the label stands above its node, on a ground-colour backing: edges leave
+   to the sides, so nothing ever runs through the text (a sibling of the disc,
+   moved by TreeOverlay, so it is not scaled or blurred with the hover growth) */
+.tree-label {
   position: absolute;
-  left: calc(100% + 5px);
-  top: 50%;
-  transform: translateY(-50%);
+  left: 0;
+  top: 0;
   white-space: nowrap;
   font-size: 0.78rem;
   line-height: 1.3;
-  color: var(--alpha-construction);
-  pointer-events: none;
-  /* a backing in the ground colour: child edges leave to the right, so a
-     glow alone cannot keep them from cutting the text */
-  padding: 0 0.35em;
-  border-radius: 4px;
-  background: var(--alpha-paper);
-}
-
-.tree-node.is-hot .tree-node__label {
   color: var(--alpha-ink);
+  pointer-events: none;
+  padding: 0 0.35em;
+  background: var(--tree-ground);
+  visibility: hidden;
 }
 
 /* Node detail page (D49): a glass sheet over the whole view. */
@@ -690,4 +719,8 @@ body {
 
 .node-page__chip:hover {
   background: var(--glass-fill-hot);
+}
+
+:root[data-theme='dark'] .human-panel__input textarea {
+  border-bottom-color: var(--alpha-construction);
 }

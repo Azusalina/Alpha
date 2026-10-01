@@ -26,8 +26,10 @@ import { SystemPanel } from '../ui/SystemPanel';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { HomeDivider } from '../ui/HomeDivider';
 import { themeStore } from '../config/theme';
+import { connectDesktopOnStart } from './desktop';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
 import { humanStore } from './humanStore';
+import { inputInspection } from './inspection';
 import { focusBrain, navigate, scrubTransition } from './navigation';
 import { treeStore } from './treeStore';
 import {
@@ -157,6 +159,8 @@ export function App() {
         const v = new Vector3(...wristWorld()).project(cam);
         return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight];
       },
+      /** Round 3 part 9: `backend.{mode,enterDemo,leaveDemo}` and `inputs.{list,get,expanded,state}`. */
+      ...inputInspection(),
       themeName() {
         return themeStore.get();
       },
@@ -168,6 +172,12 @@ export function App() {
   }, [tier, reducedMotion]);
 
   useHumanKeys(reducedMotion);
+
+  // Inside the Tauri shell, connect to the local back end once (a plain browser
+  // stays "后端未连接"). UNVERIFIED on the native build; see app/desktop.ts.
+  useEffect(() => {
+    connectDesktopOnStart();
+  }, []);
 
   // Dwell on a live corner travels (spec 3 table): from home toward that
   // corner; from a destination, the opposite corner returns home.

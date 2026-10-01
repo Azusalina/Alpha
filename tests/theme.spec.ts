@@ -34,13 +34,14 @@ test('theme — dark by default, icon and T switch it, the choice persists', asy
   expect(px.length).toBeGreaterThan(0);
 });
 
-test('theme — T typed into the input box is text, not a switch', async ({ page }) => {
+test('theme — T typed into the entry textarea is text, not a switch', async ({ page }) => {
   test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await home(page, '/?theme=dark');
   await alpha(page, "navigate('human')");
   await expect.poll(() => alpha<string>(page, 'state'), { timeout: 10_000 }).toBe('human');
   const input = page.getByTestId('human-input');
+  await expect(input).toHaveJSProperty('tagName', 'TEXTAREA');
   await input.click();
   await page.keyboard.type('tt');
   await expect(input).toHaveValue('tt');

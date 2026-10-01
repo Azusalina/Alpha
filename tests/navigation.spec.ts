@@ -64,12 +64,16 @@ test('V08 human — dwell top-left travels to the brain, dwell bottom-right retu
   // mid-flight: the destination exists but cannot take focus yet
   await waitFor(page, 'human', 10_000);
 
+  // round 3 part 9 (D54): the prototype's one-line box is the entry form's textarea now;
+  // Enter is a line break in it, and nothing is sent until the form is submitted
   const input = page.getByTestId('human-input');
   await expect(input).toBeVisible();
+  await expect(input).toHaveJSProperty('tagName', 'TEXTAREA');
   await input.click();
   await input.fill('今天有点累');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).reply ?? '').toContain('原型演示');
+  await expect(input).toHaveValue('今天有点累\n');
+  await expect(page.getByTestId('backend-banner')).toContainText('后端未连接');
 
   // at the destination only the opposite corner is live
   await expect(page.getByTestId('hotzone-human')).toHaveCount(0);
@@ -121,6 +125,20 @@ test('brain — click drills in, a node opens its detail, Escape backs out step 
   await waitFor(page, 'home', 10_000);
 });
 
+/**
+ * The DOM divide line draws from rAF ticks (HumanPanel) and lags the state flip
+ * to 'home' when the machine is loaded: its two <line>s are back at the centre
+ * (x2 = 50, zero length) only a few frames later. A fixed 300 ms was not enough
+ * under load (the whole 2878-pixel frame difference was the diagonal), so the
+ * screenshots wait for the line to be at rest, then two animation frames.
+ */
+async function dividerAtRest(page: Page): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId('divide-line').locator('line').evaluateAll((ls) => ls.every((l) => l.getAttribute('x2') === '50' && l.getAttribute('y2') === '50')), { timeout: 15_000 })
+    .toBe(true);
+  await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+}
+
 test('V12 — ten round trips land on the same home frame', async ({ page }) => {
   test.setTimeout(180_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -135,6 +153,7 @@ test('V12 — ten round trips land on the same home frame', async ({ page }) => 
   await alpha(page, (a) => a.navigate('home'));
   await waitFor(page, 'home', 10_000);
   await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  await dividerAtRest(page);
   const before = await page.screenshot();
 
   for (let i = 0; i < 10; i++) {
@@ -144,6 +163,7 @@ test('V12 — ten round trips land on the same home frame', async ({ page }) => 
     await waitFor(page, 'home', 10_000);
   }
   await expect.poll(() => alpha(page, (a) => (a as unknown as { pointerInfluence: number }).pointerInfluence)).toBe(0);
+  await dividerAtRest(page);
   await page.waitForTimeout(300);
   const after = await page.screenshot();
   expect(after.equals(before)).toBe(true);
@@ -168,7 +188,7 @@ test('V08 system — dwell bottom-right grows the tree from the right hand, dwel
   expect((page as unknown as { __errors: string[] }).__errors).toEqual([]);
 });
 
-test('tree — glass nodes: hover and click highlight, double click opens the page, Escape steps back', async ({ page }) => {
+test('tree — flat nodes: hover and click highlight, double click opens the page, Escape steps back', async ({ page }) => {
   test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
@@ -271,4 +291,61 @@ test('brain — drag turns the resting brain without drilling in; the divide lin
   // a plain click still drills in
   await page.mouse.click(c[0], c[1]);
   await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focused).toBe(true);
+});
+
+test('brain perform — a performance per state, read back through the signal, and the resting frame returns exactly', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?theme=light');
+  await waitFor(page, 'home');
+  await alpha(page, (a) => a.setTimeScale(0));
+  await page.mouse.move(-5, -5);
+  await alpha(page, (a) => a.navigate('human'));
+  await waitFor(page, 'human');
+  await page.waitForTimeout(600);
+  // the canvas alone: every DOM overlay hidden
+  await page.addStyleTag({ content: 'body *:not(canvas):not(:has(canvas)) { visibility: hidden !important; }' });
+  await page.waitForTimeout(300);
+
+  type Brain = {
+    perform(p: string, i: number, seed?: number): void;
+    signal(): { kind: string; partition?: string; intensity?: number; seed?: number; t: number } | null;
+    setSignalTime(t: number): void;
+    perfInfo(): { edges: number; shake: number };
+  };
+  const brain = <T,>(fn: (b: Brain) => T) =>
+    page.evaluate(`(${fn.toString()})(window.__alpha.brain)`) as Promise<T>;
+
+  const rest = await page.screenshot();
+
+  const frames: Record<string, Buffer> = {};
+  for (const partition of ['rational', 'emotional', 'crazy']) {
+    await page.evaluate(`window.__alpha.brain.perform('${partition}', 1.4, 42)`);
+    await page.waitForTimeout(200);
+    const s = await brain((b) => b.signal());
+    // D57: kind, state, strength (clamped to 0..1) and seed are readable
+    expect(s).toMatchObject({ kind: 'perform', partition, intensity: 1, seed: 42 });
+    await brain((b) => b.setSignalTime(0.6));
+    await page.waitForTimeout(200);
+    expect((await brain((b) => b.perfInfo())).edges).toBeGreaterThan(0);
+    // with the clock frozen a captured time is one deterministic frame, and it differs from rest
+    frames[partition] = await page.screenshot();
+    expect(frames[partition].equals(rest)).toBe(false);
+    expect(frames[partition].equals(await page.screenshot())).toBe(true);
+    // past its life the performance ends and the brain is exactly what it was
+    await brain((b) => b.setSignalTime(100));
+    await page.waitForTimeout(300);
+    expect(await brain((b) => b.signal())).toBeNull();
+    expect((await page.screenshot()).equals(rest)).toBe(true);
+  }
+  // each state looks like itself, not like the others
+  expect(frames.rational.equals(frames.emotional)).toBe(false);
+  expect(frames.emotional.equals(frames.crazy)).toBe(false);
+
+  // a new call while one runs replaces it
+  await page.evaluate(`window.__alpha.brain.perform('rational', 0.5, 1)`);
+  await page.waitForTimeout(100);
+  await page.evaluate(`window.__alpha.brain.perform('crazy', 0.5, 2)`);
+  await page.waitForTimeout(100);
+  expect(await brain((b) => b.signal())).toMatchObject({ partition: 'crazy', seed: 2 });
 });
