@@ -13,10 +13,11 @@
  *              steady hue, a long calm afterglow;
  * - emotional  several bolts at once with side branches, fast, each its own
  *              colour that also drifts along its length;
- * - crazy      no bolts and no colour: a light kindles at the brain's centre,
- *              swells until it covers the whole brain, then collapses back into
- *              its core and goes out (`coreBloom`; the shaders measure the
- *              distance from the light on the screen).
+ * - crazy      no bolts and no colour (D62): the whole brain, dots, net lines
+ *              and tree, collapses into one singularity at its centre, rests
+ *              there a moment, then unfolds back to exactly the points it left
+ *              (`coreBloom`; the shaders move every vertex by the same
+ *              `collapse`, staggered per vertex).
  */
 
 import { hopDistances, type BrainMesh } from './brainAsset';
@@ -59,14 +60,13 @@ export interface PerformMode {
 }
 
 /**
- * The crazy state's light (D57, revised): seconds. A spark kindles at the centre
- * (0 .. ignite), a spherical front swells from it until the whole brain is lit
- * (ignite .. swell), holds briefly, then collapses back into the core, slowly
- * at first and falling in at the end (hold .. collapse), the core flares once
- * as it goes under and fades (collapse .. life). One smooth swell and one
- * collapse: nothing flickers, nothing is faster than 1 Hz.
+ * The crazy state (D62), seconds. The brain falls in on itself, slowly at first
+ * and faster and faster (0 .. collapse), rests as one point (collapse .. hold,
+ * the 0.3 s pause), then unfolds back to its own points, a burst that settles
+ * (hold .. rebuild), and the singularity's light fades out (rebuild .. life).
+ * More than 4 s in all. Nothing flickers, nothing is faster than 1 Hz.
  */
-export const CORE = { ignite: 0.55, swell: 1.95, hold: 2.4, collapse: 3.5, life: 3.9, reach: 1.18 } as const;
+export const CORE = { collapse: 1.7, hold: 2.0, rebuild: 3.9, life: 4.4 } as const;
 
 export const MODES: Record<PerformPartition, PerformMode> = {
   rational: {
@@ -347,35 +347,34 @@ export function hopField(mesh: BrainMesh, origins: number[], delayHops: number[]
   return out;
 }
 
-/** What the crazy state's light looks like at `t` seconds (brain-local radii, 1 = the brain's own radius). */
+/** What the crazy state looks like at `t` seconds. */
 export interface CoreBloom {
-  /** Radius of the lit front, 0 .. CORE.reach: inside it the net is lit, the front itself is brightest. */
-  front: number;
-  /** 0..1: visibility of the lit net (rises as the front starts, gone by the end). */
-  vis: number;
-  /** 0..1: the hot point at the centre. */
+  /**
+   * 0..1: how far every vertex has fallen toward the centre. 0 = the brain at
+   * rest, exactly; 1 = the singularity. The shaders stagger it per vertex, so
+   * each vertex's own progress ends at 1 when this does.
+   */
+  collapse: number;
+  /** 0..1: the hot point at the centre (it grows as the brain falls in, flares at rest, fades as it unfolds). */
   core: number;
-  /** Radius of the soft glowing ball around the core, and its strength 0..1. */
+  /** Radius (brain-local, 1 = the brain's radius) of the soft ball around the core, and its strength 0..1. */
   haloRadius: number;
   halo: number;
-  /** 0..1: how much the whole brain swells (a few percent of its size). */
-  swell: number;
 }
 
 const ease = (a: number, b: number, x: number) => smooth(a, b, x);
+const unit = (x: number) => Math.min(1, Math.max(0, x));
 
-/** The light's state at `t`; the same `t` always gives the same values. */
+/** The state at `t`; the same `t` always gives the same values. */
 export function coreBloom(t: number): CoreBloom {
-  const { ignite, swell, hold, collapse, life, reach } = CORE;
-  const out = ease(ignite, swell, t); // 0 -> 1 while the front swells
-  // collapse: slow at first, then falling in (cubic), so the radius drops fastest at the very end
-  const x = Math.min(1, Math.max(0, (t - hold) / (collapse - hold)));
-  const front = t < hold ? reach * out : reach * (1 - x * x * x);
-  const gone = 1 - ease(collapse, life, t);
-  const vis = ease(ignite - 0.15, ignite + 0.2, t) * gone;
-  // the spark kindles, dims a little while its light spreads, then flares as it is swallowed
-  const core = ease(0, 0.35, t) * (0.55 + 0.45 * ease(hold, collapse, t)) * gone;
-  const halo = 0.9 * ease(0.1, ignite, t) * (1 - 0.35 * out) * gone;
-  const haloRadius = Math.max(0.16, front * 0.8);
-  return { front, vis, core, halo, haloRadius, swell: Math.min(1, front / reach) * gone };
+  const { collapse: tc, hold, rebuild, life } = CORE;
+  // falling in: accelerating, so it reads as being swallowed; unfolding: a burst that settles
+  const falling = Math.pow(unit(t / tc), 1.8);
+  const unfolding = Math.pow(1 - unit((t - hold) / (rebuild - hold)), 2.2);
+  const c = t < hold ? falling : unfolding;
+  const gone = 1 - ease(rebuild, life, t);
+  // the light follows the compression, is brightest while the point rests, and is the last thing to go
+  const core = Math.min(1, ease(0, 0.5, t) * (0.3 + 0.7 * c * c) * (t < hold ? 1 : 0.4 + 0.6 * c)) * gone;
+  const halo = 0.85 * c * (1 - 0.3 * (1 - c)) * gone;
+  return { collapse: c, core, halo, haloRadius: 0.1 + 0.55 * (1 - c * 0.6) };
 }

@@ -153,6 +153,8 @@ export interface InputState {
   error: InputError | null;
   /** Methods the back end offers; null until loaded (and in "后端未连接": empty). */
   capabilities: AdapterMethod[] | null;
+  /** `health.model_epoch` of the connected back end; null when unknown. Effects of an older epoch are history, not the current model. */
+  modelEpoch: number | null;
   /** The `backendStore` generation this state belongs to. */
   generation: number;
 }
@@ -229,6 +231,7 @@ class InputStore {
       lastResult: null,
       error: null,
       capabilities: null,
+      modelEpoch: null,
       generation,
     };
   }
@@ -373,6 +376,7 @@ class InputStore {
     try {
       const adapter = getAdapter();
       const caps = await adapter.capabilities();
+      const modelEpoch = await adapter.modelEpoch().catch(() => null);
       if (!this.live(epoch) || seq !== this.refreshSeq) return;
       const res = caps.has('inputPage')
         ? await adapter.inputPage({ limit: PAGE_SIZE })
@@ -387,6 +391,7 @@ class InputStore {
         hasMore: res.next_cursor !== null,
         loaded: true,
         capabilities: [...caps],
+        modelEpoch,
         cache,
         expandedId: this.state.expandedId && keep.has(this.state.expandedId) ? this.state.expandedId : null,
         editingId: this.state.editingId && keep.has(this.state.editingId) ? this.state.editingId : null,
@@ -666,7 +671,7 @@ class InputStore {
     }
   }
 
-  // ---- edit / delete (demo only: F6 is not implemented by the back end) ----------
+  // ---- edit / delete (F6) --------------------------------------------------------
 
   /** Open or close the editor of a record (the records panel draws it). */
   openEditor = (id: string | null): void => {
@@ -675,8 +680,9 @@ class InputStore {
   };
 
   /**
-   * Replace the text of a record that is not agreed. DEMO ONLY: a real back end
-   * answers UNSUPPORTED (F6) and the panel greys the button out via `can('inputEdit')`.
+   * Replace the text of a record that is not agreed (F6). Against a back end that
+   * does not offer it the adapter answers UNSUPPORTED and the panel greys the
+   * button out via `can('inputEdit')`.
    */
   edit = async (id: string, req: InputEditRequest): Promise<InputRecord | null> => {
     if (this.isMutating(id)) return null;
@@ -693,6 +699,8 @@ class InputStore {
       this.set({ records: this.state.records.map((r) => (r.source_id === id ? rec : r)), editingId: null });
       if (this.state.lastResult?.source_id === id) this.set({ lastResult: null });
       if (this.state.expandedId === id) void this.loadForExpanded(id);
+      // every input cursor is stale after an edit: reload page 1 (the model state re-reads by itself)
+      void this.refresh();
       return rec;
     } catch (e) {
       if (this.live(epoch)) this.fail(e, 'edit', id);
@@ -704,9 +712,9 @@ class InputStore {
 
   /**
    * Delete a record, whatever its status, together with its whole history (the user's
-   * decision). DEMO ONLY until the back end offers it (F6): the mock deletes hard, and an
-   * agreed record stops training with it; this must not be presented as what a real back
-   * end does.
+   * decision, F6). The back end deletes the source's records hard (no tombstone) and
+   * withdraws an agreed input's contribution first; backups and other inputs' frozen
+   * evidence are untouched, so the wording must not claim a forensic erase.
    */
   remove = async (id: string): Promise<boolean> => {
     if (this.isMutating(id)) return false;
@@ -727,6 +735,9 @@ class InputStore {
         editingId: this.state.editingId === id ? null : this.state.editingId,
         lastResult: this.state.lastResult?.source_id === id ? null : this.state.lastResult,
       });
+      // the old cursors are stale and the totals moved: reload page 1; the model state re-reads
+      // because the record list changed (a deleted agreed input no longer contributes)
+      void this.refresh();
       return true;
     } catch (e) {
       if (this.live(epoch)) this.fail(e, 'remove', id);

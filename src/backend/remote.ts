@@ -24,10 +24,13 @@
  *    normalised; defaults are filled in for fields an older back end lacks, and
  *    a row WITHOUT `excerpt` is hydrated through `input_get`, a few at a time,
  *    with a cache. A current back end always sends `excerpt`, so that never runs;
- *  - `inputEdit` / `inputDelete` have no back-end method (F6, not implemented):
- *    UNSUPPORTED. With `proposedMethods: true` they call `input_edit` /
- *    `input_delete` as proposed in F6, for the day the back end agrees;
- *    METHOD_NOT_FOUND then maps to UNSUPPORTED too. `probe` never turns it on.
+ *  - `inputEdit` / `inputDelete` (F6) call `input_edit` / `input_delete` only
+ *    with `proposedMethods: true`, otherwise UNSUPPORTED. `probe` turns it on
+ *    exactly when `health` lists both methods AND reports
+ *    `features.source_edit` and `source_delete` true (an older back end keeps
+ *    them off); METHOD_NOT_FOUND maps to UNSUPPORTED too;
+ *  - `health.model_epoch` (model reset) is kept: `modelEpoch()`. Rows keep the
+ *    optional `model_active` / `model_epoch`; nothing is invented when absent.
  *
  * Pure module: no React, DOM or three.
  */
@@ -78,7 +81,7 @@ export interface RemoteOptions {
    * reports `health.features.two_judgements` (use `RemoteBrainAdapter.probe`). Default false.
    */
   twoJudgements?: boolean;
-  /** Call the PROPOSED `input_edit` / `input_delete`. Default false: both are UNSUPPORTED. */
+  /** Call `input_edit` / `input_delete` (F6). Default false: both are UNSUPPORTED; `probe` sets it from `health`. */
   proposedMethods?: boolean;
   /** Request ids; default unique per adapter and per request. */
   newId?: () => string;
@@ -92,6 +95,8 @@ export interface HealthReport {
   methods: readonly string[];
   /** `health.features`, boolean entries only (`two_judgements`, `input_pagination`, `source_edit` ...). */
   features: Readonly<Record<string, boolean>>;
+  /** `health.model_epoch`, null when the back end does not report one. */
+  modelEpoch: number | null;
 }
 
 /** The outcome of `RemoteBrainAdapter.probe`. */
@@ -118,8 +123,17 @@ const API_METHOD: Record<AdapterMethod, string> = {
   rank: 'rank',
 };
 
-/** Methods that exist only as a proposal (front-back-communicate.md F6). */
+/** F6 methods: switched on by `proposedMethods` (set by `probe` from `health`). */
 const PROPOSED_API_METHODS = new Set(['input_edit', 'input_delete']);
+
+function offersSourceEditing(h: HealthReport): boolean {
+  return (
+    h.methods.includes('input_edit') &&
+    h.methods.includes('input_delete') &&
+    h.features.source_edit === true &&
+    h.features.source_delete === true
+  );
+}
 
 const WIRE_ERROR_CODES = new Set<string>(
   BACKEND_ERROR_CODES.filter((c) => c !== 'UNAVAILABLE' && c !== 'UNSUPPORTED'),
@@ -238,6 +252,8 @@ export class RemoteBrainAdapter implements BrainAdapter {
       excerpt,
       char_count: charCount,
       edited_at: typeof r.edited_at === 'string' ? r.edited_at : null,
+      ...(typeof r.model_active === 'boolean' ? { model_active: r.model_active } : {}),
+      ...(typeof r.model_epoch === 'number' ? { model_epoch: r.model_epoch } : {}),
     };
   }
 
@@ -253,7 +269,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
         if (typeof h.features === 'object' && h.features !== null && !Array.isArray(h.features)) {
           for (const [k, v] of Object.entries(h.features)) if (typeof v === 'boolean') features[k] = v;
         }
-        return { methods: h.methods as string[], features };
+        return { methods: h.methods as string[], features, modelEpoch: typeof h.model_epoch === 'number' ? h.model_epoch : null };
       });
       this.health = pending;
       pending.catch(() => {
@@ -266,8 +282,8 @@ export class RemoteBrainAdapter implements BrainAdapter {
   /**
    * Ask the back end what it can do, before connecting. `base` carries the
    * caller's own options (ids, concurrency); `twoJudgements` is taken from
-   * `health.features.two_judgements`, `proposedMethods` is never switched on
-   * (F6 edit/delete do not exist in the back end) unless `base` says so.
+   * `health.features.two_judgements`; `proposedMethods` follows `base` when it
+   * says so, else is true only if `health` advertises edit AND delete (F6).
    * Rejects with a BackendError when the back end cannot be reached.
    */
   static async probe(transport: Transport, base: RemoteOptions = {}): Promise<ProbeResult> {
@@ -275,13 +291,17 @@ export class RemoteBrainAdapter implements BrainAdapter {
     const options: RemoteOptions = {
       ...base,
       twoJudgements: report.features.two_judgements === true,
-      proposedMethods: base.proposedMethods ?? false,
+      proposedMethods: base.proposedMethods ?? offersSourceEditing(report),
     };
     return { ...report, options, capabilities: capabilitiesFor(report.methods, options.proposedMethods === true) };
   }
 
   async capabilities(): Promise<ReadonlySet<AdapterMethod>> {
     return capabilitiesFor((await this.readHealth()).methods, this.proposedMethods);
+  }
+
+  async modelEpoch(): Promise<number | null> {
+    return (await this.readHealth()).modelEpoch;
   }
 
   async submit(req: SubmitRequest): Promise<SubmitResult> {

@@ -281,13 +281,26 @@ test('real back end — every request stays inside api.md: known methods, known 
   await row.getByTestId('record-head').click();
   await row.getByTestId('act-confirm-false').click();
   await expect(row).toHaveAttribute('data-status', 'disagreed', { timeout: 20_000 });
-  // edit and delete: present but not offered by this back end, and never sent
-  await expect(row.getByTestId('record-unsupported')).toContainText('后端暂不支持');
-  await expect(row.getByTestId('act-edit')).toBeDisabled();
-  await expect(row.getByTestId('act-delete')).toBeDisabled();
+  // F6: this back end offers edit and delete (health lists them), so both are enabled and nothing says unsupported
+  await expect(row.getByTestId('record-unsupported')).toHaveCount(0);
+  await expect(row.getByTestId('act-edit')).toBeEnabled();
+  await expect(row.getByTestId('act-delete')).toBeEnabled();
+  // F6 edit of a disagreed input: new text, immediate T -> pending, never trained by the edit
+  await row.getByTestId('act-edit').click();
+  await row.getByTestId('editor-text').fill('我重视成长。');
+  await row.getByTestId('editor-immediate').check();
+  await row.getByTestId('editor-save').click();
+  await expect(row).toHaveAttribute('data-status', 'pending', { timeout: 20_000 });
+  await row.getByTestId('act-confirm-false').click();
+  await expect(row).toHaveAttribute('data-status', 'disagreed', { timeout: 20_000 });
   // F4: re-judging a confirm-false record to T works on the real back end
   await row.getByTestId('act-rejudge').click();
   await expect(row).toHaveAttribute('data-status', 'agreed', { timeout: 20_000 });
+  // F6 delete of an AGREED input (any status): two-step confirm, hard delete, its contribution is withdrawn
+  await row.getByTestId('act-delete').click();
+  await row.getByTestId('act-delete-confirm').click();
+  await expect(row).toHaveCount(0, { timeout: 20_000 });
+  expect(await alpha<Rec[]>(page, 'inputs.list()')).toHaveLength(0);
 
   const health = (await bridge.call({ schema_version: 1, id: 'check-health', method: 'health', params: {} })) as { result: { methods: string[] } };
   const known = new Set(health.result.methods);
@@ -295,9 +308,8 @@ test('real back end — every request stays inside api.md: known methods, known 
   for (const s of bridge.seen) {
     if (s.id.startsWith('check-')) continue;
     expect(known.has(s.method), s.method).toBe(true);
-    expect(s.method).not.toMatch(/edit|delete/);
     expect(ids.has(s.id), `duplicate id ${s.id}`).toBe(false);
     ids.add(s.id);
   }
-  expect(bridge.seen.map((s) => s.method)).toEqual(expect.arrayContaining(['health', 'submit', 'preview', 'review', 'input_page']));
+  expect(bridge.seen.map((s) => s.method)).toEqual(expect.arrayContaining(['health', 'submit', 'preview', 'review', 'input_page', 'input_edit', 'input_delete']));
 });

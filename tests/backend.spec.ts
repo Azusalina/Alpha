@@ -35,7 +35,7 @@ import {
   hasLoneSurrogate,
   highlight,
 } from '../src/backend/spans';
-import { MAX_FILE_BYTES, PY_WS, isBlank, isPyWhitespace, leadingNul, normalizeForSubmit, pyLstrip, pyStrip, readTextFile, splitLines, validateEntry } from '../src/backend/text';
+import { MAX_FILE_BYTES, PY_WS, isBlank, isPyWhitespace, hasNul, normalizeForSubmit, pyLstrip, pyStrip, readTextFile, splitLines, validateEntry } from '../src/backend/text';
 import {
   ADAPTER_METHODS,
   BACKEND_ERROR_CODES,
@@ -1255,7 +1255,7 @@ const PARTITION_CYCLE = ['rational', 'emotional', 'crazy'] as const;
 const ALL_METHODS = [
   'health', 'baseline', 'submit', 'input_get', 'input_list', 'input_page', 'preview', 'review', 'review_history',
   'correction_set', 'correction_history', 'revoke', 'state', 'effects', 'terms', 'rank', 'candidate_propose',
-  'candidate_review', 'candidate_list', 'memory_list', 'memory_search',
+  'candidate_review', 'candidate_list', 'memory_list', 'memory_search', 'input_edit', 'input_delete',
 ];
 const FEATURES = {
   two_judgements: true,
@@ -1264,8 +1264,8 @@ const FEATURES = {
   preview_untrained: true,
   input_summary: true,
   input_pagination: true,
-  source_edit: false,
-  source_delete: false,
+  source_edit: true,
+  source_delete: true,
 };
 const health = (over: Record<string, unknown> = {}) => () => ({
   schema_version: 1,
@@ -1332,21 +1332,27 @@ test.describe('remote inputPage', () => {
 });
 
 test.describe('RemoteBrainAdapter.probe', () => {
-  test('two_judgements comes from the feature flag, capabilities from the methods, proposedMethods stays false', async () => {
-    const f = fake({ health: health() });
+  test('two_judgements comes from the feature flag, capabilities from the methods, proposedMethods from health (F6)', async () => {
+    const f = fake({ health: health({ model_epoch: 3 }) });
     const probe = await RemoteBrainAdapter.probe(f.transport);
     expect(f.seen.map((e) => [e.method, e.params])).toEqual([['health', {}]]);
-    expect(probe.options).toEqual({ twoJudgements: true, proposedMethods: false });
+    expect(probe.options).toEqual({ twoJudgements: true, proposedMethods: true });
     expect(probe.methods).toEqual(ALL_METHODS);
     expect(probe.features).toEqual(FEATURES);
+    expect(probe.modelEpoch).toBe(3);
     expect([...probe.capabilities].sort()).toEqual(
-      ['confirm', 'effects', 'inputGet', 'inputList', 'inputPage', 'preview', 'rank', 'revoke', 'state', 'submit'],
+      ['confirm', 'effects', 'inputDelete', 'inputEdit', 'inputGet', 'inputList', 'inputPage', 'preview', 'rank', 'revoke', 'state', 'submit'],
     );
-    expect(probe.capabilities.has('inputEdit')).toBe(false);
-    expect(probe.capabilities.has('inputDelete')).toBe(false);
-    // Even a back end that listed input_edit does not switch proposed methods on.
-    const edit = await RemoteBrainAdapter.probe(fake({ health: health({ methods: [...ALL_METHODS, 'input_edit', 'input_delete'] }) }).transport);
-    expect([edit.options.proposedMethods, edit.capabilities.has('inputEdit')]).toEqual([false, false]);
+    // An older back end: not listing the methods, or not reporting both features, keeps edit and delete off.
+    const noMethods = await RemoteBrainAdapter.probe(fake({ health: health({ methods: ALL_METHODS.filter((m) => !m.startsWith('input_e') && m !== 'input_delete') }) }).transport);
+    expect([noMethods.options.proposedMethods, noMethods.capabilities.has('inputEdit')]).toEqual([false, false]);
+    for (const features of [{ ...FEATURES, source_edit: false }, { ...FEATURES, source_delete: false }, { ...FEATURES, source_delete: undefined }, { ...FEATURES, source_edit: 'true' }]) {
+      const part = await RemoteBrainAdapter.probe(fake({ health: health({ features }) }).transport);
+      expect(part.options.proposedMethods, JSON.stringify(features)).toBe(false);
+    }
+    // The caller can still force it off; model_epoch is absent -> null.
+    const forced = await RemoteBrainAdapter.probe(fake({ health: health() }).transport, { proposedMethods: false });
+    expect([forced.options.proposedMethods, forced.capabilities.has('inputDelete'), forced.modelEpoch]).toEqual([false, false, null]);
 
     // The probed options make an adapter that really sends the two judgements.
     const g = fake({ health: health(), submit: () => ({ source_id: 's', status: 'agreed', partition: 'rational', effects: [] }) });
@@ -1354,6 +1360,17 @@ test.describe('RemoteBrainAdapter.probe', () => {
     await adapter.submit({ text: 'x', partition: 'rational', immediate: false, exclamation: true });
     expect(g.seen.at(-1)?.params).toMatchObject({ immediate: false, exclamation: true });
     expect([...(await adapter.capabilities())].sort()).toEqual([...probe.capabilities].sort());
+  });
+
+  test('model_active / model_epoch of a row and health.model_epoch are kept, never invented', async () => {
+    const row = (id: string, extra: Record<string, unknown>) => ({ source_id: id, partition: 'rational', kind: 'diary', status: 'agreed', immediate: true, confirm: true, exclamation: false, confirmed_by: 'manual', reason: null, excerpt: 'x', char_count: 1, edited_at: null, created_at: 't', reviewed_at: 't', source_ref: null, self_speaker: null, ...extra });
+    const f = fake({ health: health({ model_epoch: 2 }), input_list: () => [row('a', { model_active: false, model_epoch: 1 }), row('b', {})] });
+    const a = new RemoteBrainAdapter(f.transport);
+    expect(await a.modelEpoch()).toBe(2);
+    const [x, y] = await a.inputList();
+    expect([x.model_active, x.model_epoch, 'model_active' in y, 'model_epoch' in y]).toEqual([false, 1, false, false]);
+    expect(isTrainable(x)).toBe(false);
+    expect(isTrainable(y)).toBe(true);
   });
 
   test('an older back end (flag false, missing, not a boolean) probes as twoJudgements=false', async () => {
@@ -1371,7 +1388,7 @@ test.describe('RemoteBrainAdapter.probe', () => {
     let n = 0;
     const f = fake({ health: health() });
     const probe = await RemoteBrainAdapter.probe(f.transport, { hydrateConcurrency: 1, newId: () => `probe-${++n}` });
-    expect(probe.options).toEqual({ hydrateConcurrency: 1, newId: expect.any(Function), twoJudgements: true, proposedMethods: false });
+    expect(probe.options).toEqual({ hydrateConcurrency: 1, newId: expect.any(Function), twoJudgements: true, proposedMethods: true });
     expect(f.seen[0].id).toBe('probe-1');
 
     expect(await codeOf(RemoteBrainAdapter.probe({ request: () => Promise.reject(new Error('gone')) }))).toBe('UNAVAILABLE');
@@ -1826,16 +1843,18 @@ test.describe('the real Python back end', () => {
     for (let i = 0; i < mockOut.length; i++) expect(mockOut[i], String((realOut[i] as unknown[])[0])).toEqual(realOut[i]);
   });
 
-  test('probe, exclamation, spans over emoji, paging with STALE_CURSOR, edit/delete greyed out', async () => {
+  test('probe, exclamation, spans over emoji, paging with STALE_CURSOR, F6 edit and delete', async () => {
     const skip = pythonUnavailableReason();
     test.skip(skip !== null, skip ?? '');
     await withPython(async (python, sent) => {
       const probe = await RemoteBrainAdapter.probe(python);
-      expect(probe.options).toEqual({ twoJudgements: true, proposedMethods: false });
-      expect(probe.methods).toHaveLength(21);
-      expect(probe.features).toMatchObject({ two_judgements: true, input_pagination: true, source_edit: false, source_delete: false });
+      expect(probe.options).toEqual({ twoJudgements: true, proposedMethods: true });
+      expect(probe.methods).toHaveLength(23);
+      expect(probe.features).toMatchObject({ two_judgements: true, input_pagination: true, source_edit: true, source_delete: true });
+      expect(typeof probe.modelEpoch).toBe('number');
       expect(probe.capabilities.has('inputPage')).toBe(true);
-      expect(probe.capabilities.has('inputEdit')).toBe(false);
+      expect(probe.capabilities.has('inputEdit')).toBe(true);
+      expect(probe.capabilities.has('inputDelete')).toBe(true);
       const a = new RemoteBrainAdapter(python, probe.options);
       expect(a.info.trains).toBe(true);
       expect([...(await a.capabilities())].sort()).toEqual([...probe.capabilities].sort());
@@ -1872,11 +1891,15 @@ test.describe('the real Python back end', () => {
       expect((await a.inputPage({ limit: 2 })).total).toBe(6);
       expect(await codeOf(a.inputPage({ limit: 2, partition: 'emotional', cursor: second.next_cursor }))).toBe('INVALID_ARGUMENT');
 
-      // F6 does not exist in the back end: no request is even sent.
-      const count = sent.length;
-      expect(await codeOf(a.inputEdit(r.source_id, { text: 'x', immediate: true }))).toBe('UNSUPPORTED');
-      expect(await codeOf(a.inputDelete(r.source_id))).toBe('UNSUPPORTED');
-      expect(sent.length).toBe(count);
+      // F6: edit an agreed input is refused (revoke first), then edit, then delete any status.
+      expect(await codeOf(a.inputEdit(r.source_id, { text: 'x', immediate: true }))).toBe('INVALID_ARGUMENT');
+      const fresh = await a.submit({ text: '会被编辑和删除的一条', partition: 'rational', immediate: true });
+      const edited = await a.inputEdit(fresh.source_id, { text: '改过的一条', immediate: true });
+      expect([edited.status, edited.confirm, edited.edited_at === null, edited.excerpt]).toEqual(['pending', null, false, '改过的一条']);
+      expect(await codeOf(a.inputEdit(fresh.source_id, { text: 'a\u0000b', immediate: true }))).toBe('INVALID_ARGUMENT');
+      await a.inputDelete(fresh.source_id);
+      expect(await codeOf(a.inputGet(fresh.source_id))).toBe('NOT_FOUND');
+      expect(await codeOf(a.inputDelete(fresh.source_id))).toBe('NOT_FOUND');
       expect(await codeOf(a.confirm('0'.repeat(32), true))).toBe('NOT_FOUND');
     });
   });
@@ -1946,17 +1969,18 @@ test.describe('whitespace handling is linear (a pasted run of spaces must not fr
 test.describe('NUL, BOM and file size edge cases', () => {
   const base = { partition: 'rational', kind: 'diary' } as const;
 
-  test('leadingNul follows SQLite: only leading U+0020 is skipped', () => {
-    expect([leadingNul('\u0000'), leadingNul('  \u0000x'), leadingNul('\u0000我重视成长。')]).toEqual([true, true, true]);
-    expect([leadingNul('\n\u0000x'), leadingNul('a\u0000'), leadingNul(' \u3000\u0000'), leadingNul('x'), leadingNul('')]).toEqual([false, false, false, false, false]);
+  test('hasNul: U+0000 anywhere (the back end refuses it in any position, nothing is stripped)', () => {
+    expect([hasNul('\u0000'), hasNul('  \u0000x'), hasNul('\u0000我重视成长。'), hasNul('\n\u0000x'), hasNul('a\u0000'), hasNul('a\u0000b')]).toEqual([true, true, true, true, true, true]);
+    expect([hasNul('x'), hasNul(''), hasNul(' \u3000')]).toEqual([false, false, false]);
+    expect(() => normalizeForSubmit('a\u0000b')).toThrow(/空字符/);
   });
 
-  test('validateEntry blocks a leading NUL and treats a text blank after the BOM as empty', () => {
+  test('validateEntry blocks a NUL anywhere and treats a text blank after the BOM as empty', () => {
     expect(validateEntry({ ...base, text: '\u0000我重视成长。' }).errors).toHaveLength(1);
     expect(validateEntry({ ...base, text: '  \u0000x' }).errors[0]).toContain('空字符');
     expect(validateEntry({ ...base, text: '\ufeff\u0000x' }).errors).toHaveLength(1); // the BOM is dropped before sending
-    expect(validateEntry({ ...base, text: 'a\u0000b' }).errors).toEqual([]);
-    expect(validateEntry({ ...base, text: '\n\u0000x' }).errors).toEqual([]);
+    expect(validateEntry({ ...base, text: 'a\u0000b' }).errors).toHaveLength(1);
+    expect(validateEntry({ ...base, text: '\n\u0000x' }).errors).toHaveLength(1);
     expect(validateEntry({ ...base, text: '\ufeff' }).errors).toEqual(['内容不能为空']);
     expect(validateEntry({ ...base, text: '\ufeff   \n' }).errors).toEqual(['内容不能为空']);
     expect(validateEntry({ ...base, text: '\ufeff\ufeff' }).errors).toEqual([]); // a second FEFF is text, as in the back end
@@ -1965,17 +1989,14 @@ test.describe('NUL, BOM and file size edge cases', () => {
     expect(validateEntry({ ...base, text: '\ufeff' + 'x'.repeat(MAX_INPUT_CHARS) }).errors).toEqual([]);
   });
 
-  test('the mock refuses what the real back end refuses, with its opaque error', async () => {
+  test('the mock refuses U+0000 in any position, like the real back end (INVALID_ARGUMENT)', async () => {
     const m = mock();
-    for (const text of ['\u0000', '\u0000我重视公平。', '  \u0000我重视公平。']) {
-      expect(await codeOf(m.submit({ text, partition: 'rational', immediate: true })), JSON.stringify(text)).toBe('STORAGE_ERROR');
-    }
-    for (const text of ['\n\u0000x', 'a\u0000', 'y\u0000']) {
-      expect((await m.submit({ text, partition: 'rational', immediate: true })).status, JSON.stringify(text)).toBe('pending');
+    for (const text of ['\u0000', '\u0000我重视公平。', '  \u0000我重视公平。', '\n\u0000x', 'a\u0000', 'y\u0000']) {
+      expect(await codeOf(m.submit({ text, partition: 'rational', immediate: true })), JSON.stringify(text)).toBe('INVALID_ARGUMENT');
     }
     // Edit goes through the same check.
     const r = await m.submit({ text: 'ok', partition: 'rational', immediate: true });
-    expect(await codeOf(m.inputEdit(r.source_id, { text: '\u0000x', immediate: true }))).toBe('STORAGE_ERROR');
+    expect(await codeOf(m.inputEdit(r.source_id, { text: 'a\u0000x', immediate: true }))).toBe('INVALID_ARGUMENT');
   });
 
   test('the mock rejects a blank source_ref like the back end, and accepts null / absent', async () => {
@@ -2051,16 +2072,16 @@ test.describe('the ported rules equal the real ones (read-only look at back-end-
 test.describe('mock vs the real back end on rejected input', () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test('a leading NUL and a blank source_ref are refused by both, with the same error codes', async () => {
+  test('a NUL anywhere and a blank source_ref are refused by both, with the same error codes', async () => {
     const skip = pythonUnavailableReason();
     test.skip(skip !== null, skip ?? '');
     const cases: { name: string; req: { text: string; source_ref?: string } }[] = [
       { name: 'NUL', req: { text: '\u0000' } },
       { name: 'NUL then text', req: { text: '\u0000我重视公平。' } },
       { name: 'spaces then NUL', req: { text: '  \u0000我重视公平。' } },
-      { name: 'newline then NUL (accepted)', req: { text: '\n\u0000x' } },
-      { name: 'NUL inside (accepted)', req: { text: 'a\u0000b我重视公平。' } },
-      { name: 'trailing NUL (accepted)', req: { text: 'a\u0000' } },
+      { name: 'newline then NUL', req: { text: '\n\u0000x' } },
+      { name: 'NUL inside', req: { text: 'a\u0000b我重视公平。' } },
+      { name: 'trailing NUL', req: { text: 'a\u0000' } },
       { name: 'blank source_ref', req: { text: FAIR, source_ref: '   ' } },
       { name: 'empty source_ref', req: { text: FAIR, source_ref: '' } },
       { name: 'good source_ref', req: { text: FAIR, source_ref: 'a.txt' } },
@@ -2082,6 +2103,6 @@ test.describe('mock vs the real back end on rejected input', () => {
       return run(new RemoteBrainAdapter(python, probe.options));
     });
     expect(mockOut).toEqual(realOut);
-    expect(mockOut).toEqual(['STORAGE_ERROR', 'STORAGE_ERROR', 'STORAGE_ERROR', 'pending', 'pending', 'pending', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'pending']);
+    expect(mockOut).toEqual(['INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'INVALID_ARGUMENT', 'pending']);
   });
 });

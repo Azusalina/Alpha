@@ -293,6 +293,55 @@ test('brain — drag turns the resting brain without drilling in; the divide lin
   await expect.poll(async () => (await alpha(page, (a) => a.humanUi())).focused).toBe(true);
 });
 
+test('brain perform — crazy (D62): the whole brain collapses into one point, rests 0.3 s, unfolds to the same points', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/?theme=light');
+  await waitFor(page, 'home');
+  await alpha(page, (a) => a.setTimeScale(0));
+  await page.mouse.move(-5, -5);
+  await alpha(page, (a) => a.navigate('human'));
+  await waitFor(page, 'human');
+  await page.waitForTimeout(600);
+  await page.addStyleTag({ content: 'body *:not(canvas):not(:has(canvas)) { visibility: hidden !important; }' });
+  await page.waitForTimeout(300);
+  const info = () => page.evaluate(`window.__alpha.brain.perfInfo()`) as Promise<{ edges: number; collapse: number }>;
+  const rest = await page.screenshot();
+
+  // D62: crazy = the whole brain collapses into one point, rests 0.3 s, unfolds to the very same points
+  await page.evaluate(`window.__alpha.brain.perform('crazy', 0.7, 7)`);
+  await page.waitForTimeout(200);
+  const at = async (t: number) => {
+    await page.evaluate(`window.__alpha.brain.setSignalTime(${t})`);
+    await page.waitForTimeout(200);
+    return (await info()).collapse;
+  };
+  const c = { start: await at(0.05), mid: await at(1.0), pointA: await at(1.75), pointB: await at(1.95), later: await at(2.6), end: await at(3.95) };
+  expect(c.start).toBeLessThan(0.01);
+  expect(c.mid).toBeGreaterThan(0.1);
+  expect(c.mid).toBeLessThan(0.9);
+  // the pause: exactly one point for 0.3 s (1.7 .. 2.0)
+  expect([c.pointA, c.pointB]).toEqual([1, 1]);
+  expect(c.later).toBeGreaterThan(0.05);
+  expect(c.later).toBeLessThan(0.95);
+  // fully unfolded again before the light is gone (the performance lasts more than 4 s)
+  expect(c.end).toBe(0);
+  const point = await (async () => {
+    await at(1.85);
+    return page.screenshot();
+  })();
+  if (process.env.ALPHA_D62_FRAMES) {
+    for (const t of [0.4, 0.9, 1.4, 1.65, 1.85, 2.3, 2.8, 3.3]) {
+      await at(t);
+      await page.screenshot({ path: `${process.env.ALPHA_D62_FRAMES}/crazy-${t.toFixed(2)}.png` });
+    }
+  }
+  expect(point.equals(rest)).toBe(false);
+  await page.evaluate(`window.__alpha.brain.setSignalTime(100)`);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(`window.__alpha.brain.signal()`)).toBeNull();
+  expect((await page.screenshot()).equals(rest)).toBe(true);
+});
+
 test('brain perform — a performance per state, read back through the signal, and the resting frame returns exactly', async ({ page }) => {
   test.setTimeout(120_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -311,7 +360,7 @@ test('brain perform — a performance per state, read back through the signal, a
     perform(p: string, i: number, seed?: number): void;
     signal(): { kind: string; partition?: string; intensity?: number; seed?: number; t: number } | null;
     setSignalTime(t: number): void;
-    perfInfo(): { edges: number; shake: number };
+    perfInfo(): { edges: number; collapse: number };
   };
   const brain = <T,>(fn: (b: Brain) => T) =>
     page.evaluate(`(${fn.toString()})(window.__alpha.brain)`) as Promise<T>;

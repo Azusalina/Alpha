@@ -71,7 +71,7 @@
 - Optional `test-schema` extra validates the schema itself, live examples for
   all 23 request/response envelopes and method bodies, negative shapes,
   lifecycle/ranking/candidate variants, migration and real JSON-lines output.
-  Thirteen synthetic tests use temporary databases; without the extra they explicitly
+  Fourteen synthetic tests use temporary databases; without the extra they explicitly
   skip. Backend CI configuration requires the validator and pins the tokenizer
   and Actions references. Local Python 3.14 passes; online CI and its Python 3.10
   job have not been executed yet. Schema shapes are not model-validity evidence.
@@ -132,6 +132,15 @@
 
 ## Current backend queue (2026-10-01)
 
+- [x] Model-only reset: confirmed local CLI with exact existing absolute DB
+  target, epoch/revision checks and atomic zeroing. Translator, approvals and
+  history preserved; old fits excluded until explicit re-review. Twelve synthetic
+  reset tests plus one post-reset result-schema test. `model-reset.md` is the contract.
+- [ ] Frontend: consume model_active/model_epoch and separate approved history
+  from current-model participation; clear old caches on reset/reconnect, never
+  auto-review or replay historical effects. No live reset endpoint/UI yet.
+- [ ] Native acceptance of administrative reset/reconnect and F6 edits/deletes;
+  basic browser real-Python tests do not validate native failure/recovery paths.
 - [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
   metadata migration and expanded preview implemented and regression-tested.
 - [x] P0: F5 summaries and input_page pagination implemented and regression-tested.

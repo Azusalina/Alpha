@@ -196,7 +196,7 @@ export async function readTextFile(file: FileLike): Promise<TextFile> {
   }
   // A text file has no U+0000. UTF-16 without a BOM (every other byte is 00) decodes
   // as "valid" UTF-8 full of NULs and would otherwise be read as garbage text; the
-  // back end also refuses a text that starts with one (see `leadingNul`).
+  // back end also refuses a text with one anywhere (see `hasNul`).
   if (decoded.includes('\u0000')) {
     throw new TextFileError('INVALID_UTF8', '文件含有空字符（U+0000），不像 UTF-8 纯文本（可能是 UTF-16 编码），已拒绝读取');
   }
@@ -214,23 +214,21 @@ export function normalizeForSubmit(text: string): string {
   if (hasLoneSurrogate(t)) {
     throw new BackendError('INVALID_ARGUMENT', '内容含有无法编码的孤立代理字符，请删除后重试');
   }
+  if (hasNul(t)) throw new BackendError('INVALID_ARGUMENT', LEADING_NUL_MESSAGE);
   return t;
 }
 
 // ---- validation --------------------------------------------------------------------
 
-export const LEADING_NUL_MESSAGE = '内容不能以空字符（U+0000）开头；若来自文件，它可能不是 UTF-8 纯文本';
+export const LEADING_NUL_MESSAGE = '内容不能含有空字符（U+0000）；若来自文件，它可能不是 UTF-8 纯文本';
 
 /**
- * True when the text, after leading ASCII spaces, starts with U+0000. The back end
- * stores `length(trim(body)) > 0` and SQLite's `length()` stops at the first NUL,
- * so such a text fails there (as an opaque STORAGE_ERROR). Only U+0020 counts as a
- * space: SQLite `trim()` strips nothing else, and `\n\u0000x` is accepted.
+ * True when the text holds U+0000 anywhere. The back end refuses a new submit or
+ * edit text with one (INVALID_ARGUMENT, nothing is stripped); legacy stored text
+ * that has one stays readable.
  */
-export function leadingNul(text: string): boolean {
-  let i = 0;
-  while (i < text.length && text.charCodeAt(i) === 0x20) i++;
-  return text.charCodeAt(i) === 0;
+export function hasNul(text: string): boolean {
+  return text.includes('\u0000');
 }
 
 export interface EntryDraft {
@@ -291,7 +289,7 @@ export function validateEntry(draft: EntryDraft): EntryValidation {
     errors.push(`内容超过 ${MAX_INPUT_CHARS.toLocaleString('en-US')} 个字符的上限`);
   }
   if (hasLoneSurrogate(text)) errors.push('内容含有无法编码的孤立代理字符，请删除后重试');
-  if (leadingNul(text)) errors.push(LEADING_NUL_MESSAGE);
+  if (hasNul(text)) errors.push(LEADING_NUL_MESSAGE);
 
   if (kind !== 'chat') return { errors, warnings };
 

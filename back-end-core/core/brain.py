@@ -47,7 +47,9 @@ class BrainCore:
     def input_get(self, source_id: str) -> dict:
         with self.store._connect() as db:
             row = db.execute(
-                "SELECT i.*, s.body AS text, s.source_ref, s.created_at "
+                "SELECT i.*, (i.status='agreed' AND i.model_epoch="
+                "CAST((SELECT value FROM brain_meta WHERE key='model_epoch') AS INTEGER)) AS model_active, "
+                "s.body AS text, s.source_ref, s.created_at "
                 "FROM brain_inputs i JOIN sources s ON s.id = i.source_id "
                 "WHERE i.source_id = ?", (source_id,),
             ).fetchone()
@@ -78,7 +80,9 @@ class BrainCore:
     def _input_rows(db, clauses: list[str], values: list, limit: int) -> list:
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         return db.execute(
-            "SELECT i.*, s.source_ref, s.created_at FROM brain_inputs i "
+            "SELECT i.*, (i.status='agreed' AND i.model_epoch="
+            "CAST((SELECT value FROM brain_meta WHERE key='model_epoch') AS INTEGER)) AS model_active, "
+            "s.source_ref, s.created_at FROM brain_inputs i "
             "JOIN sources s ON s.id=i.source_id" + where +
             " ORDER BY s.created_at DESC, i.source_id DESC LIMIT ?", (*values, limit),
         ).fetchall()

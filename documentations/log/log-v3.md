@@ -432,3 +432,11 @@ Verified: `tsc` clean; `tests/backend.spec.ts`, `records.spec.ts`, `entry.spec.t
 - Earlier: the user's art review of
   `outputs/qa/human/human-transition-sheet.png` and
   `outputs/qa/system/system-transition-sheet.png`, then the open items above.
+
+## Part 10 — F6 / model-reset wiring and the collapse performance (2026-10-01)
+
+| # | Decision |
+| --- | --- |
+| **D62** | Crazy animation replaced again (supersedes D61): the **whole** brain (dots, net lines, tree edges and nodes) collapses into one singularity at its centre (0–1.7 s, accelerating, each vertex wound about the vertical axis and staggered per vertex), rests as a point for **0.3 s** (1.7–2.0 s), then unfolds back to **exactly the same points** (2.0–3.9 s, a burst that settles); the light at the point fades by 4.4 s. One `uCollapse` drives every shader, so the way back is the same path; at 0 the shaders return the point untouched (resting frame bit-identical, tested). Reduced motion: nothing moves, only the light at the centre. |
+| **D63** | `RemoteBrainAdapter.probe` switches `proposedMethods` (F6 edit/delete) on only when `health` lists `input_edit` and `input_delete` and reports `features.source_edit` and `source_delete` true. After an edit or delete the store reloads page 1 (every cursor is stale). U+0000 anywhere in new text is `INVALID_ARGUMENT` (front-end check, mock and back end agree; tested against real Python). |
+| **D64** | Model reset metadata: `health.model_epoch` (`BrainAdapter.modelEpoch()`), `model_active` / `model_epoch` on rows, `model_epoch` on effects. An agreed input with `model_active=false` is shown as "still approved, not in the current model" with a「纳入当前模型」button (a `confirm(true)`); effects of an older epoch are tagged 旧模型轮次. Nothing is re-enlisted automatically. |

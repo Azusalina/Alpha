@@ -62,7 +62,7 @@
  */
 
 import { CodePointIndex, codePointLength, codePointSlice, hasLoneSurrogate } from './spans';
-import { isBlank, leadingNul, parseChatLine, pyLstrip, pyStrip, PY_WS, splitLines } from './text';
+import { LEADING_NUL_MESSAGE, hasNul, isBlank, parseChatLine, pyLstrip, pyStrip, PY_WS, splitLines } from './text';
 import {
   BackendError,
   KINDS,
@@ -599,10 +599,8 @@ export class MockBrainAdapter implements BrainAdapter {
       fail('INVALID_ARGUMENT', `内容须为 1 到 ${MAX_INPUT_CHARS} 个字符的文字`);
     }
     if (hasLoneSurrogate(text)) fail('INVALID_ARGUMENT', '内容含有无法编码的孤立代理字符');
-    // The real back end cannot store a text that starts with U+0000 (SQLite length()
-    // stops at the NUL, so its CHECK length(trim(body)) > 0 fails) and answers with
-    // an opaque STORAGE_ERROR. Mirror it so demo mode does not hide that failure.
-    if (leadingNul(text)) fail('STORAGE_ERROR', 'local storage operation failed');
+    // The real back end refuses U+0000 anywhere in a new submit / edit text, without stripping it.
+    if (hasNul(text)) fail('INVALID_ARGUMENT', LEADING_NUL_MESSAGE);
     if (kind === 'chat' && (typeof selfSpeaker !== 'string' || isBlank(selfSpeaker))) {
       fail('INVALID_ARGUMENT', '聊天记录必须指定发言者');
     }
@@ -669,6 +667,10 @@ export class MockBrainAdapter implements BrainAdapter {
 
   capabilities(): Promise<ReadonlySet<AdapterMethod>> {
     return this.call(() => new Set<AdapterMethod>(ADAPTER_METHODS));
+  }
+
+  modelEpoch(): Promise<number | null> {
+    return this.call(() => null);
   }
 
   submit(req: SubmitRequest): Promise<SubmitResult> {

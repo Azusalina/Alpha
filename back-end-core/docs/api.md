@@ -371,6 +371,25 @@ F13 and the error code LOCKED are deferred, not implemented by F6.
 
 ## Remaining frontend extensions (not implemented)
 
+### Model-only reset metadata
+
+The local administrative reset preserves translator learning while starting a
+new zero-state model epoch. API methods remain 23 and schema_version remains 1;
+there is no JSON reset method. See [model-reset.md](model-reset.md) for CLI
+confirmation, optimistic checks, stop-client requirement and retained history.
+`health.model_epoch` identifies the current model. Input records add
+`model_active` and `model_epoch`; formal effects add their originating
+`model_epoch`. These are optional schema extensions for older v1 compatibility.
+
+After reset, `status=agreed` can coexist with `model_active=false`: approval
+still supports translator vocabulary/corrections and memories, but no longer
+contributes to personalized parameters. Explicit `review(...,agree=true)` may
+re-enlist that source's frozen fit; same-epoch repetition remains a no-op.
+Never auto-review on reconnect. `preview` still excludes agreed inputs; no
+post-reset preview extension is introduced. Read current `state`, not old effects.
+Clear stale caches and pending operations and reload health/state/page 1 after
+administrative reset. Frontend support of these distinctions remains pending.
+
 The frontend may enable its existing proposedMethods adapter option after
 health advertises input_edit/input_delete and source_edit/source_delete=true.
 Use the final F6 contract above, not the obsolete non-agreed-only delete proposal.

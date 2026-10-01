@@ -117,6 +117,7 @@ class BrainAPI:
                     raise RequestError("INVALID_ARGUMENT", "corrections must be an array")
             if method == "health":
                 result = {"schema_version": SCHEMA_VERSION, "candidate_publication": "manual",
+                          "model_epoch": self.brain.model.reset_info()["model_epoch"],
                           "llm_runtime_configured": False, "methods": sorted(METHODS),
                           "features": {"two_judgements": True, "exclamation_sets_both_true": True,
                                        "repeat_review": True, "preview_untrained": True,

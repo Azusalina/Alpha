@@ -10,6 +10,7 @@ from pathlib import Path
 from translator.pipeline import MAX_CHARS
 
 from .engine import BrainModel
+from .reset import verify_existing
 
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
 
@@ -19,6 +20,11 @@ def main() -> None:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("baseline")
+    actions.add_parser("reset-info", help="inspect model epoch and input revision before reset")
+    reset = actions.add_parser("reset", help="zero all model partitions, preserving translator and sources")
+    reset.add_argument("--confirm", required=True, choices=("RESET_MODEL",))
+    reset.add_argument("--expected-epoch", required=True, type=int)
+    reset.add_argument("--expected-revision", required=True, type=int)
     submit = actions.add_parser("submit")
     submit.add_argument("--partition", required=True, choices=("rational", "emotional", "crazy"))
     submit.add_argument("--kind", choices=("diary", "chat", "philosophy"), default="diary")
@@ -56,8 +62,15 @@ def main() -> None:
         if args.action == "baseline":
             result = BrainModel.baseline()
         else:
+            if args.action in {"reset", "reset-info"}:
+                verify_existing(args.db)
             model = BrainModel(args.db)
-            if args.action == "submit":
+            if args.action == "reset-info":
+                result = model.reset_info()
+            elif args.action == "reset":
+                result = model.reset_model(confirmation=args.confirm, expected_epoch=args.expected_epoch,
+                                           expected_revision=args.expected_revision)
+            elif args.action == "submit":
                 if args.file:
                     if args.file.suffix.lower() not in {".txt", ".md"}:
                         raise ValueError("v1 supports only .txt and .md files")

@@ -6,7 +6,7 @@ independent partitions (`rational`, `emotional`, `crazy`; the last is a user's
 input-page name, **not** a diagnosis). All personal parameter values are zero
 in the immutable [`baseline.json`](baseline.json); `support=0` and
 `observed=false` distinguish unobserved from measured neutral. The active state
-is derived from agreed sources in local SQLite. Raw input is stored at submit
+is derived from current-model-epoch agreed sources in local SQLite. Raw input is stored at submit
 time; two whole-input judgements (`immediate`, `confirm`) gate fitting. Both must
 be true. An explicit `exclamation` at submit sets both true and fits atomically;
 otherwise `review` sets confirm later. See [`../docs/api.md`](../docs/api.md).
@@ -19,6 +19,13 @@ translator. `revoke` removes an agreed source's contributions from the active
 fit while retaining the source and effect history.
 Manual re-review can reject an agreed source or restore an inactive one using
 its frozen fit, without duplicate support. Decision history is retained.
+
+Model-only reset is available through a deliberately confirmed local CLI:
+all three parameter partitions return to unobserved zero while translator
+vocabulary/correction learning, approvals and history survive. Old sources
+cannot automatically rejoin the new model; explicit re-review is required.
+This is not a factory reset or a hidden JSON API. See
+[`../docs/model-reset.md`](../docs/model-reset.md) for exact scope and commands.
 
 ## Setup
 

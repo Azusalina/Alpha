@@ -67,6 +67,9 @@ function explain(rec: InputRecord, demo: boolean): string {
         ? '当下判断为真，等待二次确认。T：认可为真，演示里只会标记并让大脑演出一次，没有运行模型；F：不同意。'
         : '当下判断为真，等待二次确认。T：认可为真，从此参与训练，大脑会有一次演出；F：不同意，不参与训练。';
     case 'agreed':
+      if (rec.model_active === false) {
+        return '仍是已认可（译解词汇、纠错和记忆保留），但不属于当前模型：模型重置后它不再参与参数训练，也不会自动恢复。「纳入当前模型」会重新判定为 T，之前冻结的拟合会恢复；撤销或删除不影响当前模型。';
+      }
       if (demo) {
         return rec.confirmed_by === 'exclamation'
           ? '录入时「断言为真」，两次判断都已为真。演示：只是标记为训练，没有运行模型。撤销会取消这个标记；历史保留，不会删除。'
@@ -399,6 +402,20 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                     onClick={() => void inputStore.confirm(id, false)}
                   />
                 </>
+              )}
+              {rec.status === 'agreed' && rec.model_active === false && (
+                <Action
+                  method="confirm"
+                  id={id}
+                  label="纳入当前模型"
+                  busyText="纳入中…"
+                  busy={busyConfirm}
+                  settling={settling}
+                  tone="primary"
+                  testid="act-reenlist"
+                  title="再次判定为 T：把它重新纳入当前模型；之前冻结的拟合会恢复，大脑演出一次"
+                  onClick={() => void inputStore.confirm(id, true)}
+                />
               )}
               {rec.status === 'agreed' && (
                 <Action

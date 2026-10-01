@@ -45,6 +45,27 @@ class SchemaContractTests(unittest.TestCase):
         self.called = set()
         self.examples = {}
 
+    def test_model_reset_metadata_and_old_effects_remain_schema_compatible(self):
+        first = self.call('submit', text='我重视公平。', partition='rational', exclamation=True)['source_id']
+        self.call('submit', text='我重视公平。', partition='rational', exclamation=True)
+        info = self.api.brain.model.reset_info()
+        self.api.brain.model.reset_model(confirmation='RESET_MODEL', expected_epoch=info['model_epoch'],
+                                        expected_revision=info['input_revision'])
+        self.assertEqual(self.call('health')['model_epoch'], 1)
+        record = self.call('input_get', source_id=first)
+        self.assertEqual(record['status'], 'agreed')
+        self.assertFalse(record['model_active'])
+        self.assertEqual(record['model_epoch'], 0)
+        self.call('input_page', limit=1)
+        self.call('input_list')
+        self.assertTrue(all(e['model_epoch'] == 0 for e in self.call('effects')))
+        self.call('state')
+        self.call('review_history', source_id=first)
+        self.call('correction_history', source_id=first)
+        restored = self.call('review', source_id=first, agree=True)
+        self.assertTrue(all(e['model_epoch'] == 1 for e in restored['effects']))
+        self.assertTrue(self.call('input_get', source_id=first)['model_active'])
+
     def validate(self, name, value):
         # Failures contain paths/messages, not a dump of input text.
         errors = list(self.validators[name].iter_errors(value))

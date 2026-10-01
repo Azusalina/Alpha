@@ -57,6 +57,9 @@ def read_snapshot(path: str | Path) -> dict:
         revision = db.execute("SELECT COALESCE(MAX(revision),0) FROM brain_effects").fetchone()[0]
         snapshot = {"baseline_sha256": baseline_hash, "revision": revision,
                     "rational": state, "training_source_ids": sources}
+        model_epoch = db.execute("SELECT value FROM brain_meta WHERE key='model_epoch'").fetchone()
+        if model_epoch is not None:
+            snapshot["model_epoch"] = int(model_epoch[0])
         snapshot["fingerprint"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode("utf-8")).hexdigest()
         return snapshot
     finally:

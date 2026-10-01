@@ -22,7 +22,9 @@
  *
  * The brain answers an input with a performance (D57, humanStore.perform): bolts
  * that run along the net's edges in the state's own colours, and for the crazy
- * state a single light at the centre that swells over the whole brain and collapses back. Everything for it is prebuilt and bounded: one
+ * state (D62) the whole brain, dots, net and tree, collapsing into one
+ * singularity at its centre and unfolding again to the very same points, with a
+ * light at the point. Everything for it is prebuilt and bounded: one
  * quad-strip mesh per bank (two banks, so a new performance can take over while
  * the old one fades), written once per performance, animated in the shader on
  * the scene clock; the underglow on the dots and lines reuses the D53 hop
@@ -162,6 +164,37 @@ const PERF_COLOR_GLSL = /* glsl */ `
     float jh = fract(dot(p, vec3(12.9898, 78.233, 37.719)));
     float tick = floor(uPerfT * 14.0);
     return (fract(sin(vec3(jh * 91.7 + tick * 1.3, jh * 47.1 + tick * 2.9, jh * 13.3 + tick * 4.1)) * 43758.5453) - 0.5) * uJit * 2.0;
+  }
+`;
+
+/**
+ * The crazy state's collapse (D62), shared by the dots, the net lines and the tree.
+ * `uCollapse` 0 returns the point untouched (the resting frame is unchanged bit for
+ * bit); 1 puts every point at the centre. Each point's own progress is staggered by a
+ * hash of its REST position (quantised, so the dot, the line end and the tree end at
+ * one vertex move together) and by its radius (the rim starts first), yet ends at 1
+ * exactly when `uCollapse` does. On the way each point also turns about the vertical
+ * axis, so the brain is wound into the point rather than shrunk. Because the whole
+ * path is a function of the one `uCollapse`, running it backwards unfolds the brain
+ * to exactly the points it left.
+ */
+const COLLAPSE_GLSL = /* glsl */ `
+  uniform float uCollapse;   // D62: 0 = at rest, 1 = the singularity
+  float collapseP(vec3 p) {
+    vec3 q = floor(p * 512.0 + 0.5);
+    float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float r = clamp(length(p), 0.0, 1.0);
+    float s = 0.38 * (0.55 * h + 0.45 * (1.0 - r));
+    float x = clamp((uCollapse - s) / (1.0 - 0.38), 0.0, 1.0);
+    return x * x * (3.0 - 2.0 * x);
+  }
+  vec3 collapsePos(vec3 p) {
+    if (uCollapse <= 0.0) return p;
+    float c = collapseP(p);
+    float a = sin(3.14159265 * c) * 1.3;
+    float cs = cos(a);
+    float sn = sin(a);
+    return vec3(cs * p.x + sn * p.z, p.y, -sn * p.x + cs * p.z) * (1.0 - c);
   }
 `;
 
@@ -473,6 +506,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
       uJit: { value: 0 },
       uCoreR: { value: 0 },
       uCoreVis: { value: 0 },
+      uCollapse: { value: 0 },
       uCoreCol: { value: new Color() },
       uPal: { value: Array.from({ length: 6 }, () => new Color()) },
       uSat: { value: 0.9 },
@@ -511,11 +545,12 @@ export function BrainView({ tier, reducedMotion }: Props) {
           ${SIGNAL_GLSL}
           ${PALETTE_GLSL}
           ${PERF_COLOR_GLSL}
+          ${COLLAPSE_GLSL}
           void main() {
             vHover = step(abs(aRegion - uHoverRegion), 0.5) * uFocus;
             vHeld = held(aRegion);
             vLocal = position;
-            vec3 lp = position;
+            vec3 lp = collapsePos(position);
             if (uJit > 0.0) lp += perfJitter(position);
             vec4 mv = modelViewMatrix * vec4(lp, 1.0);
             vHop = aHop;
@@ -614,6 +649,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
           ${SIGNAL_GLSL}
           ${PALETTE_GLSL}
           ${PERF_COLOR_GLSL}
+          ${COLLAPSE_GLSL}
 
           void main() {
             // Appear where the solid has withdrawn: the plaster is visible where
@@ -630,7 +666,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
             float m = clamp((uMigrate - lead) / 0.5, 0.0, 1.0);
             m = m * m * m * (m * (m * 6.0 - 15.0) + 10.0);
 
-            vec3 target = (uBrain * vec4(aBrain, 1.0)).xyz;
+            vec3 target = (uBrain * vec4(collapsePos(aBrain), 1.0)).xyz;
             // the shudder of the crazy state (D57): the vertices jitter, brain-local
             if (uJit > 0.0) target += (uBrain * vec4(perfJitter(aBrain), 0.0)).xyz;
             vec3 pos = mix(position, target, m);
@@ -684,6 +720,8 @@ export function BrainView({ tier, reducedMotion }: Props) {
             gl_Position = projectionMatrix * mv;
             float node = mix(1.0, 1.7 * mix(0.7, 1.0, front), m);
             float size = mix(aSize, node, m);
+            // D62: the dots shrink a little as they are compressed, so the point stays a point
+            if (uCollapse > 0.0) size *= 1.0 - 0.35 * collapseP(aBrain);
             gl_PointSize = size * (1.0 + 0.9 * vLit) * uSizeScale / max(0.25, -mv.z);
             // PER_VERTEX dots overlap on one vertex: the far side is kept low
             // enough that the stack still reads faint
@@ -725,6 +763,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         blending: NormalBlending,
         uniforms: {
           uGrow: { value: 0 },
+          uCollapse: perfU.uCollapse,
           uColor: { value: new Color(PALETTE.inkSoft) },
           uAlpha: { value: 1 },
         },
@@ -733,10 +772,11 @@ export function BrainView({ tier, reducedMotion }: Props) {
           attribute float aKind;
           varying float vOrder;
           varying float vKind;
+          ${COLLAPSE_GLSL}
           void main() {
             vOrder = aOrder;
             vKind = aKind;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(collapsePos(position), 1.0);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -770,12 +810,14 @@ export function BrainView({ tier, reducedMotion }: Props) {
           uHover: { value: -1 },
           uSelected: { value: -1 },
           uSizeScale: { value: 1 },
+          uCollapse: perfU.uCollapse,
           uColor: { value: new Color(PALETTE.ink) },
           uAlpha: { value: 1 },
         },
         vertexShader: /* glsl */ `
           attribute float aDepth;
           attribute float aIndex;
+          ${COLLAPSE_GLSL}
           uniform float uGrow;
           uniform float uHover;
           uniform float uSelected;
@@ -787,7 +829,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
             float hot = max(step(abs(aIndex - uHover), 0.5), step(abs(aIndex - uSelected), 0.5));
             vRing = step(abs(aIndex - uSelected), 0.5);
             vAlpha = shown;
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            vec4 mv = modelViewMatrix * vec4(collapsePos(position), 1.0);
             gl_Position = projectionMatrix * mv;
             gl_PointSize = (aDepth < 0.5 ? 5.5 : 4.2 - 0.5 * aDepth) * (1.0 + 0.6 * hot) * shown
                          * uSizeScale / max(0.25, -mv.z);
@@ -1282,9 +1324,6 @@ export function BrainView({ tier, reducedMotion }: Props) {
       t: [0, 0],
       life: [0, 0],
       fade: [-1, -1],
-      /** The crazy shudder's smoothed strength 0..1 and the clock it runs on. */
-      shake: 0,
-      shakeT: 0,
       cometTinted: false,
     }),
     [brain],
@@ -1345,6 +1384,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     perfU.uJit.value = 0;
     perfU.uCoreR.value = 0;
     perfU.uCoreVis.value = 0;
+    perfU.uCollapse.value = 0;
     if (coreRef.current) coreRef.current.visible = false;
     particleMaterial.uniforms.uHopRate.value = linkMaterial.uniforms.uHopRate.value = SIGNAL.HOP_RATE;
     particleMaterial.uniforms.uReach.value = linkMaterial.uniforms.uReach.value = SIGNAL.REACH;
@@ -1468,17 +1508,19 @@ export function BrainView({ tier, reducedMotion }: Props) {
     pu.uHopRate.value = lu.uHopRate.value = reducedMotion ? 4.5 : mode.hopRate;
     pu.uReach.value = lu.uReach.value = reducedMotion ? 18 : mode.reach;
     if (partition === 'crazy') {
-      // a light at the centre swells over the whole brain and collapses back (D57, revised)
+      // D62: the whole brain falls into one point, rests, and unfolds again. With reduced motion
+      // nothing moves: only the light at the centre rises and falls, slowly.
       const b = coreBloom(T);
       const gain = k * (reducedMotion ? 0.7 : 1);
       perfU.uSigGain.value = mode.gain * gain;
       perfU.uBulge.value = reducedMotion ? 0.008 : 0.02;
       perfU.uJit.value = 0;
-      perfU.uCoreR.value = b.front;
-      perfU.uCoreVis.value = b.vis;
+      perfU.uCoreR.value = 0;
+      perfU.uCoreVis.value = 0;
+      perfU.uCollapse.value = reducedMotion ? 0 : b.collapse;
       const cm = coreMaterial.uniforms;
       cm.uRad.value = b.haloRadius;
-      cm.uCoreSize.value = 0.04 + 0.05 * b.core;
+      cm.uCoreSize.value = 0.03 + 0.05 * b.core;
       cm.uCore.value = Math.min(1, b.core * gain);
       cm.uHalo.value = Math.min(1, b.halo * gain);
       if (coreRef.current) coreRef.current.visible = T >= 0;
@@ -1557,24 +1599,6 @@ export function BrainView({ tier, reducedMotion }: Props) {
     applyBanks(delta, settle);
   };
 
-  /** The crazy state's swell: the whole brain grows a few percent with the light's front, then exactly back. */
-  const shudder = (g: Group, delta: number) => {
-    const s = humanStore.signal;
-    const crazy = !reducedMotion && s && s.kind === 'perform' && s.partition === 'crazy' && perf.sig === s && perf.built;
-    let target = 0;
-    if (crazy) {
-      perf.shakeT = s.t - (s.fromCss ? FLIGHT : 0);
-      target = coreBloom(perf.shakeT).swell * (0.5 + 0.5 * (s.intensity ?? 0.5));
-    } else {
-      perf.shakeT += delta;
-    }
-    // smoothed, so replacing a crazy performance does not snap; a frozen clock shows the exact value
-    perf.shake = delta > 0 ? perf.shake + (target - perf.shake) * (1 - Math.exp(-delta * 14)) : target;
-    if (target === 0 && perf.shake < 1e-3) perf.shake = 0;
-    if (perf.shake <= 0) return;
-    g.scale.multiplyScalar(1 + perf.shake * 0.035);
-  };
-
   // ---- frame ---------------------------------------------------------------------
   useFrame((_, delta) => {
     const hp = humanProgress();
@@ -1600,7 +1624,6 @@ export function BrainView({ tier, reducedMotion }: Props) {
       g.position.copy(tmp.v);
       g.quaternion.copy(tmp.q);
       g.scale.setScalar(s);
-      shudder(g, delta * stage.timeScale);
       g.updateMatrixWorld(true);
       particleMaterial.uniforms.uBrain.value.copy(g.matrixWorld);
     }
@@ -1686,12 +1709,12 @@ export function BrainView({ tier, reducedMotion }: Props) {
         perform(partition: 'rational' | 'emotional' | 'crazy', intensity = 0.7, seed?: number, fromCss: [number, number] | null = null) {
           humanStore.perform({ partition, intensity, fromCss, seed });
         },
-        /** The bolts in flight: path edges planned, banks drawing, shudder strength. */
+        /** The bolts in flight: path edges planned, banks drawing; `collapse` is the crazy state's 0..1 (D62). */
         perfInfo: () => ({
           edges: perf.plan?.count ?? 0,
           banksOn: [...perf.on],
           drawn: boltRefs.current.map((m) => !!m?.visible),
-          shake: perf.shake,
+          collapse: perfU.uCollapse.value,
         }),
         /** Capture hook: put the running signal at `t` seconds (with the clock frozen). */
         setSignalTime(t: number) {

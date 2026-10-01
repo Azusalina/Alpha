@@ -23,7 +23,8 @@
         "reason": {"enum": ["immediate_false", "confirm_false", "user_revoked", null]},
         "source_ref": {"type": ["string", "null"]}, "created_at": {"type": "string"},
         "excerpt": {"type": "string", "maxLength": 80}, "char_count": {"type": "integer", "minimum": 1},
-        "edited_at": {"type": ["string", "null"], "minLength": 1}
+        "edited_at": {"type": ["string", "null"], "minLength": 1},
+        "model_active": {"type": "boolean"}, "model_epoch": {"type": "integer", "minimum": 0}
       },
       "allOf": [{"$ref": "#/$defs/approvalMetadata"}]
     },
@@ -173,7 +174,7 @@
     "committedEffect": {
       "allOf": [{"$ref": "#/$defs/effectFields"}], "unevaluatedProperties": false,
       "required": ["revision", "created_at"],
-      "properties": {"action": {"enum": ["approve", "revoke"]}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"$ref": "#/$defs/text"}}
+      "properties": {"action": {"enum": ["approve", "revoke"]}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"$ref": "#/$defs/text"}, "model_epoch": {"type": "integer", "minimum": 0}}
     },
     "translatorEffect": {
       "type": "object", "required": ["term", "documents_before", "documents_after", "source_id"], "additionalProperties": false,
@@ -236,6 +237,7 @@
           "type": "object", "required": ["schema_version", "candidate_publication", "llm_runtime_configured", "methods", "features"], "additionalProperties": false,
           "properties": {
             "schema_version": {"const": 1}, "candidate_publication": {"const": "manual"}, "llm_runtime_configured": {"const": false},
+            "model_epoch": {"type": "integer", "minimum": 0},
             "methods": {"type": "array", "minItems": 23, "maxItems": 23, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
             "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
               "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}}}

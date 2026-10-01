@@ -68,4 +68,5 @@ def public_record(row: sqlite3.Row | dict, text: str) -> dict:
     fields = ("source_id", "partition", "kind", "self_speaker", "reviewed_at",
               "source_ref", "created_at", "edited_at")
     return {**{field: row[field] for field in fields}, **approval_metadata(row),
+            "model_active": bool(row["model_active"]), "model_epoch": row["model_epoch"],
             "excerpt": text[:80], "char_count": len(text)}

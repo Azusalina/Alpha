@@ -174,6 +174,11 @@
 
 ### [back] 回复
 
+- [back] 2026-10-01 本机试用评估与 model-only Reset：基础录入／预览／双确认／effect／撤销链路可开始小规模本机试用，不等于真实自我拟合／选择预测已验证。F6 后端已完成，但当前 RemoteBrainAdapter.proposedMethods 仍默认 false，前端须启用并补验收；本轮不修改 src/。缺少口令／加密／保护备份，不建议先导入最敏感材料；原生故障、release Python/jieba 打包、在线 CI 与真实留出验证仍待办。
+- [back] 2026-10-01 用户确认 Reset 只清零 personalized model、保留 translator 的理解学习。已提供本机管理命令（不是隐藏 API，也不是前端按钮），具体操作见 back-end-core/docs/model-reset.md：先停止使用该库的 app/backend，指定已有绝对 DB 路径，reset-info 取轮次／修订，再 reset --confirm RESET_MODEL --expected-epoch N --expected-revision R。三个分区回到 0/support=0/observed=false；原文、词汇、显式纠错支持、认可、候选记忆及历史保留。旧贡献通过模型轮次隔离，新输入／重启不自动恢复，只有用户明确 review(...,agree=true) 才重新纳入选中的旧来源；保留 translator 不等于整个系统出厂重置。确认短语不是身份认证，口令门继续延期。
+- [back] 2026-10-01 前端新增接线待办：health.model_epoch；input_get/list/page/edit 的 model_active/model_epoch；正式 effects 的 model_epoch（历史值不改写）。status=agreed 现在可为 model_active=false，代表“仍认可但不属于当前模型”，不要标成当前已训练。已认可但旧轮次的材料仍不能 preview，重新纳入要用户主动 review，不能连接时自动补确认。Reset 后重连刷新 health/state/列表第一页、清除缓存和旧在途操作，不能播放旧轮次 effects；旧游标必定 STALE_CURSOR。schema_version=1、23 个 JSON API 方法不变，新增元数据允许旧 v1 结果缺省。Reset UI／live reset endpoint 留待前后端另行定义验收。
+- [back] 2026-10-01 本轮验收：177 项后端测试（含 14 项 schema 校验）、7 项 translator 测试、13 项 Rust 宿主测试通过；使用系统 Chromium 的 6 项真实 Python 前端链路测试在 Reset 改动后再次全通过，npm run build／typecheck 与 git diff --check 通过。Playwright 初次缺少下载版 Chromium，已用 ALPHA_CHROMIUM=/usr/bin/chromium 复跑。Vite 仍有 >500 kB chunk 警告，未修改前端分包；这些结果不等于原生 GPU／release runtime／真实材料效度验收。本轮 Reset 只在合成材料与临时库上执行，未重置／访问用户实际运行数据库。
+
 <!-- [back]：请在上面各条下缩进回复，或在此处集中回复。 -->
 
 - [back] 2026-09-30：本轮完成纠错契约同步、F8/F9/F10/F12 确认，以及 Unicode 提交校验；后端现有 19 个方法可由 `health.methods` 查询。未改 `src/`，未实现 Tauri 或 F1-F7。
@@ -188,3 +193,11 @@
 - [back] 2026-10-01 最新补充：21 个方法结果体已全部定义在 api.schema.json 的 $defs.results.$defs[METHOD]，配套 12 项契约测试覆盖分支与序列化输出。先验通用 response 信封，再用保留的原请求 method 选择 #/$defs/results/$defs/METHOD 验证成功的 result；只验信封或 results 容器不够。重复同判定的 review 不返回新 interpretation／observed_terms／restored_fit，旧库 migrate.before 只有 status，预览 effect 不含 revision／created_at，正式 effect 必须含；不得补造字段。未改 src/ 或训练逻辑，方法仍为 21 个，schema_version 仍为 1；在线 CI、F6 与安全门等继续待办。
 - [back] 2026-10-01：新增离线命令 python -m translator.evaluation --cases /path/to/local-corpus.json（从 back-end-core 执行），说明与合成模板在 docs/translator-evaluation.md 和 translator-evaluation.example.json。默认汇总不含原文或案例 ID，--details 仅显式返回不透明 ID 和错误种类／方向／位置；文件和报告保留在本机。此工具不新增 JSON API、前端字段或材料录入格式，不训练任何模型／词汇、不读取实际用户库，旧冻结拟合不变。表达覆盖和间接主体解析仍待完善。
 - [back] 2026-10-01 最新主体归属策略：新预览／首次拟合使用 assertion-guards-v2，可返回暂不采纳原因 other_subject_value，避免把“我觉得她把自由看得很重要”当作用户自身倾向；自身对他人的重视、情绪与联系意向仍保留。显式“对我来说／在我看来”支持跨逗号的自身观点范围。api.schema.json 接受旧 v1 与新 v2，新增原因仅适用于 v2；旧贡献／诊断撤销再恢复仍冻结，不重算或重标版本。21 个方法与 schema_version=1 不变，未修改 src/、未访问实际用户库；前端需能容纳新策略／原因枚举。合成模板当前 3 TP、0 FP、0 FN，但 5 条全为开发例、0 条留出，不能作为真实效果证明。
+
+### [front] 2026-10-01 对 [back] 最新回复的前端接线
+
+- F6：`probe` 在 `health.methods` 含 input_edit/input_delete 且 `features.source_edit/source_delete` 都为 true 时自动启用；编辑只对非 agreed 开放（agreed 须先撤销）；任意状态可删除（二次确认，文案不宣称彻底擦除）；编辑／删除成功后重载第一页（旧游标必定 STALE_CURSOR）并重读模型状态。已用真实 Python 验收（浏览器链路 `tests/real-backend.spec.ts`、适配器 `tests/backend.spec.ts`）；原生窗口里的编辑／删除尚未验收，先不标 ////。
+- U+0000：前端任意位置拦截；mock 与后端一致返回 INVALID_ARGUMENT；旧的 STORAGE_ERROR／21 个方法／source_edit=false 断言已更新为 23 个方法。
+- 模型重置：读取 `health.model_epoch`、行上的 `model_active`/`model_epoch`、effect 的 `model_epoch`；`agreed` + `model_active=false` 显示为“仍认可但不属于当前模型”，并提供「纳入当前模型」（即 `review(agree=true)`），不自动补确认；旧轮次 effect 标「旧模型轮次」。重置后需重连（新 generation 会清掉缓存和在途操作）；没有 reset 按钮／接口，留待另行定义。
+- evidence_policy v2 的 `other_subject_value` 前端已有中文标签，未知 reason 仍显示原值。
+- 仍未做：F13 口令门、F14 选择反馈、原生窗口 F6 验收、release 构建与 Python/jieba 打包、真实 GPU 验收。

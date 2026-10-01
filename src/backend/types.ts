@@ -7,10 +7,11 @@
  *    `exclamation`, preview of any untrained input (F7) and `input_page` (F5).
  *    The real back end only offers them when `health.features.two_judgements`
  *    is true; `RemoteBrainAdapter.probe` reads that flag;
- *  - what the front end has asked for and the back end has NOT implemented:
- *    editing and deleting an input (F6: `inputEdit`, `inputDelete`,
- *    `edited_at`). Those are marked PROPOSED, only the mock implements them
- *    and the UI must label them 仅演示 and grey them out against a real back end.
+ *  - editing and deleting an input (F6: `inputEdit`, `inputDelete`,
+ *    `edited_at`): the back end implements them (23 methods,
+ *    `health.features.source_edit` / `source_delete`); `RemoteBrainAdapter.probe`
+ *    switches them on only when `health` advertises all four. Against an older
+ *    back end the UI greys them out; the mock marks them 仅演示.
  *
  * Text spans are zero-based Unicode CODE POINT offsets into the exact string
  * that was submitted, end exclusive. JavaScript strings index UTF-16 code
@@ -130,6 +131,8 @@ export interface ParameterEffect {
   rule_id: string;
   action: 'preview' | 'approve' | 'revoke';
   created_at?: string;
+  /** The model epoch that wrote it (formal effects). History is never rewritten: compare with `health.model_epoch`. */
+  model_epoch?: number;
 }
 
 export interface TranslatorEffect {
@@ -258,8 +261,17 @@ export interface InputRecord {
   excerpt: string;
   /** Code points of the whole text. */
   char_count: number;
-  /** PROPOSED (F6). Always null on a real back end; the mock sets it on an edit. */
+  /** UTC time of the last edit (F6); null until the input was edited. */
   edited_at: string | null;
+  /**
+   * Model-reset metadata (api.md, optional on a back end that predates it).
+   * `false` on an `agreed` input = still approved (vocabulary, corrections and
+   * memories keep it) but NOT part of the current personalised model; only an
+   * explicit `confirm(true)` enlists it again. Never show it as "training".
+   */
+  model_active?: boolean;
+  /** The model epoch the input's contribution belongs to. */
+  model_epoch?: number;
 }
 
 /** An input with its original text (api.md `input_get`). */
@@ -268,8 +280,8 @@ export interface InputDetail extends InputRecord {
 }
 
 /** Training rule (D55): both judgements true. An `exclamation` sets both true itself. */
-export function isTrainable(r: Pick<InputRecord, 'immediate' | 'confirm' | 'status'>): boolean {
-  return r.status === 'agreed' && r.immediate && r.confirm === true;
+export function isTrainable(r: Pick<InputRecord, 'immediate' | 'confirm' | 'status' | 'model_active'>): boolean {
+  return r.status === 'agreed' && r.immediate && r.confirm === true && r.model_active !== false;
 }
 
 // ---- requests --------------------------------------------------------------------
@@ -338,7 +350,7 @@ export interface InputPage {
   revision: number;
 }
 
-/** PROPOSED (F6, not implemented by the back end). Editing is refused while the input is `agreed` (revoke it first). */
+/** F6 `input_edit`. Refused while the input is `agreed` (revoke it first). Never trains; `confirm` is reset to null. */
 export interface InputEditRequest {
   text: string;
   /** Re-declared with every edit; the second judgement is reset to null. */
@@ -409,6 +421,8 @@ export interface BrainAdapter {
   readonly info: AdapterInfo;
   /** Methods this backend really offers; the UI greys out the rest. */
   capabilities(): Promise<ReadonlySet<AdapterMethod>>;
+  /** `health.model_epoch` of a real back end; null when it does not report one (older back end, mock, none). */
+  modelEpoch(): Promise<number | null>;
 
   submit(req: SubmitRequest): Promise<SubmitResult>;
   /** Read-only hypothetical effects of any input that is not `agreed` (pending, disagreed, revoked). */
@@ -428,9 +442,9 @@ export interface BrainAdapter {
   /** One bounded page of the same rows (api.md `input_page`); STALE_CURSOR when the inputs changed. */
   inputPage(query?: InputPageQuery): Promise<InputPage>;
   inputGet(sourceId: string): Promise<InputDetail>;
-  /** PROPOSED. */
+  /** F6. Not offered by an older back end (capability `inputEdit`). */
   inputEdit(sourceId: string, edit: InputEditRequest): Promise<InputRecord>;
-  /** PROPOSED. */
+  /** F6. Any status; hard delete with history, no tombstone. */
   inputDelete(sourceId: string): Promise<void>;
 
   state(): Promise<ModelState>;

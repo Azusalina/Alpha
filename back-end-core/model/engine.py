@@ -24,7 +24,7 @@ from .approvals import initialize as initialize_approvals, metadata as approval_
 from .corrections import apply_local, latest_corrections, learned_rules, validate_corrections
 from .evidence import Contribution, extract_contributions
 from .ranking import rank_from_state
-from . import sources
+from . import sources, reset
 
 
 def _now() -> str:
@@ -126,6 +126,19 @@ class BrainModel:
             )
             initialize_approvals(db, _now())
             sources.initialize(db)
+            reset.initialize(db)
+
+    def reset_info(self) -> dict:
+        with self.store._connect() as db:
+            db.execute("BEGIN")
+            return reset.info(db)
+
+    def reset_model(self, *, confirmation: str, expected_epoch: int, expected_revision: int) -> dict:
+        """Explicit model-only reset; never erase sources or translator learning."""
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            return reset.perform(db, confirmation=confirmation, expected_epoch=expected_epoch,
+                                 expected_revision=expected_revision)
 
     @staticmethod
     def baseline() -> dict:
@@ -172,7 +185,9 @@ class BrainModel:
 
     @staticmethod
     def _input(db: sqlite3.Connection, source_id: str) -> sqlite3.Row:
-        row = db.execute("SELECT i.*, s.body, s.source_ref, s.created_at FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
+        row = db.execute("SELECT i.*, (i.status='agreed' AND i.model_epoch="
+                         "CAST((SELECT value FROM brain_meta WHERE key='model_epoch') AS INTEGER)) AS model_active, "
+                         "s.body, s.source_ref, s.created_at FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
                          "WHERE i.source_id=?", (source_id,)).fetchone()
         if row is None:
             raise KeyError("brain input not found")
@@ -391,8 +406,8 @@ class BrainModel:
         aggregate = db.execute(
             "SELECT COUNT(*) AS support, COALESCE(SUM(c.sign), 0) AS net "
             "FROM brain_contributions c JOIN brain_inputs i ON i.source_id = c.source_id "
-            "WHERE i.partition = ? AND i.status = 'agreed' AND c.parameter = ?",
-            (partition, parameter),
+            "WHERE i.partition = ? AND i.status = 'agreed' AND c.parameter = ? AND i.model_epoch=?",
+            (partition, parameter, reset.epoch(db)),
         ).fetchone()
         support, net = aggregate["support"], aggregate["net"]
         after_value = _score(net, support)
@@ -403,12 +418,12 @@ class BrainModel:
         cursor = db.execute(
             "INSERT INTO brain_effects(source_id, partition, parameter, before_value, "
             "after_value, before_support, after_support, evidence, start_offset, "
-            "end_offset, rule_id, action, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "end_offset, rule_id, action, created_at, model_epoch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (source_id, partition, parameter, before["value"], after_value,
-             before["support"], support, evidence, start, end, rule_id, action, timestamp),
+             before["support"], support, evidence, start, end, rule_id, action, timestamp, reset.epoch(db)),
         )
         return {
-            "revision": cursor.lastrowid, "source_id": source_id,
+            "revision": cursor.lastrowid, "model_epoch": reset.epoch(db), "source_id": source_id,
             "partition": partition, "parameter": parameter,
             "before": before["value"], "after": after_value,
             "delta": after_value - before["value"],
@@ -428,8 +443,8 @@ class BrainModel:
     def _review(self, db: sqlite3.Connection, row: sqlite3.Row, *, agree: bool,
                 confirmed_by: str) -> dict:
         if not row["immediate"]:
-            raise ValueError("immediate=false cannot be reviewed; source editing is not yet supported")
-        if (agree and row["status"] == "agreed") or (not agree and row["confirm"] == 0):
+            raise ValueError("immediate=false cannot be reviewed; edit the source first")
+        if (agree and row["status"] == "agreed" and row["model_epoch"] == reset.epoch(db)) or (not agree and row["confirm"] == 0):
             return self._decision_result(row)  # Same decision: no duplicate fit or audit event.
         if not agree:
             return self._deactivate(db, row, status="disagreed", reason="confirm_false",
@@ -454,7 +469,8 @@ class BrainModel:
             )
         timestamp = _now()
         db.execute("UPDATE brain_inputs SET status='agreed', confirm=1, ever_fitted=1, confirmed_by=?, "
-                   "reason=NULL, reviewed_at=? WHERE source_id=?", (confirmed_by, timestamp, source_id))
+                   "reason=NULL, reviewed_at=?, model_epoch=? WHERE source_id=?",
+                   (confirmed_by, timestamp, reset.epoch(db), source_id))
         effects = [self._recompute(db, partition, item.parameter, source_id,
                                    item.evidence, item.start, item.end, item.rule_id, "approve")
                    for item in contributions]
@@ -474,8 +490,9 @@ class BrainModel:
     def _deactivate(self, db: sqlite3.Connection, row: sqlite3.Row, *, status: str,
                     reason: str, confirmed_by: str, action: str) -> dict:
         source_id, partition = row["source_id"], row["partition"]
-        active = row["status"] == "agreed"
-        before_terms = self._term_counts(db, partition) if active else {}
+        endorsed = row["status"] == "agreed"
+        active = endorsed and row["model_epoch"] == reset.epoch(db)
+        before_terms = self._term_counts(db, partition) if endorsed else {}
         items = db.execute("SELECT * FROM brain_contributions WHERE source_id=? "
                            "ORDER BY start_offset, parameter", (source_id,)).fetchall() if active else []
         timestamp = _now()
@@ -484,13 +501,13 @@ class BrainModel:
         effects = [self._recompute(db, partition, item["parameter"], source_id,
                                    item["evidence"], item["start_offset"], item["end_offset"],
                                    item["rule_id"], "revoke") for item in items]
-        after_terms = self._term_counts(db, partition) if active else {}
+        after_terms = self._term_counts(db, partition) if endorsed else {}
         translator_effects = [
             {"term": item["term"], "documents_before": before_terms.get(item["term"], 0),
              "documents_after": after_terms.get(item["term"], 0), "source_id": source_id}
             for item in db.execute("SELECT term FROM brain_terms WHERE source_id=? ORDER BY term", (source_id,))
             if before_terms.get(item["term"], 0) >= 2 > after_terms.get(item["term"], 0)
-        ] if active else []
+        ] if endorsed else []
         updated = self._input(db, source_id)
         record_review(db, source_id, action, approval_metadata(row), approval_metadata(updated),
                       effects, timestamp)
@@ -528,7 +545,7 @@ class BrainModel:
                 rows = db.execute("SELECT * FROM brain_effects WHERE source_id = ? "
                                   "ORDER BY revision", (source_id,)).fetchall()
         return [{
-            "revision": row["revision"], "source_id": row["source_id"],
+            "revision": row["revision"], "model_epoch": row["model_epoch"], "source_id": row["source_id"],
             "partition": row["partition"], "parameter": row["parameter"],
             "before": row["before_value"], "after": row["after_value"],
             "delta": row["after_value"] - row["before_value"],
