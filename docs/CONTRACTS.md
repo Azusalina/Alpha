@@ -447,4 +447,11 @@ negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
 - **Inspector additions** (dev / diagnostics only): `window.__alpha.backend`
   `{mode(), enterDemo(), leaveDemo()}`, `window.__alpha.inputs` `{list(), get(id), expanded()}`,
   `brain.perform(partition, intensity)`; `brain.signal()` / `setSignalTime(t)` as in §12.
+- **Real back end** (part 9c): `tests/real-backend.spec.ts` drives the UI against the real
+  `python -m core.api` through a faked `window.__TAURI_INTERNALS__.invoke('brain_call')` (Node-side
+  bridge, temp database, skipped without python3); the app connects by itself at start when that
+  global exists. `ui/shared/WithheldNotes.tsx` shows `interpretation.withheld_values` ("自动提取暂不采纳",
+  reason labels, unknown reasons shown raw, v1 and v2 policies); it never hides an effect.
+  Native check (Tauri debug binary, Xvfb, XTest clicks): connected, submit, preview, confirm T, state
+  read back from the database. Not verified: real GPU, release build / Python packaging, fault paths.
 

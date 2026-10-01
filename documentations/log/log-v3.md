@@ -388,6 +388,18 @@ Asked before starting; the user's answers (and later corrections):
 
 Verified: `tsc` clean; `tests/backend.spec.ts`, `records.spec.ts`, `entry.spec.ts`, `navigation.spec.ts`, `theme.spec.ts` 124 / 124 (new: delete of an agreed record, crazy has no bolts); contact sheets `outputs/qa/scratch/r4/crazy/sheet-{dark,light}.png`. Resting frame still bit-identical after a performance (existing test).
 
+
+### Part 9c — front end connected to the real back end (session 12)
+
+> 读取 front-back-communicate.md 以及 back-end-core 内容；开始连接前后端
+
+- `[back]` had implemented F1–F5, F7–F11 (21 methods, `brain_call` host, `input_page`, `interpretation.withheld_values`). The front end's `connectDesktopOnStart` + `tauriTransport` + `RemoteBrainAdapter` were already written; this part proved them and added what was missing: `WithheldNotes` (preview shows why the basic rules did not take a sentence).
+- **Browser ↔ real Python** (`tests/real-backend.spec.ts`, 6 tests): auto-connect with a `health` probe, submit → real preview → confirm T → state → revoke, exclamation trains at once (no preview call), immediate F saves untrained, F4 re-judging, chat + emoji span highlight, every request inside api.md.
+- **Native Tauri window** (debug binary, Xvfb software rendering, XTest clicks and Chinese typing, temp `ALPHA_BRAIN_DB`): banner "本机后端已连接", entry → real rule `explicit_value_statement` → drill in → record list from `input_page` → T → database shows `agreed / manual`, autonomy and truth 0.2, revisions #1 #2. Screens in `outputs/qa/scratch/r4/native/`.
+- `front-back-communicate.md`: finished items marked with `////` (32 lines), the six front "input" items ticked, a [front] verification note and the F6 delete decision for `[back]`.
+- Verified: `tsc`; entry + records + backend + real-backend 118 / 118.
+- Not verified: real GPU rendering and frame rate, release build and Python / jieba packaging, native fault paths (`STALE_CURSOR`, 30 s timeout, full queue), "加载更多" beyond 50 records. Edit / delete stay greyed out against the real back end until F6.
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density
