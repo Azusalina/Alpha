@@ -123,7 +123,7 @@ class HumanStore {
   /**
    * Start one performance of the brain's answer to an input (decision D57):
    * bolts running through the net in the state's own colours, and for `crazy`
-   * a whole-brain eruption. The visual keys off the state and the strength
+   * a single light that swells over the whole brain and collapses back (no colours). The visual keys off the state and the strength
    * only; there is no parameter-to-region mapping. A call while one is running
    * replaces it: the old bolts fade out over a quarter of a second while the
    * new ones start. `signal` reads it back (kind 'perform').

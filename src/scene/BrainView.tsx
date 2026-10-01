@@ -22,7 +22,7 @@
  *
  * The brain answers an input with a performance (D57, humanStore.perform): bolts
  * that run along the net's edges in the state's own colours, and for the crazy
- * state a whole-brain eruption. Everything for it is prebuilt and bounded: one
+ * state a single light at the centre that swells over the whole brain and collapses back. Everything for it is prebuilt and bounded: one
  * quad-strip mesh per bank (two banks, so a new performance can take over while
  * the old one fades), written once per performance, animated in the shader on
  * the scene clock; the underglow on the dots and lines reuses the D53 hop
@@ -32,6 +32,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
+  AdditiveBlending,
   BufferGeometry,
   Color,
   DoubleSide,
@@ -40,6 +41,7 @@ import {
   Group,
   Matrix4,
   NormalBlending,
+  PlaneGeometry,
   Quaternion,
   Ray,
   ShaderMaterial,
@@ -55,7 +57,7 @@ import { humanStore, type Signal } from '../app/humanStore';
 import { humanProgress, stage } from '../app/stage';
 import { buildHumanCloud, nodeBrainPositions } from '../brain/humanCloud';
 import { hopDistances, nearestVertex, useBrainMesh } from '../brain/brainAsset';
-import { FLIGHT, MAX_EDGES, MODES, hopField, performEnvelope, planBolts, type BoltPlan } from '../brain/bolts';
+import { FLIGHT, MAX_EDGES, MODES, coreBloom, hopField, performEnvelope, planBolts, type BoltPlan } from '../brain/bolts';
 import { ANCHORS, BRAIN, PALETTE, devicePixelsPerUnitDepth } from '../config/composition';
 import { SCENE_SEED, type QualityTier } from '../config/quality';
 import { STATE_PALETTE, themeStore } from '../config/theme';
@@ -104,15 +106,18 @@ const SIGNAL_GLSL = /* glsl */ `
   uniform float uHold;       // 0..1 envelope of the held region
   uniform float uPerfMode;   // D57: 0 = none (D53), 1 rational, 2 emotional, 3 crazy
   uniform float uSigGain;    // brightness of the discharge; 1 for D53
+  uniform float uCoreR;      // crazy: radius of the lit front, brain-local
+  uniform float uCoreVis;    // crazy: 0..1 visibility of the lit net
   // brightness of the travelling discharge at this many hops from the impact
   float discharge(float hop) {
     if (uSigT < 0.0) return 0.0;
     if (uPerfMode > 2.5) {
-      // crazy: the nearest origin's wave has reached this vertex, and ripples on
-      // there, interfering with the waves of the other origins
-      float reached = 1.0 - smoothstep(uSigT * uHopRate - 1.5, uSigT * uHopRate + 1.5, hop);
-      float ripple = 0.5 + 0.5 * sin(hop * 0.9 - uSigT * 8.5);
-      return clamp(reached * (0.25 + 0.75 * ripple), 0.0, 1.0) * uSigGain;
+      // crazy: hop is the vertex's distance from the light on the SCREEN, in brain radii (the net
+      // is a shell, so a distance from the centre would light all of it at once). Inside the
+      // swelling (then collapsing) front the net is lit, and the front itself is the brightest line.
+      float inside = 1.0 - smoothstep(uCoreR - 0.16, uCoreR + 0.03, hop);
+      float rim = exp(-pow((hop - uCoreR) / 0.075, 2.0));
+      return clamp(inside * 0.5 + rim * 0.95, 0.0, 1.0) * uCoreVis * uSigGain;
     }
     float front = uSigT * uHopRate;
     float band = exp(-pow((hop - front) / 1.1, 2.0));
@@ -145,11 +150,12 @@ const PALETTE_GLSL = /* glsl */ `
 const PERF_COLOR_GLSL = /* glsl */ `
   uniform float uPerfT;
   uniform float uPerfSeed;
-  uniform float uJit;        // vertex jitter, brain-local (crazy)
+  uniform float uJit;        // vertex jitter, brain-local (unused: crazy no longer shakes the vertices)
+  uniform vec3 uCoreCol;     // the crazy state's single light: white on black, ink on white
   vec3 perfColor(vec3 p, float hop) {
     if (uPerfMode < 1.5) return uPal[5];
     if (uPerfMode < 2.5) return perfRamp(dot(p, vec3(0.5, 0.32, 0.25)) * 0.8 + hop * 0.03 + uPerfSeed);
-    return perfHsv(fract(hop * 0.045 + dot(p, vec3(0.35, 0.3, 0.45)) + uPerfT * 0.5 + uPerfSeed));
+    return uCoreCol;
   }
   // the whole-brain shudder of the crazy state: a jitter of the vertices, brain-local
   vec3 perfJitter(vec3 p) {
@@ -465,6 +471,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
       uPerfSeed: { value: 0 },
       uBulge: { value: 0.02 },
       uJit: { value: 0 },
+      uCoreR: { value: 0 },
+      uCoreVis: { value: 0 },
+      uCoreCol: { value: new Color() },
       uPal: { value: Array.from({ length: 6 }, () => new Color()) },
       uSat: { value: 0.9 },
       uVal: { value: 0.8 },
@@ -503,13 +512,18 @@ export function BrainView({ tier, reducedMotion }: Props) {
           ${PALETTE_GLSL}
           ${PERF_COLOR_GLSL}
           void main() {
-            vHop = aHop;
             vHover = step(abs(aRegion - uHoverRegion), 0.5) * uFocus;
             vHeld = held(aRegion);
             vLocal = position;
             vec3 lp = position;
             if (uJit > 0.0) lp += perfJitter(position);
             vec4 mv = modelViewMatrix * vec4(lp, 1.0);
+            vHop = aHop;
+            if (uPerfMode > 2.5) {
+              // crazy: distance from the light on the screen, in brain radii (it varies along the edge)
+              vec4 mvc = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+              vHop = length(mv.xy - mvc.xy) / length(modelViewMatrix[0].xyz);
+            }
             // the side of the net facing the viewer carries the lines; the far
             // side stays a faint echo, so the polyhedron reads in depth (D52)
             vec3 n = normalize(normalMatrix * aNormal);
@@ -640,7 +654,14 @@ export function BrainView({ tier, reducedMotion }: Props) {
             // The signal (D53): a discharge running out along the net from
             // the impact vertex, and the input's region held lit.
             vec3 nrm = normalize(mat3(uBrain) * aNormal);
-            float w = discharge(aHop) * uSettle;
+            float dh = aHop;
+            if (uPerfMode > 2.5) {
+              // crazy: distance from the light, seen from the camera, in brain radii
+              vec4 mvp = modelViewMatrix * vec4(pos, 1.0);
+              vec4 mvc = modelViewMatrix * (uBrain * vec4(0.0, 0.0, 0.0, 1.0));
+              dh = length(mvp.xy - mvc.xy) / length(uBrain[0].xyz);
+            }
+            float w = discharge(dh) * uSettle;
             float hold = held(aRegion) * uSettle;
             pos += nrm * w * uBulge;
             // Hovered region, while drilled in.
@@ -840,6 +861,65 @@ export function BrainView({ tier, reducedMotion }: Props) {
     [],
   );
 
+  /**
+   * The crazy state's light source (D57, revised): one camera-facing quad at the brain's centre,
+   * sized in brain-local units (so it tracks the brain's scale and the lit front), a hot point
+   * and a soft ball around it. Additive white on black; on white a soft ink "negative light".
+   */
+  const coreMaterial = useMemo(
+    () =>
+      new ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: AdditiveBlending,
+        uniforms: {
+          uRad: { value: 0.2 },
+          uCoreSize: { value: 0.05 },
+          uCore: { value: 0 },
+          uHalo: { value: 0 },
+          uHaloMax: { value: 0.5 },
+          uColor: { value: new Color(1, 1, 1) },
+          uAlpha: { value: 1 },
+        },
+        vertexShader: /* glsl */ `
+          uniform float uRad;
+          varying vec2 vUv;
+          void main() {
+            vUv = position.xy;
+            vec4 mv = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+            // the group's scale carries the brain's size; the quad faces the camera
+            mv.xy += position.xy * uRad * length(modelViewMatrix[0].xyz);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uRad;
+          uniform float uCoreSize;
+          uniform float uCore;
+          uniform float uHalo;
+          uniform float uHaloMax;
+          uniform vec3 uColor;
+          uniform float uAlpha;
+          varying vec2 vUv;
+          void main() {
+            float d = length(vUv);
+            if (d > 1.0) discard;
+            float r = d * uRad;
+            float hot = exp(-r * r / (uCoreSize * uCoreSize));
+            float ball = 1.0 - smoothstep(0.0, 1.0, d);
+            ball *= ball;
+            float a = (hot * uCore + ball * uHalo * uHaloMax) * uAlpha;
+            if (a < 0.003) discard;
+            gl_FragColor = vec4(uColor, min(1.0, a));
+          }
+        `,
+      }),
+    [],
+  );
+  const coreGeometry = useMemo(() => new PlaneGeometry(2, 2), []);
+  const coreRef = useRef<Mesh | null>(null);
+
   /** The bolts (D57): two banks, so a new performance can start while the old one fades out. */
   const banks = useMemo(
     () =>
@@ -896,6 +976,12 @@ export function BrainView({ tier, reducedMotion }: Props) {
       perfU.uPal.value[5].set(sp.rational).convertLinearToSRGB();
       perfU.uSat.value = sp.crazy.s;
       perfU.uVal.value = sp.crazy.v;
+      // the crazy state's one light: the ink colour of the theme, additive on black, ordinary on white
+      perfU.uCoreCol.value.set(p.ink);
+      coreMaterial.uniforms.uColor.value.set(p.glow ? '#ffffff' : p.ink);
+      coreMaterial.uniforms.uHaloMax.value = p.glow ? 0.7 : 0.3;
+      coreMaterial.blending = p.glow ? AdditiveBlending : NormalBlending;
+      coreMaterial.needsUpdate = true;
       for (const b of banks) {
         b.material.uniforms.uDark.value = p.glow ? 1 : 0;
         applyInk(b.material, p, 1.4);
@@ -1257,6 +1343,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
     perfU.uSigGain.value = 1;
     perfU.uBulge.value = 0.02;
     perfU.uJit.value = 0;
+    perfU.uCoreR.value = 0;
+    perfU.uCoreVis.value = 0;
+    if (coreRef.current) coreRef.current.visible = false;
     particleMaterial.uniforms.uHopRate.value = linkMaterial.uniforms.uHopRate.value = SIGNAL.HOP_RATE;
     particleMaterial.uniforms.uReach.value = linkMaterial.uniforms.uReach.value = SIGNAL.REACH;
   };
@@ -1317,9 +1406,12 @@ export function BrainView({ tier, reducedMotion }: Props) {
     bu.uSeed.value = (seed % 1000) * 0.137;
 
     // the underglow runs out of every bolt's origin at that bolt's time
-    const rate = reducedMotion ? 4.5 : mode.hopRate;
-    hopField(brain, plan.origins, plan.delays.map((d) => d * rate), perf.hop);
-    writeHopArray(perf.hop);
+    // (crazy: the shaders measure each vertex's distance from the light on the screen instead)
+    if (partition !== 'crazy') {
+      const rate = reducedMotion ? 4.5 : mode.hopRate;
+      hopField(brain, plan.origins, plan.delays.map((d) => d * rate), perf.hop);
+      writeHopArray(perf.hop);
+    }
 
     // the comet wears the state's colours
     const sp = STATE_PALETTE[themeStore.get()];
@@ -1327,10 +1419,14 @@ export function BrainView({ tier, reducedMotion }: Props) {
     if (partition === 'rational') {
       cu.uColor.value.set(sp.rational);
       cu.uAccent.value.set(sp.rational);
+    } else if (partition === 'crazy') {
+      // one light, no colours
+      const ink = themeStore.palette().ink;
+      cu.uColor.value.set(ink);
+      cu.uAccent.value.set(ink);
     } else {
-      const o = partition === 'crazy' ? 2 : 0;
-      cu.uColor.value.set(sp.emotional[(seed + o) % 5]);
-      cu.uAccent.value.set(sp.emotional[(seed + o + 1) % 5]);
+      cu.uColor.value.set(sp.emotional[seed % 5]);
+      cu.uAccent.value.set(sp.emotional[(seed + 1) % 5]);
     }
     perf.cometTinted = true;
     perf.built = true;
@@ -1371,6 +1467,22 @@ export function BrainView({ tier, reducedMotion }: Props) {
     perfU.uJit.value = reducedMotion ? 0 : mode.jit * env * k;
     pu.uHopRate.value = lu.uHopRate.value = reducedMotion ? 4.5 : mode.hopRate;
     pu.uReach.value = lu.uReach.value = reducedMotion ? 18 : mode.reach;
+    if (partition === 'crazy') {
+      // a light at the centre swells over the whole brain and collapses back (D57, revised)
+      const b = coreBloom(T);
+      const gain = k * (reducedMotion ? 0.7 : 1);
+      perfU.uSigGain.value = mode.gain * gain;
+      perfU.uBulge.value = reducedMotion ? 0.008 : 0.02;
+      perfU.uJit.value = 0;
+      perfU.uCoreR.value = b.front;
+      perfU.uCoreVis.value = b.vis;
+      const cm = coreMaterial.uniforms;
+      cm.uRad.value = b.haloRadius;
+      cm.uCoreSize.value = 0.04 + 0.05 * b.core;
+      cm.uCore.value = Math.min(1, b.core * gain);
+      cm.uHalo.value = Math.min(1, b.halo * gain);
+      if (coreRef.current) coreRef.current.visible = T >= 0;
+    }
     pu.uSigT.value = lu.uSigT.value = T;
     pu.uSigRegion.value = lu.uSigRegion.value = -1;
     pu.uHold.value = lu.uHold.value = 0;
@@ -1445,14 +1557,14 @@ export function BrainView({ tier, reducedMotion }: Props) {
     applyBanks(delta, settle);
   };
 
-  /** The crazy state's shudder: a small displacement and a scale pulse of the whole brain, then exactly none. */
+  /** The crazy state's swell: the whole brain grows a few percent with the light's front, then exactly back. */
   const shudder = (g: Group, delta: number) => {
     const s = humanStore.signal;
     const crazy = !reducedMotion && s && s.kind === 'perform' && s.partition === 'crazy' && perf.sig === s && perf.built;
     let target = 0;
     if (crazy) {
       perf.shakeT = s.t - (s.fromCss ? FLIGHT : 0);
-      target = performEnvelope(MODES.crazy, perf.shakeT, false) * (0.5 + 0.5 * (s.intensity ?? 0.5));
+      target = coreBloom(perf.shakeT).swell * (0.5 + 0.5 * (s.intensity ?? 0.5));
     } else {
       perf.shakeT += delta;
     }
@@ -1460,12 +1572,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
     perf.shake = delta > 0 ? perf.shake + (target - perf.shake) * (1 - Math.exp(-delta * 14)) : target;
     if (target === 0 && perf.shake < 1e-3) perf.shake = 0;
     if (perf.shake <= 0) return;
-    const a = perf.shake;
-    const t = perf.shakeT;
-    g.position.x += a * 0.014 * (Math.sin(t * 47.3) + 0.6 * Math.sin(t * 71.9 + 1.3));
-    g.position.y += a * 0.011 * (Math.sin(t * 53.1 + 2.1) + 0.6 * Math.sin(t * 83.7));
-    g.position.z += a * 0.006 * Math.sin(t * 39.7 + 0.4);
-    g.scale.multiplyScalar(1 + a * (0.03 * Math.sin(t * 9.5) + 0.012 * Math.sin(t * 37.1)));
+    g.scale.multiplyScalar(1 + perf.shake * 0.035);
   };
 
   // ---- frame ---------------------------------------------------------------------
@@ -1607,6 +1714,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
       <points ref={pointsRef} geometry={geometry} material={particleMaterial} frustumCulled={false} visible={false} />
       <points ref={cometRef} geometry={comet} material={cometMaterial} renderOrder={30} frustumCulled={false} />
       <group ref={groupRef}>
+        <mesh ref={coreRef} geometry={coreGeometry} material={coreMaterial} renderOrder={9} frustumCulled={false} visible={false} />
         <mesh ref={(m) => (boltRefs.current[0] = m)} geometry={banks[0].geometry} material={banks[0].material} renderOrder={8} frustumCulled={false} visible={false} />
         <mesh ref={(m) => (boltRefs.current[1] = m)} geometry={banks[1].geometry} material={banks[1].material} renderOrder={8} frustumCulled={false} visible={false} />
         <lineSegments ref={linksRef} geometry={links} material={linkMaterial} renderOrder={5} frustumCulled={false} visible={false} />

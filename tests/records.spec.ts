@@ -347,6 +347,33 @@ test('records — delete is two-step, says it is unrecoverable in demo mode, and
   expect(actions).toContain('已撤销');
 });
 
+test('records — deleting an agreed record withdraws its contribution and removes its whole history', async ({ page }) => {
+  test.setTimeout(120_000);
+  await drilledIn(page);
+  const ids = await seedOneOfEach(page);
+  await drill(page);
+  const id = ids.agreed.source_id; // emotional, trained: sadness and disappointment have evidence
+
+  await page.getByTestId('tab-state').click();
+  await expect(param(page, 'emotional', 'affect.sadness')).toHaveAttribute('data-observed', 'true');
+  await page.getByTestId('tab-records').click();
+
+  await head(page, id).click();
+  await row(page, id).getByTestId('act-delete').click();
+  // the confirmation says what will happen to a trained record
+  await expect(row(page, id).getByTestId('delete-confirm')).toContainText('连同全部历史一起删除');
+  await expect(row(page, id).getByTestId('delete-confirm')).toContainText('它对模型的贡献也会撤回');
+  await row(page, id).getByTestId('act-delete-confirm').click();
+  await expect(row(page, id)).toHaveCount(0);
+  expect((await alpha<Rec[]>(page, 'inputs.list()')).some((r) => r.source_id === id)).toBe(false);
+
+  // the model is what it was without that record: no evidence again
+  await page.getByTestId('tab-state').click();
+  await expect(param(page, 'emotional', 'affect.sadness')).toHaveAttribute('data-observed', 'false');
+  await expect(param(page, 'emotional', 'affect.sadness').getByTestId('evidence-none')).toContainText('尚无证据');
+  await expect(param(page, 'emotional', 'affect.disappointment')).toHaveAttribute('data-observed', 'false');
+});
+
 test('records — revoke: 已撤销, history kept, the parameter goes back to 尚无证据 without a bar', async ({ page }) => {
   test.setTimeout(120_000);
   await drilledIn(page);

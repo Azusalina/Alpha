@@ -327,7 +327,10 @@ test('brain perform — a performance per state, read back through the signal, a
     expect(s).toMatchObject({ kind: 'perform', partition, intensity: 1, seed: 42 });
     await brain((b) => b.setSignalTime(0.6));
     await page.waitForTimeout(200);
-    expect((await brain((b) => b.perfInfo())).edges).toBeGreaterThan(0);
+    // rational and emotional run bolts along the net's edges; crazy is a light, with no bolts at all
+    const edges = (await brain((b) => b.perfInfo())).edges;
+    if (partition === 'crazy') expect(edges).toBe(0);
+    else expect(edges).toBeGreaterThan(0);
     // with the clock frozen a captured time is one deterministic frame, and it differs from rest
     frames[partition] = await page.screenshot();
     expect(frames[partition].equals(rest)).toBe(false);

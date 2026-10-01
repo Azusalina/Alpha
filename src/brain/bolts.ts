@@ -13,9 +13,10 @@
  *              steady hue, a long calm afterglow;
  * - emotional  several bolts at once with side branches, fast, each its own
  *              colour that also drifts along its length;
- * - crazy      the whole net erupts: a few strikes from the input side, then
- *              many wandering bolts from everywhere, colour cycling, the
- *              colour channels split apart, the brain shudders.
+ * - crazy      no bolts and no colour: a light kindles at the brain's centre,
+ *              swells until it covers the whole brain, then collapses back into
+ *              its core and goes out (`coreBloom`; the shaders measure the
+ *              distance from the light on the screen).
  */
 
 import { hopDistances, type BrainMesh } from './brainAsset';
@@ -57,6 +58,16 @@ export interface PerformMode {
   hold: number;
 }
 
+/**
+ * The crazy state's light (D57, revised): seconds. A spark kindles at the centre
+ * (0 .. ignite), a spherical front swells from it until the whole brain is lit
+ * (ignite .. swell), holds briefly, then collapses back into the core, slowly
+ * at first and falling in at the end (hold .. collapse), the core flares once
+ * as it goes under and fades (collapse .. life). One smooth swell and one
+ * collapse: nothing flickers, nothing is faster than 1 Hz.
+ */
+export const CORE = { ignite: 0.55, swell: 1.95, hold: 2.4, collapse: 3.5, life: 3.9, reach: 1.18 } as const;
+
 export const MODES: Record<PerformPartition, PerformMode> = {
   rational: {
     id: 1, life: 2.4, rate: 40, tau: 0.85, width: 3.4, flash: 0.5, jitter: 0.07, flickHz: 0, split: 0,
@@ -66,9 +77,10 @@ export const MODES: Record<PerformPartition, PerformMode> = {
     id: 2, life: 1.7, rate: 80, tau: 0.55, width: 2.7, flash: 1.3, jitter: 0.24, flickHz: 11, split: 0,
     hopRate: 16, reach: 11, gain: 1.15, bulge: 0.026, jit: 0, attack: 0.08, hold: 0.9,
   },
+  // crazy draws no bolts (see `coreBloom`): only `id`, `life` and `gain` are read; the rest are neutral
   crazy: {
-    id: 3, life: 3.7, rate: 55, tau: 0.3, width: 2.3, flash: 1, jitter: 0.32, flickHz: 14, split: 4.5,
-    hopRate: 46, reach: 1000, gain: 1.15, bulge: 0.05, jit: 0.02, attack: 0.35, hold: 2.9,
+    id: 3, life: CORE.life, rate: 55, tau: 0.3, width: 2.3, flash: 1, jitter: 0, flickHz: 0, split: 0,
+    hopRate: 46, reach: 1000, gain: 1.1, bulge: 0.02, jit: 0, attack: 0.35, hold: 2.9,
   },
 };
 
@@ -305,29 +317,8 @@ export function planBolts(
         addBolt(sub, times[k] + 0.02, (hue + 0.16 + rnd() * 0.12) % 1, strength * 0.62, 0.6);
       }
     }
-  } else {
-    // a few strikes from the input side, then eruptions from everywhere
-    const strikes = 4 + Math.round(intensity * 2);
-    const targets: number[] = [];
-    for (let i = 0; i < strikes; i++) {
-      const from = i === 0 ? start : nearby(start);
-      const to = farTarget(from, i === 0 ? hopS : hopDistances(mesh, from), targets);
-      targets.push(to);
-      const delay = i * 0.07;
-      addBolt(walkToward(from, to, 0.6), delay, rnd(), strength, 1);
-      plan.origins.push(from);
-      plan.delays.push(delay);
-    }
-    const wild = 12 + Math.round(intensity * 14);
-    for (let i = 0; i < wild; i++) {
-      const from = Math.floor(rnd() * mesh.count);
-      const d = randomDir();
-      const delay = 0.2 + rnd() * 2.3;
-      addBolt(walkAway(from, d[0], d[1], d[2], 14 + Math.floor(rnd() * 15), 0.55), delay, rnd(), strength * (0.7 + rnd() * 0.3), 0.85);
-      plan.origins.push(from);
-      plan.delays.push(delay);
-    }
   }
+  // crazy: no bolts, the plan stays empty (the light is `coreBloom`)
   return plan;
 }
 
@@ -354,4 +345,37 @@ export function hopField(mesh: BrainMesh, origins: number[], delayHops: number[]
     }
   }
   return out;
+}
+
+/** What the crazy state's light looks like at `t` seconds (brain-local radii, 1 = the brain's own radius). */
+export interface CoreBloom {
+  /** Radius of the lit front, 0 .. CORE.reach: inside it the net is lit, the front itself is brightest. */
+  front: number;
+  /** 0..1: visibility of the lit net (rises as the front starts, gone by the end). */
+  vis: number;
+  /** 0..1: the hot point at the centre. */
+  core: number;
+  /** Radius of the soft glowing ball around the core, and its strength 0..1. */
+  haloRadius: number;
+  halo: number;
+  /** 0..1: how much the whole brain swells (a few percent of its size). */
+  swell: number;
+}
+
+const ease = (a: number, b: number, x: number) => smooth(a, b, x);
+
+/** The light's state at `t`; the same `t` always gives the same values. */
+export function coreBloom(t: number): CoreBloom {
+  const { ignite, swell, hold, collapse, life, reach } = CORE;
+  const out = ease(ignite, swell, t); // 0 -> 1 while the front swells
+  // collapse: slow at first, then falling in (cubic), so the radius drops fastest at the very end
+  const x = Math.min(1, Math.max(0, (t - hold) / (collapse - hold)));
+  const front = t < hold ? reach * out : reach * (1 - x * x * x);
+  const gone = 1 - ease(collapse, life, t);
+  const vis = ease(ignite - 0.15, ignite + 0.2, t) * gone;
+  // the spark kindles, dims a little while its light spreads, then flares as it is swallowed
+  const core = ease(0, 0.35, t) * (0.55 + 0.45 * ease(hold, collapse, t)) * gone;
+  const halo = 0.9 * ease(0.1, ignite, t) * (1 - 0.35 * out) * gone;
+  const haloRadius = Math.max(0.16, front * 0.8);
+  return { front, vis, core, halo, haloRadius, swell: Math.min(1, front / reach) * gone };
 }

@@ -703,9 +703,10 @@ class InputStore {
   };
 
   /**
-   * Delete a record that is not agreed. DEMO ONLY (F6); the mock deletes hard
-   * and drops the record's effect history, which must not be presented as what
-   * a real back end does.
+   * Delete a record, whatever its status, together with its whole history (the user's
+   * decision). DEMO ONLY until the back end offers it (F6): the mock deletes hard, and an
+   * agreed record stops training with it; this must not be presented as what a real back
+   * end does.
    */
   remove = async (id: string): Promise<boolean> => {
     if (this.isMutating(id)) return false;

@@ -419,7 +419,8 @@ negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
   formal effects). Statuses: `pending` 待确认, `agreed` 已认可, `disagreed` 不同意
   (reason `immediate_false` / `confirm_false`), `revoked` 已撤销 (reason `user_revoked`).
   Edit / delete exist only in the mock (back end F6 open); against a real back end
-  they are greyed out ("后端暂不支持").
+  they are greyed out ("后端暂不支持"). Delete is a hard delete of any status including
+  the whole history (an agreed input stops training with it) — the user's decision.
 - **Spans** are Unicode code points, end exclusive: use `src/backend/spans.ts`
   (`codePointSlice`, `highlight`, `evidenceMatches`), never slice a JS string with a span.
 - **Text**: `readTextFile` (.txt/.md only, strict UTF-8, ≤ 4 MB, BOM stripped, NUL refused),
@@ -430,8 +431,11 @@ negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
   event (agreed result) calls `humanStore.perform`.
 - **Brain performance** (D57): `humanStore.perform({partition, intensity 0..1, fromCss, seed?})`;
   `signal.kind === 'perform'`. rational = one or two calm bolts in a single muted hue;
-  emotional = several branching, many-coloured bolts; crazy = a whole-brain performance
-  (reduced motion: a plain colour wash, no shake, ≤ 3 Hz). Bolts are polylines along the
+  emotional = several branching, many-coloured bolts; crazy = no colours and no bolts: a light
+  kindles at the brain's centre, swells over the whole brain, collapses back into its core and
+  goes out (`coreBloom` in `brain/bolts.ts`, 3.9 s, one swell and one collapse, nothing faster
+  than 1 Hz; the shaders measure each vertex's distance from the light on the SCREEN because
+  the net is a shell; light = white on black, ink on white; the brain swells ~3 %). Bolts are polylines along the
   mesh edges (`brain/bolts.ts`). No parameter-to-region mapping (IDEA §6). Resting frame is
   bit-identical to before (hash-checked, both themes).
 - **UI**: entry panel `ui/entry/*` (upper right, above the divide line; `data-testid="human-input"`

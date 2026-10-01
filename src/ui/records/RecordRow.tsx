@@ -227,15 +227,12 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
   };
   if (rec.status === 'pending') checkCap('confirm', '认可 / 不同意');
   if (rec.status === 'agreed') checkCap('revoke', '撤销');
+  checkCap('inputDelete', '删除');
   if (rec.status === 'disagreed') {
     checkCap('inputEdit', '编辑');
-    checkCap('inputDelete', '删除');
     if (rec.reason === 'confirm_false') checkCap('confirm', '改判为 T');
   }
-  if (rec.status === 'revoked') {
-    checkCap('confirm', '重新认可');
-    checkCap('inputDelete', '删除');
-  }
+  if (rec.status === 'revoked') checkCap('confirm', '重新认可');
 
   return (
     <li
@@ -450,35 +447,37 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   onClick={() => inputStore.openEditor(id)}
                 />
               )}
-              {(rec.status === 'disagreed' || rec.status === 'revoked') &&
-                (confirmDelete ? (
-                  <span className="rec__confirm" data-testid="delete-confirm" role="group" aria-label="确认删除">
-                    <span>确认删除？{mode === 'demo' && <em>演示模式下删除后不可恢复</em>}</span>
-                    <button
-                      type="button"
-                      className="rec__act rec__act--danger"
-                      data-testid="act-delete-confirm"
-                      disabled={busyRemove || mutating}
-                      autoFocus
-                      onClick={() => void inputStore.remove(id)}
-                    >
-                      {busyRemove ? '删除中…' : '确认删除'}
-                    </button>
-                    <button type="button" className="rec__act rec__act--plain" data-testid="act-delete-cancel" onClick={() => setConfirmDelete(false)}>
-                      取消
-                    </button>
+              {confirmDelete ? (
+                <span className="rec__confirm" data-testid="delete-confirm" role="group" aria-label="确认删除">
+                  <span>
+                    确认删除？<em>连同全部历史一起删除{rec.status === 'agreed' ? '，它对模型的贡献也会撤回' : ''}</em>
+                    {mode === 'demo' && <em>演示模式下删除后不可恢复</em>}
                   </span>
-                ) : (
-                  <Action
-                    method="inputDelete"
-                    id={id}
-                    label="删除"
-                    tag={demoTag}
-                    testid="act-delete"
-                    settling={settling}
-                    onClick={() => setConfirmDelete(true)}
-                  />
-                ))}
+                  <button
+                    type="button"
+                    className="rec__act rec__act--danger"
+                    data-testid="act-delete-confirm"
+                    disabled={busyRemove || mutating}
+                    autoFocus
+                    onClick={() => void inputStore.remove(id)}
+                  >
+                    {busyRemove ? '删除中…' : '确认删除'}
+                  </button>
+                  <button type="button" className="rec__act rec__act--plain" data-testid="act-delete-cancel" onClick={() => setConfirmDelete(false)}>
+                    取消
+                  </button>
+                </span>
+              ) : (
+                <Action
+                  method="inputDelete"
+                  id={id}
+                  label="删除"
+                  tag={demoTag}
+                  testid="act-delete"
+                  settling={settling}
+                  onClick={() => setConfirmDelete(true)}
+                />
+              )}
             </div>
           )}
           {!editing && unsupported.length > 0 && (

@@ -376,6 +376,18 @@ Asked before starting; the user's answers (and later corrections):
 - Cross-links in the tree still cross edges (unavoidable for this graph); `rank` has no UI yet (AbstainNote exists and is tested).
 - Back-end note for `[back]`: a text starting with U+0000 gives `STORAGE_ERROR` instead of `INVALID_ARGUMENT`.
 
+
+### Part 9b — user corrections after part 9 (session 12)
+
+> “删除”允许直接删掉历史；“癫狂”的动画效果并非炫彩缤纷，建议由大脑内部出现一个光源然后膨胀覆盖整个大脑，坍缩 → 重新 return 至大脑的状态
+
+| # | Decision |
+|---|---|
+| **D60** | Delete = hard delete **including the history**, for **any** status (an agreed record is withdrawn from the model first). Two-step confirm says so. Mock only until the back end implements F6 (note to `[back]` in `front-back-communicate.md`). |
+| **D61** | Crazy animation replaced (supersedes the crazy part of D57): no colours, no bolts, no shudder. A light kindles at the brain's centre (0–0.55 s), a front swells from it until the whole net is lit (to 1.95 s), holds (2.4 s), collapses back slowly then falling in (3.5 s), the core flares once and goes out (3.9 s). Suggested and built beyond the ask: the collapse accelerates (cubic) so it reads as being swallowed, the light is white on black / ink on white, the brain swells ~3 % with the front, and the sweep is measured on the screen (a distance from the centre would light the shell all at once). |
+
+Verified: `tsc` clean; `tests/backend.spec.ts`, `records.spec.ts`, `entry.spec.ts`, `navigation.spec.ts`, `theme.spec.ts` 124 / 124 (new: delete of an agreed record, crazy has no bolts); contact sheets `outputs/qa/scratch/r4/crazy/sheet-{dark,light}.png`. Resting frame still bit-identical after a performance (existing test).
+
 ## Open for the user (not decided here)
 
 1. Art review of both destinations from the screenshot sheets (brain density

@@ -53,7 +53,7 @@
  *   revoke         from agreed only         -> revoked (user_revoked), reversal effects
  *   preview        any input that is not agreed (immediate_false included; it is
  *                                              hypothetical and never authorises a review)
- *   inputEdit / inputDelete (F6, mock only) -> only when not agreed
+ *   inputEdit (F6, mock only) -> only when not agreed; inputDelete (F6, mock only) -> any status, history included
  *
  * Training is possible only when `isTrainable`: the model state is always
  * recomputed from the agreed inputs, so no other transition can change it.
@@ -865,11 +865,13 @@ export class MockBrainAdapter implements BrainAdapter {
 
   inputDelete(sourceId: string): Promise<void> {
     return this.call(() => {
-      const row = this.row(sourceId);
-      if (row.rec.status === 'agreed') fail('INVALID_ARGUMENT', '已认可的输入不能删除，请先撤销');
+      this.row(sourceId);
+      // A hard delete of any input, whatever its status (the user's decision): the text, both
+      // judgements and its whole effect history go. An agreed input stops training with it, the
+      // model state is always recomputed from the inputs that remain. Other inputs' effects keep
+      // the numbers they had when they were written. (The real back end decides F6 itself.)
       this.rows.delete(sourceId);
       this.inputRevision++;
-      // A hard delete: its history goes with it (the real back end has not decided this yet, F6).
       this.effectLog = this.effectLog.filter((e) => e.source_id !== sourceId);
     });
   }

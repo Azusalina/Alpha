@@ -482,10 +482,9 @@ test.describe('mock state machine', () => {
     // The formal effects are what the preview promised (nothing else changed in between).
     expect(review.effects[0].after).toBe(preview.effects[0].after);
 
-    // An agreed input is not previewable and cannot be edited or deleted (the judgement itself is tested below).
+    // An agreed input is not previewable and cannot be edited (it can be deleted: tested below).
     expect(await codeOf(m.preview(id))).toBe('INVALID_ARGUMENT');
     expect(await codeOf(m.inputEdit(id, { text: FREE, immediate: true }))).toBe('INVALID_ARGUMENT');
-    expect(await codeOf(m.inputDelete(id))).toBe('INVALID_ARGUMENT');
     expect((await m.inputGet(id)).text).toBe(FAIR);
 
     const revoked = await m.revoke(id);
@@ -689,7 +688,6 @@ test.describe('training gate', () => {
       ['confirm F on agreed', () => m.confirm('mock-0004', false)], // untrains
       ['confirm T restores', () => m.confirm('mock-0004', true)], // trains
       ['edit agreed (refused)', () => m.inputEdit('mock-0002', { text: FAIR, immediate: true })],
-      ['delete agreed (refused)', () => m.inputDelete('mock-0002')],
       ['submit pending 2', () => m.submit({ text: '我坚持安全。', partition: 'crazy', kind: 'philosophy', immediate: true })], // 5
       ['revoke agreed', () => m.revoke('mock-0002')], // untrains
       ['revoke revoked (refused)', () => m.revoke('mock-0002')],
@@ -702,6 +700,7 @@ test.describe('training gate', () => {
       ['revoke pending 2', () => m.revoke('mock-0005')], // untrains
       ['edit revoked', () => m.inputEdit('mock-0003', { text: '我重视真实。', immediate: true })],
       ['confirm T edited', () => m.confirm('mock-0003', true)], // trains
+      ['delete agreed', () => m.inputDelete('mock-0003')], // untrains, history gone
     ];
     let trained = 0;
     for (const [name, op] of ops) {
@@ -726,7 +725,25 @@ test.describe('training gate', () => {
       }
       if (after.trainable === '[]') expect(after.observed, name).toBe(false);
     }
-    expect(trained).toBe(11);
+    expect(trained).toBe(12);
+  });
+
+  test('deleting an agreed input withdraws it and removes its whole history', async () => {
+    const m = mock();
+    await m.submit({ text: FAIR, partition: 'rational', kind: 'philosophy', immediate: true, exclamation: true });
+    const base = await m.state();
+    const baseEffects = (await m.effects()).length;
+    const { source_id } = await m.submit({ text: '我坚持自由。我很难过。', partition: 'rational', kind: 'philosophy', immediate: true, exclamation: true });
+    expect(await m.state()).not.toEqual(base);
+    expect((await m.effects(source_id)).length).toBeGreaterThan(0);
+    await m.inputDelete(source_id);
+    // the model is what it was before that input, and nothing of it is left
+    expect(await m.state()).toEqual(base);
+    expect(await codeOf(m.inputGet(source_id))).toBe('NOT_FOUND');
+    expect(await codeOf(m.effects(source_id))).toBe('NOT_FOUND');
+    expect((await m.effects()).filter((e) => e.source_id === source_id)).toEqual([]);
+    expect((await m.effects()).length).toBe(baseEffects);
+    expect((await m.inputList()).map((r) => r.source_id)).not.toContain(source_id);
   });
 
   test('revoking restores the model exactly', async () => {

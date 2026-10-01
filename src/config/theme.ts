@@ -76,8 +76,8 @@ export const PALETTES: Record<Theme, Palette> = {
  *             blue on black): calm and composed;
  * - emotional a vivid spread, coral / amber / magenta / cyan / lime, darker and
  *             more saturated on white, luminous on black;
- * - crazy     the whole hue wheel, cycling; `s` and `v` are the saturation and
- *             value the shader gives that wheel in each theme.
+ * - crazy     no colour any more (the light is white on black, ink on white);
+ *             `s` and `v` are unused leftovers of the earlier hue wheel.
  *
  * The names are the user's situational states, not a diagnosis.
  */
