@@ -103,6 +103,16 @@ without depending on a visual representation. MMPI report import is deferred in
 The complete active/deferred parameter register is
 [`../docs/parameters.md`](../docs/parameters.md).
 
+F6 source governance is available through the application API: edit inactive
+sources without retaining their old text-bearing history, or delete any source
+and atomically remove its active contribution and source-specific history.
+Other inputs' old effects/frozen contexts stay untouched; external files and
+backups are not deleted. There is no password gate or secure-erasure claim.
+Editing resets confirmation and clears old terms/labels/frozen evidence before
+any fresh fit. A non-text internal ever-fitted flag survives editing for held-out
+source-overlap checks; it is deleted with the source. See
+[`../docs/api.md`](../docs/api.md#source-editing-and-deletion-f6-implemented).
+
 Offline held-out evaluation uses the same pure ranking function as the live
 model, reads a consistent SQLite snapshot without writing, separates actual
 and retrospectively endorsed choices, and reports coverage plus static

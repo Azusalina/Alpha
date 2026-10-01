@@ -23,6 +23,8 @@ METHODS = {
     "health": ((), ()), "baseline": ((), ()),
     "submit": (("text", "partition"), ("kind", "self_speaker", "source_ref", "immediate", "exclamation")),
     "input_get": (("source_id",), ()),
+    "input_edit": (("source_id", "text", "immediate"), ("kind", "self_speaker")),
+    "input_delete": (("source_id",), ()),
     "input_list": ((), ("partition", "status", "limit")),
     "input_page": ((), ("partition", "status", "limit", "cursor")),
     "preview": (("source_id",), ()),
@@ -119,7 +121,7 @@ class BrainAPI:
                           "features": {"two_judgements": True, "exclamation_sets_both_true": True,
                                        "repeat_review": True, "preview_untrained": True,
                                        "input_summary": True, "input_pagination": True,
-                                       "source_edit": False, "source_delete": False}}
+                                       "source_edit": True, "source_delete": True}}
             elif method == "baseline":
                 result = self.brain.model.baseline()
             else:

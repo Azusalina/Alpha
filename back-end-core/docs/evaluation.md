@@ -21,6 +21,9 @@ python -m model.evaluation --db data/brain.sqlite3 --cases docs/evaluation.examp
 历史训练来源 ID、基线 hash、effect revision。不会初始化不存在的库、
 导入测试材料、更新词汇／参数或修复不一致的状态。
 
+F6 编辑保留不含原文的 ever-fitted 标志：清除旧拟合后，该来源仍不能成为独立留出样本。
+硬删会删除该标志；来源 ID 检查因此不能证明删除后重导入文本或间接规则暴露的独立性。
+
 ## 测试材料格式（仅离线实验，不是前端反馈 API）
 
 根对象严格包含 `schema_version: 1` 和 `cases`（1–1000 项）。每项必须包含：

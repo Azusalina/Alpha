@@ -42,13 +42,17 @@ support partition filters. `core/api.py` exposes that entry point as a local
 JSON-lines process for a desktop adapter; see [docs/api.md](docs/api.md) and
 [docs/api.schema.json](docs/api.schema.json). Start it from this directory with
 `python -m core.api --db data/brain.sqlite3`. The Tauri command/process host is
-implemented; React Transport wiring and runtime distribution remain pending.
+implemented; React Transport is wired, with browser/real-Python and Xvfb native
+smoke acceptance reported by the frontend. Native fault/restart acceptance and
+runtime distribution remain pending.
 See [docs/desktop-bridge.md](docs/desktop-bridge.md); the desktop's default
 database is its app-local-data file, not the repository's development database.
 Candidate memories retain the current separate explicit review step.
 The model now requires two whole-input judgements, with an explicit exclamation
 shortcut setting both true. Re-review/removal/restoration and decision history
-are implemented; original-text editing/deletion remain unavailable.
+are implemented. F6 now edits inactive inputs (no old raw-text history) and
+hard-deletes any-state inputs with atomic contribution removal. It does not
+delete external originals/backups or implement password protection/secure erasure.
 Input lists now include bounded code-point summaries; `input_page` supplies
 total and revision-checked cursor pagination without returning full journals.
 
@@ -73,9 +77,9 @@ all its cases are synthetic development material, not a verified user benchmark.
 
 For optional schema conformance checks, create a development virtual environment
 and run `python -m pip install '.[test-schema]'` from this directory, then rerun
-the test commands above. Without the extra, twelve schema tests explicitly skip;
+the test commands above. Without the extra, thirteen schema tests explicitly skip;
 the normal runtime still has no additional package dependency. The checks cover
-all 21 request/response envelopes and method result bodies, including shorter
+all 23 request/response envelopes and method result bodies, including shorter
 no-op decisions, legacy contexts, ranking and candidate-status variants.
 Clients select `#/$defs/results/$defs/METHOD` for successful bodies using the
 retained request method; generic envelope validation alone is insufficient.

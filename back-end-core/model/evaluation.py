@@ -47,8 +47,11 @@ def read_snapshot(path: str | Path) -> dict:
             state[row["parameter"]] = {"value": value, "support": support, "observed": support > 0}
         # Previously fitted sources are not held-out either; their labels may
         # have influenced dependent frozen fits, even after their own revocation.
+        input_columns = {r["name"] for r in db.execute("PRAGMA table_info(brain_inputs)")}
+        ever_fitted = "OR i.ever_fitted=1 " if "ever_fitted" in input_columns else ""
         sources = [r[0] for r in db.execute(
             "SELECT i.source_id FROM brain_inputs i WHERE i.status IN ('agreed','revoked') "
+            + ever_fitted +
             "OR EXISTS (SELECT 1 FROM brain_fit_context f WHERE f.source_id=i.source_id) "
             "ORDER BY i.source_id")]
         revision = db.execute("SELECT COALESCE(MAX(revision),0) FROM brain_effects").fetchone()[0]

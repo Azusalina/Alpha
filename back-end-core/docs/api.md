@@ -4,8 +4,10 @@
 a persistent local process with newline-delimited UTF-8 JSON. A desktop host
 starts it once, matches responses by `id`, and closes stdin to end the process.
 There is no network listener. A Tauri `brain_call` host is now implemented in
-`src-tauri`; the React Transport connection and release runtime packaging remain
-pending. See [desktop-bridge.md](desktop-bridge.md) for invocation and host settings.
+`src-tauri`; React Transport is now wired. The frontend reports browser/real-Python
+and Xvfb native-window smoke acceptance in `front-back-communicate.md`; native
+fault/restart acceptance and release runtime packaging remain pending.
+See [desktop-bridge.md](desktop-bridge.md) for invocation and host settings.
 
 From `back-end-core`:
 
@@ -19,7 +21,7 @@ as `text` and its display filename as `source_ref`. The existing model CLI also
 supports local `--file` import. Schema version 1 is defined in
 [`api.schema.json`](api.schema.json); the API validates method fields at runtime.
 The root schema validates requests; `$defs.response` validates only the response
-envelope. All 21 method result bodies are defined under
+envelope. All 23 method result bodies are defined under
 `$defs.results.$defs[METHOD]`, referenced as `#/$defs/results/$defs/METHOD`.
 Validate a successful `result` against the method of the corresponding request;
 the wire response has no method field. Validating just the envelope or the
@@ -31,7 +33,7 @@ dual-judgement metadata shared by inputs and decisions.
 `$defs.interpretation` defines correction provenance and versioned value-rule
 diagnostics, including older frozen contexts without the newer diagnostics.
 Optional conformance checks in `tests/test_schema_contract.py` require the
-`test-schema` extra; see `../README.md`. Twelve tests cover live method bodies,
+`test-schema` extra; see `../README.md`. Thirteen tests cover live method bodies,
 negative shapes, lifecycle/ranking/candidate variants, legacy migration and
 serialized process responses. These shape checks do not prove cross-field
 source/span equality, matching IDs or semantic correctness; runtime/behavior
@@ -97,13 +99,15 @@ Optional fields are marked `?`. Defaults are shown where applicable.
 | `baseline` | `{}` | Immutable zero model definition |
 | `submit` | `text`, `partition`, `kind?="diary"`, `self_speaker?`, `source_ref?`, `immediate?=true`, `exclamation?=false` | Source, approval metadata, effects; explicit exclamation can fit immediately |
 | `input_get` | `source_id` | Original `text`, metadata, partition, kind, review status |
+| `input_edit` | `source_id`, `text`, `immediate`, `kind?`, `self_speaker?` | New `inputRecord`; inactive source only, clears old source history and resets confirmation |
+| `input_delete` | `source_id` | `{source_id, deleted:true}`; any state, atomically removes fit and all this source's records |
 | `input_list` | `partition?`, `status?`, `limit?=20` | Array of metadata and summaries, newest first; no full original text |
 | `input_page` | `partition?`, `status?`, `limit?=20`, `cursor?=null` | `{items, total, next_cursor, revision}`; bounded pages of the same summary rows |
 | `preview` | `source_id` | Inactive-source translation and hypothetical effects; no fitting |
 | `review` | `source_id`, `agree` (boolean) | Set second judgement; actual approval/removal effects |
-| `review_history` | `source_id` | Current approval metadata and append-only decision history |
+| `review_history` | `source_id` | Current approval metadata and decision history since the last edit |
 | `correction_set` | `source_id`, `corrections`, `expected_revision` | Append a complete pending correction set; no fitting |
-| `correction_history` | `source_id` | Current correction revision, append-only history, frozen fit context |
+| `correction_history` | `source_id` | Current correction revision/history and frozen fit context, cleared by edit/delete |
 | `revoke` | `source_id` | Revocation and reversal effects |
 | `state` | `partition?` | Current parameter values, support, observed flags |
 | `effects` | `source_id?` | Ordered actual parameter effect history |
@@ -124,7 +128,9 @@ Optional fields are marked `?`. Defaults are shown where applicable.
 - Candidate statuses: `pending`, `accepted`, `rejected`. An accepted candidate
   from a revoked source remains in history but is absent from active memories.
 - `limit` is an integer from 1 to 100; filters apply before this limit.
-- Input text is limited to 1,000,000 Unicode characters. Blank text is invalid.
+- Input text is limited to 1,000,000 Unicode characters. Blank text and U+0000
+  anywhere in new submit/edit text are `INVALID_ARGUMENT`; no silent stripping.
+  Existing legacy text is not rewritten by migration.
 - Surrogate code points in text fields are rejected as `INVALID_ARGUMENT`.
   Valid Unicode text is stored without BOM/newline normalization; `input_get`
   returns the same code-point sequence (and therefore the same UTF-8 encoding).
@@ -153,7 +159,7 @@ or runtime is exposed by the JSON API.
 - Only both true are eligible for fitting. `immediate=false` saves raw text as
   `disagreed`, `reason="immediate_false"`, confirm=null, without parameter,
   vocabulary or semantic-rule learning. Either review value is invalid until
-  source editing can change immediate (F6 is not implemented).
+  `input_edit` can change immediate and restart confirmation.
 - Explicit `exclamation=true` **sets both judgements true**, including when the
   submitted immediate was false, following the user's updated rule. Saving,
   fitting and audit commit in one transaction. Failure rolls everything back.
@@ -189,23 +195,23 @@ or runtime is exposed by the JSON API.
   effect history. Earlier fits without context retain stored contributions and
   use `legacy_context_unavailable=true`. Restart does not repeat migration.
 - `health.features.two_judgements`, `exclamation_sets_both_true`,
-  `repeat_review`, `preview_untrained` are true; source_edit/source_delete false.
+  `repeat_review`, `preview_untrained`, `source_edit`, `source_delete` are true.
   New fields require a matching backend; schema_version remains 1 because old
   requests are still accepted. Never assume these features solely from version.
 
 Preview now supports pending/disagreed/revoked, including immediate=false, but
 never trains or authorizes a review. For previously fitted sources it projects
 restoration of frozen evidence. Only pending interpretation corrections remain
-editable; repeat review does not unlock correction or raw-source editing.
+editable; repeat review alone does not reset raw text or its correction history.
 
 ### Input summaries and pagination (F5 implemented)
 
 Both list methods return `excerpt` (the first 80 Unicode code points),
-`char_count` (the full original text's code-point length), `edited_at=null`
-(editing is not implemented), and the dual-judgement fields. `input_get` adds
+`char_count` (the full original text's code-point length), `edited_at` (null until
+edited, then the last edit's UTC timestamp), and the dual-judgement fields. `input_get` adds
 the same summary fields to the full-text detail. No normalization, trimming,
 HTML/Markdown rendering or ellipsis is applied; excerpts can include line
-breaks, combining marks and NUL. Excerpts are **raw user text**, not semantic
+breaks, combining marks and legacy NUL. Excerpts are **raw user text**, not semantic
 summaries or sanitized markup. Render as plain text; future access protection
 must cover excerpts as well as full text. No password gate exists yet.
 
@@ -231,13 +237,13 @@ Use `health.methods` and `features.input_summary/input_pagination` to detect sup
   It is not encryption, an access token, a password gate or an idempotency key.
   It survives reopening the same database without intervening input changes.
 - Each call reads total, rows, summaries and revision in one SQLite snapshot.
-  Revision is the current global review-history watermark (not a timestamp).
-  Supported submit, changed review or revoke invalidates older cursors, even
+  Revision combines the review sequence high-water mark and a source mutation
+  generation (not a timestamp or personal parameter); purging history cannot
+  reuse a prior revision. Supported submit, changed review, revoke, edit or delete invalidates older cursors, even
   in another partition. A mutation cannot silently mix old and new pages:
   `STALE_CURSOR` requires discarding accumulated pages and querying page 1 again.
   No-op reviews, pending correction labels and legacy-only writes do not
-  change input-list metadata or invalidate its cursor. Future source edit/delete
-  must also advance/invalidate this generation. External SQL edits are outside
+  change input-list metadata or invalidate its cursor. External SQL edits are outside
   the API contract; revision does not detect arbitrary manual database changes.
 - Invalid, altered, wrong-database or filter-mismatched cursors return
   INVALID_ARGUMENT. Paging is read-only and cannot authorize material fitting.
@@ -315,15 +321,63 @@ the whole replacement set with that `expected_revision`:
   training labels. This is not general semantic understanding or neural training.
 - Rejection never teaches a label. Revocation removes future teaching support,
   but does not silently reinterpret already committed dependent sources; their
-  fit contexts remain recorded. Approved-input revision/replay is still pending.
+  fit contexts remain recorded. Deleting or editing a teaching source likewise
+  removes its future support, without rewriting other inputs' frozen fits.
+  General dependent-fit replay is still pending.
+
+## Source editing and deletion (F6 implemented)
+
+`input_edit` requires new text and an explicit boolean immediate. It is allowed
+for pending/disagreed/revoked sources only; agreed sources must first be revoked
+or reviewed false. Identity, partition, source_ref and created_at stay unchanged.
+An omitted kind retains the current kind. For chat, an omitted self_speaker
+retains the current speaker; changing to chat requires a valid resolved speaker,
+and explicit null is invalid for chat. A non-chat result clears self_speaker.
+
+Every edit, even identical text, clears this source's previous effect/review/
+correction history, vocabulary contributions, parameter contributions, frozen fit
+context and all candidate memories. It does not retain the previous body. It sets
+confirm=null, exclamation=false, confirmed_by=null, reviewed_at=null and edited_at
+to UTC now. Immediate true produces pending; false produces disagreed with
+reason=immediate_false. The result is inputRecord, not full text or a decision
+with effects. No edit trains. Review history is initially empty for this version;
+later reviews append normally. Preview/review now interpret the new body, never
+restore the purged old fit. Fetch fresh correction_history before new corrections.
+
+`input_delete` accepts all four statuses. Within one transaction it deactivates
+an agreed source's parameter/vocabulary support, deletes its candidates and all
+the source-specific records listed above, then deletes the input and source.
+There is no tombstone, retained revoke event or raw-data backup created by this
+operation. Other inputs' historical effect values and frozen contexts remain
+unchanged. Return `{source_id, deleted:true}` only; refresh state/terms/list after
+success, not an old effect log as a replacement for current state. Subsequent
+source queries/deletes return NOT_FOUND, not an idempotent success. A failure
+rolls back removal and deletion together. Neither method accepts file paths,
+partition changes, backup targets, exclamation or a password field.
+
+An additive metadata migration records last edit time and a non-text internal
+ever-fitted flag. Editing retains that flag to prevent old training sources being
+misclassified as independent held-out samples; deletion removes it with the row.
+The flag is not a frontend field. Zero baseline and existing fits are untouched
+by migration. Earlier text-bearing histories are not preserved after edit/delete.
+
+**Privacy boundary:** hard deletion means removing this source's records from
+the current application's database, not forensic secure erasure or deleting all
+copies. It does not delete original txt/md files, manual backups, system snapshots,
+frontend caches/reports or evidence already present in other inputs' frozen
+contexts. It is not complete downstream unlearning. No password gate or encryption
+exists; the client must explain irreversibility and obtain deletion confirmation.
+F13 and the error code LOCKED are deferred, not implemented by F6.
 
 ## Remaining frontend extensions (not implemented)
 
-Editing/deletion remains a proposal recorded in
-[`../../front-back-communicate.md`](../../front-back-communicate.md). Do not send
-unimplemented edit/delete fields or methods: unknown fields are rejected. Use
-`health.methods` and `health.features` for availability. Original-text access
-protection and future choice-feedback collection are also pending.
+The frontend may enable its existing proposedMethods adapter option after
+health advertises input_edit/input_delete and source_edit/source_delete=true.
+Use the final F6 contract above, not the obsolete non-agreed-only delete proposal.
+Clear stale source detail/preview/effects/correction caches and reload state and
+page 1 after either mutation; invalidate pending old-source operations too.
+All 23 results are typed; schema_version stays 1. Frontend acceptance of these new
+methods, original-text access protection and future choice-feedback remain pending.
 
 ## Errors and host lifecycle
 

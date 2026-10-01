@@ -10,6 +10,8 @@ import re
 import secrets
 import sqlite3
 
+from model.sources import GENERATION_KEY
+
 MAX_CURSOR_CHARS = 2048
 _TOKEN = re.compile(r"[A-Za-z0-9_-]+\.[0-9a-f]{64}\Z")
 _FIELDS = {"version", "revision", "partition", "status", "created_at", "source_id"}
@@ -29,6 +31,15 @@ def key(db: sqlite3.Connection) -> bytes:
     if row is None or not re.fullmatch(r"[0-9a-f]{64}", row["value"]):
         raise RuntimeError("input cursor key unavailable; explicit repair required")
     return bytes.fromhex(row["value"])
+
+
+def revision(db: sqlite3.Connection) -> int:
+    """Monotonic even when a source's complete audit (including max ID) is purged."""
+    sequence = db.execute("SELECT seq FROM sqlite_sequence WHERE name='brain_review_history'").fetchone()
+    generation = db.execute("SELECT value FROM brain_meta WHERE key=?", (GENERATION_KEY,)).fetchone()
+    if generation is None or not generation[0].isdigit():
+        raise RuntimeError("input mutation generation unavailable; explicit repair required")
+    return (sequence[0] if sequence else 0) + int(generation[0])
 
 
 def encode(secret: bytes, *, revision: int, partition: str | None, status: str | None,

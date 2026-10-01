@@ -35,10 +35,14 @@ class InputPaginationTests(unittest.TestCase):
         with patch("model.engine._now", return_value="2026-10-01T00:00:00+00:00"):
             return [self.submit(text=f"记录第{i}件事情。") for i in range(count)]
 
-    def test_summary_uses_codepoints_preserves_crlf_combining_marks_and_embedded_nul(self):
+    def test_summary_uses_codepoints_preserves_crlf_combining_marks_and_legacy_embedded_nul(self):
         for prefix in ("😀e\u0301\r\n", "有效\0内容\r\n"):
             text = prefix + "中😀" * 60 + "NOT-IN-THE-EXCERPT"
-            source = self.submit(text=text)
+            source = self.submit(text=text if "\0" not in text else "旧库材料。")
+            if "\0" in text:
+                # New submissions reject NUL, but additive migration must not rewrite old text.
+                with self.api.brain.store._connect() as db:
+                    db.execute("UPDATE sources SET body=? WHERE id=?", (text, source))
             detail = self.result("input_get", source_id=source)
             row = next(row for row in self.result("input_list") if row["source_id"] == source)
             self.assertEqual(row["excerpt"], text[:80])

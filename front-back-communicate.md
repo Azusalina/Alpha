@@ -31,20 +31,20 @@
 //// - [x] [back] 2026-09-30：Tauri 宿主已实现 `brain_call({request})`，懒启动并复用固定 Python 进程，串行队列、期限、响应 ID 校验、stderr 排空、退出清理；ACL 仅允许主窗口本地来源。React Transport 仍未接线，发行 runtime 未打包。
 //// - [x] 返回每项参数的前／后数值、支持证据数、原文片段与位置、规则 ID、修订号；提供保守的结构化选项价值对齐排序，证据不足时 abstain。
 //// - [x] [back] 2026-09-30：`model.evaluation` 离线评估工具已实现，复用线上排序逻辑，读取只读快照；区分实际／事后认可标签，报告分领域命中／覆盖／拒答及八个价值参数的静态消融。不会导入测试材料或自动删改参数；合成例子不代表真实用户准确率。
-//// - [x] [back] 当前自动化测试：安装 test-schema 测试 extra 后 `tests/` 142 项（含 12 项契约测试）全通过，未安装 extra 时 130 项行为测试通过、12 项契约测试显式跳过；本轮 `translator/` 7 项通过（2026-10-01）。Rust 宿主／命令／ACL 13 项此前通过，本轮未修改或复跑 Rust。Tauri MockRuntime 不等于原生 WebKitGTK 验收；测试通过不证明心理效度或选择预测准确。
+//// - [x] [back] 当前自动化测试：安装 test-schema 测试 extra 后 `tests/` 164 项（含 13 项契约测试、21 项新增 F6 治理测试）全通过；未安装 extra 时 151 项行为测试通过、13 项契约测试显式跳过。本轮 translator/ 7 项、Rust 宿主／命令／ACL 13 项复跑通过；F6 不改 Rust 或 src/。Tauri MockRuntime 不等于原生 WebKitGTK 验收；测试通过不证明心理效度或选择预测准确（2026-10-01）。
 
 ## 后端待办
 
 - [ ] **P0｜发布策略**：决定候选记忆要逐条确认，还是随整份输入同意而自动发布；当前保留已有逐条确认流程。统一编排接口已实现，旧版 `core.cli add-source` 记录保留但不进入统一入口的活动查询。
 - [ ] **P0｜纠错扩展**：[back] 2026-09-30：pending 参数纠正与保守原句复用已完成；更广的事件／语义纠错、已审核材料的修订与依赖拟合重放仍待实现。
-- [ ] **P0｜前端新增需求**：[back] 2026-10-01：F1-F5/F7 已实现；F6 编辑／删除仍待完成，修改 immediate 也依赖 F6。原文修改历史／删除语义须先确认。
-- [ ] **P0｜原文治理**：定义编辑、删除、撤销、备份及恢复的效果；明确被拒绝原文的保留与访问规则。现在只有 revoke 已同意材料的模型贡献。
+- [ ] **P0｜前端新增需求**：[back] 2026-10-01：F1-F7 后端均已实现；F6 仍待前端启用／全链路验收，不能标 ////。修改 immediate 通过 input_edit，编辑前 agreed 必须先撤回；删除允许任意状态。
+- [ ] **P0｜原文治理**：[back] 2026-10-01：F6 已明确并实现当前库内无旧原文历史的编辑／整体硬删；外部备份保护与恢复、通用下游拟合重放仍待办。不会删除原文件／手动备份／系统快照，不声称法证不可恢复或全副本遗忘。
 - [ ] **P0｜本机安全**：设计原文访问口令、备份保护和 Tauri 本地调用边界；目前 SQLite 文件有受限权限，但**没有**加密或口令门。
 - [ ] **P1｜真实拟合验证**：[back] 2026-09-30：离线评估／参数消融工具已完成，见 `back-end-core/docs/evaluation.md`。仍需用户真实留出事件、独立的实际／事后认可标签、分组／时间切分，以及据此决定参数去留；当前没有真实预测效度证明。有效后才考虑监督式 ML。
 - [ ] **P1｜表达覆盖**：用用户可纠错样本评估杂乱日记、复杂聊天、引述、否定与哲学陈述；必要时局部引入本地 NLP／LLM，不预设必须使用。
   - [back] 2026-10-01：基础非断言保护与 14 项合成回归已实现；疑问／引述／假设／转述和复杂否定不自动拟合为价值。真实材料覆盖仍待验证，不能据此将本项标为全部完成。
   - [back] 2026-10-01：新增 translator.evaluation 只读评测（另有 14 项工具测试），按人工 label_scope／来源组／开发及留出分组计分，方向与证据位置分开。只评估基础规则，不打开数据库或使用语料纠正后再给自身计分。v2 已修复已知常见主体的间接价值误提取（新增 9 项回归），任意人名／复杂混合归属与真实材料验证仍未完成。不是 F14 的未来选择反馈。
-- [ ] **P1｜桌面接线／部署**：[back] 2026-09-30：JSON-lines 与 Tauri 命令／进程宿主已实现并测试，见 `back-end-core/docs/desktop-bridge.md`。仍待 React Transport 接线、真实 WebKitGTK 录入与关闭验收、Python／后端／jieba 打包及后续版本迁移；不以 MockRuntime 代替原生验收。
+- [ ] **P1｜桌面接线／部署**：[back] 2026-10-01：已核对前端追加的接线与浏览器真实 Python／Xvfb 原生录入记录，见下方 [front] 验收说明。仍待 F6 真正接线验收、原生故障／重启回读、大列表、release 构建与 Python／后端／jieba 打包及真实 GPU 测试；不以 MockRuntime 或软件渲染代替硬件验收。
 - [ ] **P1｜反馈契约**：[back] 2026-09-30：继续稳定 `state/effects/evidence` 与结果 schema；F12 确认无需后端视觉字段，动画映射由前端负责。球体属后续版本，后端不产出临床风险值。
 - [ ] **延期｜MMPI 报告**：另定版本、格式和解释边界；目前没有解析、计分或诊断能力。
 
@@ -84,7 +84,7 @@
 | `confirm(id, bool)` | `review(source_id, agree)` | 已有（含义 = 第二个 T/F）；再次判定已实现 |
 | `revoke` | `revoke` | 已有 |
 | `inputList` / `inputGet` | `input_list` / `input_get` | 双判定元数据与摘要已返回；分页另接 input_page（21 个方法之一） |
-| `inputEdit` / `inputDelete` | — | **PROPOSED**（对应后端待办 P0「原文治理」） |
+| `inputEdit` / `inputDelete` | `input_edit` / `input_delete` | [back] 已实现；前端能力探测后启用现有 proposedMethods 并验收 |
 | `state` / `effects` / `rank` | `state` / `effects` / `rank` | 已有 |
 | `capabilities` | `health.methods` | 已有；前端据此把不支持的按钮置灰 |
 
@@ -106,10 +106,12 @@
 //// - [x] **F5 `input_list` 补字段。** `immediate`、`confirm`、`exclamation`、`confirmed_by`、`reason`、`excerpt`（原文前 80 个 Unicode 码点）、`char_count`、`edited_at`；超过 100 条时提供分页。
   - [back] 2026-10-01 接受并实现字段；edited_at 暂为 null，不伪装已经支持编辑。input_list 保持现有数组契约，前端已有 hydrate 将跳过额外 input_get。分页新增 input_page({partition?,status?,limit?,cursor?}) → {items,total,next_cursor,revision}，旧适配器尚未接这个方法。游标绑定数据库／筛选及输入审核修订，单页计数与内容同快照；支持 >100 条同时间戳输入，不漏项／重复。输入改变后旧游标返回 STALE_CURSOR，须丢弃旧页再取第一页。完整契约与 inputRecord／inputPage schema 已同步。
   - [back] 2026-10-01 隐私边界：excerpt 是原文片段而非脱敏或语义摘要，按纯文本显示；未来口令门须覆盖 list/page/evidence 等，不只是 input_get。游标完整性校验不等于口令、加密或原文保护。
-- [ ] **F6 编辑与删除（对应待办 P0「原文治理」）。**
+- [x] **F6 编辑与删除（后端已完成，前端启用／验收仍待办）。**
   - `input_edit(source_id, text, immediate, kind?, self_speaker?)`：仅允许非 `agreed`；替换原文，重置 `confirm=null`，旧 span 全部失效。请 [back] 定：是否保留修改前原文的历史？
   - `input_delete(source_id)`：仅允许非 `agreed`（已训练的须先 `revoke`）。硬删、墓碑还是备份，请 [back] 定；前端会二次确认，文案按你们的选择写（不会假装「已彻底删除」）。
   - 这两个方法未提供时，前端在真实后端下把「编辑/删除」置灰并提示「后端尚不支持」；在 mock 下可用并标「仅演示」。
+  - [back] 2026-10-01 接受用户最新决定并实现：input_delete 允许任意状态，事务内撤回活动贡献后硬删该来源及原文／审核／纠错／词汇／参数／冻结拟合／候选记忆／effect 历史，不留墓碑；其他输入历史数值与冻结上下文不重写。input_edit 仍仅允许非 agreed，替换正文并清除上述来源旧历史／候选，保留 source_id／partition／source_ref／created_at，重置 confirm=null、exclamation=false、confirmed_by=null、reviewed_at=null，返回 inputRecord，edited_at 为最后修改时间；immediate=true 为 pending，false 为 disagreed。不保留旧正文，不自动训练。kind 省略则保留；chat 的 self_speaker 省略则保留，非 chat 清空，切换 chat 必须能解析到有效发言者。
+  - [back] 2026-10-01 安全／备份边界已获用户确认：本轮无口令门；仅删除当前应用库的该来源记录，不删原 txt/md、手动备份、系统快照、前端缓存／报告或其他来源已冻结的间接证据。不宣称法证安全擦除或完全下游遗忘。内部 ever-fitted 标志在编辑后保留（不含正文／不对前端暴露），避免曾训练来源被误作留出样本；删除时一起删除。
 //// - [x] **F7 `preview` 的适用范围。** 对任何**未在训练**的输入可用（`pending`、`disagreed`、`revoked`），结果仍是只读假设值。
   - [back] 2026-09-30 接受并实现；即使 immediate=false 也可预览，但不能据此 review。已有拟合的材料预览冻结证据恢复后的变化；agreed 仍不可 preview。解释纠错仍仅允许 pending。
 //// - [x] **F8 文本与 span 的边界。**
@@ -160,6 +162,15 @@
 给 [back] 的两点：
 - 新增的 `interpretation.withheld_values` 已在预览里展示（「自动提取暂不采纳」，按 `reason` 给中文说明，未知 `reason` 显示原值，保留 v1／v2 两种 `evidence_policy`），不据此隐藏或删除任何 effect。例：「我重视公平吗？“我重视自由。”」显示「疑问句」「引号里的话」，且没有 effect。
 - 用户对 F6 的决定见上一节：删除要能连历史一起硬删（任何状态）。请 [back] 实现 `input_delete` 时按此语义，并回复编辑历史与口令门的取舍；前端在你们提供 `input_edit` / `input_delete` 后，只需在 `RemoteBrainAdapter` 里打开 `proposedMethods`。
+
+### [back] 2026-10-01 对前端追加的交付回复（F6 / U+0000）
+
+- 已读取并接受上方删除决定与验收进度。F6 后端已实现，API 共 23 个方法，schema_version 仍为 1；health.methods 包含 input_edit/input_delete，health.features.source_edit/source_delete=true。请求与两种结果 body 均已加入 api.schema.json，最终契约见 api.md「Source editing and deletion」。本轮未修改 src/，未访问实际用户库／备份。
+- input_edit(source_id,text,immediate,kind?,self_speaker?) → inputRecord（没有完整 text、effects 或旧正文）；input_delete(source_id) → {source_id,deleted:true}，没有持久删除 effect。删除成功后所有该来源查询／再次删除返回 NOT_FOUND。失败整笔回滚，不能把 MODEL_UNAVAILABLE 当“肯定没写入”而盲重试。
+- 前端待办：核对方法／能力后启用 proposedMethods；允许所有状态删除，编辑 agreed 时先明确撤回。成功后清除旧原文／preview／effects／corrections 缓存与在途旧操作，重新读取 state、terms／effects（如需）及列表第一页。编辑后的 confirm=null 不是沿用旧认可；没有新的双 true 就不拟合。其他输入 effect 的历史数值不等于当前 state，删除后须刷新 state。旧游标必定 STALE_CURSOR，包括删除最大审核号与全部来源后再次录入。
+- U+0000：任何位置的新增 submit/input_edit text 都在写入前返回 INVALID_ARGUMENT，不静默剥离；旧库含 NUL 文本保留可读。请同步前端全位置校验、mock 错误码及旧测试（原 STORAGE_ERROR／21 个方法／source_edit=false 断言已过时）。前端对 v2 的未知 reason 回退处理已核对，无需新增视觉字段。
+- 21 项新增治理测试及 13 项结果契约测试均通过（当前 tests/ 总 164 项）。迁移只增加 edited_at／内部 ever_fitted／全局列表代数，不重训旧材料；临时库迁移、失败回滚、全部状态、并发审核／删除、教学支持移除、原文件／备份不动均已验证。F6 前端按钮／原生编辑删除尚未验收，先不标 ////。
+- F13 继续延期；LOCKED 仍是未来约定，不是当前已实现错误码。后续口令门须覆盖原文、excerpt、evidence、历史与写操作，不应只拦 input_get。
 
 ### [back] 回复
 

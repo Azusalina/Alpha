@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from model import BrainModel
-from model.approvals import metadata as approval_metadata
 from model.catalog import PARTITIONS
+from model.sources import public_record
 
 from .extraction import TextModel, extract_candidates
 from . import pagination
@@ -53,13 +53,13 @@ class BrainCore:
             ).fetchone()
         if row is None:
             raise KeyError("brain input not found")
-        return {**dict(row), **approval_metadata(row), **self._summary(row["text"])}
+        return {**public_record(row, row["text"]), "text": row["text"]}
 
-    @staticmethod
-    def _summary(text: str) -> dict:
-        # SQLite length/substr stop at embedded NUL; Python preserves every
-        # Unicode code point, including CRLF, combining marks and emoji.
-        return {"excerpt": text[:80], "char_count": len(text), "edited_at": None}
+    def input_edit(self, source_id: str, text: str, immediate: bool, **optional) -> dict:
+        return self.model.input_edit(source_id, text, immediate, **optional)
+
+    def input_delete(self, source_id: str) -> dict:
+        return self.model.input_delete(source_id)
 
     def _input_filters(self, partition: str | None, status: str | None, limit: int
                        ) -> tuple[list[str], list[str]]:
@@ -89,11 +89,13 @@ class BrainCore:
         # Only sort small metadata rows. Read selected bodies in one batch,
         # iterating instead of accumulating up to 100 full journals in memory.
         summaries = {}
+        metadata = {row["source_id"]: row for row in rows}
         placeholders = ",".join("?" for _ in rows)
         for source in db.execute(f"SELECT id, body FROM sources WHERE id IN ({placeholders})",
                                  [row["source_id"] for row in rows]):
-            summaries[source["id"]] = self._summary(source["body"])
-        return [{**dict(row), **approval_metadata(row), **summaries[row["source_id"]]} for row in rows]
+            row = metadata[source["id"]]
+            summaries[source["id"]] = public_record(row, source["body"])
+        return [summaries[row["source_id"]] for row in rows]
 
     def input_list(self, *, partition: str | None = None, status: str | None = None,
                    limit: int = 20) -> list[dict]:
@@ -107,7 +109,7 @@ class BrainCore:
         clauses, values = self._input_filters(partition, status, limit)
         with self.store._connect() as db:
             db.execute("BEGIN")  # Total, eligibility, metadata and text share one read snapshot.
-            revision = db.execute("SELECT COALESCE(MAX(revision), 0) FROM brain_review_history").fetchone()[0]
+            revision = pagination.revision(db)
             secret = pagination.key(db)
             where = " WHERE " + " AND ".join(clauses) if clauses else ""
             total = db.execute("SELECT COUNT(*) FROM brain_inputs i" + where, values).fetchone()[0]

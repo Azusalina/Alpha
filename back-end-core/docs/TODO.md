@@ -8,11 +8,12 @@
   request fields and error envelope; EOF ends the process.
 - `docs/api.md` and `docs/api.schema.json`: frontend integration contract.
 - Pending interpretation feedback: `correction_set` / `correction_history`,
-  append-only revision checks, exact author evidence, and frozen fit provenance.
+  append-only revision checks within the current source version, exact author
+  evidence, and frozen fit provenance. F6 edit/delete clear that source's history.
   Two consistent agreed full-clause labels can teach exact reuse within one
   partition/kind/separator context; conflicts abstain. Rejection/revocation
   cannot supply future teaching support. This is not semantic generalization.
-- Request schema includes all 21 methods and correction items. All 21 method
+- Request schema includes all 23 methods and correction items. All 23 method
   result bodies are typed under `$defs.results.$defs`, with common translation,
   interpretation, approval, input, effect, state and candidate definitions.
   Select the body validator using the retained request method; envelope-only
@@ -27,16 +28,28 @@
   preferred policy is pending. UI remains outside the backend implementation.
 - `src-tauri`: fixed `brain_call` host, main/local ACL, serialized bounded queue,
   total timeout, response validation, stderr draining and child cleanup. Genuine
-  Python and Tauri MockRuntime command/ACL tests exist. React Transport wiring,
-  native WebKitGTK acceptance and release runtime packaging remain pending.
+  Python and Tauri MockRuntime command/ACL tests exist. React Transport is wired;
+  frontend reports browser/real-Python and Xvfb native smoke acceptance. Native
+  failure/restart/F6 acceptance and release runtime packaging remain pending.
 - F1-F4/F7: dual whole-input approval, explicit exclamation setting both true
   atomically, repeated decisions/removal/frozen-fit restoration, decision audit
   and inactive preview. Legacy metadata migration does not re-fit existing data.
-  Immediate remains immutable until F6 editing; no text-inferred authorization.
+  Immediate can change only through F6 editing; no text-inferred authorization.
 - F5: get/list summaries preserve Unicode code points; input_list keeps its
   array shape. New input_page returns bounded items/total/cursor/revision.
   Database-bound cursors reject altered filters or stale input generations;
-  each page uses one read snapshot. edited_at is null until source editing exists.
+  each page uses one read snapshot. edited_at records the last edit, initially null.
+- F6: inactive-source edit clears its old raw text and all source-specific
+  histories/labels/fits/candidates, then resets confirmation without training.
+  Any-state delete atomically removes active support and all that source's records;
+  no tombstone, no external-file/backup cleanup and no password/secure-erasure claim.
+  Other sources' effects/frozen contexts remain untouched. Additive metadata
+  migration and monotonic cursor generations are tested; an internal ever-fitted
+  flag survives edits for held-out exclusion and disappears on deletion.
+  Twenty-one synthetic governance tests cover rollback, concurrency, every
+  status, teaching support, external-file isolation, migration and real process IO.
+- U+0000 anywhere in new submit/edit text is INVALID_ARGUMENT before writes.
+  Legacy text is preserved, not silently normalized by migration.
 - Base assertion guards withhold questions/quotation/code/Markdown quotation,
   reported/hypothetical frames, value hedges and ambiguous negation/comparison.
   New interpretation contexts record bounded reason/evidence diagnostics and
@@ -56,9 +69,9 @@
   v1 restoration. Schema accepts v1/v2 without relabelling historical fits;
   arbitrary names, relative clauses and complex mixed ownership remain gaps.
 - Optional `test-schema` extra validates the schema itself, live examples for
-  all 21 request/response envelopes and method bodies, negative shapes,
+  all 23 request/response envelopes and method bodies, negative shapes,
   lifecycle/ranking/candidate variants, migration and real JSON-lines output.
-  Twelve synthetic tests use temporary databases; without the extra they explicitly
+  Thirteen synthetic tests use temporary databases; without the extra they explicitly
   skip. Backend CI configuration requires the validator and pins the tokenizer
   and Actions references. Local Python 3.14 passes; online CI and its Python 3.10
   job have not been executed yet. Schema shapes are not model-validity evidence.
@@ -122,18 +135,19 @@
 - [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
   metadata migration and expanded preview implemented and regression-tested.
 - [x] P0: F5 summaries and input_page pagination implemented and regression-tested.
-- [ ] P0: F6 source revision/deletion remains in
-  `../../front-back-communicate.md`; changing immediate requires the pending edit API.
-- [ ] P0: define raw-source history, backup/recovery, reviewed-source revisions
-  and invalidation/replay of dependent fits, corrections, and candidate memories.
+- [x] P0: F6 source editing/deletion and NUL validation implemented; final contract
+  and frontend activation/acceptance steps in `../../front-back-communicate.md`.
+- [ ] P0: protected backup/recovery policy and general downstream-fit replay;
+  current F6 removes only this source's records and future teaching support,
+  preserving other inputs' frozen fits and historical effects.
 - [ ] P0: password/access boundary and protected backups; no encryption or
   password gate exists yet. Protect summary excerpts, evidence and correction
   history too, not just input_get, when designing the raw-text access gate.
-- [ ] P1: connect React Transport to the implemented Tauri host; native desktop
-  acceptance, packaged Python/backend/jieba and contract migrations remain.
+- [ ] P1: native failure/restart/F6 acceptance, packaged Python/backend/jieba
+  and subsequent contract migrations remain.
   Host transport/lifecycle/timeout/ACL code is implemented (`desktop-bridge.md`),
-  but no frontend connection or native end-to-end acceptance exists yet.
-- [x] P1: type all 21 method result bodies and common records, and add local
+  with frontend wiring and Xvfb basic acceptance reported by the frontend.
+- [x] P1: type all 23 method result bodies and common records, and add local
   conformance tests covering lifecycle branches, negative shapes and serialized
   output. Backend CI requires the validator; runtime dependencies are unchanged.
 - [ ] P1: verify online backend CI and its Python 3.10 matrix job; local

@@ -17,7 +17,6 @@ from uuid import uuid4
 from core.store import MemoryStore
 from translator import translate
 from translator.learning import learnable_terms, own_chat_text
-from translator.pipeline import MAX_CHARS
 from translator.discourse import POLICY_VERSION
 
 from .catalog import BASELINE, BASELINE_PATH, PARAMETERS, PARTITIONS, PRIOR_STRENGTH, zero_state
@@ -25,6 +24,7 @@ from .approvals import initialize as initialize_approvals, metadata as approval_
 from .corrections import apply_local, latest_corrections, learned_rules, validate_corrections
 from .evidence import Contribution, extract_contributions
 from .ranking import rank_from_state
+from . import sources
 
 
 def _now() -> str:
@@ -125,6 +125,7 @@ class BrainModel:
                 [(partition, parameter) for partition in PARTITIONS for parameter in PARAMETERS],
             )
             initialize_approvals(db, _now())
+            sources.initialize(db)
 
     @staticmethod
     def baseline() -> dict:
@@ -142,12 +143,7 @@ class BrainModel:
                       self_speaker: str | None = None, source_ref: str | None = None,
                       immediate: bool = True, exclamation: bool = False) -> dict:
         """Store and, only on explicit exclamation, fit in the same transaction."""
-        if not isinstance(text, str) or not text.strip() or len(text) > MAX_CHARS:
-            raise ValueError(f"text must contain 1 to {MAX_CHARS} characters")
-        try:
-            text.encode("utf-8")
-        except UnicodeEncodeError:
-            raise ValueError("text must not contain surrogate code points") from None
+        sources.validate_text(text)
         if partition not in PARTITIONS:
             raise ValueError("invalid partition")
         if kind not in {"diary", "chat", "philosophy"}:
@@ -176,11 +172,69 @@ class BrainModel:
 
     @staticmethod
     def _input(db: sqlite3.Connection, source_id: str) -> sqlite3.Row:
-        row = db.execute("SELECT i.*, s.body FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
+        row = db.execute("SELECT i.*, s.body, s.source_ref, s.created_at FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
                          "WHERE i.source_id=?", (source_id,)).fetchone()
         if row is None:
             raise KeyError("brain input not found")
         return row
+
+    def input_edit(self, source_id: str, text: str, immediate: bool, *,
+                   kind=sources.UNSET, self_speaker=sources.UNSET) -> dict:
+        """Replace an inactive source, purging its old text-bearing history."""
+        sources.validate_text(text)
+        if type(immediate) is not bool:
+            raise ValueError("immediate must be a boolean")
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = self._input(db, source_id)
+            if row["status"] == "agreed":
+                raise ValueError("revoke the agreed source before editing")
+            new_kind = row["kind"] if kind is sources.UNSET else kind
+            if not isinstance(new_kind, str) or new_kind not in {"diary", "chat", "philosophy"}:
+                raise ValueError("invalid kind")
+            if self_speaker is not sources.UNSET and self_speaker is not None:
+                if not isinstance(self_speaker, str) or not self_speaker.strip():
+                    raise ValueError("self_speaker must contain text")
+                try:
+                    self_speaker.encode("utf-8")
+                except UnicodeEncodeError:
+                    raise ValueError("self_speaker must not contain surrogate code points") from None
+            speaker = row["self_speaker"] if self_speaker is sources.UNSET else self_speaker
+            if new_kind == "chat":
+                if not isinstance(speaker, str) or not speaker.strip():
+                    raise ValueError("chat requires self_speaker")
+                try:
+                    speaker.encode("utf-8")
+                except UnicodeEncodeError:
+                    raise ValueError("self_speaker must not contain surrogate code points") from None
+            else:
+                speaker = None  # No stale chat identity after changing kind.
+            sources.purge_dependents(db, source_id)
+            timestamp = _now()
+            db.execute("UPDATE sources SET body=?, origin=? WHERE id=?", (text, new_kind, source_id))
+            db.execute("UPDATE brain_inputs SET kind=?, self_speaker=?, immediate=?, confirm=NULL, "
+                       "exclamation=0, confirmed_by=NULL, reason=?, status=?, reviewed_at=NULL, "
+                       "edited_at=? WHERE source_id=?",
+                       (new_kind, speaker, int(immediate), None if immediate else "immediate_false",
+                        "pending" if immediate else "disagreed", timestamp, source_id))
+            sources.bump_generation(db)
+            updated = self._input(db, source_id)
+            return sources.public_record(updated, text)
+
+    def input_delete(self, source_id: str) -> dict:
+        """Atomically deactivate and hard-delete this source's application records."""
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = self._input(db, source_id)
+            if row["status"] == "agreed":
+                # Reuse aggregate/vocabulary removal, then purge even this temporary audit.
+                self._deactivate(db, row, status="revoked", reason="user_revoked",
+                                 confirmed_by=row["confirmed_by"], action="revoke")
+            sources.purge_dependents(db, source_id)
+            db.execute("DELETE FROM brain_inputs WHERE source_id=?", (source_id,))
+            db.execute("DELETE FROM sources WHERE id=?", (source_id,))
+            sources.bump_generation(db)
+            return {"source_id": source_id, "deleted": True}
 
     @staticmethod
     def _decision_result(row: sqlite3.Row, effects: list[dict] | None = None,
@@ -399,7 +453,7 @@ class BrainModel:
                  for item in contributions],
             )
         timestamp = _now()
-        db.execute("UPDATE brain_inputs SET status='agreed', confirm=1, confirmed_by=?, "
+        db.execute("UPDATE brain_inputs SET status='agreed', confirm=1, ever_fitted=1, confirmed_by=?, "
                    "reason=NULL, reviewed_at=? WHERE source_id=?", (confirmed_by, timestamp, source_id))
         effects = [self._recompute(db, partition, item.parameter, source_id,
                                    item.evidence, item.start, item.end, item.rule_id, "approve")

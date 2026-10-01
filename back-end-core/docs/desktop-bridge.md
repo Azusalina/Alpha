@@ -1,8 +1,9 @@
 # 本机 Tauri 桥接 v1
 
-宿主已在 `src-tauri/` 实现，React 连接层尚未接线。没有修改 `src/`，
-浏览器独立运行时没有这个命令。Python API 现已支持双 T/F、exclamation
-自动双 true、再次判定和非训练材料预览；编辑／删除仍未实现。
+宿主已在 `src-tauri/` 实现，React 连接层也已由前端接线。浏览器独立运行时
+没有这个命令。Python API 支持双 T/F、exclamation 自动双 true、再次判定、
+非训练材料预览，以及 F6 非活动来源编辑／任意状态硬删。前端报告已通过
+浏览器↔真实 Python 与 Xvfb 原生窗口基础录入验收；本轮后端未改 `src/`。
 
 ## 前端调用
 
@@ -18,15 +19,15 @@ export const transport: Transport = {
 };
 ```
 
-这个例子不是已修改的前端文件。前端负责安装／使用 Tauri JS API 包、
-判断桌面环境、选择连接时机，并调用现有 `backendStore.connectRemote`。
+这个例子供说明调用契约；当前前端使用 Tauri 全局 invoke 的 transport，负责
+判断桌面环境、选择连接时机，并调用 `backendStore.connectRemote`。
 先探测 `health.features.two_judgements=true`，再为 RemoteBrainAdapter 设置
-`twoJudgements=true`；旧后端仍保持 false。`proposedMethods=false` 不变，
-编辑／删除尚不可用。继续用 `health.methods` 判断方法能力。
+`twoJudgements=true`；旧后端仍保持 false。F6 后端现有 23 个方法，
+source_edit/source_delete=true；前端核对能力后可启用 proposedMethods。
+F6 真实 UI 与原生编辑／删除验收仍待前端完成，不能仅因接口存在就标为全链路完成。
 `input_list` 现返回摘要，不再需要逐条 input_get。分页另接新增 input_page，
 不要把旧 input_list 的数组当分页对象；STALE_CURSOR 时丢弃旧页并重新取第一页。
-前端 mock／验证逻辑若拒绝 immediate=false + exclamation=true，须改为
-用户新确认的“exclamation 直接设双 true”；不要在前端自动从文字推断。
+前端已同步“exclamation 直接设双 true”，不要在前端自动从文字推断。
 exclamation 提交返回正式 effects，应在提交时显示，不能再调用 pending preview。
 
 业务与传输故障都尽量返回 schema version 1 信封；传输失败使用已有
@@ -92,6 +93,8 @@ Python 初始化所选数据库的零基线，但不会认可任何材料或训�
 - Tauri MockRuntime 使用真实命令及生成的权限配置，允许本地主窗口调用，
   拒绝其他窗口、远程来源及 app name 查询；原版本查询仍可用。
 - `cargo check`、Rust 测试、debug 二进制构建及 Python 回归。
-- **尚未验证**：React Transport 接线后的实际 WebKitGTK 点击流程、原生桌面
-  关闭时的验收、release runtime 打包和跨平台安装。MockRuntime 测试不是
-  原生 WebKitGTK 或 GPU 性能证明；保持 DESKTOP_CHECK.md 的验收边界。
+- 前端追加的基础流程记录见 `../../front-back-communicate.md`：浏览器真实
+  Python 6 项与 Xvfb WebKitGTK 原生录入／确认；本轮后端未重新执行这些 UI 测试。
+- **尚未验证**：F6 真实前端编辑／删除，原生窗口的失败／超时／大列表／重启回读，
+  release runtime 打包、跨平台安装及真实 GPU 表现。MockRuntime 或 Xvfb 软件
+  渲染不是硬件 GPU 性能证明；保持 DESKTOP_CHECK.md 的验收边界。

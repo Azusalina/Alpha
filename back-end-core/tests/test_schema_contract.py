@@ -79,7 +79,7 @@ class SchemaContractTests(unittest.TestCase):
             self.validate("partitionState" if params.get("partition") is not None else "allState", result)
         return result
 
-    def test_all_21_methods_have_live_request_and_envelope_examples(self):
+    def test_all_23_methods_have_live_request_and_envelope_examples(self):
         self.call("health")
         self.call("baseline")
         source = self.call("submit", text="😀我重视公平。\r\n我很开心。", partition="rational")["source_id"]
@@ -103,6 +103,8 @@ class SchemaContractTests(unittest.TestCase):
         self.call("memory_list", partition="rational")
         self.call("memory_search", query="公平", partition="rational")
         self.call("revoke", source_id=source)
+        self.call("input_edit", source_id=source, text="我重视自由。", immediate=True)
+        self.call("input_delete", source_id=source)
         self.assertEqual(self.called, set(METHODS))
         self.assertEqual(set(self.result_validators), set(METHODS))
         for method, value in self.examples.items():
@@ -181,6 +183,36 @@ class SchemaContractTests(unittest.TestCase):
         self.call("submit", text="我开心。", partition="emotional", immediate=False, exclamation=True)
         self.call("input_list")
         self.assertEqual(self.call("input_get", source_id=rejected)["status"], "disagreed")
+
+    def test_source_governance_branches_nul_rejection_and_negative_shapes_match_schema(self):
+        health = self.call("health")
+        self.assertTrue(health["features"]["source_edit"])
+        self.assertTrue(health["features"]["source_delete"])
+        source = self.call("submit", text="😀我重视公平。\r\n", partition="rational", immediate=False)["source_id"]
+        for immediate in (False, True):
+            record = self.call("input_edit", source_id=source, text="😀我重视自由。\r\n", immediate=immediate)
+            self.assertIsNone(record["confirm"])
+            self.assertIsInstance(record["edited_at"], str)
+            self.assertNotIn("ever_fitted", record)
+            self.assertFalse(self.result_validators["input_edit"].is_valid({**record, "edited_at": None}))
+            self.assertFalse(self.result_validators["input_edit"].is_valid({**record, "text": "not a metadata result"}))
+            self.call("input_get", source_id=source)
+            self.call("input_page")
+        self.call("review", source_id=source, agree=True)
+        deleted = self.call("input_delete", source_id=source)
+        self.assertFalse(self.result_validators["input_delete"].is_valid({**deleted, "deleted": False}))
+        self.assertFalse(self.result_validators["input_delete"].is_valid({**deleted, "effects": []}))
+        response = self.api.handle({"schema_version": 1, "id": "deleted", "method": "input_get", "params": {"source_id": source}})
+        self.validate("response", response)
+        self.assertEqual(response["error"]["code"], "NOT_FOUND")
+        for method, params in (("submit", {"partition": "rational"}),
+                               ("input_edit", {"source_id": source, "immediate": True})):
+            for text in ("\0内容", "内\0容", "内容\0"):
+                request = {"schema_version": 1, "id": "nul", "method": method, "params": {**params, "text": text}}
+                self.assertFalse(self.validators["request"].is_valid(request))
+                response = self.api.handle(request)
+                self.validate("response", response)
+                self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
 
     def test_invalid_request_and_response_structures_are_rejected(self):
         base = {"schema_version": 1, "id": "bad", "method": "submit",

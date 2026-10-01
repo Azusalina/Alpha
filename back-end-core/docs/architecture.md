@@ -102,11 +102,15 @@ what constitutes one memory remain open product decisions (`IDEA.md` §6).
    which parameters improve fit. Until then, choice ranking is provisional.
 3. Whether candidate publication remains a separate review or becomes automatic
    after whole-input approval; any future graph taxonomy is still open.
-4. Raw-data editing, deletion, backups, and the password gate described in
-   `IDEA.md` §4. These must agree on what is recoverable.
+4. F6 inactive-source editing and any-state hard deletion are now implemented;
+   edits clear old source-specific histories, deletes also remove active support.
+   Other inputs' frozen records remain untouched. External backup governance and
+   the password gate in `IDEA.md` §4 remain pending; deletion is not secure erasure.
 5. Native acceptance and release runtime distribution for the implemented
    Tauri process/command interface, and eventual visualization effects.
-   The local host is implemented and tested; frontend wiring is still pending.
+   The local host and frontend wiring are implemented. The frontend reports
+   browser/real-Python and Xvfb native smoke acceptance; native failure/restart
+   acceptance, release runtime distribution and hardware GPU checks remain.
 
 This draft records choices to discuss; it does not assert that any candidate
 technology or memory policy has been approved or implemented.

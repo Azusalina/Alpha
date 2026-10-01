@@ -5,6 +5,7 @@
   "$ref": "#/$defs/request",
   "$defs": {
     "text": {"type": "string", "minLength": 1},
+    "sourceText": {"type": "string", "minLength": 1, "maxLength": 1000000, "not": {"pattern": "\\u0000"}},
     "partition": {"enum": ["rational", "emotional", "crazy"]},
     "optionalPartition": {"enum": ["rational", "emotional", "crazy", null]},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -22,7 +23,7 @@
         "reason": {"enum": ["immediate_false", "confirm_false", "user_revoked", null]},
         "source_ref": {"type": ["string", "null"]}, "created_at": {"type": "string"},
         "excerpt": {"type": "string", "maxLength": 80}, "char_count": {"type": "integer", "minimum": 1},
-        "edited_at": {"const": null}
+        "edited_at": {"type": ["string", "null"], "minLength": 1}
       },
       "allOf": [{"$ref": "#/$defs/approvalMetadata"}]
     },
@@ -235,9 +236,9 @@
           "type": "object", "required": ["schema_version", "candidate_publication", "llm_runtime_configured", "methods", "features"], "additionalProperties": false,
           "properties": {
             "schema_version": {"const": 1}, "candidate_publication": {"const": "manual"}, "llm_runtime_configured": {"const": false},
-            "methods": {"type": "array", "minItems": 21, "maxItems": 21, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
+            "methods": {"type": "array", "minItems": 23, "maxItems": 23, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
             "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
-              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": false}, "source_delete": {"const": false}}}
+              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}}}
           }
         },
         "baseline": {
@@ -254,6 +255,14 @@
           "else": {"properties": {"exclamation": {"const": false}, "effects": {"const": []}, "translator_effects": {"const": []}}}
         },
         "input_get": {"$ref": "#/$defs/inputDetail"},
+        "input_edit": {
+          "allOf": [{"$ref": "#/$defs/inputRecord"}],
+          "properties": {"status": {"enum": ["pending", "disagreed"]}, "confirm": {"const": null}, "exclamation": {"const": false}, "confirmed_by": {"const": null}, "reviewed_at": {"const": null}, "edited_at": {"$ref": "#/$defs/text"}}
+        },
+        "input_delete": {
+          "type": "object", "required": ["source_id", "deleted"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "deleted": {"const": true}}
+        },
         "input_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/inputRecord"}},
         "input_page": {"$ref": "#/$defs/inputPage"},
         "preview": {
@@ -323,12 +332,16 @@
       "properties": {
         "schema_version": {"const": 1},
         "id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search"]},
+        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search"]},
         "params": {"type": "object"}
       },
       "allOf": [
         {"if": {"properties": {"method": {"enum": ["health", "baseline"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
-        {"if": {"properties": {"method": {"enum": ["input_get", "preview", "review_history", "correction_history", "revoke"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/source"}}}},
+        {"if": {"properties": {"method": {"enum": ["input_get", "input_delete", "preview", "review_history", "correction_history", "revoke"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/source"}}}},
+        {"if": {"properties": {"method": {"const": "input_edit"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "text", "immediate"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/text"}, "text": {"$ref": "#/$defs/sourceText"}, "immediate": {"type": "boolean"}, "kind": {"enum": ["diary", "chat", "philosophy"]}, "self_speaker": {"type": ["string", "null"], "minLength": 1}}
+        }}}},
         {"if": {"properties": {"method": {"const": "correction_set"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["source_id", "corrections", "expected_revision"], "additionalProperties": false,
           "properties": {
@@ -339,7 +352,7 @@
         {"if": {"properties": {"method": {"const": "submit"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["text", "partition"], "additionalProperties": false,
           "properties": {
-            "text": {"type": "string", "minLength": 1, "maxLength": 1000000},
+            "text": {"$ref": "#/$defs/sourceText"},
             "partition": {"$ref": "#/$defs/partition"},
             "kind": {"enum": ["diary", "chat", "philosophy"]},
             "immediate": {"type": "boolean", "default": true},
