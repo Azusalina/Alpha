@@ -140,7 +140,10 @@ class DualApprovalTests(unittest.TestCase):
     def test_revoked_can_be_reapproved_using_original_fit_and_no_memory_republication(self):
         source = self.submit(exclamation=True)["source_id"]
         candidate = self.result("candidate_propose", source_id=source, claim="重视公平", evidence="公平")["candidate_id"]
-        self.result("candidate_review", candidate_id=candidate, accept=True)
+        memories = self.result("memory_list")
+        self.assertEqual([row["id"] for row in memories], [candidate])
+        self.assertEqual(memories[0]["status"], "accepted")
+        self.assertEqual(memories[0]["source_version"], 0)
         revoked = self.result("revoke", source_id=source)
         self.assertFalse(revoked["confirm"])
         self.assertEqual(revoked["reason"], "user_revoked")
@@ -153,6 +156,7 @@ class DualApprovalTests(unittest.TestCase):
         self.assertTrue(restored["exclamation"])  # Historical submit flag, not perpetual consent.
         self.assertEqual(len(self.result("memory_list")), 1)
         self.assertEqual(self.result("memory_list")[0]["id"], candidate)
+        self.assertEqual(self.result("memory_list"), memories)
 
     def test_all_inactive_previews_are_read_only_and_agreed_is_rejected(self):
         for immediate in (True, False):
@@ -300,13 +304,18 @@ class ApprovalMigrationTests(unittest.TestCase):
             db.execute("INSERT INTO brain_state VALUES ('rational', 'value.fairness', ?, 1, 1)", (1 / 5,))
             db.execute("INSERT INTO brain_fit_context VALUES ('revoked', ?)",
                        (json.dumps({"correction_revision": 0, "corrections": [], "learned_rules": []}),))
+            for status in ("pending", "accepted", "rejected"):
+                db.execute("INSERT INTO candidates(id,source_id,claim,evidence,status,created_at,resolved_at) "
+                           "VALUES (?,'agreed','旧公平','公平',?,'old-time',?)",
+                           ("legacy-" + status, status, None if status == "pending" else "old-resolution"))
 
     def snapshot(self, table):
         with self.store._connect() as db:
             return [dict(row) for row in db.execute(f"SELECT * FROM {table}")]
 
     def test_migration_maps_all_statuses_without_refitting_or_rewriting_sources(self):
-        snapshots = {table: self.snapshot(table) for table in ("sources", "brain_contributions", "brain_terms")}
+        snapshots = {table: self.snapshot(table) for table in
+                     ("sources", "brain_contributions", "brain_terms", "brain_fit_context", "candidates")}
         api = BrainAPI(self.path)
         expected = {"pending": (None, None), "agreed": (True, None),
                     "disagreed": (False, "confirm_false"), "revoked": (False, "user_revoked")}
@@ -317,14 +326,24 @@ class ApprovalMigrationTests(unittest.TestCase):
             self.assertEqual(row["reason"], reason)
             self.assertEqual(row["confirmed_by"], None if source == "pending" else "legacy")
             self.assertEqual(row["created_at"], "old-time")
+            self.assertEqual(row["source_version"], 0)
             self.assertEqual(api.brain.review_history(source)["history"][0]["action"], "migrate")
         for table, before in snapshots.items():
-            self.assertEqual(self.snapshot(table), before)
+            expected_rows = before if table == "sources" else [dict(row, source_version=0) for row in before]
+            if table == "brain_fit_context":
+                # Early approved fits without context receive an explicit legacy marker.
+                expected_rows.append({"source_id": "agreed", "source_version": 0,
+                                      "payload": json.dumps({"correction_revision": 0, "corrections": [],
+                                                             "learned_rules": [], "legacy_context_unavailable": True})})
+            self.assertEqual(self.snapshot(table), expected_rows)
+        self.assertEqual([row["id"] for row in api.brain.store.list_memories()], ["legacy-accepted"])
         self.assertEqual(api.brain.state("rational")["value.fairness"],
                          {"value": 1 / 5, "support": 1, "observed": True})
         histories = self.snapshot("brain_review_history")
+        candidates = self.snapshot("candidates")
         BrainModel(self.path)
         self.assertEqual(self.snapshot("brain_review_history"), histories)
+        self.assertEqual(self.snapshot("candidates"), candidates)
 
     def test_early_legacy_fit_restores_saved_contributions_without_context_or_reextraction(self):
         model = BrainModel(self.path)

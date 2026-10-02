@@ -13,7 +13,8 @@
   Two consistent agreed full-clause labels can teach exact reuse within one
   partition/kind/separator context; conflicts abstain. Rejection/revocation
   cannot supply future teaching support. This is not semantic generalization.
-- Request schema includes all 23 methods and correction items. All 23 method
+- Request schema includes all 30 methods and correction items (schema_version=1,
+  contract_revision=2). All 30 method
   result bodies are typed under `$defs.results.$defs`, with common translation,
   interpretation, approval, input, effect, state and candidate definitions.
   Select the body validator using the retained request method; envelope-only
@@ -24,15 +25,20 @@
   labels, domain metrics, coverage/abstention and static value-parameter ablations.
   Shared ranking logic preserves live API behavior. Synthetic fixture tests
   prove tool behavior only; no real-user predictive validation has occurred.
-- The last verified candidate-publication baseline retains explicit review. The user confirmed
-  automatic publication on whole-source double approval; implementation and
-  verification remain pending. Legacy pending/rejected candidates must not be
-  silently published by migration. UI remains outside the backend implementation.
+- Fresh whole-source double approval automatically publishes authored candidate
+  memories for the current source/version. Legacy pending/rejected candidates
+  remain untouched by migration/startup/frozen reapproval. UI remains outside
+  the backend implementation.
 - `src-tauri`: fixed `brain_call` host, main/local ACL, serialized bounded queue,
   total timeout, response validation, stderr draining and child cleanup. Genuine
   Python and Tauri MockRuntime command/ACL tests exist. React Transport is wired;
   frontend reports browser/real-Python and Xvfb native smoke acceptance. Native
-  failure/restart/F6 acceptance and release runtime packaging remain pending.
+  Xvfb DOM F6/paging, second-process persistence and EOF/invalid-response/timeout
+  faults passed. Administrative model-reset/reconnect and physical input/GPU
+  acceptance remain pending.
+  Linux x86_64 portable production release/runtime passed (glibc >= 2.34,
+  nonstatic GTK dependencies); main independently verified relocation/security
+  acceptance and artifact hashes. No macOS/Windows acceptance is claimed.
 - F1-F4/F7: dual whole-input approval, explicit exclamation setting both true
   atomically, repeated decisions/removal/frozen-fit restoration, decision audit
   and inactive preview. Legacy metadata migration does not re-fit existing data.
@@ -71,9 +77,9 @@
   v1 restoration. Schema accepts v1/v2 without relabelling historical fits;
   arbitrary names, relative clauses and complex mixed ownership remain gaps.
 - Optional `test-schema` extra validates the schema itself, live examples for
-  all 23 request/response envelopes and method bodies, negative shapes,
+  all 30 request/response envelopes and method bodies, negative shapes,
   lifecycle/ranking/candidate variants, migration and real JSON-lines output.
-  Fourteen synthetic tests use temporary databases; without the extra they explicitly
+  Synthetic tests use temporary databases; without the extra they explicitly
   skip. Backend CI configuration requires the validator and pins the tokenizer
   and Actions references. Local Python 3.14 passes; online CI and its Python 3.10
   job have not been executed yet. Schema shapes are not model-validity evidence.
@@ -121,16 +127,18 @@ conversation is retained; bringing it back requires a separate user request.
 
 ## Pending decisions for model v1
 
-- Broader event/semantic correction needs typed, evidence-bound labels and
-  representative examples. The reviewed-source policy is decided: withdraw the
-  current contribution and require renewed immediate/confirm consent for the
-  revised interpretation; implementation and verification are still pending.
+- Typed event/intent/tone/candidate retain/suppress corrections are implemented
+  for exact authored evidence. correction_reopen/review_version/replay_preview/
+  replay_reopen use explicit source-version, global input-revision and epoch
+  guards, withdraw selected contributions and require renewed double consent.
+  Other fits remain frozen; selected dependency replay is not a general causal
+  graph, general semantic relabelling or ML.
 - Evaluate whether candidate parameters improve predictions using future
   retrospectively endorsed choice labels; remove ineffective parameters.
 - Define the user's retrospectively endorsed choice labels and the model's
   abstention rule when too few examples exist.
 
-## Current backend queue (2026-10-01)
+## Current backend queue (2026-10-02)
 
 - [x] Terminal telemetry: CLI/API default-on stderr traces and bounded/validated
   Rust host forwarding; no raw evidence, no response/schema changes. Commit-only
@@ -139,7 +147,8 @@ conversation is retained; bringing it back requires a separate user request.
   See terminal-tracing.md; no automatic on-disk logger or private-text logging.
 - [x] Frontend reports browser real-Python acceptance for F6, NUL and model
   epoch/activity metadata with deliberate old-source re-enlistment. Verified
-  current adapter/record wiring read-only; native acceptance still pending.
+  prior adapter/record wiring read-only; Xvfb DOM F6 passed. Native administrative/
+  physical acceptance and verification of latest frontend changes remain pending.
 - [x] Model-only reset: confirmed local CLI with exact existing absolute DB
   target, epoch/revision checks and atomic zeroing. Translator, approvals and
   history preserved; old fits excluded until explicit re-review. Twelve synthetic
@@ -147,31 +156,42 @@ conversation is retained; bringing it back requires a separate user request.
 - [x] Frontend browser activation: consume model_active/model_epoch, distinguish
   approved history from current-model participation, and deliberately re-enlist
   old sources. Latest ledger reports cache/in-flight invalidation on reconnect
-  and browser acceptance; native reset/reconnect acceptance remains pending.
+  and browser acceptance; native administrative model-reset/reconnect acceptance remains pending.
   No live reset endpoint/UI yet.
-- [ ] Native acceptance of administrative reset/reconnect and F6 edits/deletes;
-  basic browser real-Python tests do not validate native failure/recovery paths.
+- [x] Native DOM EOF/invalid-response/timeout faults: main's final command exited 0;
+  summary and all three reports passed in `/tmp/alpha-native-faults-20261002`.
+  Each verifies startup failure/explicit reconnect and ambiguous submit/explicit read
+  recovering exactly one source; fixture logs show exactly one submit and
+  no_write_autoretry=true. Together with real/persistence, five native DOM scenarios passed.
+  Earlier process-inspection/unselected-partition failures were harness failures,
+  not product failures; final main verification supersedes their pending status.
+- [ ] Native administrative model-reset/reconnect and physical input/GPU acceptance.
+  Xvfb DOM F6/paging and second-process persistence passed;
+  browser and Xvfb evidence do not establish physical acceptance.
 - [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
   metadata migration and expanded preview implemented and regression-tested.
 - [x] P0: F5 summaries and input_page pagination implemented and regression-tested.
 - [x] P0: F6 source editing/deletion and NUL validation implemented; final contract
   and frontend activation/acceptance steps in `../../front-back-communicate.md`.
-- [ ] P0: protected backup/recovery delivery and general downstream-fit replay;
-  current F6 removes only this source's records and future teaching support,
-  preserving other inputs' frozen fits and historical effects.
-- [ ] P0 / F13: application access gate and encrypted backup/recovery are
-  confirmed in scope, no longer deferred. Implementation, API integration,
-  frontend unlock wiring and verification remain pending. Cover raw text,
-  summary excerpts, evidence, histories and writes, not just input_get.
+- [x] P0: protected backup/recovery and explicit selected dependency replay
+  delivered; historical effects, unselected frozen fits and reset exclusions
+  remain preserved. General downstream causal replay is not implemented.
+- [x] P0 / F13: AccessSession gates all private API reads/writes with LOCKED;
+  malformed unlock revokes authorization and private caches. CLI/evaluation
+  paths retain/recheck sessions. Argon2id gate and XChaCha20-Poly1305 backup/
+  fresh-target recovery are implemented and verified. Frontend unlock UI remains
+  pending. The gate covers raw text, excerpts, evidence, histories and writes.
   The current SQLite database remains plaintext; whole-database encryption is
   outside this round. The gate is not protection from direct same-OS-user file
   access. Recovery must validate into an explicit fresh target, never silently
   overwrite the live database.
-- [ ] P1: native failure/restart/F6 acceptance, packaged Python/backend/jieba
-  and subsequent contract migrations remain.
+- [ ] P1: native administrative model-reset/reconnect acceptance and subsequent
+  contract migrations remain. Linux portable Python/backend/jieba/security runtime
+  and production release passed; Xvfb DOM F6/paging/persistence and all three
+  EOF/invalid-response/timeout fault cases passed. F13 frontend UI remains pending.
   Host transport/lifecycle/timeout/ACL code is implemented (`desktop-bridge.md`),
   with frontend wiring and Xvfb basic acceptance reported by the frontend.
-- [x] P1: type all 23 method result bodies and common records, and add local
+- [x] P1: type all 30 method result bodies and common records, and add local
   conformance tests covering lifecycle branches, negative shapes and serialized
   output. Backend CI requires the validator; runtime dependencies are unchanged.
 - [ ] P1: verify online backend CI and its Python 3.10 matrix job; local
@@ -185,7 +205,7 @@ conversation is retained; bringing it back requires a separate user request.
   representative cases; do not equate tool tests with real coverage validation.
   No private held-out material is available this round: deliver local collection
   templates/readiness tools only, with independent labels and leakage checks.
-  Template/tool delivery awaits worker verification; real coverage acceptance
+  Template/readiness/evaluation tool delivery is verified; real coverage acceptance
   remains an external prerequisite, not a promise to collect private data now.
 - [ ] P1: held-out choice labels and parameter ablations before supervised ML;
   the offline evaluation/ablation tool is implemented (`evaluation.md`), but
@@ -193,14 +213,20 @@ conversation is retained; bringing it back requires a separate user request.
   templates/tools only; no real predictive-validity claim can be accepted.
   Factual choices and retrospective endorsement are different labels; no frontend contract
   or automatic parameter pruning is implemented.
-- [ ] Confirmed policy to implement: automatically publish extracted candidate
+- [x] Implemented: automatically publish extracted authored candidate
   memories when the current source/version has immediate=true and confirm=true;
   preserve legacy pending/rejected statuses without migration auto-publication.
-- [ ] Confirmed policy to implement: reviewed-source semantic revisions withdraw
+- [x] Implemented: reviewed-source typed revisions withdraw
   current contributions and require renewed double consent before fitting;
   version-bound revisions and explicit replay must preserve old effect numbers,
   frozen history and model-reset exclusions. F6 text editing is a separate path.
+- [ ] Frontend unlock/private-cache and guarded version-consent UI; latest
+  concurrent frontend changes have not all been verified. See frontend-contract-handoff.md.
+- [ ] F6 future content-revision guard: source_version resets to 0 after editing,
+  leaving queued unversioned review ambiguity; handoff documents cache/queue cleanup.
+- [ ] Typed corrections: assess per-item retranslation performance.
 - [ ] Deferred: F14 future choice-feedback contract and sphere v2.
 
-The decisions above record scope, not completion of parallel feature work. Update
-pending boxes only after worker evidence and independent verification are reviewed.
+Completed statuses above reflect supplied worker evidence and main's independent
+verification. Main owns final full-suite counts and remaining native results;
+do not interpret synthetic tests/templates as real coverage or predictive validity.

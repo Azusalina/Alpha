@@ -36,13 +36,14 @@ process, so use the desktop command above to watch actual desktop requests.
 - `operation_received`: input/edit character count or opaque source ID.
   Receipt is **not** proof of validation, storage or training.
 - `operation_committed`: the method returned after its transaction committed.
-- `data_saved`: submit/edit/correction stored, with actual DB address/source ID.
+- `data_saved`: submit/edit/pending correction/correction_reopen/replay_reopen
+  stored, with actual DB address/source ID.
 - `judgement`: actual `immediate`, `confirm`, `exclamation`, status and partition.
   `true/null` is pending; `true/true` permits fitting.
 - `param_update`: parameter, before/after/delta, support before/after, source,
   partition, effect revision and model epoch. Includes removals on revoke/delete.
 - `fit_committed`: selected input fitted/restored; parameter count and observed
-  term count. Zero parameter effects still can mean a vocabulary-only fit.
+  term count, including review_version. Zero parameter effects still can mean a vocabulary-only fit.
 - `fit_skipped`: not dual true, or unchanged same-epoch approval (no duplicate fit).
 - `source_deleted`: application records deleted after successful transaction.
 - `model_reset`: new/previous epoch, translator preserved. This is not data deletion.
@@ -55,6 +56,22 @@ Requests in different processes can interleave: source, partition, epoch and
 revision identify the affected state. Logs are diagnostic, not durable audit
 records, and a process/terminal failure can omit events after a successful write.
 Always reconcile using API state/history; missing logs do not prove no mutation.
+
+Version operations `review_version`, `correction_reopen`, `replay_reopen` use the
+same operation_received/operation_failed boundary. Reopening emits committed save,
+judgement, withdrawal param_update and fit_skipped records; pending status does not
+mean there were no withdrawal effects. Batch replay emits one operation_committed
+receipt then bounded per-source save/judgement/update/skip records in selected order,
+only after the whole transaction commits. Failure anywhere discards all collected
+updates. Actual version approval emits fit_committed; idempotent approval emits
+fit_skipped(reason="unchanged") with no false fit or updates. No correction labels,
+batch result payloads, evidence, source text or passwords are logged.
+
+Host integration handoff: Rust trace validation must allow the operation strings
+`review_version`, `correction_reopen`, `replay_reopen` using the existing event field
+whitelist, size limit and DB-path checks. Coordinate this change with the Rust owner
+through the main integration worker; Python emission alone cannot prove forwarding
+by an older host. No new event names or raw-payload fields are required.
 
 No trace includes original text, evidence, source filename/reference, speaker,
 personal vocabulary strings, correction labels or arbitrary request IDs.

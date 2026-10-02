@@ -65,10 +65,13 @@ def main() -> None:
         if args.action == "baseline":
             result = BrainModel.baseline()
         else:
-            authorize_database(args.db)
+            session = authorize_database(args.db)
+            session.require()
             if args.action in {"reset", "reset-info"}:
                 verify_existing(args.db)
+            session.require()
             model = BrainModel(args.db, trace=not args.quiet and os.environ.get('ALPHA_BRAIN_TRACE') != '0')
+            session.require()
             if args.action == "reset-info":
                 result = model.reset_info()
             elif args.action == "reset":
@@ -84,6 +87,7 @@ def main() -> None:
                     source_ref = str(args.file)
                 else:
                     text, source_ref = args.text, None
+                session.require()
                 result = model.submit_result(text, partition=args.partition, kind=args.kind,
                                              self_speaker=args.self_speaker, source_ref=source_ref,
                                              immediate=args.immediate, exclamation=args.exclamation)
@@ -103,7 +107,9 @@ def main() -> None:
                 result = model.learned_terms(partition=args.partition,
                                              min_documents=args.min_documents)
             else:
-                result = model.rank_options(json.loads(args.options_json))
+                options = json.loads(args.options_json)
+                session.require()
+                result = model.rank_options(options)
     except AccessError:
         parser.exit(1, "access is locked\n")
     except (OSError, UnicodeError, ValueError, KeyError, RuntimeError, json.JSONDecodeError) as error:

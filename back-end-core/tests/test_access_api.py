@@ -50,14 +50,29 @@ class AccessAPITests(unittest.TestCase):
         for invalid in (None, b"", b"synthetic unrelated database"):
             if invalid is not None:
                 self.path.write_bytes(invalid)
-            self.assertTrue(self.call("health")["ok"])
-            self.assertNotIn("model_epoch", self.call("health")["result"])
+            self.assertEqual(self.call("health")["error"],
+                             {"code": "MODEL_UNAVAILABLE", "message": "protected database unavailable"})
             response = self.call("submit", {"text": "我重视公平。", "partition": "rational"})
             self.assertEqual(response["error"], {"code": "MODEL_UNAVAILABLE", "message": "protected database unavailable"})
             if invalid is None:
                 self.assertFalse(self.path.exists())
             else:
                 self.assertEqual(self.path.read_bytes(), invalid)
+
+    def test_authenticated_health_exposes_current_epoch_then_lock_omits_it(self):
+        self.assertNotIn("model_epoch", self.call("health")["result"])
+        self.assertTrue(self.call("unlock", {"password": self.password})["ok"])
+        self.assertIsNone(self.api._brain)  # Unlock itself reads no database.
+        self.assertEqual(self.call("health")["result"]["model_epoch"], 0)
+        info = self.api.brain.model.reset_info()
+        self.api.brain.model.reset_model(confirmation="RESET_MODEL",
+                                       expected_epoch=info["model_epoch"],
+                                       expected_revision=info["input_revision"])
+        self.assertEqual(self.call("health")["result"]["model_epoch"], 1)
+        self.call("lock")
+        with patch("core.api.BrainCore", side_effect=AssertionError("database accessed")):
+            self.assertNotIn("model_epoch", self.call("health")["result"])
+        self.assertIsNone(self.api._brain)
 
     def test_corrupt_config_health_is_static_and_removal_does_not_disable_gate(self):
         before = self.path.read_bytes()
@@ -114,6 +129,71 @@ class AccessAPITests(unittest.TestCase):
         self.assertNotIn(secret, stderr.getvalue() + output.getvalue())
         with patch.object(self.api.access, "unlock", side_effect=AccessError(secret)):
             self.assertNotIn(secret, json.dumps(self.call("unlock", {"password": secret})))
+
+    def test_malformed_unlock_attempts_revoke_authorization_and_cached_brain(self):
+        for params in ({"password": ""}, {"password": True}, {}, [],
+                       {"password": self.password, "unknown": True}):
+            with self.subTest(params_type=type(params).__name__):
+                self.assertTrue(self.call("unlock", {"password": self.password})["ok"])
+                self.assertTrue(self.call("state")["ok"])
+                self.assertIsNotNone(self.api._brain)
+                self.assertEqual(self.call("unlock", params)["error"]["code"], "INVALID_ARGUMENT")
+                self.assertIsNone(self.api._brain)
+                self.assertTrue(self.call("access_status")["result"]["locked"])
+                self.assertEqual(self.call("state")["error"]["code"], "LOCKED")
+
+    def test_cli_config_change_after_authorization_prevents_construction_and_trace(self):
+        import core.cli as store_cli
+        import model.__main__ as model_cli
+        from core.access import AccessSession
+        original_config = config_path(self.path).read_bytes()
+        before = self.path.read_bytes()
+        for module, constructor, action in ((store_cli, "MemoryStore", "list-sources"),
+                                             (model_cli, "BrainModel", "state"),
+                                             (model_cli, "BrainModel", "reset-info")):
+            config_path(self.path).write_bytes(original_config)
+            session = AccessSession(self.path)
+            session.unlock(self.password)
+            def changed_after_auth(_path):
+                config_path(self.path).write_bytes(b"corrupted after authorization")
+                return session
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.object(module, "authorize_database", side_effect=changed_after_auth), \
+                    patch.object(module, constructor) as construct, \
+                    patch.object(sys, "argv", ["alpha", "--db", str(self.path), action]), \
+                    contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                with self.assertRaises(SystemExit):
+                    module.main()
+            construct.assert_not_called()
+            self.assertEqual(output.getvalue(), "")
+            self.assertEqual(errors.getvalue(), "access is locked\n")
+            self.assertEqual(self.path.read_bytes(), before)
+
+    def test_cli_config_change_during_construction_blocks_sensitive_branch(self):
+        import core.cli as store_cli
+        import model.__main__ as model_cli
+        from core.access import AccessSession
+        from unittest.mock import Mock
+        original_config = config_path(self.path).read_bytes()
+        for module, constructor, action, operation in (
+                (store_cli, "MemoryStore", "list-sources", "list_sources"),
+                (model_cli, "BrainModel", "state", "state")):
+            config_path(self.path).write_bytes(original_config)
+            session = AccessSession(self.path)
+            session.unlock(self.password)
+            instance = Mock()
+            def change_in_constructor(*args, **kwargs):
+                config_path(self.path).write_bytes(b"changed during construction")
+                return instance
+            with patch.object(module, "authorize_database", return_value=session), \
+                    patch.object(module, constructor, side_effect=change_in_constructor), \
+                    patch.object(sys, "argv", ["alpha", "--db", str(self.path), action]), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    module.main()
+            getattr(instance, operation).assert_not_called()
+            if module is store_cli:
+                instance.initialize.assert_not_called()
 
     def test_cli_entry_points_reject_noninteractive_protected_access_without_db_touch(self):
         before = self.path.read_bytes()

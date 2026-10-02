@@ -90,15 +90,24 @@ class SourceGovernanceTests(unittest.TestCase):
         phrase = "我重视公平"
         self.result("correction_set", source_id=source, expected_revision=0, corrections=[{
             "parameter": "value.fairness", "sign": 1, "evidence": phrase, "span": [0, len(phrase)]}])
+        # Seed old pending proposals directly, before approval can publish new ones.
+        candidates = ["legacy-pending", "legacy-rejected"]
+        with self.model.store._connect() as db:
+            db.executemany("INSERT INTO candidates(id,source_id,claim,evidence,status,created_at,source_version) "
+                           "VALUES (?,?,'公平','公平','pending','old-time',0)",
+                           [(candidate, source) for candidate in candidates])
         self.result("review", source_id=source, agree=True)
-        candidates = []
-        for decision in (None, True, False):
-            candidate = self.result("candidate_propose", source_id=source, claim="公平", evidence="公平")["candidate_id"]
-            candidates.append(candidate)
-            if decision is not None:
-                self.result("candidate_review", candidate_id=candidate, accept=decision)
+        self.result("candidate_review", candidate_id=candidates[1], accept=False)
+        candidate = self.result("candidate_propose", source_id=source, claim="公平", evidence="公平")["candidate_id"]
+        candidates.append(candidate)
+        before = self.result("candidate_list")
+        self.assertEqual({row["id"]: row["status"] for row in before},
+                         dict(zip(candidates, ("pending", "rejected", "accepted"))))
+        self.assertEqual([row["id"] for row in self.result("memory_list")], [candidate])
         self.result("revoke", source_id=source)
         self.result("review", source_id=source, agree=True)
+        self.assertEqual(self.result("candidate_list"), before)
+        self.assertEqual([row["id"] for row in self.result("memory_list")], [candidate])
         self.result("input_delete", source_id=source)
         self.assert_purged(source)
         self.assertEqual(self.result("candidate_list"), [])

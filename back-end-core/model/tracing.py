@@ -45,14 +45,26 @@ class ModelTrace:
                 'support_before', 'support_after', 'revision', 'model_epoch')})
 
     def committed(self, operation, result, effects):
+        if operation == 'replay_reopen':
+            # One transaction receipt; source records follow only after the entire
+            # bounded batch committed. Never serialize items/corrections themselves.
+            self.emit('operation_committed', operation)
+            for item in result['items']:
+                source_effects = [e for e in effects if e['source_id'] == item['source_id']]
+                self._source_committed(operation, item, source_effects)
+            return
+        self._source_committed(operation, result, effects, receipt=True)
+
+    def _source_committed(self, operation, result, effects, receipt=False):
         identity = {}
         source = result.get('source_id')
         if isinstance(source, str) and _SOURCE.fullmatch(source):
             identity['source_id'] = source
         if result.get('partition') in PARTITIONS:
             identity['partition'] = result['partition']
-        self.emit('operation_committed', operation, **identity)
-        if operation in ('submit', 'input_edit', 'correction_set'):
+        if receipt:
+            self.emit('operation_committed', operation, **identity)
+        if operation in ('submit', 'input_edit', 'correction_set', 'correction_reopen', 'replay_reopen'):
             self.emit('data_saved', operation, db_path=self.path, **identity)
         if 'immediate' in result:
             self.emit('judgement', operation, **identity,
@@ -61,7 +73,7 @@ class ModelTrace:
         for effect in effects:
             if effect['parameter'] in PARAMETERS:
                 self.emit('param_update', operation, **effect)
-        if operation in ('submit', 'review'):
+        if operation in ('submit', 'review', 'review_version', 'correction_reopen', 'replay_reopen'):
             if 'observed_terms' in result and result.get('status') == 'agreed':
                 self.emit('fit_committed', operation, **identity, parameter_count=len(effects),
                           observed_terms=result['observed_terms'], restored_fit=result['restored_fit'])

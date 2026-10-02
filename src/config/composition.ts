@@ -2,7 +2,7 @@
  * Composition constants for Alpha v1.0.0.
  *
  * The single authority for pose, silhouette, proportion and framing is
- * `aes-ref/alpha-white-geom.PNG` (1644 x 957). The hands themselves are placed by
+ * `design/aes-ref/alpha-white-geom.PNG` (1644 x 957). The hands themselves are placed by
  * their pose files (`assets-source/hands/pose-*.json`, src/hand/pose.ts); this file
  * holds the frame, the home camera and the exact pixel ↔ world mapping they use
  * (docs/CONTRACTS.md §1–3).

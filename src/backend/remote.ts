@@ -118,6 +118,7 @@ const API_METHOD: Record<AdapterMethod, string> = {
   inputGet: 'input_get',
   inputEdit: 'input_edit',
   inputDelete: 'input_delete',
+  modelReset: 'model_reset',
   state: 'state',
   effects: 'effects',
   rank: 'rank',
@@ -421,6 +422,10 @@ export class RemoteBrainAdapter implements BrainAdapter {
     if (!this.proposedMethods) this.unsupported('删除输入');
     await this.call('input_delete', { source_id: sourceId });
     this.excerpts.delete(sourceId);
+  }
+
+  async modelReset(): Promise<void> {
+    await this.call('model_reset', { confirm: 'RESET_MODEL', clear_history: true });
   }
 
   async state(): Promise<ModelState> {

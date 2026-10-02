@@ -1,6 +1,6 @@
 # 前后端沟通（front-back-communicate.md）
 
-> 由 `fromBackend-todo.md` 更名（2026-09-30）。前端 `[front]` 与后端 `[back]` 两位开发者在这个文件里确认彼此的需求。
+> 由 `fromBackend-todo.md` 更名（2026-09-30）；同名的后端交接索引已于 2026-10-02 并入本文件（见下方「后端交接索引」）。前端 `[front]` 与后端 `[back]` 两位开发者在这个文件里确认彼此的需求。
 >
 > **约定**
 > - 每条发言以 `[front]` 或 `[back]` 开头，注明日期。
@@ -8,6 +8,63 @@
 > - 已完成（双方都做完并验证）的条目，在行首加 `////` 表示 finished；未加的仍待办。
 > - 尚未被对方确认的字段，前端类型里标 `PROPOSED`（见 `src/backend/types.ts`），只由带明确标识的 mock 实现，**不会被当成真实训练**。
 > - 前端不修改 `back-end-core/`；后端不修改 `src/`。两边以本文件和 `back-end-core/docs/api.md` 为准。
+
+---
+
+# 后端交接索引（Backend handoff index — 2026-10-02）
+
+> 原为独立文件 `fromBackend-todo.md`，2026-10-02 并入本文件，正文未改。
+
+## Contract references
+
+- Canonical queue: [backend TODO](back-end-core/docs/TODO.md).
+- Frontend instructions: [revision 2 handoff](back-end-core/docs/frontend-contract-handoff.md).
+- API: schema_version=1, contract_revision=2, 30 methods.
+
+## Delivered
+
+- Fresh double-approval authored candidate publication; legacy pending/rejected untouched.
+- Guarded correction_reopen/review_version/replay_preview/replay_reopen.
+- Exact typed event/intent/tone/candidate retain/suppress; selected replay is not a
+  general causal graph or semantic relabelling ML.
+- F13 private API/CLI/evaluation access gate and encrypted fresh-target backup/restore.
+- Local readiness/evaluation templates/tools.
+- Model-only reset retains translator learning.
+
+## Frontend inputs
+
+- Implement unlock/private-cache invalidation and guarded version-consent UI using the handoff.
+- F6 resets source_version=0: discard queued source operations; future content-revision
+  guards remain TODO.
+- Latest concurrent frontend changes are preserved and have not all been verified.
+
+## Pending and scope
+
+- Online CI/Python 3.10.
+- Frontend unlock/version UI.
+- Native administrative model-reset/reconnect acceptance.
+- Physical input/GPU acceptance.
+- Real independent held-out coverage/prediction.
+- Typed per-item retranslation performance.
+- F14 deferred; MMPI has no active or deferred queue.
+
+## Verification evidence
+
+- Linux x86_64 portable production release/runtime passed, glibc >= 2.34 with
+  nonstatic GTK dependencies.
+- Relocated runtime/security acceptance and artifact hashes independently verified by main.
+- Xvfb DOM functional F6/paging and second-process persistence passed;
+  no physical/GPU/macOS/Windows acceptance claim.
+- Main verified: backend 283 (no skips), translator 7, Rust 16, release-script 3;
+  typecheck, Rust formatting and diff whitespace checks passed.
+- Main verified native DOM fault-eof/fault-invalid/fault-timeout: exit 0,
+  summary and all three reports passed in `/tmp/alpha-native-faults-20261002`.
+  Each covers startup failure with explicit reconnect and ambiguous submit with
+  explicit read recovering exactly one source; exactly one submit, no_write_autoretry=true.
+- Five native DOM scenarios passed overall: real, persistence and the three faults.
+  This does not establish physical input/GPU or F13 UI acceptance.
+- Historical EOF failure before submit was a harness failure (no state selected),
+  not a product failure; the final main-verified run supersedes that acceptance status.
 
 ---
 
@@ -215,3 +272,18 @@
 - 报告分析需求从当前及延期队列移出，唯一当前范围说明见 `back-end-core/docs/TODO.md`；保留历史对话，不把旧讨论重新当作实现要求。用户没有真实私有留出材料，本轮只交付收集模板／工具；真实覆盖／预测效度未验收，F14 仍延期。
 - 最新前端 F6 能力启用与 model_active/model_epoch 浏览器验收已完成；原生 F6／Reset／故障重连、大列表、release runtime、真实 GPU 与在线 CI 继续待办。上方历史“mock-only／待启用／F13 延期”按此及最新接线记录解读；不新增 API 或宣布 worker 功能完成。
 - 后续文档交接：各 worker 提供修改路径、实际接口／版本、命令与结果、合成／临时库范围及未验收项；API／schema 由后续集成负责人同步，评估、安全／恢复、桌面发行说明由各负责人同步。协调者审核证据后再更新本 TODO／账本，浏览器、原生、软件渲染和真实材料验收分别记录，不暂存／提交／推送。
+
+### [back] 2026-10-02 最终文档对齐
+
+- schema_version=1、contract_revision=2、30 methods。fresh 双 true 自动发布 authored candidates，legacy pending/rejected 不变。guarded typed correction/version review/selected replay 已交付，非一般语义重标 ML 或 causal graph，其他冻结拟合不重算。
+- F13 LOCKED 覆盖私有读写，malformed unlock 清授权/cache，CLI/eval 复查 session。Argon2id gate、XChaCha20 encrypted backup/fresh target restore、readiness/eval 模板工具已交付；SQLite 明文及 same-OS-user 限制保留，无真实效度证明；reset 保留 translator。MMPI 无 active/deferred queue，F14 延期。
+- preview.translation 反映 active corrections，保留原材料/evidence spans，非 raw translator output。frontend unlock/cache/version UI、F6 version=0 queued review/future content-revision guard、typed retranslation performance 仍待办；见 frontend-contract-handoff.md。
+- main 验证 backend283/no skips、translator7、Rust16、release tests3、typecheck、fmt/whitespace、独立 runtime/security/artifact hashes passed。Linux x86_64 glibc>=2.34、nonstatic GTK dependencies；Xvfb DOM F6/paging137/persistence passed。faults pending，当前 EOF harness 未选状态在 submit 前失败，不记 fault pass。admin reset/reconnect、physical input/GPU、online CI/Python3.10、真实 hold-out coverage/prediction 仍 pending，无 macOS/Windows claim。
+- 保留 user/concurrent frontend 修改，不宣称最新前端全部验证；仅文档，无代码/前端/Git/live DB 修改。剩余 native 结果由 main 记录。
+
+### [back] 2026-10-02 最终 native DOM fault 验证
+
+- main 执行 `python3 scripts/native/run.py --resources /tmp/alpha-runtime-20261002 --output /tmp/alpha-native-faults-20261002 --cases fault-eof fault-invalid fault-timeout`，exit 0；summary passed=true，三个 report 均 passed=true。
+- 报告：`/tmp/alpha-native-faults-20261002/fault-eof.json`、`/tmp/alpha-native-faults-20261002/fault-invalid.json`、`/tmp/alpha-native-faults-20261002/fault-timeout.json`。每项覆盖 actual native DOM startup failure + explicit reconnect、ambiguous submit + explicit read 恢复恰好一条；fixture method logs 恰好一次 submit，no_write_autoretry=true。
+- real/persistence + 三个 fault，共五个 native DOM scenarios passed。此前 process inspection / 未选 partition 的初始失败属于 harness failure，非 product failure；保留历史，由最终 main 验证覆盖其待验状态。
+- administrative model-reset/reconnect、physical input/GPU、F13 unlock/cache UI 仍 pending；不宣称最新 frontend 全部验证或真实数据效度。仅最小文档状态同步，无代码修改或重复测试。

@@ -142,16 +142,21 @@ class InputPaginationTests(unittest.TestCase):
             refreshed = self.result("input_page", limit=1)
             self.assertGreater(refreshed["revision"], first["revision"])
 
-    def test_noop_review_corrections_and_legacy_writes_do_not_invalidate_input_metadata_cursor(self):
+    def test_corrections_invalidate_cursor_but_noop_review_and_legacy_writes_do_not(self):
         sources = self.seed()
         self.result("review", source_id=sources[0], agree=False)
         first = self.result("input_page", limit=1)
         self.result("review", source_id=sources[0], agree=False)
-        self.result("correction_set", source_id=sources[1], corrections=[], expected_revision=0)
         self.api.brain.store.add_source("旧入口新增材料不影响统一输入列表。")
         next_page = self.result("input_page", cursor=first["next_cursor"])
         self.assertEqual(next_page["revision"], first["revision"])
         self.assertEqual(next_page["total"], 3)
+        self.result("correction_set", source_id=sources[1], corrections=[], expected_revision=0)
+        self.assertEqual(self.call("input_page", cursor=first["next_cursor"])["error"]["code"], "STALE_CURSOR")
+        refreshed = self.result("input_page", limit=1)
+        self.assertGreater(refreshed["revision"], first["revision"])
+        self.assertEqual(refreshed["total"], next_page["total"])
+        self.assertEqual(self.result("input_page", cursor=refreshed["next_cursor"])["revision"], refreshed["revision"])
 
     def test_reads_do_not_write_fit_audit_or_database_state(self):
         self.seed()

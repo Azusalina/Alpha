@@ -17,6 +17,30 @@ from translator.discourse import AssertionGuards
 from .store import MemoryStore
 
 
+_SELF = r'(?:我(?:自己)?|自己)\s*'
+_DEGREE = r'(?:(?:很|非常|十分|真|真的|特别|特別|有点|有點|比较|比較|更|最|也)\s*){0,3}'
+_FEELING = r'(?:感到|感觉|感覺|觉得|覺得)\s*'
+_SELF_FEELING = re.compile(_SELF + _DEGREE + '(?:' + _FEELING + ')?' + _DEGREE)
+# A bounded recipient phrase, not a list of people. Predicate/frame words make
+# the recipient ambiguous, so those forms deliberately abstain.
+_RECIPIENT = r'(?:(?!的|我|很|是|感到|感觉|感覺|觉得|覺得|开心|開心|高兴|高興|难过|難過|伤心|傷心|失望|生气|生氣|憤怒|愤怒)[\u3400-\u9fff]){1,12}'
+_SELF_FOR_OTHER = re.compile(_SELF + r'(?:为|為|替)\s*' + _RECIPIENT + r'\s*' + _FEELING + _DEGREE)
+
+
+def _explicit_self_subject(text: str, left: int, right: int, item: dict) -> bool:
+    """Recognize finite self-predicate forms; never infer ownership from 我 alone."""
+    if item['type'] == 'textual_emotion':
+        start, end = item['span']
+        prefix, suffix = text[left:start], text[end:right]
+        return (bool(_SELF_FEELING.fullmatch(prefix) or _SELF_FOR_OTHER.fullmatch(prefix))
+                and bool(re.fullmatch(r'\s*[啊呀呢了啦]*\s*', suffix)))
+    if item['type'] == 'contact_intention':
+        # These explicit intentions still pass through the negation guard below.
+        return bool(re.match(_SELF + r'(?:不再|不想|不会|不會|减少|減少|少|主动|主動)',
+                             text[left:right]))
+    return False
+
+
 def deterministic_candidates(text: str, kind: str, self_speaker: str | None,
                              translation: dict, corrections: list[dict]) -> list[dict]:
     """Conservative lexical observations, not inferred durable personal facts.
@@ -39,9 +63,9 @@ def deterministic_candidates(text: str, kind: str, self_speaker: str | None,
         left, right = guards.clause_span(start, left, right)
         clause = text[left:right]
         if (guards.reason(left, right, include_hedges=True)
-                or not re.match(r'(?:我(?![们們])|自己)', clause)
+                or not _explicit_self_subject(text, left, right, item)
                 or re.search(r'说|說|听|聽|闻|聞|梦|夢|假装|假裝|装作|裝作', clause)
-                or re.search(r'不|没|沒|無|无|未|他|她|你|朋友|同事|阿[\u3400-\u9fff]', clause)):
+                or re.search(r'不|没|沒|無|无|未', clause)):
             continue
         if any(c['sign'] == 0 and c['span'][0] < right and left < c['span'][1]
                and ('parameter' in c or c['type'] == 'candidate'

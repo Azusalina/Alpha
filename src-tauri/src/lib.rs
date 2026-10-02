@@ -45,7 +45,10 @@ pub fn run() {
                             .unwrap()
                             .join("back-end-core")
                     });
-                (std::env::var_os("ALPHA_BRAIN_PYTHON").unwrap_or_else(|| "python3".into()), root)
+                (
+                    std::env::var_os("ALPHA_BRAIN_PYTHON").unwrap_or_else(|| "python3".into()),
+                    root,
+                )
             } else {
                 runtime_paths::release_paths(
                     &app.path().resource_dir()?.join("brain-runtime"),

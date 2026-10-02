@@ -33,6 +33,7 @@ export class UnavailableAdapter implements BrainAdapter {
   inputGet: BrainAdapter['inputGet'] = () => this.fail();
   inputEdit: BrainAdapter['inputEdit'] = () => this.fail();
   inputDelete: BrainAdapter['inputDelete'] = () => this.fail();
+  modelReset: BrainAdapter['modelReset'] = () => this.fail();
   state: BrainAdapter['state'] = () => this.fail();
   effects: BrainAdapter['effects'] = () => this.fail();
   rank: BrainAdapter['rank'] = () => this.fail();

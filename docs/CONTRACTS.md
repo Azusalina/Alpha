@@ -10,7 +10,7 @@ Status of each producer/consumer at the time of writing: see
 
 ## 1. Frame and world space
 
-- Reference frame: `aes-ref/alpha-white-geom.PNG`, **1644 × 957**. Nothing is
+- Reference frame: `design/aes-ref/alpha-white-geom.PNG`, **1644 × 957**. Nothing is
   ever resized to it — a capture at another size is refused, not stretched.
 - App world space: **Y up, +Z toward the camera**.
 - The frame maps onto the `z = 0` plane:
@@ -406,7 +406,21 @@ Everything the UI knows about the model goes through `src/backend` (types in
 `useBackend()`, never a transport. Back-end contract and the open requests are
 negotiated in `front-back-communicate.md` (`[front]` / `[back]`).
 
-Scope decisions (2026-10-01), pending implementation and worker verification:
+Current backend status (2026-10-02) supersedes the historical paragraph below:
+schema_version=1, contract_revision=2, 30 methods. Fresh authored candidate
+publication, guarded typed correction/version review/selected replay, F13 private
+API/CLI/evaluation gate and encrypted fresh-target recovery, readiness/evaluation
+tools are implemented. Legacy pending/rejected and unselected frozen fits remain
+untouched. Exact labels are not general semantic relabelling ML; selected replay
+is not a causal graph. Frontend unlock/cache/version UI, online CI/Python 3.10,
+real hold-out coverage/prediction remain pending. F6 version reset/queued review
+ambiguity is documented in the frontend handoff. Linux x86_64 portable release/
+runtime passed (glibc >= 2.34, nonstatic GTK dependencies), independently verified
+by main. Xvfb DOM F6/paging/persistence and EOF/invalid-response/timeout faults passed;
+administrative model-reset/reconnect and physical input/GPU acceptance remain pending. Latest frontend edits are not all
+verified. MMPI has no active/deferred queue; F14 deferred.
+
+Historical scope decisions (2026-10-01; pending statuses superseded above):
 automatically publish extracted candidate memories on current-source/version
 double approval without migration publication of legacy pending/rejected items;
 reviewed semantic revisions withdraw current contributions and require renewed
@@ -430,8 +444,11 @@ dated historical conversation remains in the communication ledger.
   `tauriTransport.ts` talks to the host command
   `brain_call` through `window.__TAURI_INTERNALS__`; `app/desktop.ts` connects once
   at start when a Tauri host exists. Browser real-Python wiring and basic Xvfb
-  native connection/submit/review are reported verified in the ledger; native
-  F6, reset/reconnect/failure acceptance and release packaging remain pending.
+  native connection/submit/review are reported verified in the ledger. Xvfb DOM
+  F6/paging/persistence and Linux x86_64 portable release/runtime passed; native
+  EOF/invalid-response/timeout startup failure, explicit reconnect and ambiguous-write
+  recovery passed with no automatic write retry. Administrative model-reset/reconnect
+  and physical input/GPU acceptance remain pending.
 - **Two judgements per input** (D55): `immediate` (given at input) and `confirm`
   (second, inside the zoomed-in brain). Trained only when both are true.
   `exclamation` makes the back end set both true at submit (the response carries the
@@ -443,15 +460,17 @@ dated historical conversation remains in the communication ledger.
   resets confirmation without training. Delete hard-deletes any status and its
   source-specific history, withdrawing active support. Other sources' frozen
   effects, external files and backups stay untouched; no secure-erasure claim.
-  Older backends lacking capabilities keep buttons disabled. Native F6 acceptance
-  remains pending.
+  Older backends lacking capabilities keep buttons disabled. Native Xvfb DOM F6
+  acceptance passed; physical input/GPU acceptance remains pending.
 - **Model activity**: consume `health.model_epoch`, records' `model_active`/
   `model_epoch` and formal effects' `model_epoch`. An agreed inactive record is
   still approved but outside the current model; re-enlistment requires deliberate
-  `review(agree=true)`, never automatic review on reconnect. Reconnect clears old
+  guarded `review_version(agree=true)` with fresh source-version/revision/epoch tokens;
+  legacy `review(agree=true)` is allowed only at source_version=0. Never review
+  automatically on reconnect. Reconnect clears old
   caches/in-flight operations and reloads health/state/the first input page;
   historical effects keep their epoch and must not play as new training. Browser
-  handling is reported verified; native reset/reconnect remains pending. No live
+  handling is reported verified; native administrative model-reset/reconnect remains pending. No live
   reset endpoint/UI exists.
 - **Spans** are Unicode code points, end exclusive: use `src/backend/spans.ts`
   (`codePointSlice`, `highlight`, `evidenceMatches`), never slice a JS string with a span.
@@ -486,6 +505,10 @@ dated historical conversation remains in the communication ledger.
   reason labels, unknown reasons shown raw, v1 and v2 policies); it never hides an effect.
   Native check (Tauri debug binary, Xvfb, XTest clicks): connected, submit, preview, confirm T, state
   read back from the database. Latest browser tests also cover F6, NUL validation
-  and model activity/epoch handling. Not verified: native F6/reset/reconnect/fault
-  paths, large-list acceptance, real GPU, release build / Python/backend/jieba
-  packaging. These boundaries are not closed by parallel workers' ongoing work.
+  and model activity/epoch handling. Native Xvfb DOM F6/paging/persistence and Linux
+  x86_64 portable release/Python/backend/jieba/security runtime passed, with main's
+  independent relocation/security and artifact-hash verification. Main also verified
+  the three native DOM fault cases: EOF, invalid response and timeout, each with
+  explicit reconnect, exactly-one-source read recovery and no automatic write retry.
+  Not verified: native administrative model-reset/reconnect, physical input/GPU,
+  macOS/Windows acceptance or all latest frontend changes.

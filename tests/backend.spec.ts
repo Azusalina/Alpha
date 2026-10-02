@@ -284,7 +284,7 @@ test.describe('mock extraction', () => {
     expect([a.source_id, b.source_id]).toEqual(['mock-0001', 'mock-0002']);
     expect((await m.inputGet('mock-0001')).created_at).toBe('2026-01-01T00:00:00.000Z');
     expect([...(await m.capabilities())].sort()).toEqual(
-      ['confirm', 'effects', 'inputDelete', 'inputEdit', 'inputGet', 'inputList', 'inputPage', 'preview', 'rank', 'revoke', 'state', 'submit'],
+      ['confirm', 'effects', 'inputDelete', 'inputEdit', 'inputGet', 'inputList', 'inputPage', 'modelReset', 'preview', 'rank', 'revoke', 'state', 'submit'],
     );
   });
 

@@ -37,7 +37,7 @@ npm run dev
 ```
 
 Then open http://127.0.0.1:5173. The reference frame is 1644 × 957 — size the
-window to that aspect if you are comparing against `aes-ref/alpha-white-geom.PNG`.
+window to that aspect if you are comparing against `design/aes-ref/alpha-white-geom.PNG`.
 
 ## Build
 
@@ -75,7 +75,7 @@ pointer-disturbance pair. Needs the dev server running:
 npm run qa:capture
 ```
 
-Reference alignment — scores the app against `aes-ref/alpha-white-geom.PNG`
+Reference alignment — scores the app against `design/aes-ref/alpha-white-geom.PNG`
 (thresholds and how to read them: `docs/ACCEPTANCE.md`). `npm run qa:overlay`
 draws the two-ink overlay of `outputs/qa/home.png`; a capture of the
 `silhouette` view mode (`window.__alpha.setViewMode('silhouette')`, dev server
@@ -119,7 +119,8 @@ scripts/        reference measurement, alignment and acceptance checks, QA captu
 assets-source/  hand pose files, the Blender builder, reference masks and gates
 src-tauri/      Tauri 2 desktop shell
 tests/          Playwright startup and acceptance checks
-docs/           visual spec and decisions
+design/         reference images, the visual spec, the ball page
+docs/           contracts, acceptance gates and decisions
 outputs/qa/     screenshots, alignment evidence, reports
 documentations/log/  implementation log
 ```

@@ -95,7 +95,10 @@ class BrainModelTests(unittest.TestCase):
         source = self.model.submit("我在學英文。", partition="rational")
         self.model.review(source, agree=True)
         candidate = self.model.store.propose(source, "正在學英文", "學英文")
-        self.model.store.resolve(candidate, accept=True)
+        row = self.model.store.list_candidates(status="accepted")[0]
+        self.assertEqual(row["id"], candidate)
+        self.assertEqual(row["source_version"], 0)
+        self.assertIsNotNone(row["resolved_at"])
         self.assertEqual([row["id"] for row in self.model.store.list_memories()], [candidate])
         self.assertEqual([row["id"] for row in self.model.store.search_memories("英文")],
                          [candidate])
@@ -107,7 +110,7 @@ class BrainModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model.store.propose(source, "再次學英文", "學英文")
 
-    def test_model_extraction_uses_same_reviewed_source_and_stages_candidates(self):
+    def test_model_extraction_uses_same_reviewed_source_and_publishes_candidates(self):
         class ModelSpy:
             called = False
 
@@ -121,19 +124,30 @@ class BrainModelTests(unittest.TestCase):
         candidate = extract_candidates(self.model.store, source, spy)[0]
         self.assertTrue(spy.called)
         self.assertEqual(self.model.store.list_candidates()[0]["source_id"], source)
-        self.assertEqual(self.model.store.list_memories(), [])
-        self.model.store.resolve(candidate, accept=True)
+        self.assertEqual(self.model.store.list_candidates(status="pending"), [])
+        self.assertEqual([row["id"] for row in self.model.store.list_memories()], [candidate])
+        self.assertEqual(self.model.store.list_memories()[0]["status"], "accepted")
+        self.assertEqual(self.model.store.list_memories()[0]["source_version"], 0)
         self.assertEqual(self.model.store.list_memories()[0]["source_id"], source)
 
     def test_pending_candidate_cannot_be_accepted_after_source_revocation(self):
         source = self.model.submit("我在學英文。", partition="rational")
+        # Synthetic pre-publication row: never downgrade a fresh accepted proposal.
+        candidate = "legacy-pending"
+        with self.model.store._connect() as db:
+            db.execute("INSERT INTO candidates(id,source_id,claim,evidence,status,created_at,source_version) "
+                       "VALUES (?,?,'正在學英文','學英文','pending','old-time',0)",
+                       (candidate, source))
+        legacy = self.model.store.list_candidates(status="pending")
         self.model.review(source, agree=True)
-        candidate = self.model.store.propose(source, "正在學英文", "學英文")
+        self.assertEqual(self.model.store.list_candidates(status="pending"), legacy)
         self.model.revoke(source)
         with self.assertRaises(ValueError):
             self.model.store.resolve(candidate, accept=True)
         self.assertEqual(self.model.store.list_candidates(status="pending")[0]["id"],
                          candidate)
+        self.assertEqual(self.model.store.list_candidates(status="pending"), legacy)
+        self.assertEqual(self.model.store.list_memories(), [])
 
     def test_approved_philosophy_updates_only_rational_and_can_revoke(self):
         before_hash = hashlib.sha256(BASELINE_PATH.read_bytes()).hexdigest()

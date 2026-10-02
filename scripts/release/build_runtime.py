@@ -8,11 +8,11 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import urllib.request
 
 REPO = Path(__file__).resolve().parents[2]
 LOCK = json.loads(Path(__file__).with_name("runtime.lock.json").read_text())
 LICENSES = json.loads(Path(__file__).with_name("licenses.lock.json").read_text())
+JIEBA_FILES = json.loads(Path(__file__).with_name("jieba-files.lock.json").read_text())
 
 
 def digest(path):
@@ -56,19 +56,19 @@ def backend_names(source):
     return names + ["model/baseline.json"]
 
 
-def build(output, archive=None, requirements=None, wheelhouse=None):
+def build(output, archive=None, requirements=None, wheelhouse=None, licenses=None):
     if not output.is_absolute() or output.exists():
         raise ValueError("output must be a new absolute directory")
+    if archive is None or licenses is None:
+        raise ValueError("offline archive and licenses required; run download_assets.py explicitly first")
     jieba = REPO / "ext-refs/jieba"
-    commit = subprocess.check_output(["git", "-C", str(jieba), "rev-parse", "HEAD"], text=True).strip()
-    dirty = subprocess.check_output(["git", "-C", str(jieba), "status", "--porcelain"], text=True)
-    if commit != LOCK["jieba_commit"] or dirty:
-        raise ValueError("jieba checkout must be clean and pinned")
+    # Content lock permits an offline build without contacting Git or .git.
+    # The historical commit in runtime.lock is provenance, not verification.
+    if any(digest(jieba / name) != expected for name, expected in JIEBA_FILES.items()):
+        raise ValueError("jieba content lock mismatch")
     with tempfile.TemporaryDirectory(prefix="alpha-runtime-build-") as work:
         work = Path(work)
-        asset = Path(archive) if archive else work / "python.tar.gz"
-        if not archive:
-            urllib.request.urlretrieve(LOCK["url"], asset)
+        asset = Path(archive)
         if digest(asset) != LOCK["sha256"]:
             raise ValueError("CPython official asset checksum mismatch")
         stage = work / "stage"
@@ -100,14 +100,13 @@ def build(output, archive=None, requirements=None, wheelhouse=None):
         copy_files(backend, resources / "back-end-core", names)
         if before != {name: digest(backend / name) for name in backend_names(backend)}:
             raise ValueError("backend changed during capture; refresh runtime")
-        tracked = subprocess.check_output(["git", "-C", str(jieba), "ls-files", "jieba", "LICENSE"], text=True).splitlines()
-        allowed = [name for name in tracked if name == "LICENSE" or
-                   ("lac_small" not in name.split("/") and Path(name).suffix in (".py", ".p", ".txt"))]
-        copy_files(jieba, resources / "ext-refs/jieba", allowed)
+        copy_files(jieba, resources / "ext-refs/jieba", JIEBA_FILES)
         notices = resources / "licenses/python-build-standalone"
         notices.mkdir(parents=True)
         for name, expected in LICENSES["files"].items():
-            data = urllib.request.urlopen(LICENSES["base_url"] + name, timeout=30).read()
+            if licenses is None:
+                raise ValueError("offline license directory is required; download assets explicitly first")
+            data = (Path(licenses) / name).read_bytes()
             if hashlib.sha256(data).hexdigest() != expected:
                 raise ValueError(f"license checksum mismatch: {name}")
             (notices / name).write_bytes(data)
@@ -116,7 +115,7 @@ def build(output, archive=None, requirements=None, wheelhouse=None):
             raise ValueError("standalone asset lacks license notices")
         distributions = subprocess.check_output([str(resources / "python/bin/python3"), "-I", "-c",
             "import importlib.metadata,json; print(json.dumps({d.metadata['Name']:d.version for d in importlib.metadata.distributions()}))"],text=True)
-        manifest = {"schema_version": 1, "lock": LOCK, "license_lock": LICENSES, "backend_files": before,
+        manifest = {"schema_version": 1, "lock": LOCK, "license_lock": LICENSES, "jieba_files": JIEBA_FILES, "backend_files": before,
                     "distributions": json.loads(distributions),
                     "requirements_sha256": digest(Path(requirements)) if requirements else None,
                     "files": inventory(resources)}
@@ -129,9 +128,10 @@ def build(output, archive=None, requirements=None, wheelhouse=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--archive", type=Path)
+    parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--requirements", type=Path)
     parser.add_argument("--wheelhouse", type=Path)
+    parser.add_argument("--licenses", type=Path, required=True)
     args = parser.parse_args()
-    result = build(args.output, args.archive, args.requirements, args.wheelhouse)
+    result = build(args.output, args.archive, args.requirements, args.wheelhouse, args.licenses)
     print(json.dumps({"output": str(args.output), "files": len(result["files"]), "lock": LOCK}))

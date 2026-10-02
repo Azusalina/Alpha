@@ -1,5 +1,5 @@
 {
-  "reference": "aes-ref/alpha-white-geom.PNG",
+  "reference": "design/aes-ref/alpha-white-geom.PNG",
   "generator": "scripts/reference_masks.py",
   "frame": [
     1644,

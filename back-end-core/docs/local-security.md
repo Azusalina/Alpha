@@ -1,8 +1,9 @@
 # Local access and encrypted backups
 
-F13 foundations are standalone. These modules do not encrypt SQLite. The API,
-desktop host, frontend unlock UI, existing CLIs and evaluation integration are
-owned by subsequent workers; installing this extra alone does not gate them.
+F13 API, CLI and evaluation access integration is implemented. AccessSession gates
+all private reads/writes with LOCKED; malformed unlock clears authorization/cache,
+and CLIs retain and recheck their session. Frontend unlock/cache UI remains pending.
+Argon2id protects the access gate; XChaCha20-Poly1305 encrypts backups, not SQLite.
 Use only synthetic temporary databases during development. Do not run setup,
 backup or restore against the user's live database as a development test.
 
@@ -192,5 +193,7 @@ Primary API sources: [PyNaCl password hashing](https://pynacl.readthedocs.io/en/
 [SQLite online backup](https://www.sqlite.org/backup.html).
 
 Verification: `python -m unittest tests.test_security -v` from `back-end-core`.
-All fixtures are synthetic and use temporary paths. API-wide locked coverage,
-desktop unlock wiring and protected evaluation snapshots remain integration work.
+All fixtures are synthetic and use temporary paths. API-wide locked coverage and
+protected evaluation snapshots are implemented and tested; frontend unlock/cache
+UI and physical native acceptance remain pending. SQLite and same-OS-user limits
+above still apply.

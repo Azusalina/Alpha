@@ -4,7 +4,7 @@
  * - Dark is the default (D40); light is the white scheme every acceptance gate
  *   was derived on, so the acceptance tests pin `?theme=light`.
  * - Dark = the light scheme inverted, plus a glow (D39): near-black ground
- *   (sampled from aes-ref/alpha-black-main-line.PNG: #050505, lines ≈ #f2f2f2),
+ *   (sampled from design/aes-ref/alpha-black-main-line.PNG: #050505, lines ≈ #f2f2f2),
  *   light plaster, and additively blended particles and lines.
  * - Switched from a small corner icon or the T key (D38); the choice persists.
  *   `?theme=light|dark` overrides for one page load (tests, screenshots).

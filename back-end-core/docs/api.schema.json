@@ -312,7 +312,7 @@
             "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
               "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}}}
           },
-          "allOf": [{"if": {"properties": {"access": {"properties": {"configured": {"const": true}}}}}, "then": {"not": {"required": ["model_epoch"]}}}]
+          "allOf": [{"if": {"properties": {"access": {"properties": {"locked": {"const": true}}}}}, "then": {"not": {"required": ["model_epoch"]}}, "else": {"required": ["model_epoch"]}}]
         },
         "baseline": {
           "type": "object", "required": ["schema_version", "partitions", "parameters"], "additionalProperties": false,
@@ -387,7 +387,7 @@
         },
         "candidate_propose": {
           "type": "object", "required": ["candidate_id", "source_id", "status"], "additionalProperties": false,
-          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "status": {"enum": ["pending", "accepted"]}}
+          "properties": {"candidate_id": {"$ref": "#/$defs/text"}, "source_id": {"$ref": "#/$defs/text"}, "status": {"const": "accepted"}}
         },
         "candidate_review": {"allOf": [{"$ref": "#/$defs/candidateFields"}], "unevaluatedProperties": false, "properties": {"status": {"enum": ["accepted", "rejected"]}}},
         "candidate_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/candidateRow"}},

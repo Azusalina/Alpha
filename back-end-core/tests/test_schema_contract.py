@@ -171,6 +171,25 @@ class SchemaContractTests(unittest.TestCase):
                     malformed.append({"unexpected_contract_field": True})
                 self.assertFalse(self.result_validators[method].is_valid(malformed))
 
+    def test_protected_health_schema_matches_locked_and_authenticated_epoch(self):
+        from core.access import setup_access
+        password = 'synthetic schema password'
+        setup_access(self.api.path, password)
+        self.api = BrainAPI(self.api.path)
+        locked = self.call('health')
+        self.assertNotIn('model_epoch', locked)
+        self.assertFalse(self.result_validators['health'].is_valid({**locked, 'model_epoch': 0}))
+        self.call('unlock', password=password)
+        unlocked = self.call('health')
+        self.assertEqual(unlocked['model_epoch'], 0)
+        missing = copy.deepcopy(unlocked)
+        missing.pop('model_epoch')
+        self.assertFalse(self.result_validators['health'].is_valid(missing))
+        self.call('lock')
+        self.assertNotIn('model_epoch', self.call('health'))
+        self.assertFalse(self.result_validators['candidate_propose'].is_valid(
+            {'candidate_id': 'synthetic', 'source_id': 'synthetic', 'status': 'pending'}))
+
     def test_questions_quotes_ambiguity_and_truncated_diagnostics_match_schema(self):
         cases = [("我重视公平吗？", "diary", None),
                  ("我重视“公平”。我不认为自由不重要。", "philosophy", None),

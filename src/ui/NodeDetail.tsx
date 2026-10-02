@@ -4,6 +4,9 @@
  * where it hangs, what hangs from it (D65).
  */
 
+import { useState } from 'react';
+
+import { inputStore, useInputs } from '../app/inputStore';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 
@@ -37,9 +40,51 @@ export const regionLabel = (i: number) => REGION_LABEL[REGIONS[i]] ?? '—';
 interface Props {
   id: string;
   onSelect: (id: string | null) => void;
+  /** Offer the model reset on the main node (the brain page's drill-in only, not the tree). */
+  resettable?: boolean;
 }
 
-export function NodeDetail({ id, onSelect }: Props) {
+/**
+ * Reset the personalised model and clean its history. Two steps, because it cannot be undone; greyed
+ * out, with the reason, when the back end does not offer it.
+ */
+function ModelReset() {
+  const s = useInputs();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const offered = inputStore.can('modelReset');
+  const run = async () => {
+    setBusy(true);
+    const err = await inputStore.resetModel();
+    setBusy(false);
+    if (!err) setAsking(false);
+  };
+  return (
+    <section className="node-detail__reset" data-testid="model-reset">
+      {!asking ? (
+        <button type="button" data-testid="model-reset-open" disabled={!offered} onClick={() => setAsking(true)}>
+          重置模型并清空历史
+        </button>
+      ) : (
+        <>
+          <p>三个状态回到 0，所有效应历史一并清空，无法恢复。确定吗？</p>
+          <div>
+            <button type="button" data-testid="model-reset-confirm" disabled={busy} onClick={() => void run()}>
+              {busy ? '重置中…' : '确认重置'}
+            </button>
+            <button type="button" disabled={busy} onClick={() => setAsking(false)}>
+              取消
+            </button>
+          </div>
+        </>
+      )}
+      {!offered && <p className="node-detail__quiet">当前后端没有提供模型重置，按钮暂不可用。</p>}
+      {s.error?.action === 'refresh' && asking && <p className="node-detail__quiet" role="alert">{s.error.message}</p>}
+    </section>
+  );
+}
+
+export function NodeDetail({ id, onSelect, resettable }: Props) {
   const graph = useGraph();
   const selected = graph.nodes.find((n) => n.id === id);
   if (!selected) return null;
@@ -79,6 +124,7 @@ export function NodeDetail({ id, onSelect }: Props) {
           </>
         )}
       </dl>
+      {resettable && selected.kind === 'root' && <ModelReset />}
       <p className="node-detail__note">脑区只是占位的分组，不代表这条内容在大脑里的位置。</p>
     </aside>
   );

@@ -41,12 +41,18 @@ def validate_corrections(text: str, kind: str, self_speaker: str | None,
             pool = [r for r in pool if (family != 'event' or r['category'] == 'event_word')
                     and (family != 'intent' or r['type'] == 'contact_intention')
                     and (family != 'tone' or r['type'] == 'textual_emotion')]
-            if not any(all(r[k] == item[k] for k in ('value', 'evidence', 'span')) for r in pool):
+            targets = [r for r in pool
+                       if all(r[k] == item[k] for k in ('value', 'evidence', 'span'))]
+            if not targets:
                 raise ValueError("annotation must target exact existing translator output")
-            key = (family, item['value'], tuple(item['span']))
-            if key in seen:
+            # Aliases (tone/intent and candidate) identify the same actual output.
+            # Cues and candidates remain separate even at identical text offsets.
+            keys = {('cue' if family == 'event' else 'candidate',
+                     r['category'] if family == 'event' else r['type'],
+                     r['value'], r['evidence'], tuple(r['span'])) for r in targets}
+            if keys & seen:
                 raise ValueError("duplicate annotation target")
-            seen.add(key)
+            seen.update(keys)
             checked.append({**item, 'span': list(item['span'])})
             continue
         if not isinstance(item, dict) or set(item) != {"parameter", "sign", "evidence", "span"}:

@@ -1,7 +1,8 @@
-"""Native release WebKitGTK acceptance. No WebDriver; private Xvfb + ctypes XTest."""
+"""Native WebKitGTK/Rust IPC with DOM functional checks; XTest activates only."""
 import argparse
 import ctypes
 import ctypes.util
+from contextlib import ExitStack
 import functools
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -60,6 +61,16 @@ def xtest(display_name):
         x.XCloseDisplay(d)
 
 
+def stop_process(process):
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+
+
 def main(resources, output, cases):
     verify(resources)
     if output.exists() or not output.is_absolute():
@@ -72,7 +83,7 @@ def main(resources, output, cases):
     xvfb = None
     app = None
     try:
-        with tempfile.TemporaryDirectory(prefix='alpha-native-') as tmp:
+        with tempfile.TemporaryDirectory(prefix='alpha-native-') as tmp, ExitStack() as processes:
             tmp = Path(tmp)
             # displayfd avoids colliding with an existing X server.
             readfd, writefd = os.pipe()
@@ -95,6 +106,7 @@ def main(resources, output, cases):
             seed = subprocess.Popen([str(python),'-E','-s','-u','-m','core.api','--db',str(realdb)],
                 cwd=testing_runtime / 'back-end-core',stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,
                 env=dict(os.environ,ALPHA_BRAIN_DB=str(realdb),ALPHA_BRAIN_TRACE='0'))
+            processes.callback(stop_process, seed)
             for i in range(137):
                 seed.stdin.write(json.dumps({'schema_version':1,'id':str(i),'method':'submit','params':{
                     'partition':'rational','kind':'philosophy','text':f'合成分页 {i}。我重视自由。','immediate':True}})+'\n')
@@ -108,14 +120,15 @@ def main(resources, output, cases):
                 (frontend / 'index.html').write_text(original.replace('</body>','<script>'+js+'</script></body>'))
                 cfg = config(resources,frontend)
                 compile_env = dict(os.environ,TAURI_CONFIG=json.dumps(cfg))
-                subprocess.run(['cargo','build','--release','--features','tauri/custom-protocol','--manifest-path',str(REPO / 'src-tauri/Cargo.toml')],
+                subprocess.run(['cargo','build','--offline','--release','--features','tauri/custom-protocol','--manifest-path',str(REPO / 'src-tauri/Cargo.toml')],
                     cwd=REPO,env=compile_env,check=True)
                 portable = tmp / ('portable-'+case)
                 package(REPO / 'src-tauri/target/release/alpha',resources,portable,create_archive=False)
                 db = realdb
                 launch_env = {k:v for k,v in os.environ.items() if not k.startswith(('ALPHA_BRAIN_','PYTHON'))}
-                launch_env.update(DISPLAY=display,GDK_BACKEND='x11',LIBGL_ALWAYS_SOFTWARE='1',PATH='',HOME=str(tmp),
-                    XDG_DATA_HOME=str(tmp / 'xdg'),TMPDIR=str(tmp),ALPHA_BRAIN_TRACE='0')
+                launch_env.update(DISPLAY=display,GDK_BACKEND='x11',LIBGL_ALWAYS_SOFTWARE='1',PATH='',
+                    XDG_DATA_HOME=str(tmp / 'xdg-data'),XDG_CONFIG_HOME=str(tmp / 'xdg-config'),
+                    XDG_CACHE_HOME=str(tmp / 'xdg-cache'),TMPDIR=str(tmp),ALPHA_BRAIN_TRACE='0')
                 if case.startswith('fault-'):
                     fixture = tmp / case
                     (fixture / 'core').mkdir(parents=True)
@@ -127,6 +140,7 @@ def main(resources, output, cases):
                 launch_env['ALPHA_BRAIN_DB'] = str(db)
                 with (output / (case+'.stderr')).open('w') as log:
                     app = subprocess.Popen([str(portable / 'bin/alpha')],cwd=tmp,env=launch_env,stderr=log,stdout=log)
+                    processes.callback(stop_process, app)
                     time.sleep(2)
                     xtest(display)
                     deadline = time.monotonic()+180
@@ -134,6 +148,24 @@ def main(resources, output, cases):
                         if app.poll() is not None or time.monotonic() > deadline:
                             raise RuntimeError(f'{case}: native process ended or report timed out; see {log.name}')
                     result = server.result
+                    if not case.startswith('fault-'):
+                        runtime_root = portable / 'lib/Alpha/brain-runtime'
+                        # Python may be spawned by a Tokio worker thread rather
+                        # than the main thread: gather every task's children.
+                        children = set()
+                        for task in Path(f'/proc/{app.pid}/task').iterdir():
+                            try:
+                                children.update((task / 'children').read_text().split())
+                            except FileNotFoundError:
+                                pass
+                        matches = []
+                        for pid in children:
+                            proc = Path('/proc') / pid
+                            if (proc / 'cwd').resolve() == runtime_root / 'back-end-core':
+                                assert (proc / 'exe').resolve() == (runtime_root / 'python/bin/python3').resolve()
+                                matches.append(pid)
+                        assert len(matches) == 1, 'backend must run exclusively from relocated portable runtime'
+                        result['portable_runtime_verified'] = True
                     if case.startswith('fault-'):
                         methods = [json.loads(line)['method'] for line in (db.parent / 'fixture-methods.jsonl').read_text().splitlines()]
                         result['fixture_methods'] = methods

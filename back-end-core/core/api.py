@@ -153,6 +153,9 @@ class BrainAPI:
                 self.access.require()
             if not isinstance(method, str) or method not in METHODS:
                 raise RequestError("METHOD_NOT_FOUND", "unknown method")
+            if method == "unlock":
+                self._brain = None
+                self.access.lock()  # Every attempt revokes authorization, even malformed params.
             if not isinstance(params, dict):
                 raise RequestError("INVALID_ARGUMENT", "params must be an object")
             required, optional = METHODS[method]
@@ -210,7 +213,7 @@ class BrainAPI:
                                        "access_control": True, "source_versions": True,
                                        "correction_reopen": True, "explicit_replay": True,
                                        "typed_corrections": True}}
-                if not access["configured"]:
+                if not access["locked"]:
                     result["model_epoch"] = self.brain.model.reset_info()["model_epoch"]
             elif method == "baseline":
                 result = BrainModel.baseline()

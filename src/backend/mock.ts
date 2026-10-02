@@ -878,6 +878,25 @@ export class MockBrainAdapter implements BrainAdapter {
     });
   }
 
+  modelReset(): Promise<void> {
+    return this.call(() => {
+      // every state back to nothing, every effect record gone; the inputs stay but no longer train
+      this.effectLog = [];
+      for (const row of this.rows.values()) {
+        row.contributions = [];
+        row.fitted = false;
+        if (row.rec.status === 'agreed' || row.rec.status === 'revoked') {
+          row.rec.status = 'pending';
+          row.rec.reason = null;
+          row.rec.confirm = null;
+          row.rec.confirmed_by = null;
+          row.rec.reviewed_at = null;
+        }
+      }
+      this.inputRevision++;
+    });
+  }
+
   state(): Promise<ModelState> {
     return this.call(() => this.stateFrom(this.aggregate()));
   }

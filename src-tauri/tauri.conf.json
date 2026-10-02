@@ -17,7 +17,8 @@
         "width": 1644,
         "height": 957,
         "resizable": true,
-        "center": true
+        "center": true,
+        "fullscreen": true
       }
     ],
     "security": {

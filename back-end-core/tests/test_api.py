@@ -32,6 +32,28 @@ class BrainAPITests(unittest.TestCase):
         self.assertEqual(set(schema["$defs"]["parameter"]["enum"]), set(PARAMETERS))
         self.assertEqual(set(self.result("health")["methods"]), set(METHODS))
 
+    def test_frontend_page_token_drives_version_review_and_batch_final_tokens(self):
+        sources = [self.result('submit', text='我重视公平。', partition='rational',
+                               exclamation=True)['source_id'] for _ in range(2)]
+        health = self.result('health')
+        page = self.result('input_page', partition='emotional', limit=1)
+        self.assertEqual(page['revision'], self.api.brain.model.reset_info()['input_revision'])
+        result = self.result('replay_reopen', source_ids=sources, immediate=True,
+            expected_source_versions={s: 0 for s in sources}, expected_revision=page['revision'],
+            expected_epoch=health['model_epoch'])
+        self.assertTrue(all(i['input_revision'] == result['input_revision'] and
+                            i['model_epoch'] == result['model_epoch'] for i in result['items']))
+        self.assertEqual(self.call('review', source_id=sources[0], agree=True)['error']['code'],
+                         'INVALID_ARGUMENT')
+        reviewed = self.result('review_version', source_id=sources[0], agree=True,
+            expected_source_version=1, expected_revision=self.result('input_page', limit=1)['revision'],
+            expected_epoch=self.result('health')['model_epoch'])
+        repeated = self.result('review_version', source_id=sources[0], agree=True,
+            expected_source_version=1, expected_revision=reviewed['input_revision'],
+            expected_epoch=reviewed['model_epoch'])
+        self.assertEqual(repeated['effects'], [])
+        self.assertNotIn('observed_terms', repeated)
+
     def test_submit_preserves_unicode_crlf_and_rejects_surrogates_before_storage(self):
         for bad in ("\ud800", "\udfff", "\ud83d\ude00"):
             with self.subTest(bad=repr(bad)):

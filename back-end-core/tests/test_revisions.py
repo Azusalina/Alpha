@@ -10,9 +10,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from core.brain import BrainCore
+from core.extraction import deterministic_candidates
 from core.store import MemoryStore
 from model import BrainModel, sources
+from model.corrections import validate_corrections
 from model.evaluation import read_snapshot
+from translator import translate
 
 
 class RevisionTests(unittest.TestCase):
@@ -183,6 +186,130 @@ class RevisionTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.core.review(source, agree=True)
         self.assertEqual(self.snapshot(), before)
+
+    def test_explicit_self_emotions_abstain_on_possessive_and_ambiguous_subjects(self):
+        blocked = [
+            '我妈妈很开心', '我爸爸很开心', '我同学很开心', '我老师很开心',
+            '我室友很开心', '我邻居很开心', '我队友很开心', '我表姐很开心',
+            '我媽媽很開心', '我爸爸很開心', '我同學很開心', '我老師很開心',
+            '我室友很開心', '我鄰居很開心', '我隊友很開心', '我表姐很開心',
+            '我的妈妈很开心', '我的室友感到开心', '我自己妈妈很开心',
+            '我的媽媽很開心', '我的室友感到開心', '我的某個熟人很開心',
+            '我某个熟人很开心', '我的𠮷很开心',
+            '我们很开心', '我們很開心', '自己的妈妈很开心',
+            "my roommate’s 很开心", "my teacher's 很开心", '妈妈说我很开心',
+            '我让妈妈很开心', '我觉得妈妈很开心', '我和妈妈很开心',
+            '我为妈妈开心爸爸感到开心', '我很开心妈妈也是',
+            '我很开心？', '我感到不开心', '我并不很开心',
+            '我可能很开心', '如果我很开心', '我说我很开心',
+            '“我很开心”', '> 我很开心', '我为妈妈感到开心？',
+            '“我为妈妈感到开心”', '「我為媽媽感到開心」',
+            '如果我为妈妈感到开心', '我可能为妈妈感到开心',
+            '妈妈说我为妈妈感到开心', '媽媽說我為媽媽感到開心',
+            '朋友说，我为妈妈感到开心', '如果有好消息，我为妈妈感到开心',
+            '> 我为妈妈感到开心', '我为妈妈感到不开心',
+        ]
+        for text in blocked:
+            with self.subTest(text=text):
+                report = translate(text)
+                self.assertEqual(deterministic_candidates(text, 'diary', None, report, []), [])
+        # Confirm the publication filter, rather than translator abstention alone,
+        # covers the four reported failures and arbitrary possession prefixes.
+        for text in blocked[:8]:
+            self.assertTrue(translate(text)['candidates'], text)
+        for text in ('我很开心', '我感到开心', '我自己很开心', '自己感到开心',
+                     '我为妈妈感到开心', '我为爸爸感到开心', '我替室友感到开心',
+                     '我為媽媽感到開心', '我 很 开心'):
+            with self.subTest(text=text):
+                items = deterministic_candidates(text, 'diary', None, translate(text), [])
+                self.assertEqual(len(items), 1)
+                self.assertEqual(items[0]['claim'], 'textual_emotion: happiness')
+                self.assertEqual(text[slice(*items[0]['span'])], items[0]['evidence'])
+
+    def test_self_subject_publication_preserves_unicode_chat_and_clause_ownership(self):
+        cases = [
+            ('我妈妈很开心。我室友很开心。我为妈妈感到开心。', 'diary', None, '开心'),
+            ('我爸爸很开心。我感到开心。', 'philosophy', None, '开心'),
+            ('旁人：我很开心。\n本人：我老师很开心。\n本人：我為媽媽感到開心。\n'
+             '本人：我室友很开心。', 'chat', '本人', '開心'),
+            ('𠮷🙂。我很开心，她难过。', 'diary', None, '开心'),
+            ('本人：我媽媽很開心。\n本人：我的室友感到開心。\n'
+             '本人：「我為媽媽感到開心」。\n本人：如果有好消息，我為媽媽感到開心。\n'
+             '旁人：我為媽媽感到開心。\n本人：我感到開心。', 'chat', '本人', '開心'),
+        ]
+        for text, kind, speaker, evidence in cases:
+            with self.subTest(kind=kind, text=text):
+                source = self.core.submit(text, partition='rational', kind=kind,
+                                          self_speaker=speaker)['source_id']
+                before = self.snapshot()
+                memories = self.core.preview(source)['interpretation']['memories']
+                self.assertEqual(self.snapshot(), before)
+                self.assertEqual([m['evidence'] for m in memories], [evidence])
+                self.core.review(source, agree=True)
+                published = [m for m in self.core.memory_list(limit=100) if m['source_id'] == source]
+                self.assertEqual([m['evidence'] for m in published], [evidence])
+                self.assertEqual(text[slice(*memories[0]['span'])], evidence)
+
+    def test_typed_target_aliases_reject_all_signs_orders_and_repeated_positions(self):
+        cases = [('我很开心', 'diary', None, 'tone'),
+                 ('𠮷🙂。我很开心。我很开心。', 'diary', None, 'tone'),
+                 ('他：我很开心。\n我：我很开心。', 'chat', '我', 'tone'),
+                 ('我不再主动联系。', 'diary', None, 'intent')]
+        for text, kind, speaker, family in cases:
+            targets = translate(text, kind=kind, self_speaker=speaker)['candidates']
+            self.assertTrue(targets)
+            for target in targets:
+                for families in ((family, 'candidate'), ('candidate', family),
+                                 (family, family), ('candidate', 'candidate')):
+                    for first_sign in (0, 1):
+                        for second_sign in (0, 1):
+                            annotations = [dict(type=f, sign=s, **{k: target[k]
+                                           for k in ('value', 'evidence', 'span')})
+                                           for f, s in zip(families, (first_sign, second_sign))]
+                            with self.subTest(text=text, span=target['span'],
+                                              families=families, signs=(first_sign, second_sign)):
+                                with self.assertRaisesRegex(ValueError, 'duplicate annotation target'):
+                                    validate_corrections(text, kind, speaker, annotations)
+        self.assertEqual(translate('我很开心')['candidates'][0]['span'], [2, 4])
+
+    def test_duplicate_typed_alias_batches_leave_pending_and_fitted_databases_unchanged(self):
+        text = '我很开心'
+        pending = self.core.submit(text, partition='rational')['source_id']
+        fitted = self.fit(text)
+        target = translate(text)['candidates'][0]
+        for families in (('tone', 'candidate'), ('candidate', 'tone')):
+            for first_sign in (0, 1):
+                for second_sign in (0, 1):
+                    annotations = [dict(type=f, sign=s, **{k: target[k]
+                                   for k in ('value', 'evidence', 'span')})
+                                   for f, s in zip(families, (first_sign, second_sign))]
+                    before = self.snapshot()
+                    with self.assertRaisesRegex(ValueError, 'duplicate annotation target'):
+                        self.core.correction_set(pending, corrections=annotations, expected_revision=0)
+                    self.assertEqual(self.snapshot(), before)
+                    with self.assertRaisesRegex(ValueError, 'duplicate annotation target'):
+                        self.reopen(fitted, annotations)
+                    self.assertEqual(self.snapshot(), before)
+
+    def test_distinct_typed_positions_and_event_intent_targets_remain_independent(self):
+        text = '我很开心。我很开心。我不再主动联系并取消约会。'
+        report = translate(text)
+        tones = [r for r in report['candidates'] if r['type'] == 'textual_emotion']
+        intent = next(r for r in report['candidates'] if r['type'] == 'contact_intention')
+        event = next(r for r in report['cues'] if r['category'] == 'event_word')
+        self.assertEqual(len(tones), 2)
+        annotations = [dict(type=f, sign=s, **{k: target[k]
+                       for k in ('value', 'evidence', 'span')})
+                       for f, s, target in [('tone', 0, tones[0]), ('candidate', 1, tones[1]),
+                                            ('event', 0, event), ('intent', 1, intent)]]
+        self.assertEqual(validate_corrections(text, 'diary', None, annotations), annotations)
+        source = self.core.submit(text, partition='rational')['source_id']
+        self.core.correction_set(source, corrections=annotations, expected_revision=0)
+        preview = self.core.preview(source)
+        self.assertEqual([r['span'] for r in preview['translation']['candidates']
+                          if r['type'] == 'textual_emotion'], [tones[1]['span']])
+        self.assertIn(intent, preview['translation']['candidates'])
+        self.assertNotIn(event, preview['translation']['cues'])
 
     def test_typed_annotations_are_exact_local_and_do_not_invent_learning(self):
         text = '我取消约会。我很开心。我不再主动联系。'

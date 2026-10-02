@@ -9,7 +9,8 @@ raw-text deletion, password bypass, or clinical operation.
 - All three model partitions return to `value=0`, `net=0`, `support=0`,
   `observed=false`. The immutable zero baseline is never rewritten.
 - Original text, approval metadata, candidate memories, correction history,
-  frozen fits, personal vocabulary and exact-clause teaching support remain.
+  frozen fits, source versions and archived version interpretations, personal
+  vocabulary and exact-clause teaching support remain.
 - An incrementing model epoch excludes every old contribution from the active
   model. Reopening the database or fitting a new source cannot reactivate them.
 - Old approved sources stay `status=agreed` for translator/memory eligibility,
@@ -17,8 +18,11 @@ raw-text deletion, password bypass, or clinical operation.
   now distinct. `model_active=true` means participation in this model epoch,
   including fits that yielded zero parameter effects; it does not mean a
   nonzero parameter was found.
-- Explicit `review(source_id, agree=true)` re-enlists only that old source's
-  frozen fit into the current epoch. Repeating it in the same epoch is a no-op.
+- Deliberate `review_version(source_id, agree=true, expected_source_version=...,
+  expected_revision=..., expected_epoch=...)` re-enlists only that source's frozen
+  fit with fresh guards. Legacy `review` works only for source_version=0 and
+  refuses reopened versions. Repeating approval in the same epoch with fresh
+  guards is a no-op. Correction/replay reopening cannot bypass reset exclusion.
   Do not send this automatically when reconnecting or hydrating old records.
 - Revoke/delete still remove that source's translator support. If it has no
   current-epoch model fit they must not change the new model's parameter state.
@@ -60,14 +64,18 @@ Success reports the new epoch/revision and previous active-input count.
 
 The confirmation phrase prevents accidental use; **it is not authentication**.
 The entry point is local CLI / `BrainModel.reset_model`, not an exposed
-JSON-lines method or secret frontend API. API method count remains 23.
+JSON-lines method or secret frontend API. API method count is 30, schema_version=1,
+contract_revision=2; reset-info itself remains CLI/Python-only.
 No raw file, external backup, retained fit or history is erased, and no
 automatic backup or restore-all command is introduced. Restoring a previous
 active model wholesale is deferred; selected sources can be explicitly reviewed.
 
 ## Frontend handoff
 
-- On reconnect, `health.model_epoch` identifies the current epoch.
+- Unlocked `health.model_epoch` identifies the current epoch, including protected
+  sessions after unlock. Locked health is config-only and omits it; unlock itself
+  returns only access status. Use `input_page.revision` for global input revision,
+  not correction_history.revision or a row's historical model_epoch.
 - `input_get` / `input_list` / `input_page` / `input_edit` add `model_active`
   and per-source `model_epoch`. Pending/never-fitted epoch values are metadata,
   not proof of a fit; use `model_active` for activity. Treat missing fields in
@@ -78,7 +86,8 @@ active model wholesale is deferred; selected sources can be explicitly reviewed.
 - After an administrative reset, restart/reconnect, drop old caches/in-flight
   operations, load `state`, health and input page 1 again. Old cursors are stale.
 - Show approved-but-inactive sources separately from currently fitted sources.
-  A deliberate re-enlistment may call `review(...,agree=true)`; no bulk automatic
+  A deliberate re-enlistment uses guarded `review_version` (legacy review only at
+  version 0); no bulk automatic
   review, automatic restore, retry or historical-effects playback.
 - No frontend Reset control was built. A live reset endpoint with authorization,
   epoch-bound mutation requests and native UI acceptance is a separate task.

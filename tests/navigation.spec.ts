@@ -267,7 +267,7 @@ test('brain — drag turns the resting brain without drilling in; the divide lin
 
   // D45: corner to corner once arrived
   const ends = await page.evaluate(() =>
-    [...document.querySelectorAll('[data-testid="divide-line"] line')].map((l) => [
+    [...document.querySelectorAll('[data-testid="divide-line"] line:not(.divide-line__hit)')].map((l) => [
       l.getAttribute('x2'),
       l.getAttribute('y2'),
     ]),

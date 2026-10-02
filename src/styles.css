@@ -447,6 +447,59 @@ body {
   opacity: 0;
 }
 
+/* The particle-brain page's line (D45) is an unstable ECG trace (divideEcg.ts); a click on it turns to the ball page.
+   The plain <line>s keep the drawn extent and stay invisible; the trace is drawn over them. */
+.divide-line--human {
+  z-index: 3;
+}
+.divide-line--human > line:not(.divide-line__hit) {
+  stroke: none;
+}
+.divide-line__ecg path {
+  fill: none;
+  stroke: var(--alpha-ink);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+/* the click area: a band along the diagonal (HumanPanel sizes and turns it every frame). An SVG stroke
+   cannot do this — with non-scaling-stroke only ~1 px of it takes the pointer. The trace wobbles ~35 px off the line. */
+.divide-line__hit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 60px;
+  width: 0;
+  z-index: 3;
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><g stroke='white' stroke-width='4'><circle cx='17' cy='17' r='11'/><path d='M10 17h14M20 12.5l4.5 4.5-4.5 4.5'/></g><g stroke='black' stroke-width='1.5'><circle cx='17' cy='17' r='11'/><path d='M10 17h14M20 12.5l4.5 4.5-4.5 4.5'/></g></g></svg>") 17 17, pointer;
+}
+.divide-line__hit.is-muted {
+  pointer-events: none;
+}
+.divide-line--human.is-hot .divide-line__ecg path {
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 5px var(--alpha-ink));
+}
+.divide-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--alpha-construction);
+  background: var(--alpha-paper);
+  color: var(--alpha-ink);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.divide-hint.is-hot {
+  opacity: 0.95;
+}
+
 /*
  * Glass tokens: used by the node detail page and its chips (D49) below. The
  * tree itself is no longer glass (D58); it has its own flat tokens further on.
@@ -740,4 +793,220 @@ body {
 
 :root[data-theme='dark'] .human-panel__input textarea {
   border-bottom-color: var(--alpha-construction);
+}
+
+/* Model reset on the main node's detail (brain page): after the description, before the note. */
+.node-detail__reset {
+  margin: 1rem 0 0.2rem;
+  font-size: 0.82rem;
+}
+.node-detail__reset p {
+  margin: 0 0 0.5rem;
+}
+.node-detail__reset div {
+  display: flex;
+  gap: 0.5rem;
+}
+.node-detail__reset button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.node-detail__quiet {
+  color: var(--alpha-construction);
+  font-size: 0.75rem;
+}
+
+/* ---- The ball page: the other side of the particle-brain page --------------- */
+.ball-page {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: var(--alpha-paper);
+  color: var(--alpha-ink);
+  opacity: 0;
+  transition: opacity 650ms ease;
+}
+.ball-page.is-shown {
+  opacity: 1;
+}
+.ball-page__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+.ball-page__canvas:active {
+  cursor: grabbing;
+}
+.ball-page__back {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--alpha-construction);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 200ms ease;
+}
+.ball-page__back:hover,
+.ball-page__back:focus-visible {
+  opacity: 1;
+}
+/* the look switch sits left of the theme mark (top-right, z-index above the page) */
+.ball-page__look {
+  position: absolute;
+  top: 17px;
+  right: 52px;
+  display: flex;
+  gap: 2px;
+  padding: 0;
+  border: 1px solid var(--alpha-construction);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--alpha-construction);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 200ms ease;
+}
+.ball-page__look:hover,
+.ball-page__look:focus-visible {
+  opacity: 1;
+}
+.ball-page__look span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 20px;
+  border-radius: 999px;
+  transition: background 200ms ease, color 200ms ease;
+}
+.ball-page__look span.is-on {
+  background: var(--alpha-ink);
+  color: var(--alpha-paper);
+}
+
+.ball-dash {
+  position: absolute;
+  top: 12%;
+  right: 4%;
+  bottom: 12%;
+  width: min(27%, 400px);
+  min-width: 260px;
+  padding: 26px 26px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  border-radius: 14px;
+  background: rgba(127, 127, 135, 0.04);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  box-shadow: inset 0 1px 0 var(--glass-rim), inset 0 0 40px var(--glass-tint);
+  font-size: 0.82rem;
+}
+.ball-dash__rim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ball-dash__rim rect {
+  width: calc(100% - 1px);
+  height: calc(100% - 1px);
+  fill: none;
+}
+.ball-dash__rim-base {
+  stroke: var(--alpha-construction);
+  stroke-opacity: 0.32;
+  stroke-width: 1px;
+}
+.ball-dash__rim-flow {
+  stroke: var(--alpha-ink);
+  stroke-opacity: 0.85;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-dasharray: 9 91;
+  animation: ball-dash-flow 7s linear infinite;
+}
+.ball-page[data-effect='2'] .ball-dash__rim-flow {
+  stroke: var(--ball-flow, var(--alpha-ink));
+}
+:root[data-theme='dark'] .ball-page[data-effect='2'] {
+  --ball-flow: #e3b04b;
+}
+@keyframes ball-dash-flow {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+.ball-dash__kicker {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+.ball-dash__hint {
+  margin: 4px 0 0;
+  color: var(--alpha-construction);
+  font-size: 0.74rem;
+}
+.ball-dash__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.ball-dash__legend li {
+  display: grid;
+  grid-template-columns: 1.6em 4.2em 1fr;
+  align-items: baseline;
+  gap: 4px;
+}
+.ball-dash__mark {
+  color: var(--alpha-construction);
+  text-align: center;
+}
+.ball-dash__note {
+  color: var(--alpha-construction);
+  font-size: 0.76rem;
+}
+.ball-dash__cells {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ball-dash__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 127, 135, 0.22);
+  color: var(--alpha-construction);
+  font-size: 0.74rem;
+}
+.ball-dash__cell b {
+  color: var(--alpha-ink);
+  font-weight: 400;
+  font-size: 1.1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ball-page {
+    transition-duration: 1ms;
+  }
+  .ball-dash__rim-flow {
+    animation: none;
+  }
 }

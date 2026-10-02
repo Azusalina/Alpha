@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.claude/
+.playwright/
 .vite/
 test-results/
 playwright-report/
@@ -8,3 +10,12 @@ src-tauri/target/
 src-tauri/gen/
 __pycache__/
 ext-refs/
+
+# Editor / OS / local noise
+.DS_Store
+*.log
+*.tsbuildinfo
+.env
+.env.*
+.pytest_cache/
+.venv/

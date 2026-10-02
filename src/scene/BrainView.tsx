@@ -1603,7 +1603,9 @@ export function BrainView({ tier, reducedMotion }: Props) {
   };
 
   // ---- frame ---------------------------------------------------------------------
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    // a stalled loop (hidden window, the ball page covering this canvas) must not come back as one huge step
+    const delta = Math.min(rawDelta, 0.1);
     const hp = humanProgress();
     const ph = TRANSITION.phases;
     const settle = phaseProgress(hp, ph.settle);
@@ -1618,6 +1620,13 @@ export function BrainView({ tier, reducedMotion }: Props) {
         const k = Math.exp(-dt * 3.2);
         humanStore.spinVel = { yaw: v.yaw * k, pitch: v.pitch * k };
         if (!reducedMotion) humanStore.spin += BRAIN.spin * dt;
+      }
+      // Fold the accumulated angle into (-π, π]: the same pose, but leaving the page unwinds it
+      // (the transform scales it by `settle`), and an hour of idle spin would be unwound in 1 s.
+      const total = humanStore.spin + humanStore.dragYaw;
+      if (Math.abs(total) > Math.PI) {
+        humanStore.spin = 0;
+        humanStore.dragYaw = total - Math.PI * 2 * Math.round(total / (Math.PI * 2));
       }
     }
 

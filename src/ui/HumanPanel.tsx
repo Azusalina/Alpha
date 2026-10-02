@@ -20,6 +20,7 @@
 
 import { useEffect, useRef } from 'react';
 
+import { ballStore } from '../app/ballStore';
 import { humanStore, useHumanUi } from '../app/humanStore';
 import { inputStore } from '../app/inputStore';
 import { focusBrain, navigate } from '../app/navigation';
@@ -28,6 +29,7 @@ import { TRANSITION, phaseProgress } from '../config/timing';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 import { EntryPanel } from './entry/EntryPanel';
+import { ecgOpacity, ecgPath } from './divideEcg';
 import { NodeDetail, regionLabel } from './NodeDetail';
 import { RecordsPanel } from './records/RecordsPanel';
 
@@ -46,6 +48,16 @@ export function HumanPanel({ state, reducedMotion }: Props) {
 
   const dividerRef = useRef<SVGSVGElement>(null);
   const labelRef = useRef<HTMLParagraphElement>(null);
+  const ecgRef = useRef<SVGGElement>(null);
+  const hitRef = useRef<HTMLDivElement>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
+  // while the pointer is over the line's click area: the cursor, the line and a hint change (CSS, by class)
+  const setHot = (on: boolean) => {
+    dividerRef.current?.classList.toggle('is-hot', on);
+    hintRef.current?.classList.toggle('is-hot', on);
+  };
+  const reducedRef = useRef(reducedMotion);
+  reducedRef.current = reducedMotion;
 
   // opacity and the divide line follow p every frame without React re-rendering
   useEffect(() => {
@@ -64,6 +76,32 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         a.setAttribute('y2', String(50 - 50 * t));
         b.setAttribute('x2', String(50 + 50 * t));
         b.setAttribute('y2', String(50 + 50 * t));
+        // the visible trace: an unstable ECG-like line that follows the same extent (still while reduced motion is on)
+        const ecg = ecgRef.current;
+        if (ecg) {
+          const [pa, pb] = ecg.querySelectorAll('path');
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          const time = performance.now() / 1000;
+          if (reducedRef.current) {
+            pa.setAttribute('d', t > 0.001 ? `M50 50L${50 - 50 * t} ${50 - 50 * t}` : '');
+            pb.setAttribute('d', t > 0.001 ? `M50 50L${50 + 50 * t} ${50 + 50 * t}` : '');
+            ecg.style.opacity = '1';
+          } else {
+            pa.setAttribute('d', ecgPath([0, 0], t, w, h, time, 0));
+            pb.setAttribute('d', ecgPath([100, 100], t, w, h, time, 1));
+            ecg.style.opacity = String(ecgOpacity(time));
+          }
+        }
+        // the click target exists only once the line is drawn: a band along the diagonal, as long as the drawn extent
+        const hit = hitRef.current;
+        if (hit) {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          hit.style.width = `${Math.hypot(w, h) * t}px`;
+          hit.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(h, w)}rad)`;
+          hit.style.display = t > 0.05 ? 'block' : 'none';
+        }
       }
       // D53: the lit region's name, beside where the signal struck; D57: a
       // performance names its state instead (理性 / 感性 / 癫狂, `at.text`)
@@ -99,7 +137,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     */}
     <svg
       ref={dividerRef}
-      className={`divide-line${ui.focused ? ' is-muted' : ''}`}
+      className={`divide-line divide-line--human${ui.focused ? ' is-muted' : ''}`}
       data-testid="divide-line"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
@@ -107,7 +145,32 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     >
       <line x1="50" y1="50" x2="50" y2="50" />
       <line x1="50" y1="50" x2="50" y2="50" />
+      <g ref={ecgRef} className="divide-line__ecg" data-testid="divide-ecg">
+        <path d="" />
+        <path d="" />
+      </g>
     </svg>
+    <div
+      ref={hitRef}
+      className={`divide-line__hit${ui.focused ? ' is-muted' : ''}`}
+      data-testid="divide-hit"
+      role="button"
+      aria-label="翻到球页面"
+      style={{ display: 'none' }}
+        onClick={() => {
+          setHot(false);
+          ballStore.open();
+        }}
+        onPointerEnter={() => setHot(true)}
+        onPointerLeave={() => setHot(false)}
+        onPointerMove={(e) => {
+          const hint = hintRef.current;
+          if (hint) hint.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 14}px)`;
+        }}
+    />
+    <div ref={hintRef} className="divide-hint" data-testid="divide-hint" aria-hidden="true">
+      翻到球 ↻
+    </div>
     <div
       ref={rootRef}
       className={`human-panel${ui.focused ? ' is-focused' : ''}`}
@@ -142,7 +205,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
                 ? `占位脑区「${regionLabel(ui.hoverRegion)}」`
                 : '拖动旋转 · 点节点看详情 · Esc 收起'}
           </p>
-          {ui.selected && <NodeDetail id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />}
+          {ui.selected && <NodeDetail resettable id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />}
         </div>
       )}
 
@@ -168,6 +231,10 @@ export function useHumanKeys(reducedMotion: boolean): void {
     const on = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (stage.state !== 'human') return;
+      if (ballStore.get().mounted) {
+        ballStore.close();
+        return;
+      }
       if (inputStore.closeTopLayer(humanStore.get().focused)) return;
       if (humanStore.get().selected) humanStore.set({ selected: null });
       else if (humanStore.get().focused) focusBrain(false, reducedMotion);

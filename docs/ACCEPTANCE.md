@@ -5,7 +5,7 @@ This page covers the measurement tools for review A4 and the thresholds that dec
 run each check, what each number means, where each threshold comes from, and what the
 numbers cannot tell you.
 
-The authority is `aes-ref/alpha-white-geom.PNG` (1644 × 957). All interfaces follow
+The authority is `design/aes-ref/alpha-white-geom.PNG` (1644 × 957). All interfaces follow
 [`docs/CONTRACTS.md`](CONTRACTS.md). Digit names follow decisions D1 and D2: on both
 hands, the digit whose nail faces the viewer is the thumb.
 

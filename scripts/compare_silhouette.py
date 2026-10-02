@@ -70,7 +70,7 @@ from scipy.spatial import ConvexHull
 
 ROOT = Path(__file__).resolve().parents[1]
 REF_DIR = ROOT / "assets-source" / "reference"
-REF_IMAGE = ROOT / "aes-ref" / "alpha-white-geom.PNG"
+REF_IMAGE = ROOT / "design" / "aes-ref" / "alpha-white-geom.PNG"
 W, H = 1644, 957
 ID_TOLERANCE = 24
 ID_COLORS = {"left": (255, 0, 0), "right": (0, 0, 255)}

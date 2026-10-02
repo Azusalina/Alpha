@@ -9,7 +9,7 @@ const executablePath = process.env.ALPHA_CHROMIUM || undefined;
 
 /**
  * Checks run against the real dev server at the reference frame size
- * (1644 x 957), so screenshots line up with `aes-ref/alpha-white-geom.PNG`.
+ * (1644 x 957), so screenshots line up with `design/aes-ref/alpha-white-geom.PNG`.
  * Headed Chromium is the browser baseline; it is explicitly NOT a substitute
  * for Tauri/WebKitGTK verification (spec 9).
  */

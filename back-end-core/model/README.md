@@ -20,11 +20,11 @@ fit while retaining the source and effect history.
 Manual re-review can reject an agreed source or restore an inactive one using
 its frozen fit, without duplicate support. Decision history is retained.
 
-Confirmed policy (2026-10-01), pending implementation/verification: automatically
-publish extracted candidate memories on whole-source double approval, checking
-the current source/version. Do not silently publish legacy pending/rejected
-candidates during migration. The last verified baseline uses explicit review;
-concurrent worker changes require evidence before recording delivery.
+Fresh double approval publishes authored candidates for the current source/version;
+legacy pending/rejected candidates remain untouched. API: schema_version=1,
+contract_revision=2, 30 methods. Guarded typed correction/version review/selected
+replay is implemented, not general semantic relabelling ML or a causal graph.
+See [frontend handoff](../docs/frontend-contract-handoff.md).
 
 Model-only reset is available through a deliberately confirmed local CLI:
 all three parameter partitions return to unobserved zero while translator
@@ -81,11 +81,11 @@ if another source is approved or revoked before review; the review result is
 authoritative. The JSON API now provides `correction_set` and
 `correction_history` for pending interpretation feedback; see
 [`../docs/api.md`](../docs/api.md). Corrections preserve raw text and require
-whole-input agreement before fitting. Already reviewed inputs currently remain
-frozen. The user confirmed a separate reviewed-source semantic revision path:
+whole-input agreement before fitting. Ordinary re-review preserves frozen fits.
+The implemented separate reviewed-source typed revision path can
 withdraw the current contribution and require renewed `immediate`/`confirm`
-consent before fitting the revised interpretation. That path and explicit
-downstream replay remain pending; ordinary re-review still restores frozen fits.
+consent before fitting the revised interpretation. That path and selected replay
+enforce source-version/global revision/epoch guards.
 Preserve historical effects and model-reset exclusions, and do not confuse this
 semantic revision with F6 text replacement.
 
@@ -133,7 +133,7 @@ sources without retaining their old text-bearing history, or delete any source
 and atomically remove its active contribution and source-specific history.
 Other inputs' old effects/frozen contexts stay untouched; external files and
 backups are not deleted. F13 application access control and encrypted backups
-are now confirmed in scope, with implementation/integration/verification pending;
+are implemented for API/CLI/evaluation; frontend unlock UI remains pending;
 whole-database encryption is outside this round and SQLite remains plaintext.
 The gate must cover excerpts, evidence, histories and writes as well as raw text;
 it does not prevent direct file access by the same OS user. Recovery must validate
@@ -143,8 +143,11 @@ any fresh fit. A non-text internal ever-fitted flag survives editing for held-ou
 source-overlap checks; it is deleted with the source. See
 [`../docs/api.md`](../docs/api.md#source-editing-and-deletion-f6-implemented).
 Latest frontend ledger reports capability-based F6 activation and model activity/
-epoch handling verified through browser real-Python tests. Native F6,
-reset/reconnect/failure acceptance and release runtime packaging remain pending;
+epoch handling verified through browser real-Python tests. Native administrative
+model-reset/reconnect and physical input/GPU acceptance remain pending.
+Linux portable release/runtime and Xvfb DOM F6/paging/persistence passed;
+main verified native DOM EOF/invalid-response/timeout faults, including explicit
+reconnect, exactly-one-source read recovery and no automatic write retry.
 no live reset endpoint/UI exists.
 
 Offline held-out evaluation uses the same pure ranking function as the live
@@ -153,6 +156,6 @@ and retrospectively endorsed choices, and reports coverage plus static
 leave-one-value-parameter-out comparisons. See
 [`../docs/evaluation.md`](../docs/evaluation.md); the supplied example is synthetic.
 No real private held-out material is available this round. Requested work is local
-collection templates/readiness tools, pending worker verification, with independent
+collection templates/readiness tools, delivered and verified, with independent
 labels and leakage checks. Real coverage/predictive validity remains unverified;
 offline tools do not enable the deferred F14 frontend feedback contract.

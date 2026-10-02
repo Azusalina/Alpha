@@ -15,7 +15,7 @@
                                                       # default directories; see
                                                       # RIGHT_BRIDGE_DORSAL_BAYS below)
 
-Source: aes-ref/alpha-white-geom.PNG (1644 x 957), the only authority for the pose.
+Source: design/aes-ref/alpha-white-geom.PNG (1644 x 957), the only authority for the pose.
 Everything is written as 1644 x 957 single-channel PNGs, 255 = inside:
 
   assets-source/reference/left-mask.png            drawn human hand + forearm
@@ -101,7 +101,7 @@ from compare_silhouette import (  # noqa: E402  (shared definitions)
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-REF = ROOT / "aes-ref" / "alpha-white-geom.PNG"
+REF = ROOT / "design" / "aes-ref" / "alpha-white-geom.PNG"
 OUT = ROOT / "assets-source" / "reference"
 QA = ROOT / "outputs" / "qa" / "reference"
 
@@ -1397,7 +1397,7 @@ def main(argv=None):
                 "tip rule; this is the gap a silhouette render is compared with"}
 
     kp_doc = not_ref | {
-        "reference": "aes-ref/alpha-white-geom.PNG",
+        "reference": "design/aes-ref/alpha-white-geom.PNG",
         "frame": [W, H],
         "conventions": "px = reference-image pixels, x right, y down, integer = pixel centre. "
                        "Angles in image space: 0 deg = +x, positive = clockwise on screen. "
@@ -1460,7 +1460,7 @@ def main(argv=None):
             "px_in_left_negative": int((hm & negL).sum()),
         }
     meta = not_ref | {
-        "reference": "aes-ref/alpha-white-geom.PNG",
+        "reference": "design/aes-ref/alpha-white-geom.PNG",
         "generator": "scripts/reference_masks.py",
         "frame": [W, H],
         "paper_level": PAPER,

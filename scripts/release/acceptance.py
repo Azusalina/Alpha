@@ -17,7 +17,11 @@ def acceptance(resources, security=False):
         shutil.copytree(resources, relocated, symlinks=True)
         python = relocated / "python/bin/python3"
         db = tmp / "synthetic.sqlite3"
-        env = {"PATH": "", "HOME": str(tmp), "TMPDIR": str(tmp), "ALPHA_BRAIN_DB": str(db), "ALPHA_BRAIN_TRACE": "0"}
+        env = {"PATH": "", "TMPDIR": str(tmp), "ALPHA_BRAIN_DB": str(db), "ALPHA_BRAIN_TRACE": "0",
+               "XDG_DATA_HOME": str(tmp / "xdg-data"), "XDG_CONFIG_HOME": str(tmp / "xdg-config"),
+               "XDG_CACHE_HOME": str(tmp / "xdg-cache")}
+        if "HOME" in os.environ:
+            env["HOME"] = os.environ["HOME"]
         script = "import sys,sqlite3,ssl,jieba; print(sys.version); print(jieba.__file__)"
         if security:
             script += "; import nacl.secret,nacl.bindings,_cffi_backend; b=nacl.secret.SecretBox(bytes(32)); assert b.decrypt(b.encrypt(b'synthetic'))==b'synthetic'; print(nacl.__version__)"
@@ -46,6 +50,8 @@ def acceptance(resources, security=False):
             assert child.returncode == 0
         try:
             health = call("health")
+            assert health["schema_version"] == 1 and health["contract_revision"] == 2, health
+            assert len(health["methods"]) == 30, health
             for i in range(137):
                 call("submit", partition="rational", kind="philosophy", text=f"合成 {i}。我重视自由。", immediate=True)
             page = call("input_page", limit=50)

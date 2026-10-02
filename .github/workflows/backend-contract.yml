@@ -33,9 +33,9 @@ jobs:
         run: |
           git clone https://github.com/fxsjy/jieba.git ext-refs/jieba
           git -C ext-refs/jieba checkout --detach 67fa2e36e72f69d9134b8a1037b83fbb070b9775
-      - name: Install test-only schema validator
+      - name: Install schema and security test dependencies
         working-directory: back-end-core
-        run: python -m pip install '.[test-schema]'
+        run: python -m pip install '.[test-schema,security]'
       - name: Validate synthetic backend fixtures
         working-directory: back-end-core
         run: |

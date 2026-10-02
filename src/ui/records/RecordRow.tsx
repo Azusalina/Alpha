@@ -259,7 +259,10 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
         aria-expanded={open}
         aria-controls={`rec-body-${id}`}
         ref={(el) => inputStore.registerAnchor(id, el)}
-        onClick={() => inputStore.expand(id)}
+        onClick={() => {
+          inputStore.expand(id);
+          inputStore.replay(id);
+        }}
       >
         <span className="rec__mark" aria-hidden="true" />
         <span className="rec__excerpt" data-testid="record-excerpt">

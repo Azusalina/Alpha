@@ -37,6 +37,7 @@ import {
   BackendError,
   backendStore,
   getAdapter,
+  isTrainable,
   normalizeForSubmit,
 } from '../backend';
 import type {
@@ -334,6 +335,39 @@ class InputStore {
   private performFor(partition: Partition, effects: readonly ParameterEffect[], anchorKey: string | null): void {
     humanStore.perform({ partition, intensity: performIntensity(effects), fromCss: this.anchorCss(anchorKey) });
   }
+
+  /**
+   * Play the brain's answer to a record again, from what is already held (no
+   * request): only a record that trains the current model (both judgements T).
+   * The strength comes from the effects the row has loaded, else a middling one.
+   */
+  replay = (id: string): boolean => {
+    const rec = this.record(id);
+    if (!rec || !isTrainable(rec)) return false;
+    const c = this.state.cache[id];
+    const effects = c?.formalEffects ?? c?.effects ?? [];
+    this.performFor(rec.partition, effects, id);
+    return true;
+  };
+
+  /**
+   * Reset the personalised model and clean its history (adapter `modelReset`), then drop everything
+   * held and read the lists again, so no row, effect or graph node of the old model survives.
+   * Resolves with the error shown to the user, or null on success.
+   */
+  resetModel = async (): Promise<InputError | null> => {
+    try {
+      await getAdapter().modelReset();
+    } catch (e) {
+      const err = toError(e, 'refresh', null);
+      this.set({ error: err });
+      return err;
+    }
+    humanStore.set({ reply: null });
+    this.reset();
+    await this.refresh();
+    return null;
+  };
 
   // ---- lifecycle -----------------------------------------------------------------
 

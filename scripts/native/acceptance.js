@@ -36,6 +36,8 @@
       await click('backend-retry');
       await wait(() => window.__alpha.backend.mode() === 'remote', 'explicit reconnect');
       checks.push('startup failure and explicit UI reconnect');
+      await click('entry-partition-rational');
+      await click('entry-kind-philosophy');
       fill(q('human-input'), '合成故障。我重视自由。');
       await click('entry-immediate');
       await click('entry-submit');
@@ -109,7 +111,9 @@
         await api('submit',{partition:'rational',kind:'philosophy',text:'合成保留。我重视成长。',immediate:true,exclamation:true});
       }
     }
-    await report({passed:true,case:ALPHA_NATIVE_CASE,checks,userAgent:navigator.userAgent,renderer:'Xvfb software; no physical GPU acceptance'});
+    await report({passed:true,case:ALPHA_NATIVE_CASE,checks,userAgent:navigator.userAgent,
+      interaction:'DOM clicks/input events in native WebKitGTK; XTest activation only',
+      renderer:'Xvfb software; no physical GPU acceptance'});
   } catch (error) {
     await report({passed:false,case:ALPHA_NATIVE_CASE,checks,error:String(error),body:document.body.innerText.slice(-4000)});
   }

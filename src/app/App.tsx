@@ -26,9 +26,11 @@ import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
 import { SystemPanel } from '../ui/SystemPanel';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { HomeDivider } from '../ui/HomeDivider';
+import { BallPage } from '../ui/BallPage';
 import { themeStore } from '../config/theme';
 import { connectDesktopOnStart } from './desktop';
 import { DIAGNOSTICS_ENABLED } from './diagnostics';
+import { ballStore, useBall } from './ballStore';
 import { humanStore } from './humanStore';
 import { inputInspection } from './inspection';
 import { focusBrain, navigate, scrubTransition } from './navigation';
@@ -75,6 +77,7 @@ function useSceneState(): SceneState {
 export function App() {
   const reducedMotion = usePrefersReducedMotion();
   const sceneState = useSceneState();
+  const ball = useBall();
   const startedRef = useRef(false);
   const [tier] = useState(initialTier);
 
@@ -148,6 +151,7 @@ export function App() {
           growP: humanStore.growP,
           dragYaw: humanStore.dragYaw,
           dragPitch: humanStore.dragPitch,
+          signal: humanStore.signal ? { kind: humanStore.signal.kind, t: humanStore.signal.t } : null,
         };
       },
       treeUi() {
@@ -207,6 +211,11 @@ export function App() {
     return () => window.removeEventListener('keydown', on);
   }, [reducedMotion]);
 
+  // The ball page belongs to the human page: leaving it takes the ball page down too.
+  useEffect(() => {
+    if (sceneState !== 'human' && ballStore.get().mounted) ballStore.close();
+  }, [sceneState]);
+
   // Pause the frame loop when the window is hidden (spec 9).
   const [visible, setVisible] = useState(() => !document.hidden);
   useEffect(() => {
@@ -222,7 +231,7 @@ export function App() {
         // No tone mapping: the plaster tone is set by the lights and the material
         // directly, and the silhouette view mode's ID colours come out exact.
         flat
-        frameloop={visible ? 'always' : 'never'}
+        frameloop={visible && !ball.covering ? 'always' : 'never'}
         dpr={[1, QUALITY[tier].maxPixelRatio]}
         gl={{
           antialias: QUALITY[tier].antialias,
@@ -243,7 +252,7 @@ export function App() {
       {/* keyed by state so a zone remounts on arrival: the pointer must re-enter to fire */}
       <Hotzones
         key={sceneState}
-        armed={hotzonesArmed(sceneState)}
+        armed={hotzonesArmed(sceneState) && !ball.mounted}
         corners={armedCorners(sceneState)}
         onDwell={onDwell}
       />
@@ -251,6 +260,7 @@ export function App() {
       {(sceneState === 'toHuman' || sceneState === 'human' || sceneState === 'fromHuman') && (
         <HumanPanel state={sceneState} reducedMotion={reducedMotion} />
       )}
+      {ball.mounted && <BallPage reducedMotion={reducedMotion} />}
       {(sceneState === 'toSystem' || sceneState === 'system' || sceneState === 'fromSystem') && (
         <SystemPanel state={sceneState} />
       )}

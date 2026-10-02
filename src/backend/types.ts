@@ -400,6 +400,7 @@ export type AdapterMethod =
   | 'inputGet'
   | 'inputEdit'
   | 'inputDelete'
+  | 'modelReset'
   | 'state'
   | 'effects'
   | 'rank';
@@ -446,6 +447,13 @@ export interface BrainAdapter {
   inputEdit(sourceId: string, edit: InputEditRequest): Promise<InputRecord>;
   /** F6. Any status; hard delete with history, no tombstone. */
   inputDelete(sourceId: string): Promise<void>;
+  /**
+   * Reset the personalised model AND clean its history (the user's request, 2026-10-02): all three
+   * states back to 0, every effect record gone. Irreversible; the UI asks first. Not in api.md yet
+   * (today Reset is an administrative CLI that keeps history): capability `modelReset`, offered only
+   * by a back end that lists `model_reset` in `health.methods`.
+   */
+  modelReset(): Promise<void>;
 
   state(): Promise<ModelState>;
   effects(sourceId?: string): Promise<ParameterEffect[]>;
@@ -465,6 +473,7 @@ export const ADAPTER_METHODS = [
   'inputGet',
   'inputEdit',
   'inputDelete',
+  'modelReset',
   'state',
   'effects',
   'rank',

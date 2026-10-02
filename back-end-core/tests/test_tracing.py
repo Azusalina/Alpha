@@ -126,6 +126,69 @@ class TracingTests(unittest.TestCase):
         self.assertEqual(self.model.state('rational')['value.autonomy']['support'], 1)
         self.assertEqual(self.model.store.get_source(source)['body'], '我重视自由。')
 
+    def test_version_reopen_and_review_emit_withdrawal_and_idempotent_fit(self):
+        with redirect_stderr(self.stderr):
+            source = self.model.submit('我重视公平。', partition='rational', exclamation=True)
+        info = self.model.reset_info()
+        self.stderr.seek(0)
+        self.stderr.truncate()
+        with redirect_stderr(self.stderr):
+            reopened = self.model.correction_reopen(source, corrections=[], immediate=True,
+                expected_source_version=0, expected_revision=info['input_revision'],
+                expected_epoch=info['model_epoch'])
+            fitted = self.model.review_version(source, agree=True, expected_source_version=1,
+                expected_revision=reopened['input_revision'], expected_epoch=reopened['model_epoch'])
+            self.model.review_version(source, agree=True, expected_source_version=1,
+                expected_revision=fitted['input_revision'], expected_epoch=fitted['model_epoch'])
+        rows = self.records()
+        self.assertEqual(len([r for r in rows if r['event'] == 'fit_committed']), 1)
+        self.assertEqual([r['reason'] for r in rows if r['event'] == 'fit_skipped'],
+                         ['not_dual_true', 'unchanged'])
+        self.assertTrue(any(r['event'] == 'data_saved' and r['operation'] == 'correction_reopen' for r in rows))
+        self.assertEqual(len([r for r in rows if r['event'] == 'judgement']), 3)
+        changes = [r for r in rows if r['event'] == 'param_update']
+        self.assertEqual([r['support_after'] for r in changes], [0, 1])
+        self.assertFalse(any('corrections' in r or 'evidence' in r for r in rows))
+
+    def test_replay_batch_traces_each_source_after_one_commit_and_rollback_is_silent(self):
+        with redirect_stderr(self.stderr):
+            ids = [self.model.submit('我重视公平。', partition='rational', exclamation=True)
+                   for _ in range(2)]
+        info = self.model.reset_info()
+        params = dict(immediate=True, expected_source_versions={s: 0 for s in ids},
+                      expected_revision=info['input_revision'], expected_epoch=info['model_epoch'])
+        original = self.model._reopen
+        count = 0
+        def fail_second(*args, **kwargs):
+            nonlocal count
+            result = original(*args, **kwargs)
+            count += 1
+            if count == 2:
+                raise RuntimeError('PRIVATE_BATCH_FAILURE')
+            return result
+        self.stderr.seek(0)
+        self.stderr.truncate()
+        with redirect_stderr(self.stderr), patch.object(self.model, '_reopen', side_effect=fail_second):
+            with self.assertRaises(RuntimeError):
+                self.model.replay_reopen(ids, **params)
+        self.assertEqual(self.events(), ['operation_received', 'operation_failed'])
+        self.assertEqual(self.model.reset_info(), info)
+        self.assertEqual(self.model.state('rational')['value.fairness']['support'], 2)
+        self.assertNotIn('PRIVATE_BATCH_FAILURE', self.stderr.getvalue())
+        self.stderr.seek(0)
+        self.stderr.truncate()
+        with redirect_stderr(self.stderr):
+            result = self.model.replay_reopen(ids, **params)
+        self.assertTrue(all(i['input_revision'] == result['input_revision'] for i in result['items']))
+        rows = self.records()
+        self.assertEqual(self.events().count('operation_committed'), 1)
+        for event in ('data_saved', 'judgement', 'fit_skipped', 'param_update'):
+            selected = [r for r in rows if r['event'] == event]
+            self.assertEqual([r['source_id'] for r in selected], ids)
+            self.assertTrue(all(r['operation'] == 'replay_reopen' for r in selected))
+        self.assertEqual([r['support_after'] for r in rows if r['event'] == 'param_update'], [1, 0])
+        self.assertLess(self.events().index('operation_committed'), self.events().index('data_saved'))
+
     def test_serve_stdout_is_still_exact_json_envelope(self):
         with redirect_stderr(self.stderr):
             api = BrainAPI(self.path, trace=True)

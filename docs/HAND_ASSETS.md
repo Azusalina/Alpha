@@ -593,7 +593,7 @@ What the new digit controls can draw, measured on scratch copies of the poses
 
 - **Fully procedural.** Every surface is generated from the pose files and
   `PARAMS` by `build_hands.py`; no third-party mesh, scan, sculpt or texture.
-- **Poses** were read by eye from `aes-ref/alpha-white-geom.PNG` on zoomed crops
+- **Poses** were read by eye from `design/aes-ref/alpha-white-geom.PNG` on zoomed crops
   (px and projected half-widths `r`). Depth `z`, section flatness `flat` and
   `dorsal` are reconstructions, since one view does not show them. The left pose
   started from round 1's `LEFT_HAND_SPEC` and was re-read; the right pose was

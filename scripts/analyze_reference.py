@@ -1,4 +1,4 @@
-"""Measure the v1.0.0 composition reference (aes-ref/alpha-white-geom.PNG).
+"""Measure the v1.0.0 composition reference (design/aes-ref/alpha-white-geom.PNG).
 
 Emits ink statistics and crops used to hand-pick landmark coordinates.
 Landmarks are stored in src/config/composition.ts in normalized (0..1) image space.
@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-REF = ROOT / "aes-ref" / "alpha-white-geom.PNG"
+REF = ROOT / "design" / "aes-ref" / "alpha-white-geom.PNG"
 OUT = ROOT / "outputs" / "qa"
 OUT.mkdir(parents=True, exist_ok=True)
 

@@ -5,7 +5,7 @@ stable, idling home screen. Navigation to the two destinations is specified in
 `documentations/logPrompt/v1prompt.md` §3 and is not implemented yet.
 
 The single authority for pose, silhouette, proportion and framing is
-`aes-ref/alpha-white-geom.PNG` (1644 × 957, blob `d0c31e9a…`). Where this
+`design/aes-ref/alpha-white-geom.PNG` (1644 × 957, blob `d0c31e9a…`). Where this
 document and the older `IDEA.md` disagree, this document wins — see
 `docs/DECISIONS.md`.
 
