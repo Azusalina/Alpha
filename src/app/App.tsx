@@ -24,7 +24,10 @@ import { Diagnostics } from '../ui/Diagnostics';
 import { Hotzones } from '../ui/Hotzones';
 import { HumanPanel, useHumanKeys } from '../ui/HumanPanel';
 import { SystemPanel } from '../ui/SystemPanel';
+import { TransitionFx } from '../ball/transitionFx';
+import { LangToggle } from '../ui/LangToggle';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { useLang } from '../i18n/lang';
 import { HomeDivider } from '../ui/HomeDivider';
 import { BallPage } from '../ui/BallPage';
 import { themeStore } from '../config/theme';
@@ -78,6 +81,7 @@ export function App() {
   const reducedMotion = usePrefersReducedMotion();
   const sceneState = useSceneState();
   const ball = useBall();
+  useLang(); // a language switch re-renders the whole shell (every label is read at render time)
   const startedRef = useRef(false);
   const [tier] = useState(initialTier);
 
@@ -166,6 +170,14 @@ export function App() {
       },
       /** Round 3 part 9: `backend.{mode,enterDemo,leaveDemo}` and `inputs.{list,get,expanded,state}`. */
       ...inputInspection(),
+      /** The ball page (D68, D69): force a flight with `kind`; `ui()` reads the store. */
+      ball: {
+        open: (kind?: 'morph' | 'ruin') => ballStore.open(kind),
+        close: (kind?: 'morph' | 'ruin') => ballStore.close(kind),
+        ui: () => ballStore.get(),
+        /** Jump the running flight to `t` seconds (forward only); the clock stops following real time. */
+        fxSeek: (t: number) => TransitionFx.active?.seek(t),
+      },
       themeName() {
         return themeStore.get();
       },
@@ -213,7 +225,7 @@ export function App() {
 
   // The ball page belongs to the human page: leaving it takes the ball page down too.
   useEffect(() => {
-    if (sceneState !== 'human' && ballStore.get().mounted) ballStore.close();
+    if (sceneState !== 'human' && ballStore.get().mounted) ballStore.dismiss();
   }, [sceneState]);
 
   // Pause the frame loop when the window is hidden (spec 9).
@@ -248,6 +260,7 @@ export function App() {
 
       <HomeDivider />
       {sceneState !== 'loading' && sceneState !== 'intro' && <ThemeToggle />}
+      {sceneState !== 'loading' && sceneState !== 'intro' && <LangToggle />}
 
       {/* keyed by state so a zone remounts on arrival: the pointer must re-enter to fire */}
       <Hotzones

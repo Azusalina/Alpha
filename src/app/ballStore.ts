@@ -1,7 +1,10 @@
 /**
  * The ball page — the other side of the particle-brain page, reached by
- * clicking the divide line there. Two things live here: whether the page is
- * up (with a short cross-fade), and which of the two looks is showing.
+ * clicking the divide line there (and left by clicking the divide line here).
+ * Three things live here: whether the page is up, which phase of the
+ * transition it is in (D69: the brain flies into the ball and back; which of
+ * the two flights is drawn is picked at random each time), and which of the
+ * two looks is showing.
  *
  *  - effect 1: monochrome line work (white on black, ink on paper), no fill;
  *  - effect 2: dark theme → dark gold with currents of brighter gold moving
@@ -13,7 +16,11 @@
 
 import { useSyncExternalStore } from 'react';
 
+import type { FxKind } from '../ball/transitionFx';
+import { FX_KINDS } from '../ball/transitionFx';
+
 export type BallEffect = 1 | 2;
+export type BallPhase = 'closed' | 'entering' | 'open' | 'leaving';
 
 export interface BallUi {
   /** Mounted (also during the fade out). */
@@ -23,10 +30,16 @@ export interface BallUi {
   /** Fully opaque: the scene underneath need not render. */
   covering: boolean;
   effect: BallEffect;
+  phase: BallPhase;
+  /** The flight being drawn while `entering` / `leaving`; null for a plain fade. */
+  fx: FxKind | null;
 }
 
 const KEY = 'alpha.ball.effect';
-const FADE_MS = 650;
+/** A plain fade, and the two fades that open / close a flight (the flight's own pictures cross-fade with the page). */
+export const FADE_MS = 650;
+export const FX_FADE_IN_MS = 250;
+export const FX_FADE_OUT_MS = 550;
 
 function loadEffect(): BallEffect {
   try {
@@ -36,8 +49,11 @@ function loadEffect(): BallEffect {
   }
 }
 
+const reduced = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+const pick = (): FxKind => FX_KINDS[Math.floor(Math.random() * FX_KINDS.length)];
+
 class BallStore {
-  private ui: BallUi = { mounted: false, shown: false, covering: false, effect: loadEffect() };
+  private ui: BallUi = { mounted: false, shown: false, covering: false, effect: loadEffect(), phase: 'closed', fx: null };
   private listeners = new Set<() => void>();
   private timer = 0;
 
@@ -55,24 +71,53 @@ class BallStore {
     this.listeners.forEach((l) => l());
   }
 
-  open(): void {
-    if (this.ui.mounted && this.ui.shown) return;
+  /** `kind` forces the flight (tests, screenshots); otherwise one is picked at random. */
+  open(kind?: FxKind): void {
+    if (this.ui.mounted && (this.ui.phase === 'entering' || this.ui.phase === 'open')) return;
     window.clearTimeout(this.timer);
-    this.set({ mounted: true, shown: false, covering: false });
+    const plain = reduced();
+    this.set({ mounted: true, shown: false, covering: false, phase: plain ? 'open' : 'entering', fx: plain ? null : (kind ?? pick()) });
     // two frames: the element must exist at opacity 0 before the fade starts
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         this.set({ shown: true });
-        this.timer = window.setTimeout(() => this.set({ covering: true }), FADE_MS);
+        // the page is opaque once it has faded in: the brain's canvas underneath can rest (during a flight too)
+        this.timer = window.setTimeout(() => this.set({ covering: true }), plain ? FADE_MS : FX_FADE_IN_MS);
       }),
     );
   }
 
-  close(): void {
-    if (!this.ui.mounted) return;
+  /** The flight into the ball has landed. */
+  finishEnter(): void {
+    if (this.ui.phase === 'entering') this.set({ phase: 'open', fx: null });
+  }
+
+  close(kind?: FxKind): void {
+    if (!this.ui.mounted || this.ui.phase === 'closed' || this.ui.phase === 'leaving') return;
     window.clearTimeout(this.timer);
-    this.set({ shown: false, covering: false });
-    this.timer = window.setTimeout(() => this.set({ mounted: false }), FADE_MS);
+    if (this.ui.phase === 'open' && !reduced()) {
+      // the flight back: the page stays up (and the brain's canvas paused) until the brain has been rebuilt
+      this.set({ phase: 'leaving', fx: kind ?? pick() });
+      return;
+    }
+    this.fadeOut(FADE_MS);
+  }
+
+  /** The flight back to the brain has landed: show the brain underneath. */
+  finishLeave(): void {
+    if (this.ui.phase === 'leaving' && this.ui.fx) this.fadeOut(FX_FADE_OUT_MS);
+  }
+
+  /** Down at once, no flight (the page was left by another route). */
+  dismiss(): void {
+    window.clearTimeout(this.timer);
+    if (this.ui.mounted) this.set({ mounted: false, shown: false, covering: false, phase: 'closed', fx: null });
+  }
+
+  private fadeOut(ms: number): void {
+    window.clearTimeout(this.timer);
+    this.set({ shown: false, covering: false, phase: 'leaving' });
+    this.timer = window.setTimeout(() => this.set({ mounted: false, phase: 'closed', fx: null }), ms);
   }
 
   setEffect(effect: BallEffect): void {

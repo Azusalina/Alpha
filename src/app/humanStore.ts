@@ -6,6 +6,7 @@
  * the same split as `stage` (spec 7.2).
  */
 
+import type { FxShape } from '../ball/transitionFx';
 import { useSyncExternalStore } from 'react';
 
 import { MODES, type PerformPartition } from '../brain/bolts';
@@ -95,6 +96,8 @@ class HumanStore {
   spin = 0;
   /** A drag is in progress. */
   dragging = false;
+  /** The brain's dots and net in CSS px right now, for the page transition to the ball (D69); set by BrainView. */
+  sampleBrain: (() => FxShape | null) | null = null;
 
   get = (): HumanUi => this.ui;
 

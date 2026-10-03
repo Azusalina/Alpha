@@ -1704,6 +1704,52 @@ export function BrainView({ tier, reducedMotion }: Props) {
     }
   });
 
+  // The page transition to the ball (D69) flies the brain's own dots and net: this hands it their
+  // screen positions as they stand now. Dots on the far side are fainter.
+  useEffect(() => {
+    humanStore.sampleBrain = () => {
+      const g = groupRef.current;
+      if (!g) return null;
+      g.updateWorldMatrix(true, false);
+      camera.updateMatrixWorld();
+      const r = domElement.getBoundingClientRect();
+      const v = new Vector3();
+      const mid = new Vector3().setFromMatrixPosition(g.matrixWorld);
+      const midZ = mid.clone().applyMatrix4(camera.matrixWorldInverse).z;
+      const toCss = (x: number, y: number, z: number, out: Float32Array, o: number): number => {
+        v.set(x, y, z).applyMatrix4(g.matrixWorld);
+        const behind = v.clone().applyMatrix4(camera.matrixWorldInverse).z < midZ ? 1 : 0;
+        v.project(camera);
+        out[o] = r.left + ((v.x + 1) / 2) * r.width;
+        out[o + 1] = r.top + ((1 - v.y) / 2) * r.height;
+        return behind;
+      };
+      const nd = cloud.count;
+      const ne = Math.floor(brain.edges.length / 2);
+      const n = nd + ne;
+      const segs = new Float32Array(n * 4);
+      const alpha = new Float32Array(n);
+      const gold = new Uint8Array(n);
+      for (let k = 0; k < nd; k++) {
+        const behind = toCss(cloud.brain[k * 3], cloud.brain[k * 3 + 1], cloud.brain[k * 3 + 2], segs, k * 4);
+        segs[k * 4 + 2] = segs[k * 4] + 0.01;
+        segs[k * 4 + 3] = segs[k * 4 + 1];
+        alpha[k] = behind ? 0.3 : 0.75;
+      }
+      const pos = links.getAttribute('position').array as Float32Array;
+      for (let e = 0; e < ne; e++) {
+        const k = nd + e;
+        const b0 = toCss(pos[e * 6], pos[e * 6 + 1], pos[e * 6 + 2], segs, k * 4);
+        const b1 = toCss(pos[e * 6 + 3], pos[e * 6 + 4], pos[e * 6 + 5], segs, k * 4 + 2);
+        alpha[k] = b0 && b1 ? 0.2 : 0.45;
+      }
+      return { segs, alpha, gold };
+    };
+    return () => {
+      humanStore.sampleBrain = null;
+    };
+  }, [camera, domElement, cloud, brain, links]);
+
   useEffect(() => {
     if (!DIAGNOSTICS_ENABLED) return;
     const w = window as unknown as { __alpha?: Record<string, unknown> };

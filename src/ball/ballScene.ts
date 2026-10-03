@@ -1,14 +1,14 @@
 /**
- * The ball: a symbolic picture of relational value (docs: design/ball-design.md).
+ * The ball: how well the model fits one person (docs: design/ball-design.md, D68).
  *
- *  - the sphere is a whole person; its surface is a stack of tilted bands that
- *    carry waves — distributed, everyday value;
- *  - spikes are concentrated value. They are not placed: a spike's band region
- *    first swells and sharpens, then the spike grows out of that peak, rests,
- *    and retracts (a barbed one leaves a stub);
- *  - a chord spike passes through the ball off-centre, a diameter spike through
- *    the centre (the core lights up); a barbed spike has barbs; a hollow spike
- *    is two outlines and an open root.
+ *  - the sphere is the person; its surface is a stack of tilted bands that
+ *    carry ripples. One facet of the surface per model parameter: the stronger
+ *    the fit there (BallFit.fit), the livelier the ripples; no evidence, a
+ *    still surface;
+ *  - a spike stands where the fit is concentrated in a few strong statements
+ *    (BallFit.peak): its band region swells and sharpens and the spike grows
+ *    out of that peak. A thin-evidence facet draws the spike hollow;
+ *  - the older chord / diameter forms stay as an ambient, unexplained layer.
  *
  * Motion: the sphere itself does not spin. It breathes, floats, its waves run
  * (tide), a heartbeat pulses the amplitude, spikes resonate; the pointer and a
@@ -29,6 +29,9 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
+
+import { facetDirections, type BallFit } from './ballFit';
+import type { FxShape } from './transitionFx';
 
 export type BallTheme = 'light' | 'dark';
 export type BallLook = 1 | 2;
@@ -97,11 +100,20 @@ interface Life {
   period: number;
   offset: number;
   scar: number; // how much of a spike stays when it has retracted
+  /** A fit spike: always out, its length set by the data (no life cycle). */
+  steady?: boolean;
+  /** The facet this life stands for (fit spikes only). */
+  facet?: number;
 }
 
 interface Shock {
   dir: V3;
   t0: number;
+}
+
+/** What the pointer is over: the index of a facet (BallFit order). */
+export interface BallHover {
+  facet: number;
 }
 
 export interface BallStyle {
@@ -123,6 +135,13 @@ export class BallScene {
   private w = 1;
   private h = 1;
   private lives: Life[] = [];
+  /** The ambient layer (chords, the diameter); `lives` = these + the fit spikes. */
+  private ambient: Life[] = [];
+  private fit: BallFit = [];
+  private dirs = facetDirections();
+  /** Called when the pointer moves onto / off / between facets. */
+  onHover: ((h: BallHover | null) => void) | null = null;
+  private hoverFacet = -1;
   private shocks: Shock[] = [];
   private style: BallStyle = { theme: 'dark', look: 1 };
   private reduced: boolean;
@@ -204,45 +223,65 @@ export class BallScene {
 
   private build(): void {
     const rnd = mulberry32(20261002);
-    // well spread directions: a Fibonacci sphere, jittered
-    const N = 17;
+    // the ambient layer: two chords (off-centre, deep but not through the core) and one
+    // diameter (through the core). Not data; nothing on the page explains them.
     const dirs: V3[] = [];
-    for (let i = 0; i < N; i++) {
-      const y = 1 - (2 * (i + 0.5)) / N;
+    for (let i = 0; i < 3; i++) {
+      const y = 1 - (2 * (i + 0.5)) / 3;
       const r = Math.sqrt(1 - y * y);
-      const a = i * 2.399963 + rnd() * 0.25;
-      dirs.push(norm([Math.cos(a) * r + (rnd() - 0.5) * 0.12, y + (rnd() - 0.5) * 0.12, Math.sin(a) * r]));
+      const a = i * 2.399963 + 0.7 + rnd() * 0.25;
+      dirs.push(norm([Math.cos(a) * r, y, Math.sin(a) * r]));
     }
-    // shuffle
-    for (let i = dirs.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
-    }
-    const kinds: Kind[] = ['solid', 'solid', 'solid', 'solid', 'solid', 'solid', 'barbed', 'barbed', 'hollow', 'hollow'];
-    let k = 0;
     const life = (ends: Spike[], through: Life['through']): void => {
       const barbed = ends.some((e) => e.kind === 'barbed');
-      this.lives.push({
+      this.ambient.push({
         ends,
         through,
         period: 17 + rnd() * 15,
-        // most are already out when the page opens, a few are still rising
         offset: rnd() < 0.72 ? 0.34 + rnd() * 0.34 : rnd(),
         scar: barbed ? 0.14 : 0,
       });
     };
-    for (let i = 0; i < kinds.length; i++) life([this.makeSpike(dirs[k++], kinds[i], rnd)], 'none');
-    // two chords: off-centre, deep but not through the core
+    let k = 0;
     for (let c = 0; c < 2; c++) {
-      const a = dirs[k++];
+      const a = dirs[k++ % 3];
       const axis = norm(cross(a, [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5]));
       const b = rot(a, axis, 1.9 + rnd() * 0.4);
       life([this.makeSpike(a, 'solid', rnd, 0.7), this.makeSpike(b, 'solid', rnd, 0.7)], 'chord');
     }
-    // one diameter: through the core
-    const a = dirs[k++];
+    const a = dirs[2];
     life([this.makeSpike(a, 'barbed', rnd, 0.95), this.makeSpike([-a[0], -a[1], -a[2]], 'solid', rnd, 0.95)], 'diameter');
-    this.lives[this.lives.length - 1].offset = 0.45;
+    this.ambient[this.ambient.length - 1].offset = 0.45;
+    this.lives = [...this.ambient];
+  }
+
+  /** The data: where the surface ripples and where a spike stands. */
+  setFit(fit: BallFit): void {
+    this.fit = fit;
+    this.lives = [...this.ambient];
+    fit.forEach((f, i) => {
+      if (f.peak < 0.2 || !this.dirs[i]) return;
+      const kind: Kind = f.thin ? 'hollow' : f.fit > 0.75 && f.peak > 0.6 ? 'barbed' : 'solid';
+      const sp = this.makeSpike(this.dirs[i], kind, mulberry32(1000 + i), 0.25 + 0.7 * f.peak);
+      this.lives.push({ ends: [sp], through: 'none', period: 1, offset: 0, scar: 0, steady: true, facet: i });
+    });
+  }
+
+  /** The current drawing as segments in CSS px (the page transition flies them). */
+  sample(): FxShape {
+    const n = this.n;
+    const segs = new Float32Array(n * 4);
+    const alpha = new Float32Array(n);
+    const gold = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      segs[i * 4] = this.pos[i * 6] + this.w / 2;
+      segs[i * 4 + 1] = this.h / 2 - this.pos[i * 6 + 1];
+      segs[i * 4 + 2] = this.pos[i * 6 + 3] + this.w / 2;
+      segs[i * 4 + 3] = this.h / 2 - this.pos[i * 6 + 4];
+      alpha[i] = (this.col[i * 8 + 3] + this.col[i * 8 + 7]) / 2;
+      gold[i] = this.col[i * 8] > this.col[i * 8 + 1] * 1.25 ? 1 : 0;
+    }
+    return { segs, alpha, gold };
   }
 
   // ---- pointer ------------------------------------------------------------------
@@ -398,20 +437,37 @@ export class BallScene {
   }
 
   private lifeAt(l: Life, t: number): { wave: number; len: number } {
+    if (l.steady) {
+      const peak = this.fit[l.facet ?? -1]?.peak ?? 0.5;
+      return { wave: 0.35 + 0.65 * peak, len: 1 };
+    }
     const u = (t / l.period + l.offset) % 1;
     const wave = smooth(0.02, 0.3, u) * (1 - smooth(0.7, 0.92, u));
     const len = l.scar + (1 - l.scar) * smooth(0.2, 0.46, u) * (1 - smooth(0.72, 0.9, u));
     return { wave, len };
   }
 
+  /** How lively the ripples are at `dir`: the fit of the facets around it (0.2 when nothing fits there). */
+  private fitGain(dir: V3): number {
+    let f = 0;
+    for (let i = 0; i < this.fit.length; i++) {
+      const d = this.dirs[i];
+      const c = Math.max(-1, Math.min(1, dot(dir, d)));
+      const a = Math.acos(c);
+      f += this.fit[i].fit * Math.exp(-((a / 0.62) ** 2));
+    }
+    return 0.2 + 1.1 * Math.min(1, f);
+  }
+
   private update(t: number, dt: number): void {
     const w = this.w;
     const h = this.h;
-    const R = Math.min(h * 0.26, w * 0.19);
+    // the ball takes the particle brain's place (lower left: left 4% / bottom 6%, 30% x 48% of the view)
+    const R = Math.min(w * 0.3, h * 0.48) * 0.4;
     this.S = R;
     // the camera is centred on the window, y up
-    this.cx = -w * 0.14;
-    this.cy = Math.sin(t * 0.5) * R * 0.012;
+    this.cx = -w * 0.29;
+    this.cy = -h * 0.2 + Math.sin(t * 0.5) * R * 0.012;
 
     // orientation: a fixed lean (the bands slant), a faint sway, the user's tilt
     const k = Math.exp(-dt * (this.drag ? 0 : 1.6));
@@ -453,6 +509,23 @@ export class BallScene {
       }
     }
     this.hoverTarget = target;
+    {
+      let best = -1;
+      if (target > 0.3) {
+        let ba = 0.62;
+        for (let i = 0; i < this.fit.length; i++) {
+          const a = angle(this.hoverDir, this.dirs[i]);
+          if (a < ba) {
+            ba = a;
+            best = i;
+          }
+        }
+      }
+      if (best !== this.hoverFacet) {
+        this.hoverFacet = best;
+        this.onHover?.(best < 0 ? null : { facet: best });
+      }
+    }
     this.hover += (target - this.hover) * (1 - Math.exp(-dt * 6));
     this.shocks = this.shocks.filter((s) => t - s.t0 < 4);
 
@@ -486,7 +559,7 @@ export class BallScene {
           0.5 * Math.sin(5 * th + 0.9 * t + i * 1.3) +
           0.3 * Math.sin(11 * th - 1.4 * t + i * 2.1) +
           0.2 * Math.sin(23 * th + 2.3 * t + i * 0.7);
-        let amp = 0.036 * reg * (0.5 + 0.7 * tide) * (1 + 0.55 * pulse);
+        let amp = 0.036 * reg * (0.5 + 0.7 * tide) * (1 + 0.55 * pulse) * this.fitGain(dir);
         let radial = 0;
         let lit = 0;
         // swelling before a spike, sharpening into its root
