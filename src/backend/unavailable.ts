@@ -8,14 +8,15 @@
 
 import { BackendError } from './types';
 import type { AdapterInfo, AdapterMethod, BrainAdapter } from './types';
+import { t } from '../i18n/lang';
 
-export const UNAVAILABLE_LABEL = '后端未连接';
+export const UNAVAILABLE_LABEL = (): string => t('banner.off');
 
 export class UnavailableAdapter implements BrainAdapter {
-  readonly info: AdapterInfo = { kind: 'unavailable', label: UNAVAILABLE_LABEL, trains: false };
+  readonly info: AdapterInfo = { kind: 'unavailable', label: UNAVAILABLE_LABEL(), trains: false };
 
   private fail(): Promise<never> {
-    return Promise.reject(new BackendError('UNAVAILABLE', UNAVAILABLE_LABEL));
+    return Promise.reject(new BackendError('UNAVAILABLE', UNAVAILABLE_LABEL()));
   }
 
   capabilities(): Promise<ReadonlySet<AdapterMethod>> {

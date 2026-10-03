@@ -12,6 +12,7 @@ dependencies = []
 [project.optional-dependencies]
 test-schema = ["jsonschema==4.26.0"]
 security = ["PyNaCl==1.6.2"]
+semantic = ["sentence-transformers==6.1.0"]
 
 [tool.setuptools.packages.find]
 include = ["core*", "translator*", "model*"]

@@ -96,6 +96,10 @@ def bump_generation(db: sqlite3.Connection) -> None:
 def purge_dependents(db: sqlite3.Connection, source_id: str) -> None:
     for table in DEPENDENT_TABLES:
         db.execute(f"DELETE FROM {table} WHERE source_id=?", (source_id,))
+    # BrainModel also runs without BrainCore's optional preference migration.
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                  "AND name='brain_choice_feedback'").fetchone():
+        db.execute("DELETE FROM brain_choice_feedback WHERE source_id=?", (source_id,))
 
 
 def public_record(row: sqlite3.Row | dict, text: str) -> dict:

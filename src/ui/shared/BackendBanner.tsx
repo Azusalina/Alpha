@@ -22,8 +22,9 @@ import { useEffect, useState } from 'react';
 import { backendStore, useBackend } from '../../backend';
 import { hasDesktopHost } from '../../app/desktop';
 import { inputStore, useInputs } from '../../app/inputStore';
+import { t } from '../../i18n/lang';
 
-export const DEMO_STRIP_TEXT = '演示数据 · 未运行模型 · 刷新即清空';
+
 
 interface Props {
   className?: string;
@@ -47,7 +48,7 @@ export function BackendBanner({ className }: Props) {
     return (
       <div className={cls} data-testid="backend-banner" data-mode="demo" role="status">
         <span className="backend-banner__demo" data-testid="backend-demo-label">
-          {DEMO_STRIP_TEXT}
+          {t('banner.demo')}
         </span>
         <button
           type="button"
@@ -59,7 +60,7 @@ export function BackendBanner({ className }: Props) {
           }}
           onBlur={() => setConfirmLeave(false)}
         >
-          {confirmLeave ? '确认退出并清空演示数据' : '退出演示'}
+          {confirmLeave ? t('banner.leave.confirm') : t('banner.leave')}
         </button>
       </div>
     );
@@ -69,17 +70,17 @@ export function BackendBanner({ className }: Props) {
     const caps = inputs.capabilities;
     const missing: string[] = [];
     if (caps) {
-      if (!caps.includes('inputEdit')) missing.push('编辑');
-      if (!caps.includes('inputDelete')) missing.push('删除');
+      if (!caps.includes('inputEdit')) missing.push(t('banner.cap.edit'));
+      if (!caps.includes('inputDelete')) missing.push(t('banner.cap.delete'));
     }
     return (
       <div className={cls} data-testid="backend-banner" data-mode="remote" role="status">
         <span className="backend-banner__ok" data-testid="backend-connected">
-          本机后端已连接
+          {t('banner.connected')}
         </span>
         {missing.length > 0 && (
           <span className="backend-banner__missing" data-testid="backend-missing">
-            后端尚不支持：{missing.join(' / ')}
+            {t('banner.missing', { list: missing.join(' / ') })}
           </span>
         )}
         {backend.lastConnectError && (
@@ -95,9 +96,9 @@ export function BackendBanner({ className }: Props) {
   return (
     <div className={cls} data-testid="backend-banner" data-mode="unconnected" role="status">
       <p className="backend-banner__title" data-testid="backend-status">
-        后端未连接
+        {t('banner.off')}
       </p>
-      <p className="backend-banner__text">本机后端尚未接通；录入与反馈暂不可用</p>
+      <p className="backend-banner__text">{t('banner.off.text')}</p>
       {backend.lastConnectError && (
         <p className="backend-banner__error" data-testid="backend-connect-error">
           {backend.lastConnectError}
@@ -105,7 +106,7 @@ export function BackendBanner({ className }: Props) {
       )}
       <div className="backend-banner__actions">
         <button type="button" className="backend-banner__btn" data-testid="backend-enter-demo" onClick={() => backendStore.enterDemo()}>
-          进入演示模式（不会训练模型）
+          {t('banner.enterDemo')}
         </button>
         {canRetry && (
           <button
@@ -118,7 +119,7 @@ export function BackendBanner({ className }: Props) {
               void backendStore.connectDesktopBackend().finally(() => setRetrying(false));
             }}
           >
-            重试连接本机后端
+            {t('banner.retry')}
           </button>
         )}
       </div>

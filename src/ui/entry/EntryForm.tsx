@@ -39,12 +39,13 @@ import { inputStore, useInputs } from '../../app/inputStore';
 import { KIND_LABELS, PARTITION_LABELS, partitionColor } from '../shared/labels';
 import { draftStore, shownImmediate, useDraft } from './draft';
 import { EntryError } from './EntryError';
+import { t } from '../../i18n/lang';
 
 const PARTITION_OPTIONS: Partition[] = ['rational', 'emotional', 'crazy'];
 const KIND_OPTIONS: Kind[] = ['diary', 'chat', 'philosophy'];
 
-export const CRAZY_NOTE = '癫狂：用户命名的情境状态，不是诊断';
-export const EXCLAMATION_NOTE = '仅当你强烈认同这是自己的想法：跳过大脑内的二次确认，直接用于训练';
+
+
 
 /** A drag that carries files (not selected text). */
 const hasFiles = (e: DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files');
@@ -117,7 +118,7 @@ export function EntryForm() {
       draftStore.set({ text: r.text, source_ref: r.source_ref, file_chars: codePointLength(r.text) });
     } catch (e) {
       const name = file.name.split(/[\\/]/).pop() ?? file.name;
-      setFileError(`${name}：${e instanceof TextFileError ? e.message : '文件读取失败'}`);
+      setFileError(`${name}: ${e instanceof TextFileError ? e.message : t('entry.file.failed')}`);
     }
   };
 
@@ -149,13 +150,13 @@ export function EntryForm() {
     }
   };
 
-  const reason = unconnected ? '后端未连接：先进入演示模式才能写入（现在只能起草）' : null;
+  const reason = unconnected ? t('entry.reason.unconnected') : null;
 
   return (
     <form
       className="entry-form"
       data-testid="entry-form"
-      aria-label="写入一段话"
+      aria-label={t('entry.form.aria')}
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -166,7 +167,7 @@ export function EntryForm() {
       <div className="entry-form__scroll">
         <div className="entry-field">
           <span className="entry-field__label" id="entry-partition-label">
-            状态
+            {t('entry.state')}
           </span>
           <div
             className="entry-choices"
@@ -189,13 +190,13 @@ export function EntryForm() {
             ))}
           </div>
           <span className="entry-note" data-testid="entry-crazy-note">
-            {CRAZY_NOTE}
+            {t('entry.crazyNote')}
           </span>
         </div>
 
         <div className="entry-field">
           <span className="entry-field__label" id="entry-kind-label">
-            类型
+            {t('entry.kind')}
           </span>
           <div className="entry-choices" role="radiogroup" aria-labelledby="entry-kind-label" data-testid="entry-kind">
             {KIND_OPTIONS.map((k) => (
@@ -217,7 +218,7 @@ export function EntryForm() {
         {draft.kind === 'chat' && (
           <div className="entry-field entry-field--speaker">
             <label className="entry-field__label" htmlFor="entry-speaker">
-              我的名字
+              {t('entry.speaker')}
             </label>
             <div className="entry-speaker">
               <input
@@ -229,11 +230,11 @@ export function EntryForm() {
                 aria-required="true"
                 aria-describedby="entry-speaker-help"
                 data-testid="entry-speaker"
-                placeholder="聊天里代表我的名字"
+                placeholder={t('entry.speaker.ph')}
                 value={draft.self_speaker}
                 onChange={(e) => draftStore.set({ self_speaker: e.target.value })}
               />
-              <small id="entry-speaker-help">每行「姓名: 内容」，只分析这位发言者</small>
+              <small id="entry-speaker-help">{t('entry.speaker.help')}</small>
             </div>
           </div>
         )}
@@ -250,7 +251,7 @@ export function EntryForm() {
         >
           <div className="entry-text__head">
             <label htmlFor="alpha-input" className="entry-field__label">
-              内容
+              {t('entry.text')}
             </label>
             <span className={`entry-count${chars > MAX_INPUT_CHARS ? ' is-over' : ''}`} data-testid="entry-count">
               {chars.toLocaleString('en-US')} / {MAX_INPUT_CHARS.toLocaleString('en-US')}
@@ -262,7 +263,7 @@ export function EntryForm() {
             autoComplete="off"
             spellCheck={false}
             rows={4}
-            placeholder="写下一段话…（Ctrl/⌘ + Enter 写入）"
+            placeholder={t('entry.text.ph')}
             value={draft.text}
             onChange={(e) => draftStore.set({ text: e.target.value, source_ref: null, file_chars: null })}
           />
@@ -283,12 +284,12 @@ export function EntryForm() {
               data-testid="entry-file-button"
               onClick={() => fileRef.current?.click()}
             >
-              选择 .txt / .md 文件
+              {t('entry.file.choose')}
             </button>
-            <span className="entry-file__hint">或拖到这里</span>
+            <span className="entry-file__hint">{t('entry.file.drop')}</span>
             {draft.source_ref && (
               <span className="entry-file__name" data-testid="entry-file-name">
-                来自 {draft.source_ref} · {(draft.file_chars ?? 0).toLocaleString('en-US')} 字符
+                {t('entry.file.from', { name: draft.source_ref ?? '', n: (draft.file_chars ?? 0).toLocaleString('en-US') })}
               </span>
             )}
             {undo && (
@@ -301,7 +302,7 @@ export function EntryForm() {
                   setUndo(null);
                 }}
               >
-                撤销替换
+                {t('entry.file.undo')}
               </button>
             )}
           </div>
@@ -324,14 +325,14 @@ export function EntryForm() {
               aria-describedby="entry-immediate-note"
               onChange={(e) => draftStore.set({ immediate: e.target.checked })}
             />
-            <span>是否为真（当下）</span>
+            <span>{t('entry.immediate')}</span>
           </label>
           <small id="entry-immediate-note" className="entry-check__note" data-testid="entry-immediate-note">
             {draft.exclamation
-              ? '已由「断言为真」决定，不能单独更改'
+              ? t('entry.immediate.note.excl')
               : draft.immediate
-                ? '写入后待确认：要在展开的大脑里再判定一次，才会用于训练'
-                : '不勾选：只保存这段话，不用于训练'}
+                ? t('entry.immediate.note.on')
+                : t('entry.immediate.note.off')}
           </small>
           <label className="entry-check">
             <input
@@ -341,10 +342,10 @@ export function EntryForm() {
               aria-describedby="entry-exclamation-note"
               onChange={(e) => draftStore.set({ exclamation: e.target.checked })}
             />
-            <span>断言为真</span>
+            <span>{t('entry.assert')}</span>
           </label>
           <small id="entry-exclamation-note" className="entry-check__note" data-testid="entry-exclamation-note">
-            {EXCLAMATION_NOTE}
+            {t('entry.exclNote')}
           </small>
         </div>
 
@@ -376,7 +377,7 @@ export function EntryForm() {
             disabled={!canSubmit}
             aria-disabled={!canSubmit}
           >
-            {busy ? '写入中…' : '写入'}
+            {busy ? t('entry.submitting') : t('entry.submit')}
           </button>
         </div>
       </div>

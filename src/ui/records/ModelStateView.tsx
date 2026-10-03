@@ -22,9 +22,10 @@
 import { PARAMETER_IDS, PARTITIONS } from '../../backend';
 import type { Partition } from '../../backend';
 import { EvidenceValue } from '../shared/EvidenceValue';
-import { PARTITION_HINTS, PARTITION_LABELS, PARTITION_NOTE, parameterLabel, partitionColor } from '../shared/labels';
+import { PARTITION_HINTS, PARTITION_LABELS, partitionNote, parameterLabel, partitionColor } from '../shared/labels';
 import { paramKey } from './useModelState';
 import type { ModelView } from './useModelState';
+import { t } from '../../i18n/lang';
 
 interface Props {
   view: ModelView;
@@ -37,7 +38,7 @@ export function ModelStateView({ view, connected }: Props) {
   if (!connected) {
     return (
       <p className="recs__empty" data-testid="state-unconnected">
-        后端接通（或进入演示模式）后，这里显示模型对三种状态的了解。
+        {t('mstate.unconnected')}
       </p>
     );
   }
@@ -45,11 +46,11 @@ export function ModelStateView({ view, connected }: Props) {
   return (
     <div className="mstate" data-testid="model-state" aria-busy={loading}>
       <p className="mstate__lead">
-        数值在 [-1, 1] 之间（正：倾向；负：反向），支持数是证据条数。
+        {t('mstate.lead')}
         {changed.size > 0 && (
           <span data-testid="state-changed-note">
             {' '}
-            带 <i className="mstate__pip" /> 的是上一次训练改变的参数。
+            {t('mstate.changed.pre')} <i className="mstate__pip" /> {t('mstate.changed.post')}
           </span>
         )}
       </p>
@@ -57,11 +58,11 @@ export function ModelStateView({ view, connected }: Props) {
         <p className="rec__error" role="alert" data-testid="state-error">
           <code>{error.code}</code> {error.message}{' '}
           <button type="button" onClick={view.reload}>
-            重试
+            {t('common.retry')}
           </button>
         </p>
       )}
-      {!state && !error && <p className="rec__quiet">读取模型状态…</p>}
+      {!state && !error && <p className="rec__quiet">{t('mstate.loading')}</p>}
       {state &&
         PARTITIONS.map((p: Partition) => {
           const observed = PARAMETER_IDS.filter((id) => state[p][id].observed).length;
@@ -74,11 +75,11 @@ export function ModelStateView({ view, connected }: Props) {
               aria-label={PARTITION_LABELS[p]}
               style={{ ['--rec-accent' as string]: partitionColor(p) }}
             >
-              <h3 className="mstate__title" title={p === 'crazy' ? PARTITION_NOTE : PARTITION_HINTS[p]}>
+              <h3 className="mstate__title" title={p === 'crazy' ? partitionNote() : PARTITION_HINTS[p]}>
                 <span className="mstate__mark" aria-hidden="true" />
                 {PARTITION_LABELS[p]}
                 <small data-testid="state-observed-count">
-                  {observed === 0 ? '尚无证据' : `${observed} / ${PARAMETER_IDS.length} 项有证据`}
+                  {observed === 0 ? t('ev.none') : t('mstate.observed', { n: observed, total: PARAMETER_IDS.length })}
                 </small>
               </h3>
               <ul className="mstate__list">
@@ -100,12 +101,12 @@ export function ModelStateView({ view, connected }: Props) {
                       <EvidenceValue state={st} label={parameterLabel(id)} />
                       <span className="mp__tags">
                         {isChanged && (
-                          <span className="mp__changed" data-testid="state-changed" title="上一次训练改变了它">
-                            刚变化
+                          <span className="mp__changed" data-testid="state-changed" title={t('mstate.changed.title')}>
+                            {t('mstate.justChanged')}
                           </span>
                         )}
                         {rev !== undefined && (
-                          <span className="mp__rev" data-testid="state-revision" title="最近一次触及它的修订号">
+                          <span className="mp__rev" data-testid="state-revision" title={t('mstate.rev.title')}>
                             #{rev}
                           </span>
                         )}

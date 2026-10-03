@@ -14,10 +14,11 @@ import type { InputState } from '../../app/inputStore';
 import type { BackendMode, InputStatus } from '../../backend';
 import { STATUS_LABELS } from '../shared/labels';
 import { RecordRow } from './RecordRow';
+import { t } from '../../i18n/lang';
 
 type Filter = 'all' | InputStatus;
 const FILTERS: readonly Filter[] = ['all', 'pending', 'agreed', 'disagreed', 'revoked'];
-const filterLabel = (f: Filter): string => (f === 'all' ? '全部' : STATUS_LABELS[f]);
+const filterLabel = (f: Filter): string => (f === 'all' ? t('rec.filter.all') : STATUS_LABELS[f]);
 
 interface Props {
   s: InputState;
@@ -34,7 +35,7 @@ export function RecordList({ s, mode }: Props) {
 
   return (
     <div className="recs" data-testid="records-list-view">
-      <div className="recs__filters" role="group" aria-label="按状态筛选" data-testid="record-filters">
+      <div className="recs__filters" role="group" aria-label={t('rec.filter.aria')} data-testid="record-filters">
         {FILTERS.map((f) => (
           <button
             key={f}
@@ -52,25 +53,25 @@ export function RecordList({ s, mode }: Props) {
 
       {mode === 'unconnected' && (
         <p className="recs__empty" data-testid="records-unconnected">
-          后端接通（或进入演示模式）后，过往输入会列在这里。
+          {t('rec.list.unconnected')}
         </p>
       )}
 
       {empty && mode !== 'unconnected' && (
         <p className="recs__empty" data-testid="records-empty">
-          还没有输入。在右上角写下第一份。
-          <small>先点「← 收起大脑」回到输入框。</small>
+          {t('rec.list.empty')}
+          <small>{t('rec.list.emptyHint')}</small>
         </p>
       )}
 
       {s.records.length > 0 && visible.length === 0 && (
         <p className="recs__empty" data-testid="records-filter-empty">
-          没有「{filterLabel(filter)}」的输入。
+          {t('rec.list.filterEmpty', { name: filterLabel(filter) })}
         </p>
       )}
 
       {visible.length > 0 && (
-        <ul className="recs__list" data-testid="records-list" aria-label="过往输入">
+        <ul className="recs__list" data-testid="records-list" aria-label={t('rec.list.aria')}>
           {visible.map((r) => (
             <RecordRow
               key={r.source_id}
@@ -86,14 +87,14 @@ export function RecordList({ s, mode }: Props) {
 
       {s.records.length > 0 && (
         <p className="recs__foot" data-testid="records-foot">
-          已加载 {s.records.length} / 共 {s.total} 条
+          {t('rec.list.loaded', { n: s.records.length, total: s.total })}
           {s.hasMore && (
             <>
               {' · '}
               <button type="button" data-testid="records-more" disabled={s.busy.refresh} onClick={() => void inputStore.loadMore()}>
-                {s.busy.refresh ? '加载中…' : '加载更多'}
+                {s.busy.refresh ? t('rec.list.loading') : t('rec.list.more')}
               </button>
-              <small>筛选与计数只针对已加载的记录。</small>
+              <small>{t('rec.list.note')}</small>
             </>
           )}
         </p>

@@ -9,6 +9,7 @@
 
 import './shared.css';
 import type { ParameterState } from '../../backend';
+import { t } from '../../i18n/lang';
 
 export const fmt = (n: number): string => {
   if (!Number.isFinite(n)) return '—';
@@ -27,7 +28,7 @@ export function EvidenceValue({ state, label }: Props) {
     return (
       <span className="ev ev--none" data-testid="evidence-none">
         {label && <span className="ev__label">{label}</span>}
-        <span className="ev__none">尚无证据</span>
+        <span className="ev__none">{t('ev.none')}</span>
       </span>
     );
   }
@@ -39,7 +40,7 @@ export function EvidenceValue({ state, label }: Props) {
         <i style={{ left: v < 0 ? `${50 + v * 50}%` : '50%', width: `${Math.abs(v) * 50}%` }} />
       </span>
       <span className="ev__num">{fmt(state.value)}</span>
-      <span className="ev__support">支持 {state.support}</span>
+      <span className="ev__support">{t('ev.support', { n: state.support })}</span>
     </span>
   );
 }

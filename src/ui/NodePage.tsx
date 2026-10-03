@@ -11,6 +11,7 @@ import { treeStore } from '../app/treeStore';
 import { getAdapter } from '../backend';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
+import { t } from '../i18n/lang';
 
 export function NodePage({ id }: { id: string }) {
   const graph = useGraph();
@@ -24,7 +25,7 @@ export function NodePage({ id }: { id: string }) {
     getAdapter()
       .inputGet(sourceId)
       .then((d) => live && setText({ id: sourceId, value: d.text }))
-      .catch(() => live && setText({ id: sourceId, error: '读取不到原文（输入可能已被编辑或删除）' }));
+      .catch(() => live && setText({ id: sourceId, error: t('node.textGone') }));
     return () => {
       live = false;
     };
@@ -58,7 +59,7 @@ export function NodePage({ id }: { id: string }) {
           <button
             type="button"
             className="node-page__close"
-            aria-label="返回科技树"
+            aria-label={t('node.back')}
             onClick={() => treeStore.set({ opened: null })}
           >
             ×
@@ -66,22 +67,22 @@ export function NodePage({ id }: { id: string }) {
         </header>
         <h1>{node.label}</h1>
         <dl className="node-page__meta">
-          <dt>层级</dt>
+          <dt>{t('node.level')}</dt>
           <dd>{node.depth}</dd>
           {node.parameter && (
             <>
-              <dt>参数</dt>
+              <dt>{t('node.parameter')}</dt>
               <dd>{node.parameter}</dd>
             </>
           )}
         </dl>
         {sourceId && (
           <p className="node-page__body" data-testid="node-page-text" style={{ whiteSpace: 'pre-wrap' }}>
-            {shown ? ('value' in shown ? shown.value : shown.error) : '读取原文中…'}
+            {shown ? ('value' in shown ? shown.value : shown.error) : t('node.loadingText')}
           </p>
         )}
-        {group('上级', parent ? [parent] : [])}
-        {group('下级', children)}
+        {group(t('node.parent'), parent ? [parent] : [])}
+        {group(t('node.children'), children)}
       </article>
     </div>
   );

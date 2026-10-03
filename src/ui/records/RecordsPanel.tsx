@@ -25,12 +25,10 @@ import { ModelStateView } from './ModelStateView';
 import { RecordList } from './RecordList';
 import { useModelState } from './useModelState';
 import './records.css';
+import { t } from '../../i18n/lang';
 
 type Tab = 'records' | 'state';
-const TABS: readonly { id: Tab; label: string }[] = [
-  { id: 'records', label: '输入记录' },
-  { id: 'state', label: '模型状态' },
-];
+const TABS: readonly Tab[] = ['records', 'state'];
 
 export function RecordsPanel() {
   const backend = useBackend();
@@ -61,24 +59,24 @@ export function RecordsPanel() {
   const panelError = s.error && s.error.id === null && s.error.action !== 'submit' ? s.error : null;
 
   return (
-    <section className="records-panel" data-testid="records-panel" aria-label="过往输入与模型状态" onKeyDown={stopT}>
+    <section className="records-panel" data-testid="records-panel" aria-label={t('records.aria')} onKeyDown={stopT}>
       <BackendBanner />
-      <div className="records-panel__tabs" role="tablist" aria-label="右侧面板" onKeyDown={onKey}>
-        {TABS.map((t) => (
+      <div className="records-panel__tabs" role="tablist" aria-label={t('records.tabs.aria')} onKeyDown={onKey}>
+        {TABS.map((id) => (
           <button
-            key={t.id}
+            key={id}
             type="button"
             role="tab"
-            id={`records-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`records-tabpanel-${t.id}`}
-            tabIndex={tab === t.id ? 0 : -1}
-            className={`records-panel__tab${tab === t.id ? ' is-on' : ''}`}
-            data-testid={`tab-${t.id}`}
-            onClick={() => setTab(t.id)}
+            id={`records-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls={`records-tabpanel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
+            className={`records-panel__tab${tab === id ? ' is-on' : ''}`}
+            data-testid={`tab-${id}`}
+            onClick={() => setTab(id)}
           >
-            {t.label}
-            {t.id === 'records' && s.total > 0 && <small>{s.total}</small>}
+            {t(`records.tab.${id}`)}
+            {id === 'records' && s.total > 0 && <small>{s.total}</small>}
           </button>
         ))}
       </div>
@@ -86,7 +84,7 @@ export function RecordsPanel() {
         <p className="rec__error records-panel__error" role="alert" data-testid="records-error">
           <code>{panelError.code}</code> {panelError.message}{' '}
           <button type="button" onClick={() => void inputStore.refresh().then(() => inputStore.dismissError())}>
-            重试
+            {t('common.retry')}
           </button>
         </p>
       )}

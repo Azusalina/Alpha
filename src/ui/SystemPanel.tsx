@@ -18,6 +18,7 @@ import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 import { NodePage } from './NodePage';
 import { TreeOverlay } from './TreeOverlay';
+import { t } from '../i18n/lang';
 
 export function SystemPanel({ state }: { state: SceneState }) {
   const ui = useTreeUi();
@@ -49,11 +50,11 @@ export function SystemPanel({ state }: { state: SceneState }) {
       style={{ opacity: 0 }}
     >
       <div className="system-panel__caption">
-        <p className="system-panel__title">结构化记录</p>
+        <p className="system-panel__title">{t('sys.title')}</p>
         <p className="system-panel__hint">
           {hovered
             ? `${hovered.label} · ${describeNode(hovered)}`
-            : '悬停或点击节点 · 双击进入 · Esc 返回'}
+            : t('sys.hint')}
         </p>
       </div>
       {ui.opened && <NodePage id={ui.opened} />}

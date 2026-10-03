@@ -69,6 +69,7 @@ import { useHandGeometry } from '../hand/assets';
 import { handRig } from '../hand/pose';
 import { focusBrain } from '../app/navigation';
 import { applyInk, useThemeBinding } from './useThemeBinding';
+import { PARTITION_LABELS } from '../ui/shared/labels';
 
 /** Same on-screen dot scale as the particle hand (ParticleHand POINT_SIZE). */
 const POINT_SIZE = 0.0042;
@@ -1543,7 +1544,7 @@ export function BrainView({ tier, reducedMotion }: Props) {
         y: ((1 - tmp.proj.y) / 2) * size.height,
         alpha,
         region: -1,
-        text: partition === 'rational' ? '理性' : partition === 'emotional' ? '感性' : '癫狂',
+        text: PARTITION_LABELS[partition],
       };
     }
   };

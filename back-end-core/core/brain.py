@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 
 from model import BrainModel
+from model import preferences
 from model.catalog import PARTITIONS
 from model.sources import public_record
 
@@ -21,12 +23,14 @@ class BrainCore:
     Legacy pending candidates retain their explicit review operation.
     """
 
-    def __init__(self, path: str | Path, *, trace: bool = False):
+    def __init__(self, path: str | Path, *, trace: bool = False, semantic_encoder=None):
+        self.semantic_encoder = semantic_encoder
         self.model = BrainModel(path, trace=trace)
         self.store = self.model.store
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             pagination.initialize(db)
+            preferences.initialize(db)
 
     @staticmethod
     def _partition(partition: str | None) -> None:
@@ -256,3 +260,68 @@ class BrainCore:
             raise ValueError("query must contain text")
         return self._memories(active=True, partition=partition, status=None,
                               query=query, limit=limit)
+
+    def memory_search_semantic(self, query: str, *, partition: str | None = None,
+                               limit: int = 20, min_score: float = 0.0) -> dict:
+        self._partition(partition)
+        self._limit(limit)
+        if (not isinstance(query, str) or not query.strip() or len(query) > 2048
+                or "\0" in query):
+            raise ValueError("query must contain 1 to 2048 characters without NUL")
+        try:
+            query.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("query must not contain surrogate code points") from None
+        if (type(min_score) not in (int, float) or not -1 <= min_score <= 1
+                or not math.isfinite(min_score)):
+            raise ValueError("min_score must be a finite number from -1 to 1")
+        clauses = ["c.status='accepted'", "i.status='agreed'",
+                   "c.source_version=i.source_version"]
+        values = []
+        if partition is not None:
+            clauses.append("i.partition=?")
+            values.append(partition)
+        with self.store._connect() as db:
+            db.execute("BEGIN")
+            generation = pagination.revision(db)
+            rows = db.execute(
+                "SELECT c.*, i.partition, i.status AS source_status, s.source_ref "
+                "FROM candidates c JOIN brain_inputs i ON i.source_id=c.source_id "
+                "JOIN sources s ON s.id=c.source_id WHERE " + " AND ".join(clauses) +
+                " ORDER BY c.created_at DESC, c.id DESC LIMIT 1001", values).fetchall()
+        pool = [dict(row) for row in rows[:1000]]
+        if self.semantic_encoder is None:
+            needle = query.strip().lower()
+            items = [{"memory": row, "score": None, "encoded_text_truncated": False}
+                     for row in pool if needle in row["claim"].lower() or needle in row["evidence"].lower()][:limit]
+            result = {"mode": "lexical_fallback", "score_kind": "none", "items": items}
+        else:
+            # Encoder work happens outside the DB snapshot. Never retain vectors.
+            from translator import semantic
+            try:
+                items = semantic.rank_memories(query, pool, self.semantic_encoder,
+                                               limit=limit, min_score=min_score)
+            except Exception:
+                raise RuntimeError("local model unavailable") from None
+            result = {"mode": "semantic", "score_kind": "cosine", "items": items}
+        with self.store._connect() as db:
+            if pagination.revision(db) != generation:
+                raise ValueError("memory snapshot changed; request a fresh search")
+        return {**result, "pool_count": len(pool), "pool_truncated": len(rows) > 1000}
+
+    def choice_feedback_set(self, source_id: str, *, event_id: str, domain: str,
+                            options: list[dict], actual_choice_id: str | None,
+                            endorsed_choice_id: str | None, endorsement_partition: str | None,
+                            training_consent: bool, expected_source_version: int,
+                            expected_revision: int, expected_epoch: int, reason: str | None = None) -> dict:
+        return preferences.set_feedback(self.store, source_id=source_id, event_id=event_id,
+            domain=domain, options=options, actual_choice_id=actual_choice_id,
+            endorsed_choice_id=endorsed_choice_id, endorsement_partition=endorsement_partition,
+            training_consent=training_consent, expected_source_version=expected_source_version,
+            expected_revision=expected_revision, expected_epoch=expected_epoch, reason=reason)
+
+    def choice_feedback_get(self, source_id: str) -> dict:
+        return preferences.get_feedback(self.store, source_id)
+
+    def preference_rank(self, options: list[dict], target: str, partition: str, domain: str) -> dict:
+        return preferences.rank_preferences(self.store, options, target, partition, domain)

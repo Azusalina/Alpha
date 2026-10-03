@@ -30,6 +30,7 @@ import { focusBrain } from '../../app/navigation';
 import { BackendBanner } from '../shared/BackendBanner';
 import { EntryForm } from './EntryForm';
 import { ResultPanel } from './ResultPanel';
+import { t } from '../../i18n/lang';
 
 const MARGIN_PX = 18;
 const MIN_HEIGHT_PX = 200;
@@ -104,7 +105,7 @@ export function EntryPanel() {
       className="human-panel__input entry-panel"
       data-testid="entry-panel"
       data-backend={backend.mode}
-      aria-label="录入"
+      aria-label={t('entry.aria')}
       ref={setRoot}
       onKeyDown={onKeyDown}
     >

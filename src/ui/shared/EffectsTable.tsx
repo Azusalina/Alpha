@@ -28,6 +28,7 @@ import type { ParameterEffect } from '../../backend';
 import { useInputs } from '../../app/inputStore';
 import { fmt } from './EvidenceValue';
 import { ACTION_LABELS, parameterLabel, ruleDisplay } from './labels';
+import { t } from '../../i18n/lang';
 
 interface Props {
   effects: readonly ParameterEffect[];
@@ -41,7 +42,7 @@ interface Props {
 
 const signed = (n: number): string => (n > 0 ? `+${fmt(n)}` : fmt(n));
 
-export function EffectsTable({ effects, emptyText = '未提取到可拟合的证据', activeId = null, onActiveChange, className }: Props) {
+export function EffectsTable({ effects, emptyText = t('effects.empty'), activeId = null, onActiveChange, className }: Props) {
   // An effect written in an earlier model epoch is history; it never describes the current state.
   const currentEpoch = useInputs().modelEpoch;
   if (effects.length === 0) {
@@ -52,7 +53,7 @@ export function EffectsTable({ effects, emptyText = '未提取到可拟合的证
     );
   }
   return (
-    <ol className={`effects${className ? ` ${className}` : ''}`} data-testid="effects-table" aria-label="参数变化与证据">
+    <ol className={`effects${className ? ` ${className}` : ''}`} data-testid="effects-table" aria-label={t('effects.aria')}>
       {effects.map((e, i) => {
         const id = String(i);
         const rule = ruleDisplay(e.rule_id);
@@ -82,33 +83,33 @@ export function EffectsTable({ effects, emptyText = '未提取到可拟合的证
               </span>
             </div>
             <div className="effect__nums">
-              <span data-testid="effect-value" title="参数值 前 → 后">
-                <b>值</b> {fmt(e.before)} → {fmt(e.after)}
+              <span data-testid="effect-value" title={t('effects.value.title')}>
+                <b>{t('effects.value')}</b> {fmt(e.before)} → {fmt(e.after)}
                 <em className={`effect__delta effect__delta--${dir}`} data-testid="effect-delta">
                   {signed(e.delta)}
                 </em>
               </span>
-              <span data-testid="effect-support" title="支持数 前 → 后">
-                <b>支持</b> {e.support_before} → {e.support_after}
+              <span data-testid="effect-support" title={t('effects.support.title')}>
+                <b>{t('effects.support')}</b> {e.support_before} → {e.support_after}
               </span>
             </div>
             <blockquote className="effect__evidence" data-testid="effect-evidence">
               {e.evidence}
             </blockquote>
             <div className="effect__meta">
-              <span data-testid="effect-span" title="Unicode 码点，起点从 0 起，终点不含">
-                位置 [{e.span[0]}, {e.span[1]})
+              <span data-testid="effect-span" title={t('effects.span.title')}>
+                {t('effects.span', { a: e.span[0], b: e.span[1] })}
               </span>
               <span data-testid="effect-rule">
-                规则 <code>{rule.id}</code>
+                {t('effects.rule')} <code>{rule.id}</code>
                 {rule.tag && <span className="effect__demo">{rule.tag}</span>}
               </span>
               <span data-testid="effect-revision">
-                修订 {e.revision === undefined ? '预览 · 无修订号' : `#${e.revision}`}
+                {t('effects.revision')} {e.revision === undefined ? t('effects.revision.none') : `#${e.revision}`}
               </span>
               {currentEpoch !== null && e.model_epoch !== undefined && e.model_epoch < currentEpoch && (
-                <span className="effect__demo" data-testid="effect-old-epoch" title="这条效应写于模型重置之前，不代表当前模型；请以模型状态为准">
-                  旧模型轮次
+                <span className="effect__demo" data-testid="effect-old-epoch" title={t('effects.oldEpoch.title')}>
+                  {t('effects.oldEpoch')}
                 </span>
               )}
             </div>

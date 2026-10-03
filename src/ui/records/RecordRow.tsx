@@ -45,7 +45,8 @@ import { EffectsTable } from '../shared/EffectsTable';
 import { HighlightedText, marksFromEffects } from '../shared/HighlightedText';
 import { StatusChip } from '../shared/StatusChip';
 import { RecordEditor } from './RecordEditor';
-import { UNSUPPORTED_NOTE, displayExcerpt, formatFull, formatTime, tf } from './format';
+import { displayExcerpt, formatFull, formatTime, tf } from './format';
+import { t } from '../../i18n/lang';
 
 interface Props {
   rec: InputRecord;
@@ -64,26 +65,26 @@ function explain(rec: InputRecord, demo: boolean): string {
   switch (rec.status) {
     case 'pending':
       return demo
-        ? '当下判断为真，等待二次确认。T：认可为真，演示里只会标记并让大脑演出一次，没有运行模型；F：不同意。'
-        : '当下判断为真，等待二次确认。T：认可为真，从此参与训练，大脑会有一次演出；F：不同意，不参与训练。';
+        ? t('rec.explain.pending.demo')
+        : t('rec.explain.pending');
     case 'agreed':
       if (rec.model_active === false) {
-        return '仍是已认可（译解词汇、纠错和记忆保留），但不属于当前模型：模型重置后它不再参与参数训练，也不会自动恢复。「纳入当前模型」会重新判定为 T，之前冻结的拟合会恢复；撤销或删除不影响当前模型。';
+        return t('rec.explain.inactive');
       }
       if (demo) {
         return rec.confirmed_by === 'exclamation'
-          ? '录入时「断言为真」，两次判断都已为真。演示：只是标记为训练，没有运行模型。撤销会取消这个标记；历史保留，不会删除。'
-          : '两次判断都为真。演示：只是标记为训练，没有运行模型。撤销会取消这个标记；历史保留，不会删除。';
+          ? t('rec.explain.agreed.demo.excl')
+          : t('rec.explain.agreed.demo');
       }
       return rec.confirmed_by === 'exclamation'
-        ? '录入时「断言为真」，两次判断都已为真，已直接参与训练。撤销会把它从训练里拿掉；历史保留，不会删除。'
-        : '两次判断都为真，正在参与训练。撤销会把它从训练里拿掉；历史保留，不会删除。';
+        ? t('rec.explain.agreed.excl')
+        : t('rec.explain.agreed');
     case 'disagreed':
       return rec.reason === 'confirm_false'
-        ? '二次确认为否，不参与训练。可以改判为 T，或编辑、删除。'
-        : '录入时判断为否，不参与训练。编辑并把「是否为真」改为是后，才能进入二次确认；或直接删除。';
+        ? t('rec.explain.disagreed.confirm')
+        : t('rec.explain.disagreed.immediate');
     case 'revoked':
-      return '曾经被认可，已被撤销；历史保留。可以重新认可，或删除。';
+      return t('rec.explain.revoked');
   }
 }
 
@@ -118,7 +119,7 @@ function Action({ method, id, label, testid, onClick, tag, busy, busyText, tone 
       data-settling={settling ? 'true' : undefined}
       disabled={disabled}
       aria-disabled={disabled}
-      title={!supported ? UNSUPPORTED_NOTE : title}
+      title={!supported ? t('rec.unsupported') : title}
       onClick={onClick}
     >
       {busy && busyText ? busyText : label}
@@ -192,13 +193,13 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
   const busyRevoke = s.busy.records[id]?.includes('revoke') ?? false;
   const busyRemove = s.busy.records[id]?.includes('remove') ?? false;
   const rowError = s.error && s.error.id === id ? s.error : null;
-  const demoTag = demo ? '仅演示' : null;
+  const demoTag = demo ? t('rec.demoOnly') : null;
 
   // ---- which effects does the body show
   const formal = cache?.formalEffects ?? null;
   const history = cache?.effects ?? null;
   const preview = rec.status !== 'agreed' ? (cache?.preview ?? null) : null;
-  const historyMain = { kind: 'history' as const, effects: history ?? [], title: rec.status === 'agreed' ? (demo ? '演示效应（历史）' : '训练效应（历史）') : '历史效应（含撤销）' };
+  const historyMain = { kind: 'history' as const, effects: history ?? [], title: rec.status === 'agreed' ? (demo ? t('rec.hist.demo') : t('rec.hist.trained')) : t('rec.hist.all') };
   const formalMain = {
     kind: 'formal' as const,
     effects: formal ?? [],
@@ -206,9 +207,9 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
     title:
       rec.status === 'agreed'
         ? demo
-          ? '本次写入的效应（演示 · 带修订号 · 未运行模型）'
-          : '本次写入的效应（已训练 · 带修订号）'
-        : '本次判断写入的效应（带修订号）',
+          ? t('rec.formal.demo')
+          : t('rec.formal.trained')
+        : t('rec.formal.judged'),
   };
   // a revoked / confirm-false record: the history is a superset of the reversal just made (its last revisions)
   const main: typeof historyMain | typeof formalMain | null =
@@ -229,14 +230,14 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
   const checkCap = (m: AdapterMethod, name: string) => {
     if (!inputStore.can(m)) unsupported.push(name);
   };
-  if (rec.status === 'pending') checkCap('confirm', '认可 / 不同意');
-  if (rec.status === 'agreed') checkCap('revoke', '撤销');
-  checkCap('inputDelete', '删除');
+  if (rec.status === 'pending') checkCap('confirm', t('rec.cap.confirm'));
+  if (rec.status === 'agreed') checkCap('revoke', t('rec.revoke'));
+  checkCap('inputDelete', t('rec.delete'));
   if (rec.status === 'disagreed') {
-    checkCap('inputEdit', '编辑');
-    if (rec.reason === 'confirm_false') checkCap('confirm', '改判为 T');
+    checkCap('inputEdit', t('rec.edit'));
+    if (rec.reason === 'confirm_false') checkCap('confirm', t('rec.changeToT'));
   }
-  if (rec.status === 'revoked') checkCap('confirm', '重新认可');
+  if (rec.status === 'revoked') checkCap('confirm', t('rec.agreeAgain'));
 
   return (
     <li
@@ -270,20 +271,20 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
         </span>
         <span className="rec__meta">
           <StatusChip status={rec.status} reason={rec.reason} />
-          <span className="rec__j" data-testid="record-immediate" title="当下判断：录入时「是否为真」">
-            <b>当下</b> {tf(rec.immediate)}
+          <span className="rec__j" data-testid="record-immediate" title={t('rec.immediate.title')}>
+            <b>{t('rec.immediate')}</b> {tf(rec.immediate)}
           </span>
-          <span className="rec__j" data-testid="record-confirm" title="二次判断：在脑内确认，— 表示还没做">
-            <b>二次</b> {tf(rec.confirm)}
+          <span className="rec__j" data-testid="record-confirm" title={t('rec.second.title')}>
+            <b>{t('rec.second')}</b> {tf(rec.confirm)}
           </span>
           {rec.exclamation && (
-            <span className="rec__bang" data-testid="record-exclamation" title="录入时断言为真：两次判断由此同时为真">
-              !<span className="rec__sr">断言为真</span>
+            <span className="rec__bang" data-testid="record-exclamation" title={t('rec.bang.title')}>
+              !<span className="rec__sr">{t('entry.assert')}</span>
             </span>
           )}
-          <span className="rec__when" title={`创建 ${formatFull(rec.created_at)}`}>
+          <span className="rec__when" title={t('rec.created', { when: formatFull(rec.created_at) })}>
             <span data-testid="record-partition">{PARTITION_LABELS[rec.partition]}</span> · {formatTime(rec.created_at)} ·{' '}
-            <span data-testid="record-chars">{rec.char_count}</span> 字
+            <span data-testid="record-chars">{rec.char_count}</span> {t('rec.chars')}
           </span>
         </span>
       </button>
@@ -292,10 +293,10 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
         <div className="rec__body" id={`rec-body-${id}`} data-testid="record-body">
           <p className="rec__facts" data-testid="record-facts">
             {KIND_LABELS[rec.kind]}
-            {rec.self_speaker ? ` · 我：${rec.self_speaker}` : ''}
+            {rec.self_speaker ? ` · ${t('rec.me')}: ${rec.self_speaker}` : ''}
             {rec.source_ref ? ` · ${rec.source_ref}` : ''}
             {rec.confirmed_by ? ` · ${CONFIRMED_BY_LABELS[rec.confirmed_by]}` : ''}
-            {rec.edited_at ? ` · 已编辑 ${formatTime(rec.edited_at)}` : ''}
+            {rec.edited_at ? ` · ${t('rec.edited', { when: formatTime(rec.edited_at) })}` : ''}
           </p>
           <p className="rec__explain" data-testid="record-explain" title={statusHint(rec.status, demo)}>
             {explain(rec, demo)}
@@ -303,16 +304,16 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
 
           {editing ? (
             text === null ? (
-              <p className="rec__quiet">读取原文…</p>
+              <p className="rec__quiet">{t('rec.loadingText')}</p>
             ) : (
               <RecordEditor rec={rec} original={text} demoTag={demoTag} />
             )
           ) : (
             <>
-              <h4 className="rec__h">原文</h4>
+              <h4 className="rec__h">{t('result.text')}</h4>
               {text === null ? (
                 <p className="rec__quiet" data-testid="record-text-loading">
-                  {inputStore.isBusy(id, 'detail') ? '读取原文…' : '原文尚未读取'}
+                  {inputStore.isBusy(id, 'detail') ? t('rec.loadingText') : t('rec.textNotLoaded')}
                 </p>
               ) : (
                 <HighlightedText text={text} marks={marksFromEffects(primary)} activeId={activeEffect} data-testid="record-text" />
@@ -321,17 +322,17 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
               {(loadingMain || main) && (
                 <>
                   <h4 className="rec__h" data-testid="record-effects-title">
-                    {main ? main.title : '效应'}
+                    {main ? main.title : t('rec.effects')}
                   </h4>
                   {loadingMain ? (
-                    <p className="rec__quiet">读取效应…</p>
+                    <p className="rec__quiet">{t('rec.loadingEffects')}</p>
                   ) : main && main.effects.length === 0 && main.kind === 'history' && rec.status !== 'agreed' ? (
                     <p className="rec__quiet" data-testid="record-no-history">
-                      还没有写入过任何效应。
+                      {t('rec.noEffects')}
                     </p>
                   ) : main && main.effects.length === 0 && rec.status !== 'agreed' ? (
                     <p className="rec__quiet" data-testid="record-no-change">
-                      本次判断没有改变任何参数。
+                      {t('rec.noChange')}
                     </p>
                   ) : (
                     main && (
@@ -347,10 +348,10 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
               {(preview || loadingPreview) && (
                 <>
                   <h4 className="rec__h" data-testid="record-preview-title">
-                    预览 · {rec.status === 'disagreed' && rec.reason === 'immediate_false' ? '若它被认可（假设，不会训练）' : '若认可为真（假设，尚未写入）'}
+                    {t('action.preview')} · {rec.status === 'disagreed' && rec.reason === 'immediate_false' ? t('rec.preview.ifAgreed') : t('rec.preview.ifTrue')}
                   </h4>
                   {loadingPreview ? (
-                    <p className="rec__quiet">读取预览…</p>
+                    <p className="rec__quiet">{t('rec.loadingPreview')}</p>
                   ) : (
                     preview && (
                       <>
@@ -372,7 +373,7 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
             <p className="rec__error" role="alert" data-testid="record-error">
               <code>{rowError.code}</code> {rowError.message}{' '}
               <button type="button" onClick={() => inputStore.dismissError()}>
-                知道了
+                {t('rec.gotIt')}
               </button>
             </p>
           )}
@@ -384,24 +385,24 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   <Action
                     method="confirm"
                     id={id}
-                    label="T 认可为真"
-                    busyText="认可中…"
+                    label={t('rec.act.T')}
+                    busyText={t('rec.busy.agreeing')}
                     busy={busyConfirm}
                     settling={settling}
                     tone="primary"
                     testid="act-confirm-true"
-                    title={demo ? '二次判断为真：标记为训练，大脑演出一次（演示，没有运行模型）' : '二次判断为真：训练模型，大脑演出一次'}
+                    title={demo ? t('rec.act.T.title.demo') : t('rec.act.T.title')}
                     onClick={() => void inputStore.confirm(id, true)}
                   />
                   <Action
                     method="confirm"
                     id={id}
-                    label="F 不同意"
-                    busyText="处理中…"
+                    label={t('rec.act.F')}
+                    busyText={t('rec.busy.working')}
                     busy={busyConfirm}
                     settling={settling}
                     testid="act-confirm-false"
-                    title={demo ? '二次判断为否：不标记为训练，可编辑或删除' : '二次判断为否：不训练，可编辑或删除'}
+                    title={demo ? t('rec.act.F.title.demo') : t('rec.act.F.title')}
                     onClick={() => void inputStore.confirm(id, false)}
                   />
                 </>
@@ -410,13 +411,13 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 <Action
                   method="confirm"
                   id={id}
-                  label="纳入当前模型"
-                  busyText="纳入中…"
+                  label={t('rec.act.enlist')}
+                  busyText={t('rec.busy.enlisting')}
                   busy={busyConfirm}
                   settling={settling}
                   tone="primary"
                   testid="act-reenlist"
-                  title="再次判定为 T：把它重新纳入当前模型；之前冻结的拟合会恢复，大脑演出一次"
+                  title={t('rec.act.enlist.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -424,12 +425,12 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 <Action
                   method="revoke"
                   id={id}
-                  label="撤销"
-                  busyText="撤销中…"
+                  label={t('rec.revoke')}
+                  busyText={t('rec.busy.revoking')}
                   busy={busyRevoke}
                   settling={settling}
                   testid="act-revoke"
-                  title={demo ? '取消演示里的训练标记；历史保留' : '把它从训练里拿掉；历史保留'}
+                  title={demo ? t('rec.act.revoke.title.demo') : t('rec.act.revoke.title')}
                   onClick={() => void inputStore.revoke(id)}
                 />
               )}
@@ -437,12 +438,12 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 <Action
                   method="confirm"
                   id={id}
-                  label="改判为 T"
-                  busyText="认可中…"
+                  label={t('rec.changeToT')}
+                  busyText={t('rec.busy.agreeing')}
                   busy={busyConfirm}
                   tone="primary"
                   testid="act-rejudge"
-                  title={demo ? '二次判断改为真：标记为训练（演示，没有运行模型）' : '二次判断改为真：训练模型'}
+                  title={demo ? t('rec.act.toT.title.demo') : t('rec.act.toT.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -450,13 +451,13 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 <Action
                   method="confirm"
                   id={id}
-                  label="重新认可"
-                  busyText="认可中…"
+                  label={t('rec.agreeAgain')}
+                  busyText={t('rec.busy.agreeing')}
                   busy={busyConfirm}
                   settling={settling}
                   tone="primary"
                   testid="act-reagree"
-                  title={demo ? '二次判断再次为真：重新标记为训练（演示，没有运行模型）' : '二次判断再次为真：重新参与训练；之前冻结的拟合会恢复'}
+                  title={demo ? t('rec.act.again.title.demo') : t('rec.act.again.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -464,7 +465,7 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 <Action
                   method="inputEdit"
                   id={id}
-                  label="编辑"
+                  label={t('rec.edit')}
                   tag={demoTag}
                   testid="act-edit"
                   settling={settling}
@@ -472,10 +473,10 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                 />
               )}
               {confirmDelete ? (
-                <span className="rec__confirm" data-testid="delete-confirm" role="group" aria-label="确认删除">
+                <span className="rec__confirm" data-testid="delete-confirm" role="group" aria-label={t('rec.delete.confirm')}>
                   <span>
-                    确认删除？<em>连同全部历史一起删除{rec.status === 'agreed' ? '，它对模型的贡献也会撤回' : ''}</em>
-                    {mode === 'demo' && <em>演示模式下删除后不可恢复</em>}
+                    {t('rec.delete.ask')}<em>{t('rec.delete.history')}{rec.status === 'agreed' ? t('rec.delete.contribution') : ''}</em>
+                    {mode === 'demo' && <em>{t('rec.delete.demo')}</em>}
                   </span>
                   <button
                     type="button"
@@ -485,17 +486,17 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                     autoFocus
                     onClick={() => void inputStore.remove(id)}
                   >
-                    {busyRemove ? '删除中…' : '确认删除'}
+                    {busyRemove ? t('rec.busy.deleting') : t('rec.delete.confirm')}
                   </button>
                   <button type="button" className="rec__act rec__act--plain" data-testid="act-delete-cancel" onClick={() => setConfirmDelete(false)}>
-                    取消
+                    {t('common.cancel')}
                   </button>
                 </span>
               ) : (
                 <Action
                   method="inputDelete"
                   id={id}
-                  label="删除"
+                  label={t('rec.delete')}
                   tag={demoTag}
                   testid="act-delete"
                   settling={settling}
@@ -506,10 +507,10 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
           )}
           {!editing && unsupported.length > 0 && (
             <p className="rec__unsupported" data-testid="record-unsupported" role="note">
-              {unsupported.join('、')}：{UNSUPPORTED_NOTE}
+              {unsupported.join(t('list.sep'))}: {t('rec.unsupported')}
             </p>
           )}
-          {sticky && <p className="rec__quiet">这一条已不在当前筛选里，关闭后会消失。</p>}
+          {sticky && <p className="rec__quiet">{t('rec.sticky')}</p>}
         </div>
       )}
     </li>

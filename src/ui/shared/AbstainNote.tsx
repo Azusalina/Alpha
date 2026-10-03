@@ -6,6 +6,7 @@
 
 import './shared.css';
 import type { RankResult } from '../../backend';
+import { t } from '../../i18n/lang';
 
 interface Props {
   result: RankResult | null | undefined;
@@ -15,7 +16,7 @@ export function AbstainNote({ result }: Props) {
   if (!result || result.status !== 'abstain') return null;
   return (
     <p className="abstain" role="note" data-testid="abstain-note">
-      <span className="abstain__title">资料不足</span>
+      <span className="abstain__title">{t('abstain.title')}</span>
       {result.reason && (
         <small className="abstain__reason" data-testid="abstain-reason">
           {result.reason}

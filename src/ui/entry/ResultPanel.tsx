@@ -31,12 +31,13 @@ import { HighlightedText, marksFromEffects } from '../shared/HighlightedText';
 import { KIND_LABELS, PARTITION_LABELS, partitionColor } from '../shared/labels';
 import { StatusChip } from '../shared/StatusChip';
 import { EntryError } from './EntryError';
+import { t } from '../../i18n/lang';
 
-export const PREVIEW_NOTE = '预览是假设值，可能过期；以确认后返回的正式结果为准';
-export const SAVED_NOT_TRAINED = '已保存，不用于训练（当下判断为否）。可在展开的大脑右侧列表里编辑或删除。';
-export const PENDING_NOTE = '尚未用于训练：展开大脑，在右侧列表里再次判定 T/F 后才会训练';
-export const ASSERTED_NOTE = '已按你的断言直接用于训练';
-export const ASSERTED_DEMO_NOTE = '演示：已按你的断言标记为直接训练。这是演示数据，没有运行模型，不会真的训练';
+
+
+
+
+
 
 const MAX_CUES = 24;
 
@@ -50,7 +51,7 @@ function Cues({ cues }: { cues: readonly TranslationCue[] }) {
   const shown = cues.slice(0, MAX_CUES);
   return (
     <div className="entry-cues" data-testid="entry-cues">
-      <span className="entry-field__label">识别到的线索</span>
+      <span className="entry-field__label">{t('result.cues')}</span>
       <ul>
         {shown.map((c, i) => (
           <li
@@ -59,13 +60,13 @@ function Cues({ cues }: { cues: readonly TranslationCue[] }) {
             title={`${c.category} · ${c.value}`}
             data-testid="entry-cue"
           >
-            {c.negated && <i>否定</i>}
+            {c.negated && <i>{t('result.negated')}</i>}
             <span className="entry-cue__text">{c.evidence}</span>
             <small>{c.value}</small>
           </li>
         ))}
         {cues.length > shown.length && (
-          <li className="entry-cue entry-cue--more">另有 {cues.length - shown.length} 个</li>
+          <li className="entry-cue entry-cue--more">{t('result.more', { n: cues.length - shown.length })}</li>
         )}
       </ul>
     </div>
@@ -111,13 +112,13 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
   const chars = codePointLength(result.text);
 
   // the judgement path in one phrase: what the user said when writing
-  const path = result.exclamation ? '断言为真' : result.immediate === false ? '当下：否' : '当下：是';
+  const path = result.exclamation ? t('result.path.assert') : result.immediate === false ? t('result.path.no') : t('result.path.yes');
 
   const announce = result.trained
-    ? `已写入：已认可，${ASSERTED_NOTE}`
+    ? `${t('result.saved')}: ${t('result.agreed')}, ${t('result.asserted')}`
     : result.status === 'pending'
-      ? `已写入：待确认，${result.previewState === 'ready' ? '预览已生成' : '正在生成预览'}`
-      : '已写入：不同意，不用于训练';
+      ? `${t('result.saved')}: ${t('result.pending')}, ${result.previewState === 'ready' ? t('result.previewReady') : t('result.previewBusy')}`
+      : `${t('result.saved')}: ${t('result.disagreed')}`;
 
   return (
     <div
@@ -136,7 +137,7 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
 
       <div className="entry-summary" data-testid="entry-summary">
         <h3 className="entry-summary__title" tabIndex={-1} ref={headingRef} data-testid="entry-result-heading">
-          已写入
+          {t('result.saved')}
         </h3>
         <span className="entry-summary__facts">
           <i className="state-dot" style={{ background: partitionColor(result.partition) }} aria-hidden="true" />
@@ -144,12 +145,12 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
           {' · '}
           {KIND_LABELS[result.kind]}
           {' · '}
-          {chars.toLocaleString('en-US')} 字符
+          {t('result.chars', { n: chars.toLocaleString('en-US') })}
           {' · '}
           {path}
         </span>
         <button type="button" className="entry-link" data-testid="entry-again" onClick={inputStore.dismissResult}>
-          再写一份
+          {t('result.again')}
         </button>
       </div>
 
@@ -160,45 +161,45 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
       {/* the key message and the way on come FIRST: the evidence below can be long, and on a 1366x768 window it scrolls */}
       {result.status === 'pending' && (
         <div className="entry-result__block" data-testid="entry-pending-note">
-          <p>{PENDING_NOTE}</p>
+          <p>{t('result.pendingNote')}</p>
           <button type="button" className="entry-link" data-testid="entry-open-brain" onClick={onBrain}>
-            展开大脑
+            {t('result.openBrain')}
           </button>
         </div>
       )}
 
       {result.status === 'disagreed' && (
         <div className="entry-result__block" data-testid="entry-saved-note">
-          <p>{SAVED_NOT_TRAINED}</p>
+          <p>{t('result.savedNotTrained')}</p>
           {!inputStore.can('inputEdit') && inputStore.can('submit') && (
-            <p className="entry-result__fine">当前后端尚不支持编辑和删除；这两项只在演示模式可用。</p>
+            <p className="entry-result__fine">{t('result.noEdit')}</p>
           )}
           <button type="button" className="entry-link" data-testid="entry-open-brain" onClick={onBrain}>
-            展开大脑
+            {t('result.openBrain')}
           </button>
         </div>
       )}
 
       {result.trained && (
         <div className="entry-result__block" data-testid="entry-trained-note">
-          <p>{demo ? ASSERTED_DEMO_NOTE : ASSERTED_NOTE}</p>
+          <p>{demo ? t('result.assertedDemo') : t('result.asserted')}</p>
         </div>
       )}
 
       {result.status === 'pending' && (
         <p className="entry-result__fine" data-testid="entry-preview-note">
-          {PREVIEW_NOTE}
+          {t('result.previewNote')}
         </p>
       )}
 
       {result.status === 'pending' && result.previewState === 'loading' && (
         <p className="entry-result__fine" data-testid="entry-preview-loading">
-          正在生成预览…
+          {t('result.previewing')}
         </p>
       )}
       {result.status === 'pending' && result.previewState === 'error' && (
         <p className="entry-result__fine" data-testid="entry-preview-failed">
-          预览没有生成；这不影响已保存的这份内容。
+          {t('result.previewFailed')}
         </p>
       )}
       <EntryError actions={['preview']} id={result.source_id} />
@@ -208,7 +209,7 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
 
       {(result.trained || (result.status === 'pending' && result.previewState === 'ready')) && (
         <div className="entry-result__evidence">
-          <span className="entry-field__label">{result.trained ? '原文与证据' : '原文与证据（预览）'}</span>
+          <span className="entry-field__label">{result.trained ? t('result.textEvidence') : t('result.textEvidencePreview')}</span>
           <HighlightedText text={result.text} marks={marks} activeId={active} data-testid="entry-result-text" />
           <EffectsTable effects={effects} activeId={active} onActiveChange={setActive} />
         </div>
@@ -216,12 +217,12 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
 
       {result.status === 'disagreed' && (
         <div className="entry-result__evidence">
-          <span className="entry-field__label">原文</span>
+          <span className="entry-field__label">{t('result.text')}</span>
           <HighlightedText text={result.text} data-testid="entry-result-text" />
         </div>
       )}
 
-      {inputs.busy.submit && <p className="entry-result__fine">处理中…</p>}
+      {inputs.busy.submit && <p className="entry-result__fine">{t('busy.processing')}</p>}
     </div>
   );
 });

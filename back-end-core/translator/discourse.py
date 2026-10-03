@@ -34,6 +34,14 @@ _OTHER_VALUE = re.compile(
     + r"|" + _OTHER_ACTOR + r"(?:的)?(?:眼[里裡中]|心[里裡中])"
 )
 _OWN_VALUE_VIEW = re.compile(r"(?:对|對)我[来來][说說]|(?:在|从|從)我(?:的)?(?:眼[里裡中]|看来|看來)")
+# Diary date decorations such as 03.08.25' are not opening quotations.
+# Only a bounded day/month/year suffix followed by a separator is recognized.
+# Never override a closing mark belonging to an already-open quotation.
+_DATE_SUFFIX = re.compile(
+    r"(?<![0-9A-Za-z])(?:0?[1-9]|[12][0-9]|3[01])[./-]"
+    r"(?:0?[1-9]|1[0-2])[./-](?:[0-9]{4}|[0-9]{2})$"
+)
+_DATE_SEPARATOR = frozenset(" \t\r\n:：，,。.;；)）]")
 
 
 def protected_ranges(text: str, kind: str, self_speaker: str | None) -> list[tuple[int, int, str]]:
@@ -51,6 +59,11 @@ def protected_ranges(text: str, kind: str, self_speaker: str | None) -> list[tup
                     opened, _, reason = stack.pop()
                     result.append((opened, index + len(token), reason))
                 index += len(token)
+                continue
+            if (char == "'" and not stack
+                    and _DATE_SUFFIX.search(text[max(start, index - 16):index])
+                    and (index + 1 == end or text[index + 1] in _DATE_SEPARATOR)):
+                index += 1
                 continue
             if char == "'" and index > start and index + 1 < end and (
                     text[index - 1].isascii() and text[index - 1].isalpha()

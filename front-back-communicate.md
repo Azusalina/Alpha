@@ -287,3 +287,33 @@
 - 报告：`/tmp/alpha-native-faults-20261002/fault-eof.json`、`/tmp/alpha-native-faults-20261002/fault-invalid.json`、`/tmp/alpha-native-faults-20261002/fault-timeout.json`。每项覆盖 actual native DOM startup failure + explicit reconnect、ambiguous submit + explicit read 恢复恰好一条；fixture method logs 恰好一次 submit，no_write_autoretry=true。
 - real/persistence + 三个 fault，共五个 native DOM scenarios passed。此前 process inspection / 未选 partition 的初始失败属于 harness failure，非 product failure；保留历史，由最终 main 验证覆盖其待验状态。
 - administrative model-reset/reconnect、physical input/GPU、F13 unlock/cache UI 仍 pending；不宣称最新 frontend 全部验证或真实数据效度。仅最小文档状态同步，无代码修改或重复测试。
+
+### [back] 2026-10-03 Hybrid 项目授权与文档阶段（main-authored synthesis）
+
+- 用户现已授权 hybrid 项目开发，**F14 不再延期**。本追加记录覆盖上方历史「F14 deferred／本轮不做／仍延期」的范围状态；历史正文保留。当前执行仅为文档编写，新增能力尚未实现。详细主线、阶段、签名草案、复制位置和验收边界见 [hybrid-learning-plan.md](back-end-core/docs/hybrid-learning-plan.md)。其余未编辑文档中的 F14 延期文字是旧状态，不代表本次拒绝授权。
+- 新项目工作目标：本机 hybrid 理解＋带可编辑证据的记忆＋显式选择偏好 ML。材料 `immediate/confirm` 双 T/F、`actual_choice` 实际选择、`endorsed_choice` 理性事后认可分别记录；双 true 不产生选择标签或 F14 训练同意。目标不是 digital-self、心理诊断或 MMPI；检索相似度不是事实真值，排序／softmax 分数不是已校准的真实选择概率。
+- 已静态核对当前栈：React 19／TypeScript／Vite 7，**Tauri 2**（package.json CLI ^2.12.0；Cargo.toml tauri/tauri-build major 2；锁文件 tauri 2.11.5、tauri-build 2.6.3、CLI 2.12.0），不是猜测的 Tauri 3。后端 Python >=3.10、SQLite、现有 jieba 词汇／分词；`core.api`、api.md、api.schema.json 和 revision 2 handoff 当前仍为 schema_version=1、contract_revision=2、30 methods。
+- 技术主线：可选 SentenceTransformers／PyTorch CPU 冻结预训练 encoder（无需 LLM）；BGE-M3 仅候选，未在本阶段安装／验证。先写离线接口与合成替身，不下载模型权重。首个选择 ML 基线为纯 Python 正则化 multinomial logistic，使用当前八个 `value.*` 的显式、有限 [-1,1] 选项 impacts；按 target／partition／domain 隔离，ML 权重按显式请求从合资格反馈派生，证据记忆仍在 SQLite，不写入模型权重。小 MLP／LoRA 只有独立留出增益支持后才考虑。
+- 目标设置工具状态记录：用户提供的既有记录为 **BLOCKED：unfinished prior goal，usageLimited**；保留该阻碍，不覆盖／完成旧目标。本阶段只在项目文档记录新 working goal，没有创建工具目标，也没有创建产品 active goal。本次只读 `get_goal` 返回 goal=null，未复现历史拒绝；不把用户提供的历史状态伪装成本次失败或当前已创建目标。
+
+- [ ] **P0｜契约／访问发现与主验收基线**：从当前 30 methods rev2 与 AccessSession 出发，核对 public/private gate、授权／全局 revision／source_version／epoch 和旧 F6 排队操作边界。静态发现已记录，阶段实施与 main 验收未完成。
+- [ ] **P1｜可选本机语义编码与检索**：计划 evidence-gated `memory_search_semantic`，仅 accepted＋agreed＋当前 source_version 的记忆参与，分区先筛选；禁用／缺失 encoder 时 lexical fallback disabled，不静默改用字面检索。既有 `memory_search` 保持单独的显式字面方法；不持久化 embedding cache，不训练 encoder，不因检索发布候选。
+- [ ] **P2｜F14 显式反馈与选择偏好基线**：计划 guarded `choice_feedback_set/get`、只读 `preference_rank`。approved source＋current source version＋current epoch＋独立明确 training consent 才能拟合；actual／endorsed 分开，跨 target／partition／domain 不混训。删除／编辑 purge 反馈与派生贡献；reopen／revoke 使旧贡献失效；Reset 排除至明确重新纳入，不自动恢复。读取／推断不训练；拟合触发、未定结果字段和不足样本阈值留给实现契约，不由文档自选行为。
+- [ ] **P3｜分组／时间留出评估**：沿用 readiness／evaluation 模板和授权只读 snapshot，再补 hybrid 多 target／partition／domain 评估及泄漏保护；保留训练暴露、复制／改写分组、冻结时间和独立盲标。现有工具不等于新 ML evaluator 已实现；合成验证不声称真实预测效度。
+- [ ] **P4｜前端／native／离线模型发行交接**：前端 owner 负责 unlock/cache、F14 标签及 consent、能力探测／版本、只读与训练显示；host/release owner 负责 native、离线模型 manifest／打包与硬件性能。后端不写 `src/`。现有 release/native 基线不等于新模型、F14 或 physical GPU 已验收。
+
+- 新方法仅 **PROPOSED / planned, not implemented**，不属于当前 30-method schema；未来实现须由各 owner 同步 api.md、api.schema.json、handoff、host 和前端能力探测，并经 main 证据验证后才勾选。此处没有把授权写成实现，也不重新声明旧测试已在本轮复跑。
+- 本轮只追加本文件并新建计划文档，使用 apply_patch；未编辑 `src/`、用户现有 `translator/discourse.py` 变更或其他文件，未读取／导入／训练真实私人数据，未访问实际用户数据库，未下载模型权重，未 commit/push。**No real data used.**
+- 官方依据：[SentenceTransformer API](https://sbert.net/docs/package_reference/sentence_transformer/model.html) 支持本地路径、CPU、local_files_only 与 encode；[BAAI BGE-M3 model card](https://huggingface.co/BAAI/bge-m3) 描述候选 encoder。它们支持接口研究，不证明 Alpha 已装好模型、中文语义正确或 CPU 性能合格。
+
+### [back] 2026-10-03 暂停检查点（覆盖上方本轮草稿的冲突描述）
+
+- 用户要求 **pause for today, save progress**；开发代理已停止，既有工具目标返回 `status=paused`。主代理此前 create_goal 因本线程已有未完成目标而被拒绝；新 hybrid 项目目标记录在文档，未创建新的工具目标、未标成完成。上方“用户提供 BLOCKED／本次 get_goal=null”是文档代理线程的误记，不是主线程工具事实。
+- 接续入口：[hybrid-learning-checkpoint-2026-10-03.md](back-end-core/docs/hybrid-learning-checkpoint-2026-10-03.md)。实现草稿和未验收测试保留在工作树，无 commit/push；保留并行前端与用户已有修改，不访问真实材料/数据库、不下载模型权重。
+- 已确认：F14 解除延期，实际/事后认可选择独立，来源双 true 不代替选择标签或 training_consent；首版由前端显式提供 impacts 并由用户审核。
+- 技术栈：Tauri 2（已有宿主）＋Python >=3.10/SQLite/jieba；可选 SentenceTransformers 6.1.0/PyTorch CPU 冻结 encoder；纯 Python L2 multinomial logistic 的 8 个偏好特征，与现有 13 个规则参数独立。参考代码已克隆至 ext-refs/sentence-transformers，无权重和真实模型验收。
+- 当前目标流程：`文本 → AccessSession → 规则/纠错 → 来源双确认 → 证据记忆 → 可选本机向量检索`；另一条为 `显式选项/审核 impacts + actual/endorsed + training_consent → 当前来源/版本/epoch 筛选 → 临时偏好拟合/排序 → 解释或拒答 → 后续留出验证`。
+- 更正草稿：未配置 encoder 时，新检索接口明确返回 `lexical_fallback`，配置后失败则报错；偏好 domain 为 daily/study/relationships。当前 preference_rank 草稿会按请求从合资格快照临时拟合，不写 DB、不训练 encoder，**不是“从不调用 fit”**。新接口参数为闭合的显式字段，不是任意 feedback 字典。
+- 已保存 semantic/preferences 模块与测试、API/来源清理/schema 草稿及计划。代码尝试声明 revision 3 / 34 methods，但契约、文档、安全兼容和全量回归尚未完成，前端 **不要据此启用新能力**。
+- 最后已观察证据：semantic 25 项合成测试通过（早于最后修改）；集成中间态 27 项有 7 failures/6 errors，后续草稿未复跑。首要实际问题是新反馈表尚未进入 backup.validate_database 的严格参考 schema，导致 setup_access 失败；下次先补旧/新库与备份/恢复兼容，再统一反馈字段/schema/tests/docs。离线预检、最终回归、新偏好留出工具、前端/native/模型硬件验收均未完成。
+- **暂停状态：未交付 hybrid 新能力、没有真实效度证明；暂不要在真实运行库启用/迁移本轮草稿。** 保存进度后不继续开发，等待用户明确恢复。

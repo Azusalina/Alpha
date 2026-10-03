@@ -10,6 +10,54 @@
     "optionalPartition": {"enum": ["rational", "emotional", "crazy", null]},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100},
     "revision": {"type": "integer", "minimum": 0},
+    "semanticQuery": {"type": "string", "minLength": 1, "maxLength": 2048, "pattern": "\\S", "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "cosine": {"type": "number", "minimum": -1, "maximum": 1},
+    "choiceId": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S", "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "nullableChoiceId": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/choiceId"}]},
+    "choiceReason": {"type": ["string", "null"], "maxLength": 2048, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "choiceDomain": {"enum": ["daily", "study", "relationships"]},
+    "preferenceTarget": {"enum": ["actual", "endorsed"]},
+    "valueFeature": {"enum": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection"]},
+    "choiceOptions": {
+      "type": "array", "minItems": 2, "maxItems": 8,
+      "items": {"type": "object", "required": ["id", "impacts"], "additionalProperties": false,
+        "properties": {"id": {"$ref": "#/$defs/choiceId"}, "label": {"type": "string", "maxLength": 512, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+          "impacts": {"type": "object", "maxProperties": 8, "propertyNames": {"$ref": "#/$defs/valueFeature"}, "additionalProperties": {"$ref": "#/$defs/cosine"}}}},
+      "description": "Runtime requires unique option IDs and user-reviewed, explicitly supplied impacts; no inferred NLP impacts."
+    },
+    "endorsementLabels": {
+      "if": {"properties": {"endorsed_choice_id": {"type": "null"}}},
+      "then": {"properties": {"endorsement_partition": {"const": null}}},
+      "else": {"properties": {"endorsement_partition": {"$ref": "#/$defs/partition"}}}
+    },
+    "choiceFeedbackFields": {
+      "type": "object", "required": ["source_id", "event_id", "domain", "options", "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "training_consent", "reason", "partition", "source_version", "model_epoch", "body_digest", "created_at", "model_active"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/choiceId"}, "event_id": {"$ref": "#/$defs/choiceId"}, "domain": {"$ref": "#/$defs/choiceDomain"}, "options": {"$ref": "#/$defs/choiceOptions"},
+        "actual_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsed_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsement_partition": {"$ref": "#/$defs/optionalPartition"},
+        "training_consent": {"type": "boolean"}, "reason": {"$ref": "#/$defs/choiceReason"}, "partition": {"$ref": "#/$defs/partition"},
+        "source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}, "body_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64},
+        "created_at": {"$ref": "#/$defs/text"}, "model_active": {"type": "boolean"}
+      },
+      "allOf": [{"$ref": "#/$defs/endorsementLabels"}]
+    },
+    "choiceFeedbackRecord": {"allOf": [{"$ref": "#/$defs/choiceFeedbackFields"}], "unevaluatedProperties": false},
+    "valueWeights": {
+      "type": "object", "required": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection"],
+      "minProperties": 8, "maxProperties": 8, "propertyNames": {"$ref": "#/$defs/valueFeature"}, "additionalProperties": {"type": "number"}
+    },
+    "preferenceResult": {
+      "type": "object", "required": ["status", "reason", "basis", "not_calibrated", "target", "partition", "domain", "model_epoch", "input_revision", "training_sources", "used_features", "weights", "ranked"], "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["abstain", "provisional"]}, "reason": {"enum": [null, "too_many_feedback_records", "endorsed_requires_rational_partition", "insufficient_independent_sources", "nonfinite_fit", "no_identifiable_preference", "invalid_feedback_snapshot", "options_tied_with_learned_weights", "unsupported_option_features"]},
+        "basis": {"const": "personal_choice_feedback_multinomial_logistic"}, "not_calibrated": {"const": true}, "target": {"$ref": "#/$defs/preferenceTarget"}, "partition": {"$ref": "#/$defs/partition"}, "domain": {"$ref": "#/$defs/choiceDomain"},
+        "model_epoch": {"$ref": "#/$defs/revision"}, "input_revision": {"$ref": "#/$defs/revision"}, "training_sources": {"type": "integer", "minimum": 0, "maximum": 1000}, "used_features": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/valueFeature"}}, "weights": {"$ref": "#/$defs/valueWeights"},
+        "ranked": {"type": "array", "maxItems": 8, "items": {"type": "object", "required": ["id", "score", "model_probability", "contributions"], "additionalProperties": false,
+          "properties": {"id": {"$ref": "#/$defs/choiceId"}, "score": {"type": "number"}, "model_probability": {"type": "number", "minimum": 0, "maximum": 1}, "contributions": {"$ref": "#/$defs/valueWeights"}}}}
+      },
+      "if": {"properties": {"status": {"const": "abstain"}}}, "then": {"properties": {"ranked": {"const": []}, "reason": {"type": "string"}}},
+      "else": {"properties": {"reason": {"const": null}, "ranked": {"minItems": 2}, "training_sources": {"minimum": 3}}}
+    },
     "sourceIds": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
     "password": {"type": "string", "minLength": 1, "maxLength": 1024, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}, "description": "Runtime additionally caps UTF-8 encoding at 1024 bytes; never trim or log."},
     "accessStatus": {
@@ -284,6 +332,21 @@
     "activeMemoryRow": {
       "allOf": [{"$ref": "#/$defs/candidateRow"}], "properties": {"status": {"const": "accepted"}, "source_status": {"const": "agreed"}}
     },
+    "semanticMemoryItem": {
+      "type": "object", "required": ["memory", "score", "encoded_text_truncated"], "additionalProperties": false,
+      "properties": {"memory": {"$ref": "#/$defs/activeMemoryRow"}, "score": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/cosine"}]}, "encoded_text_truncated": {"type": "boolean"}}
+    },
+    "semanticMemoryResult": {
+      "type": "object", "required": ["mode", "score_kind", "items", "pool_count", "pool_truncated"], "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["semantic", "lexical_fallback"]}, "score_kind": {"enum": ["cosine", "none"]},
+        "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/semanticMemoryItem"}},
+        "pool_count": {"type": "integer", "minimum": 0, "maximum": 1000}, "pool_truncated": {"type": "boolean"}
+      },
+      "allOf": [{"if": {"properties": {"mode": {"const": "semantic"}}},
+        "then": {"properties": {"score_kind": {"const": "cosine"}, "items": {"items": {"properties": {"score": {"$ref": "#/$defs/cosine"}}}}}},
+        "else": {"properties": {"score_kind": {"const": "none"}, "items": {"items": {"properties": {"score": {"const": null}, "encoded_text_truncated": {"const": false}}}}}}}]
+    },
     "results": {
       "$defs": {
         "access_status": {"$ref": "#/$defs/accessStatus"},
@@ -306,11 +369,11 @@
         "health": {
           "type": "object", "required": ["schema_version", "contract_revision", "candidate_publication", "llm_runtime_configured", "methods", "features", "access"], "additionalProperties": false,
           "properties": {
-            "schema_version": {"const": 1}, "contract_revision": {"const": 2}, "access": {"$ref": "#/$defs/accessStatus"}, "candidate_publication": {"const": "automatic_double_approval"}, "llm_runtime_configured": {"const": false},
+            "schema_version": {"const": 1}, "contract_revision": {"const": 3}, "access": {"$ref": "#/$defs/accessStatus"}, "candidate_publication": {"const": "automatic_double_approval"}, "llm_runtime_configured": {"const": false},
             "model_epoch": {"type": "integer", "minimum": 0},
-            "methods": {"type": "array", "minItems": 30, "maxItems": 30, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
-            "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete"], "additionalProperties": false,
-              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}}}
+            "methods": {"type": "array", "minItems": 34, "maxItems": 34, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
+            "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete", "access_control", "source_versions", "correction_reopen", "explicit_replay", "typed_corrections", "semantic_memory_search", "semantic_encoder_configured", "choice_feedback", "preference_learning"], "additionalProperties": false,
+              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}, "semantic_memory_search": {"const": true}, "semantic_encoder_configured": {"type": "boolean"}, "choice_feedback": {"const": true}, "preference_learning": {"const": true}}}
           },
           "allOf": [{"if": {"properties": {"access": {"properties": {"locked": {"const": true}}}}}, "then": {"not": {"required": ["model_epoch"]}}, "else": {"required": ["model_epoch"]}}]
         },
@@ -392,7 +455,12 @@
         "candidate_review": {"allOf": [{"$ref": "#/$defs/candidateFields"}], "unevaluatedProperties": false, "properties": {"status": {"enum": ["accepted", "rejected"]}}},
         "candidate_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/candidateRow"}},
         "memory_list": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/activeMemoryRow"}},
-        "memory_search": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/activeMemoryRow"}}
+        "memory_search": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/activeMemoryRow"}},
+        "memory_search_semantic": {"$ref": "#/$defs/semanticMemoryResult"},
+        "choice_feedback_set": {"allOf": [{"$ref": "#/$defs/choiceFeedbackFields"}], "required": ["input_revision"], "properties": {"input_revision": {"$ref": "#/$defs/revision"}}, "unevaluatedProperties": false},
+        "choice_feedback_get": {"type": "object", "required": ["source_id", "records", "input_revision", "model_epoch"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "records": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/choiceFeedbackRecord"}}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}},
+        "preference_rank": {"$ref": "#/$defs/preferenceResult"}
       }
     },
     "empty": {"type": "object", "additionalProperties": false},
@@ -405,10 +473,28 @@
       "properties": {
         "schema_version": {"const": 1},
         "id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search", "access_status", "unlock", "lock", "correction_reopen", "review_version", "replay_preview", "replay_reopen"]},
+        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search", "access_status", "unlock", "lock", "correction_reopen", "review_version", "replay_preview", "replay_reopen", "memory_search_semantic", "choice_feedback_set", "choice_feedback_get", "preference_rank"]},
         "params": {"type": "object"}
       },
       "allOf": [
+        {"if": {"properties": {"method": {"const": "choice_feedback_set"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id", "event_id", "domain", "options", "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "training_consent", "expected_source_version", "expected_revision", "expected_epoch"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "event_id": {"$ref": "#/$defs/choiceId"}, "domain": {"$ref": "#/$defs/choiceDomain"}, "options": {"$ref": "#/$defs/choiceOptions"},
+            "actual_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsed_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsement_partition": {"$ref": "#/$defs/optionalPartition"}, "training_consent": {"type": "boolean"}, "reason": {"$ref": "#/$defs/choiceReason"},
+            "expected_source_version": {"$ref": "#/$defs/revision"}, "expected_revision": {"$ref": "#/$defs/revision"}, "expected_epoch": {"$ref": "#/$defs/revision"}},
+          "allOf": [{"$ref": "#/$defs/endorsementLabels"}]
+        }}}},
+        {"if": {"properties": {"method": {"const": "choice_feedback_get"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id"], "additionalProperties": false, "properties": {"source_id": {"$ref": "#/$defs/choiceId"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "preference_rank"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["options", "target", "partition", "domain"], "additionalProperties": false,
+          "properties": {"options": {"$ref": "#/$defs/choiceOptions"}, "target": {"$ref": "#/$defs/preferenceTarget"}, "partition": {"$ref": "#/$defs/partition"}, "domain": {"$ref": "#/$defs/choiceDomain"}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "memory_search_semantic"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["query"], "additionalProperties": false,
+          "properties": {"query": {"$ref": "#/$defs/semanticQuery"}, "partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "min_score": {"$ref": "#/$defs/cosine"}}
+        }}}},
         {"if": {"properties": {"method": {"enum": ["health", "baseline", "access_status", "lock"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
         {"if": {"properties": {"method": {"const": "unlock"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["password"], "additionalProperties": false, "properties": {"password": {"$ref": "#/$defs/password"}}

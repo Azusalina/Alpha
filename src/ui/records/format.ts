@@ -3,6 +3,7 @@
  */
 
 import { codePointLength } from '../../backend';
+import { t } from '../../i18n/lang';
 
 /** "10-01 14:32" in the viewer's zone; an unparsable stamp is shown as it came. */
 export function formatTime(iso: string | null | undefined): string {
@@ -31,16 +32,9 @@ export function formatFull(iso: string | null | undefined): string {
 export function displayExcerpt(excerpt: string, charCount: number): string {
   // eslint-disable-next-line no-control-regex
   const flat = excerpt.replace(/[\u0000-\u001f\u007f\u0085\s]+/gu, ' ').trim();
-  const shown = flat === '' ? '（空白）' : flat;
+  const shown = flat === '' ? t('rec.blank') : flat;
   return charCount > codePointLength(excerpt) ? `${shown}…` : shown;
 }
 
 /** T / F / — for a judgement (null = not made). */
 export const tf = (v: boolean | null | undefined): 'T' | 'F' | '—' => (v === null || v === undefined ? '—' : v ? 'T' : 'F');
-
-/**
- * Shown wherever a greyed action explains itself. User-facing wording only; the
- * developer pointer is here: edit and delete are request F6 in
- * front-back-communicate.md ([back] has not implemented it).
- */
-export const UNSUPPORTED_NOTE = '后端暂不支持编辑和删除';

@@ -7,6 +7,7 @@
 
 import { inputStore, useInputs } from '../../app/inputStore';
 import type { InputError } from '../../app/inputStore';
+import { t } from '../../i18n/lang';
 
 interface Props {
   actions: InputError['action'][];
@@ -19,12 +20,12 @@ export function EntryError({ actions, id }: Props) {
   return (
     <div className="entry-error" role="alert" data-testid="entry-error" data-code={error.code}>
       <p>
-        <b>{error.action === 'preview' ? '预览失败' : '写入失败'}</b>
+        <b>{error.action === 'preview' ? t('entry.error.preview') : t('entry.error.submit')}</b>
         <code data-testid="entry-error-code">{error.code}</code>
       </p>
       <p className="entry-error__msg">{error.message}</p>
       <button type="button" className="entry-link" onClick={inputStore.dismissError}>
-        关闭提示
+        {t('entry.error.close')}
       </button>
     </div>
   );

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sqlite3
 import stat
@@ -20,7 +21,7 @@ from .brain import BrainCore
 from .pagination import StaleCursor
 
 SCHEMA_VERSION = 1
-CONTRACT_REVISION = 2
+CONTRACT_REVISION = 3
 MAX_REQUEST_CHARS = MAX_CHARS * 6 + 4096
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
 
@@ -51,6 +52,12 @@ METHODS = {
     "candidate_list": ((), ("partition", "status", "limit")),
     "memory_list": ((), ("partition", "limit")),
     "memory_search": (("query",), ("partition", "limit")),
+    "memory_search_semantic": (("query",), ("partition", "limit", "min_score")),
+    "choice_feedback_set": (("source_id", "event_id", "domain", "options", "actual_choice_id",
+                             "endorsed_choice_id", "endorsement_partition", "training_consent",
+                             "expected_source_version", "expected_revision", "expected_epoch"), ("reason",)),
+    "choice_feedback_get": (("source_id",), ()),
+    "preference_rank": (("options", "target", "partition", "domain"), ()),
 }
 PUBLIC_METHODS = frozenset({"health", "baseline", "access_status", "unlock", "lock"})
 TEXT_FIELDS = {"text", "partition", "kind", "self_speaker", "source_ref", "source_id",
@@ -101,9 +108,14 @@ def error_response(request_id: str | None, code: str, message: str) -> dict:
 
 
 class BrainAPI:
-    def __init__(self, path: str | Path, *, trace: bool = False):
+    def __init__(self, path: str | Path, *, trace: bool = False,
+                 semantic_encoder=None, semantic_model_path: Path | None = None):
+        if semantic_encoder is not None and semantic_model_path is not None:
+            raise ValueError("configure one semantic encoder provider")
         self.path = Path(path)
         self.trace = trace
+        self.semantic_encoder = semantic_encoder
+        self.semantic_model_path = Path(semantic_model_path) if semantic_model_path is not None else None
         self.access = AccessSession(path)
         self._brain = None
         # A protected process must not construct/migrate/read the database.
@@ -132,7 +144,7 @@ class BrainAPI:
                 self._brain = None
                 raise RuntimeError("protected database unavailable") from None
         if self._brain is None:
-            self._brain = BrainCore(self.path, trace=self.trace)
+            self._brain = BrainCore(self.path, trace=self.trace, semantic_encoder=self.semantic_encoder)
         return self._brain
 
     def handle(self, request: object) -> dict:
@@ -162,6 +174,19 @@ class BrainAPI:
             if not set(required) <= set(params) or set(params) - set(required) - set(optional):
                 raise RequestError("INVALID_ARGUMENT", "missing or unknown parameter fields")
             for field, value in params.items():
+                if method == "choice_feedback_set" and field in {
+                        "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "reason"}:
+                    if value is None:
+                        continue
+                if method in {"choice_feedback_set", "choice_feedback_get", "preference_rank"}:
+                    if field in {"source_id", "event_id", "actual_choice_id", "endorsed_choice_id"}:
+                        if (not isinstance(value, str) or not value.strip() or len(value) > 128
+                                or "\0" in value):
+                            raise RequestError("INVALID_ARGUMENT", f"{field} must contain 1 to 128 characters without NUL")
+                    if field == "options" and isinstance(value, list):
+                        for option in value:
+                            if isinstance(option, dict) and isinstance(option.get("id"), str) and not option["id"].strip():
+                                raise RequestError("INVALID_ARGUMENT", "option id must contain text")
                 if value is None and field in optional and field in {"partition", "status",
                                                                     "self_speaker", "source_ref", "source_id", "cursor"}:
                     continue
@@ -172,7 +197,7 @@ class BrainAPI:
                         value.encode("utf-8")
                     except UnicodeEncodeError:
                         raise RequestError("INVALID_ARGUMENT", f"{field} must not contain surrogate code points") from None
-                if field in {"agree", "accept", "immediate", "exclamation"} and type(value) is not bool:
+                if field in {"agree", "accept", "immediate", "exclamation", "training_consent"} and type(value) is not bool:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be a boolean")
                 if field in {"limit", "min_documents"} and type(value) is not int:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be an integer")
@@ -192,6 +217,11 @@ class BrainAPI:
                     raise RequestError("INVALID_ARGUMENT", "corrections must be an array")
                 if field == "corrections" and len(value) > 64:
                     raise RequestError("INVALID_ARGUMENT", "corrections must contain at most 64 items")
+                if method == "memory_search_semantic" and field == "query" and (len(value) > 2048 or "\0" in value):
+                    raise RequestError("INVALID_ARGUMENT", "query must contain at most 2048 characters without NUL")
+                if field == "min_score" and (type(value) not in (int, float) or
+                        not -1 <= value <= 1 or not math.isfinite(value)):
+                    raise RequestError("INVALID_ARGUMENT", "min_score must be a finite number from -1 to 1")
                 if field == "password":
                     if not isinstance(value, str) or "\0" in value:
                         raise RequestError("INVALID_ARGUMENT", "invalid password")
@@ -212,7 +242,9 @@ class BrainAPI:
                                        "source_edit": True, "source_delete": True,
                                        "access_control": True, "source_versions": True,
                                        "correction_reopen": True, "explicit_replay": True,
-                                       "typed_corrections": True}}
+                                       "typed_corrections": True, "semantic_memory_search": True,
+                                       "semantic_encoder_configured": self.semantic_encoder is not None or self.semantic_model_path is not None,
+                                       "choice_feedback": True, "preference_learning": True}}
                 if not access["locked"]:
                     result["model_epoch"] = self.brain.model.reset_info()["model_epoch"]
             elif method == "baseline":
@@ -225,7 +257,16 @@ class BrainAPI:
                 result = self.access.lock()
                 self._brain = None
             else:
-                result = getattr(self.brain, method)(**params)
+                brain = self.brain
+                if method == "memory_search_semantic" and self.semantic_model_path is not None and brain.semantic_encoder is None:
+                    try:
+                        from translator.semantic import LocalSentenceEncoder
+                        brain.semantic_encoder = LocalSentenceEncoder(self.semantic_model_path)
+                    except Exception:
+                        raise RuntimeError("local model unavailable") from None
+                result = getattr(brain, method)(**params)
+                # Authorization may change during a long encoder call.
+                self.access.require()
             return {"schema_version": SCHEMA_VERSION, "id": request_id, "ok": True,
                     "result": result}
         except RequestError as error:
@@ -272,10 +313,13 @@ def serve(api: BrainAPI, input_stream: TextIO, output_stream: TextIO) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Alpha local JSON-lines backend")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    parser.add_argument("--embedding-model", type=Path, default=None,
+                        help="explicit local CPU embedding model directory; loaded on semantic search only")
     parser.add_argument('--quiet', action='store_true', help='disable model terminal tracing')
     args = parser.parse_args()
     try:
-        api = BrainAPI(args.db, trace=not args.quiet and os.environ.get('ALPHA_BRAIN_TRACE') != '0')
+        api = BrainAPI(args.db, trace=not args.quiet and os.environ.get('ALPHA_BRAIN_TRACE') != '0',
+                       semantic_model_path=args.embedding_model)
     except (AccessError, OSError, sqlite3.Error, RuntimeError) as error:
         parser.exit(1, f"backend initialization failed: {type(error).__name__}\n")
     serve(api, sys.stdin, sys.stdout)

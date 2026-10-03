@@ -58,6 +58,7 @@ import type {
   SubmitRequest,
   SubmitResult,
 } from './types';
+import { t } from '../i18n/lang';
 
 export interface RequestEnvelope {
   schema_version: 1;
@@ -149,19 +150,19 @@ function capabilitiesFor(methods: readonly string[], proposedMethods: boolean): 
 const STATUSES: readonly InputStatus[] = ['pending', 'agreed', 'disagreed', 'revoked'];
 const EXCERPT_CHARS = 80;
 
-const UNSUPPORTED_TEXT = '后端尚不支持';
+
 
 function bad(message: string): never {
   throw new BackendError('INTERNAL_ERROR', message);
 }
 
 function obj(value: unknown, what: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) bad(`后端返回的${what}格式不正确`);
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) bad(t('be.badShape', { what }));
   return value as Record<string, unknown>;
 }
 
 export class RemoteBrainAdapter implements BrainAdapter {
-  readonly info: AdapterInfo = { kind: 'remote', label: '本机后端', trains: true };
+  readonly info: AdapterInfo = { kind: 'remote', label: t('be.local'), trains: true };
 
   private readonly transport: Transport;
   private readonly twoJudgements: boolean;
@@ -186,41 +187,41 @@ export class RemoteBrainAdapter implements BrainAdapter {
 
   private async call(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
     const id = this.newId();
-    if (typeof id !== 'string' || id.length < 1 || id.length > 128) bad('请求编号必须是 1 到 128 个字符');
+    if (typeof id !== 'string' || id.length < 1 || id.length > 128) bad(t('be.reqId'));
     let response: ResponseEnvelope;
     try {
       response = await this.transport.request({ schema_version: 1, id, method, params });
     } catch (e) {
       if (e instanceof BackendError) throw e;
-      throw new BackendError('UNAVAILABLE', '后端连接中断');
+      throw new BackendError('UNAVAILABLE', t('be.dropped'));
     }
-    if (typeof response !== 'object' || response === null) bad('后端返回的响应格式不正确');
-    if (response.schema_version !== 1) throw new BackendError('UNSUPPORTED_VERSION', '后端协议版本不受支持');
-    if (response.id !== id) bad('后端响应的编号与请求不符');
+    if (typeof response !== 'object' || response === null) bad(t('be.badResponse'));
+    if (response.schema_version !== 1) throw new BackendError('UNSUPPORTED_VERSION', t('be.badVersion'));
+    if (response.id !== id) bad(t('be.idMismatch'));
     if (response.ok === true) return response.result;
     if (response.ok !== false || typeof response.error !== 'object' || response.error === null) {
-      bad('后端返回的响应格式不正确');
+      bad(t('be.badResponse'));
     }
     const { code, message } = response.error;
     if (code === 'METHOD_NOT_FOUND' && PROPOSED_API_METHODS.has(method)) {
-      throw new BackendError('UNSUPPORTED', UNSUPPORTED_TEXT);
+      throw new BackendError('UNSUPPORTED', t('be.unsupported'));
     }
     const known = WIRE_ERROR_CODES.has(code) ? (code as BackendErrorCode) : 'INTERNAL_ERROR';
-    throw new BackendError(known, typeof message === 'string' && message ? message : '后端操作失败');
+    throw new BackendError(known, typeof message === 'string' && message ? message : t('be.opFailed'));
   }
 
   private unsupported(what: string): never {
-    throw new BackendError('UNSUPPORTED', `${UNSUPPORTED_TEXT}：${what}`);
+    throw new BackendError('UNSUPPORTED', `${t('be.unsupported')}: ${what}`);
   }
 
   // -- rows
 
   /** Fills the dual-judgement fields an older back end does not send (a current one always does). `text` is known only from `input_get`. */
   private normalize(raw: unknown, text?: string): InputRecord {
-    const r = obj(raw, '输入记录');
+    const r = obj(raw, t('be.what.record'));
     const status = r.status as InputStatus;
-    if (typeof r.source_id !== 'string' || !STATUSES.includes(status)) bad('后端返回的输入记录缺少必要字段');
-    if (!PARTITIONS.includes(r.partition as never) || !KINDS.includes(r.kind as never)) bad('后端返回的输入记录缺少必要字段');
+    if (typeof r.source_id !== 'string' || !STATUSES.includes(status)) bad(t('be.recordFields'));
+    if (!PARTITIONS.includes(r.partition as never) || !KINDS.includes(r.kind as never)) bad(t('be.recordFields'));
     const known = this.excerpts.get(r.source_id);
     let excerpt = typeof r.excerpt === 'string' ? r.excerpt : known?.excerpt ?? '';
     let charCount = typeof r.char_count === 'number' ? r.char_count : known?.char_count ?? 0;
@@ -264,8 +265,8 @@ export class RemoteBrainAdapter implements BrainAdapter {
   private readHealth(): Promise<HealthReport> {
     if (!this.health) {
       const pending = this.call('health').then((res): HealthReport => {
-        const h = obj(res, '健康检查');
-        if (!Array.isArray(h.methods) || !h.methods.every((m) => typeof m === 'string')) bad('后端返回的健康检查缺少 methods');
+        const h = obj(res, t('be.what.health'));
+        if (!Array.isArray(h.methods) || !h.methods.every((m) => typeof m === 'string')) bad(t('be.healthMethods'));
         const features: Record<string, boolean> = {};
         if (typeof h.features === 'object' && h.features !== null && !Array.isArray(h.features)) {
           for (const [k, v] of Object.entries(h.features)) if (typeof v === 'boolean') features[k] = v;
@@ -306,12 +307,12 @@ export class RemoteBrainAdapter implements BrainAdapter {
   }
 
   async submit(req: SubmitRequest): Promise<SubmitResult> {
-    if (typeof req.immediate !== 'boolean') throw new BackendError('INVALID_ARGUMENT', 'immediate 必须是布尔值');
+    if (typeof req.immediate !== 'boolean') throw new BackendError('INVALID_ARGUMENT', t('be.bool', { name: 'immediate' }));
     const exclamation = req.exclamation ?? false;
     if (!this.twoJudgements && (!req.immediate || exclamation)) {
       // A back end without `two_judgements` rejects unknown fields and cannot store either; sending a plain
       // submit would make something the user said is not true eligible for training.
-      this.unsupported('当前后端无法记录“当下不是真的”或“断言为真”');
+      this.unsupported(t('be.noTwoJudgements'));
     }
     const params: Record<string, unknown> = { text: req.text, partition: req.partition, kind: req.kind ?? 'diary' };
     if (req.self_speaker !== undefined) params.self_speaker = req.self_speaker;
@@ -321,26 +322,26 @@ export class RemoteBrainAdapter implements BrainAdapter {
       params.immediate = req.immediate;
       params.exclamation = exclamation;
     }
-    const r = obj(await this.call('submit', params), '提交结果');
-    if (typeof r.source_id !== 'string') bad('后端返回的提交结果缺少 source_id');
+    const r = obj(await this.call('submit', params), t('be.what.submit'));
+    if (typeof r.source_id !== 'string') bad(t('be.submitFields'));
     return r as unknown as SubmitResult;
   }
 
   async preview(sourceId: string): Promise<PreviewResult> {
-    const r = obj(await this.call('preview', { source_id: sourceId }), '预览结果');
-    if (!Array.isArray(r.effects)) bad('后端返回的预览缺少 effects');
+    const r = obj(await this.call('preview', { source_id: sourceId }), t('be.what.preview'));
+    if (!Array.isArray(r.effects)) bad(t('be.previewFields'));
     return r as unknown as PreviewResult;
   }
 
   async confirm(sourceId: string, confirm: boolean): Promise<ReviewResult> {
-    const r = obj(await this.call('review', { source_id: sourceId, agree: confirm }), '审核结果');
-    if (!Array.isArray(r.effects)) bad('后端返回的审核结果缺少 effects');
+    const r = obj(await this.call('review', { source_id: sourceId, agree: confirm }), t('be.what.review'));
+    if (!Array.isArray(r.effects)) bad(t('be.reviewFields'));
     return r as unknown as ReviewResult;
   }
 
   async revoke(sourceId: string): Promise<ReviewResult> {
-    const r = obj(await this.call('revoke', { source_id: sourceId }), '撤销结果');
-    if (!Array.isArray(r.effects)) bad('后端返回的撤销结果缺少 effects');
+    const r = obj(await this.call('revoke', { source_id: sourceId }), t('be.what.revoke'));
+    if (!Array.isArray(r.effects)) bad(t('be.revokeFields'));
     return r as unknown as ReviewResult;
   }
 
@@ -350,7 +351,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
     if (query.status !== undefined) params.status = query.status;
     if (query.limit !== undefined) params.limit = query.limit;
     const raw = await this.call('input_list', params);
-    if (!Array.isArray(raw)) bad('后端返回的输入列表格式不正确');
+    if (!Array.isArray(raw)) bad(t('be.badList'));
     await this.hydrate(raw);
     return raw.map((row) => this.normalize(row));
   }
@@ -362,11 +363,11 @@ export class RemoteBrainAdapter implements BrainAdapter {
     if (query.limit !== undefined) params.limit = query.limit;
     // The cursor is opaque: it goes back exactly as received, never built or decoded here.
     if (query.cursor != null) params.cursor = query.cursor;
-    const r = obj(await this.call('input_page', params), '输入分页');
+    const r = obj(await this.call('input_page', params), t('be.what.page'));
     if (!Array.isArray(r.items) || typeof r.total !== 'number' || typeof r.revision !== 'number') {
-      bad('后端返回的输入分页格式不正确');
+      bad(t('be.badPage'));
     }
-    if (r.next_cursor !== null && typeof r.next_cursor !== 'string') bad('后端返回的输入分页格式不正确');
+    if (r.next_cursor !== null && typeof r.next_cursor !== 'string') bad(t('be.badPage'));
     await this.hydrate(r.items);
     return {
       items: r.items.map((row) => this.normalize(row)),
@@ -394,7 +395,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
       while (next < missing.length) {
         const id = missing[next++];
         try {
-          const detail = obj(await this.call('input_get', { source_id: id }), '输入');
+          const detail = obj(await this.call('input_get', { source_id: id }), t('be.what.input'));
           if (typeof detail.text === 'string') this.normalize(detail, detail.text);
         } catch {
           // A row that cannot be hydrated keeps an empty excerpt; the list itself still works.
@@ -405,13 +406,13 @@ export class RemoteBrainAdapter implements BrainAdapter {
   }
 
   async inputGet(sourceId: string): Promise<InputDetail> {
-    const r = obj(await this.call('input_get', { source_id: sourceId }), '输入');
-    if (typeof r.text !== 'string') bad('后端返回的输入缺少 text');
+    const r = obj(await this.call('input_get', { source_id: sourceId }), t('be.what.input'));
+    if (typeof r.text !== 'string') bad(t('be.inputText'));
     return { ...this.normalize(r, r.text), text: r.text };
   }
 
   async inputEdit(sourceId: string, edit: InputEditRequest): Promise<InputRecord> {
-    if (!this.proposedMethods) this.unsupported('编辑输入');
+    if (!this.proposedMethods) this.unsupported(t('be.op.edit'));
     const params: Record<string, unknown> = { source_id: sourceId, text: edit.text, immediate: edit.immediate };
     if (edit.kind !== undefined) params.kind = edit.kind;
     if (edit.self_speaker !== undefined) params.self_speaker = edit.self_speaker;
@@ -419,7 +420,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
   }
 
   async inputDelete(sourceId: string): Promise<void> {
-    if (!this.proposedMethods) this.unsupported('删除输入');
+    if (!this.proposedMethods) this.unsupported(t('be.op.delete'));
     await this.call('input_delete', { source_id: sourceId });
     this.excerpts.delete(sourceId);
   }
@@ -429,16 +430,16 @@ export class RemoteBrainAdapter implements BrainAdapter {
   }
 
   async state(): Promise<ModelState> {
-    return obj(await this.call('state'), '模型状态') as unknown as ModelState;
+    return obj(await this.call('state'), t('be.what.state')) as unknown as ModelState;
   }
 
   async effects(sourceId?: string): Promise<ParameterEffect[]> {
     const raw = await this.call('effects', sourceId === undefined ? {} : { source_id: sourceId });
-    if (!Array.isArray(raw)) bad('后端返回的 effects 格式不正确');
+    if (!Array.isArray(raw)) bad(t('be.badEffects'));
     return raw as ParameterEffect[];
   }
 
   async rank(options: { id: string; impacts: Partial<Record<ParameterId, number>> }[]): Promise<RankResult> {
-    return obj(await this.call('rank', { options }), '排序结果') as unknown as RankResult;
+    return obj(await this.call('rank', { options }), t('be.what.rank')) as unknown as RankResult;
   }
 }

@@ -17,6 +17,8 @@ const STORAGE_KEY = 'alpha.lang';
 const DICT: Record<Lang, Record<Key, string>> = { en, zh };
 
 function initialLang(): Lang {
+  // node-side tests import modules that read the language: no window there, English
+  if (typeof window === 'undefined') return 'en';
   const q = new URLSearchParams(window.location.search).get('lang');
   if (q === 'en' || q === 'zh') return q;
   try {
@@ -62,6 +64,7 @@ class LangStore {
   };
 
   private apply(): void {
+    if (typeof document === 'undefined') return;
     document.documentElement.lang = this.lang === 'zh' ? 'zh-CN' : 'en';
   }
 }
@@ -84,3 +87,22 @@ export function useT(): typeof t {
   useLang();
   return t;
 }
+
+/**
+ * A record whose values follow the language: `labels(['a','b'], 'x.')['a']` is
+ * `t('x.a')` at the moment it is read. For tables of labels that used to be
+ * constants.
+ */
+export function lazyLabels<K extends string>(keys: readonly K[], prefix: string): Record<K, string> {
+  const o = {} as Record<K, string>;
+  for (const k of keys) Object.defineProperty(o, k, { enumerable: true, get: () => t(`${prefix}${k}` as Key) });
+  return o;
+}
+
+/** `t` for a key built at run time: `fallback` when this language has no such key. */
+export function tOr(key: string, fallback: string): string {
+  return (DICT[langStore.get()] as Record<string, string>)[key] ?? fallback;
+}
+
+/** The locale for grouping digits in numbers shown to the user. */
+export const numLocale = (): string => (langStore.get() === 'zh' ? 'zh-CN' : 'en-US');

@@ -62,7 +62,7 @@
  */
 
 import { CodePointIndex, codePointLength, codePointSlice, hasLoneSurrogate } from './spans';
-import { LEADING_NUL_MESSAGE, hasNul, isBlank, parseChatLine, pyLstrip, pyStrip, PY_WS, splitLines } from './text';
+import { leadingNulMessage, hasNul, isBlank, parseChatLine, pyLstrip, pyStrip, PY_WS, splitLines } from './text';
 import {
   BackendError,
   KINDS,
@@ -102,8 +102,9 @@ import type {
   TranslationCue,
 } from './types';
 import { ADAPTER_METHODS } from './types';
+import { t } from '../i18n/lang';
 
-export const MOCK_LABEL = '演示数据 · 未运行模型';
+export const MOCK_LABEL = (): string => t('mock.label');
 /** Same constant as `model.catalog.PRIOR_STRENGTH`. */
 const PRIOR_STRENGTH = 4;
 const EXCERPT_CHARS = 80;
@@ -465,7 +466,7 @@ function encodeCursor(payload: { r: number; p: string | null; s: string | null; 
 }
 
 function decodeCursor(token: unknown): { r: number; p: string | null; s: string | null; a: number } {
-  const bad = (): never => fail('INVALID_ARGUMENT', '无效的分页游标');
+  const bad = (): never => fail('INVALID_ARGUMENT', t('be.badCursor'));
   if (typeof token !== 'string' || !/^mock1\.[A-Za-z0-9_-]+$/.test(token)) return bad();
   let payload: unknown;
   try {
@@ -497,7 +498,7 @@ function cloneOf<T>(value: T): T {
 }
 
 export class MockBrainAdapter implements BrainAdapter {
-  readonly info: AdapterInfo = { kind: 'mock', label: MOCK_LABEL, trains: false };
+  readonly info: AdapterInfo = { kind: 'mock', label: MOCK_LABEL(), trains: false };
 
   private readonly rows = new Map<string, Row>();
   private effectLog: ParameterEffect[] = [];
@@ -530,7 +531,7 @@ export class MockBrainAdapter implements BrainAdapter {
 
   private row(sourceId: string): Row {
     const row = typeof sourceId === 'string' ? this.rows.get(sourceId) : undefined;
-    if (!row) fail('NOT_FOUND', '找不到这份输入');
+    if (!row) fail('NOT_FOUND', t('be.notFound'));
     return row;
   }
 
@@ -596,13 +597,13 @@ export class MockBrainAdapter implements BrainAdapter {
 
   private checkContent(text: unknown, kind: Kind, selfSpeaker: string | null | undefined): void {
     if (typeof text !== 'string' || isBlank(text) || codePointLength(text) > MAX_INPUT_CHARS) {
-      fail('INVALID_ARGUMENT', `内容须为 1 到 ${MAX_INPUT_CHARS} 个字符的文字`);
+      fail('INVALID_ARGUMENT', t('be.textRange', { n: MAX_INPUT_CHARS }));
     }
-    if (hasLoneSurrogate(text)) fail('INVALID_ARGUMENT', '内容含有无法编码的孤立代理字符');
+    if (hasLoneSurrogate(text)) fail('INVALID_ARGUMENT', t('be.surrogate'));
     // The real back end refuses U+0000 anywhere in a new submit / edit text, without stripping it.
-    if (hasNul(text)) fail('INVALID_ARGUMENT', LEADING_NUL_MESSAGE);
+    if (hasNul(text)) fail('INVALID_ARGUMENT', leadingNulMessage());
     if (kind === 'chat' && (typeof selfSpeaker !== 'string' || isBlank(selfSpeaker))) {
-      fail('INVALID_ARGUMENT', '聊天记录必须指定发言者');
+      fail('INVALID_ARGUMENT', t('be.speaker'));
     }
   }
 
@@ -675,12 +676,12 @@ export class MockBrainAdapter implements BrainAdapter {
 
   submit(req: SubmitRequest): Promise<SubmitResult> {
     return this.call((): SubmitResult => {
-      if (!PARTITIONS.includes(req.partition)) fail('INVALID_ARGUMENT', '无效的状态分区');
+      if (!PARTITIONS.includes(req.partition)) fail('INVALID_ARGUMENT', t('be.badPartition'));
       const kind = req.kind ?? 'diary';
-      if (!KINDS.includes(kind)) fail('INVALID_ARGUMENT', '无效的类型');
-      if (typeof req.immediate !== 'boolean') fail('INVALID_ARGUMENT', 'immediate 必须是布尔值');
+      if (!KINDS.includes(kind)) fail('INVALID_ARGUMENT', t('be.badKind'));
+      if (typeof req.immediate !== 'boolean') fail('INVALID_ARGUMENT', t('be.bool', { name: 'immediate' }));
       const exclamation = req.exclamation ?? false;
-      if (typeof exclamation !== 'boolean') fail('INVALID_ARGUMENT', 'exclamation 必须是布尔值');
+      if (typeof exclamation !== 'boolean') fail('INVALID_ARGUMENT', t('be.bool', { name: 'exclamation' }));
       // core.api: a given source_ref must contain text (null / absent is fine).
       if (req.source_ref != null && (typeof req.source_ref !== 'string' || isBlank(req.source_ref))) {
         fail('INVALID_ARGUMENT', 'source_ref must contain text');
@@ -724,7 +725,7 @@ export class MockBrainAdapter implements BrainAdapter {
       const row = this.row(sourceId);
       const { rec, text } = row;
       // engine.preview: every input that is not in training, immediate_false included.
-      if (rec.status === 'agreed') fail('INVALID_ARGUMENT', '已在训练中的输入无需预览');
+      if (rec.status === 'agreed') fail('INVALID_ARGUMENT', t('be.noPreview'));
       const agg = this.aggregate()[rec.partition];
       // A previously fitted input projects the restoration of its frozen evidence.
       const contributions = row.fitted ? row.contributions : mockExtract(text, rec.kind, rec.self_speaker);
@@ -766,10 +767,10 @@ export class MockBrainAdapter implements BrainAdapter {
 
   confirm(sourceId: string, confirm: boolean): Promise<ReviewResult> {
     return this.call((): ReviewResult => {
-      if (typeof confirm !== 'boolean') fail('INVALID_ARGUMENT', 'confirm 必须是布尔值');
+      if (typeof confirm !== 'boolean') fail('INVALID_ARGUMENT', t('be.bool', { name: 'confirm' }));
       const row = this.row(sourceId);
       const { rec } = row;
-      if (!rec.immediate) fail('INVALID_ARGUMENT', '当下判断为“不是真的”的输入不能认可或不同意，请先修改并重新声明');
+      if (!rec.immediate) fail('INVALID_ARGUMENT', t('be.notTrueNow'));
       // The same decision again: no fit, no effects, no revision, no audit event.
       if ((confirm && rec.status === 'agreed') || (!confirm && rec.confirm === false)) return this.decision(rec);
       if (!confirm) return this.deactivate(row, 'disagreed', 'confirm_false', 'manual');
@@ -780,7 +781,7 @@ export class MockBrainAdapter implements BrainAdapter {
   revoke(sourceId: string): Promise<ReviewResult> {
     return this.call((): ReviewResult => {
       const row = this.row(sourceId);
-      if (row.rec.status !== 'agreed') fail('INVALID_ARGUMENT', '只有已认可的输入才能撤销');
+      if (row.rec.status !== 'agreed') fail('INVALID_ARGUMENT', t('be.onlyAgreedRevoke'));
       return this.deactivate(row, 'revoked', 'user_revoked', row.rec.confirmed_by);
     });
   }
@@ -788,9 +789,9 @@ export class MockBrainAdapter implements BrainAdapter {
   /** Filtered rows, newest first; validates like `BrainCore._input_filters`. */
   private filtered(query: InputListQuery): Row[] {
     const limit = query.limit ?? 20;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail('INVALID_ARGUMENT', 'limit 须为 1 到 100 的整数');
-    if (query.partition != null && !PARTITIONS.includes(query.partition)) fail('INVALID_ARGUMENT', '无效的状态分区');
-    if (query.status != null && !STATUSES.includes(query.status)) fail('INVALID_ARGUMENT', '无效的输入状态');
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail('INVALID_ARGUMENT', t('be.limit'));
+    if (query.partition != null && !PARTITIONS.includes(query.partition)) fail('INVALID_ARGUMENT', t('be.badPartition'));
+    if (query.status != null && !STATUSES.includes(query.status)) fail('INVALID_ARGUMENT', t('be.badStatus'));
     return [...this.rows.values()]
       .filter((r) => (query.partition == null || r.rec.partition === query.partition) && (query.status == null || r.rec.status === query.status))
       .sort((a, b) => b.seq - a.seq);
@@ -813,9 +814,9 @@ export class MockBrainAdapter implements BrainAdapter {
         const c = decodeCursor(query.cursor);
         // Same order of checks as core/pagination.py `decode`: shape, filters, then revision.
         if (c.p !== (query.partition ?? null) || c.s !== (query.status ?? null)) {
-          fail('INVALID_ARGUMENT', '分页游标与当前筛选不符，请从第一页重新开始');
+          fail('INVALID_ARGUMENT', t('be.cursorFilter'));
         }
-        if (c.r !== this.inputRevision) fail('STALE_CURSOR', '输入已变化，请丢弃已取的页并从第一页重新开始');
+        if (c.r !== this.inputRevision) fail('STALE_CURSOR', t('be.staleCursor'));
         rows = rows.filter((r) => r.seq < c.a);
       }
       const items = rows.slice(0, limit);
@@ -838,10 +839,10 @@ export class MockBrainAdapter implements BrainAdapter {
     return this.call(() => {
       const row = this.row(sourceId);
       const { rec } = row;
-      if (rec.status === 'agreed') fail('INVALID_ARGUMENT', '已认可的输入不能编辑，请先撤销');
-      if (typeof edit.immediate !== 'boolean') fail('INVALID_ARGUMENT', 'immediate 必须是布尔值');
+      if (rec.status === 'agreed') fail('INVALID_ARGUMENT', t('be.agreedNoEdit'));
+      if (typeof edit.immediate !== 'boolean') fail('INVALID_ARGUMENT', t('be.bool', { name: 'immediate' }));
       const kind = edit.kind ?? rec.kind;
-      if (!KINDS.includes(kind)) fail('INVALID_ARGUMENT', '无效的类型');
+      if (!KINDS.includes(kind)) fail('INVALID_ARGUMENT', t('be.badKind'));
       const speaker = kind === 'chat' ? (edit.self_speaker ?? rec.self_speaker) : null;
       this.checkContent(edit.text, kind, speaker);
 
@@ -910,22 +911,22 @@ export class MockBrainAdapter implements BrainAdapter {
 
   rank(options: { id: string; impacts: Partial<Record<ParameterId, number>> }[]): Promise<RankResult> {
     return this.call((): RankResult => {
-      if (!Array.isArray(options) || options.length < 2) fail('INVALID_ARGUMENT', '至少需要两个选项');
+      if (!Array.isArray(options) || options.length < 2) fail('INVALID_ARGUMENT', t('be.twoOptions'));
       const ids = new Set<string>();
       for (const o of options) {
-        if (!o || typeof o.id !== 'string' || o.id === '') fail('INVALID_ARGUMENT', '每个选项都需要非空 id');
-        if (!o.impacts || typeof o.impacts !== 'object') fail('INVALID_ARGUMENT', '每个选项都需要 impacts');
+        if (!o || typeof o.id !== 'string' || o.id === '') fail('INVALID_ARGUMENT', t('be.optionId'));
+        if (!o.impacts || typeof o.impacts !== 'object') fail('INVALID_ARGUMENT', t('be.optionImpacts'));
         for (const [parameter, value] of Object.entries(o.impacts)) {
           if (!(PARAMETER_IDS as readonly string[]).includes(parameter) || !parameter.startsWith('value.')) {
-            fail('INVALID_ARGUMENT', `未知或非价值参数：${parameter}`);
+            fail('INVALID_ARGUMENT', t('be.badParam', { p: parameter }));
           }
           if (typeof value !== 'number' || !Number.isFinite(value) || value < -1 || value > 1) {
-            fail('INVALID_ARGUMENT', 'impacts 必须是 -1 到 1 之间的有限数');
+            fail('INVALID_ARGUMENT', t('be.impactRange'));
           }
         }
         ids.add(o.id);
       }
-      if (ids.size !== options.length) fail('INVALID_ARGUMENT', '选项 id 不能重复');
+      if (ids.size !== options.length) fail('INVALID_ARGUMENT', t('be.dupId'));
 
       const rational = this.stateFrom(this.aggregate()).rational;
       const usable: Record<string, number> = {};

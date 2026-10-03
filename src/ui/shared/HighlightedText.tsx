@@ -28,6 +28,7 @@ import { useMemo, useState } from 'react';
 
 import { CodePointIndex, evidenceMatches, highlight } from '../../backend';
 import type { Span } from '../../backend';
+import { numLocale, t } from '../../i18n/lang';
 
 export interface HighlightMark {
   /** Names the mark; an effect row with the same id lights it up. */
@@ -112,9 +113,9 @@ export function HighlightedText({ text, marks = [], activeId = null, className, 
     <div className={`hl${className ? ` ${className}` : ''}`} {...rest}>
       {folded && from > 0 && (
         <p className="hl__fold" data-testid="hl-fold-before">
-          <span>已折叠前面 {from.toLocaleString('zh-CN')} 个字符 …</span>{' '}
+          <span>{t('hl.foldBefore', { n: from.toLocaleString(numLocale()) })}</span>{' '}
           <button type="button" onClick={() => grow(-1)}>
-            展开
+            {t('hl.expand')}
           </button>
         </p>
       )}
@@ -137,22 +138,22 @@ export function HighlightedText({ text, marks = [], activeId = null, className, 
       </p>
       {folded && to < total && (
         <p className="hl__fold" data-testid="hl-fold-after">
-          <span>… 已折叠后面 {(total - to).toLocaleString('zh-CN')} 个字符</span>{' '}
+          <span>{t('hl.foldAfter', { n: (total - to).toLocaleString(numLocale()) })}</span>{' '}
           <button type="button" onClick={() => grow(1)}>
-            展开
+            {t('hl.expand')}
           </button>
         </p>
       )}
       {folded && (from !== initial[0] || to !== initial[1]) && (
         <p className="hl__fold">
           <button type="button" onClick={() => setGrown(null)}>
-            收起
+            {t('hl.collapse')}
           </button>
         </p>
       )}
       {bad.length > 0 && (
         <p className="hl__warn" role="note" data-testid="hl-mismatch">
-          证据位置与原文不符（{bad.length} 处）：原文可能已被修改，这些证据不作高亮。
+          {t('hl.mismatch', { n: bad.length })}
         </p>
       )}
     </div>

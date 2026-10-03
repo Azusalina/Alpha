@@ -32,6 +32,7 @@ import { EntryPanel } from './entry/EntryPanel';
 import { ecgOpacity, ecgPath } from './divideEcg';
 import { NodeDetail, regionLabel } from './NodeDetail';
 import { RecordsPanel } from './records/RecordsPanel';
+import { t } from '../i18n/lang';
 
 /** When the divide line draws, as a window of the transition's p (D45). */
 const DIVIDER_DRAW: readonly [number, number] = [0.7, 1.0];
@@ -68,14 +69,14 @@ export function HumanPanel({ state, reducedMotion }: Props) {
       if (el) el.style.opacity = String(phaseProgress(hp, TRANSITION.phases.domReveal));
       // D45: the line draws from the centre out to both corners, and back
       const d = phaseProgress(hp, DIVIDER_DRAW);
-      const t = d * d * (3 - 2 * d);
+      const ext = d * d * (3 - 2 * d);
       const svg = dividerRef.current;
       if (svg) {
         const [a, b] = svg.querySelectorAll('line');
-        a.setAttribute('x2', String(50 - 50 * t));
-        a.setAttribute('y2', String(50 - 50 * t));
-        b.setAttribute('x2', String(50 + 50 * t));
-        b.setAttribute('y2', String(50 + 50 * t));
+        a.setAttribute('x2', String(50 - 50 * ext));
+        a.setAttribute('y2', String(50 - 50 * ext));
+        b.setAttribute('x2', String(50 + 50 * ext));
+        b.setAttribute('y2', String(50 + 50 * ext));
         // the visible trace: an unstable ECG-like line that follows the same extent (still while reduced motion is on)
         const ecg = ecgRef.current;
         if (ecg) {
@@ -84,12 +85,12 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           const h = window.innerHeight;
           const time = performance.now() / 1000;
           if (reducedRef.current) {
-            pa.setAttribute('d', t > 0.001 ? `M50 50L${50 - 50 * t} ${50 - 50 * t}` : '');
-            pb.setAttribute('d', t > 0.001 ? `M50 50L${50 + 50 * t} ${50 + 50 * t}` : '');
+            pa.setAttribute('d', ext > 0.001 ? `M50 50L${50 - 50 * ext} ${50 - 50 * ext}` : '');
+            pb.setAttribute('d', ext > 0.001 ? `M50 50L${50 + 50 * ext} ${50 + 50 * ext}` : '');
             ecg.style.opacity = '1';
           } else {
-            pa.setAttribute('d', ecgPath([0, 0], t, w, h, time, 0));
-            pb.setAttribute('d', ecgPath([100, 100], t, w, h, time, 1));
+            pa.setAttribute('d', ecgPath([0, 0], ext, w, h, time, 0));
+            pb.setAttribute('d', ecgPath([100, 100], ext, w, h, time, 1));
             ecg.style.opacity = String(ecgOpacity(time));
           }
         }
@@ -98,9 +99,9 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         if (hit) {
           const w = window.innerWidth;
           const h = window.innerHeight;
-          hit.style.width = `${Math.hypot(w, h) * t}px`;
+          hit.style.width = `${Math.hypot(w, h) * ext}px`;
           hit.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(h, w)}rad)`;
-          hit.style.display = t > 0.05 ? 'block' : 'none';
+          hit.style.display = ext > 0.05 ? 'block' : 'none';
         }
       }
       // D53: the lit region's name, beside where the signal struck; D57: a
@@ -109,7 +110,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
       const at = humanStore.label;
       if (lab) {
         if (at) {
-          const name = at.text ?? `占位脑区「${regionLabel(at.region)}」`;
+          const name = at.text ?? t('human.region', { name: regionLabel(at.region) });
           if (lab.textContent !== name) lab.textContent = name;
           lab.style.transform = `translate(${at.x + 14}px, ${at.y - 10}px)`;
           lab.style.opacity = String(at.alpha);
@@ -155,7 +156,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
       className={`divide-line__hit${ui.focused ? ' is-muted' : ''}`}
       data-testid="divide-hit"
       role="button"
-      aria-label="翻到球页面"
+      aria-label={t('human.flip.aria')}
       style={{ display: 'none' }}
         onClick={() => {
           setHot(false);
@@ -169,7 +170,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         }}
     />
     <div ref={hintRef} className="divide-hint" data-testid="divide-hint" aria-hidden="true">
-      翻到球 ↻
+      {t('human.flip')}
     </div>
     <div
       ref={rootRef}
@@ -183,7 +184,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           type="button"
           className="human-panel__brain"
           data-testid="brain-open"
-          aria-label="展开粒子大脑"
+          aria-label={t('human.open.aria')}
           onClick={() => {
             humanStore.pulse([0, 0, 0]);
             focusBrain(true, reducedMotion);
@@ -196,14 +197,14 @@ export function HumanPanel({ state, reducedMotion }: Props) {
       {ui.focused && (
         <div className="human-panel__focus">
           <button type="button" className="human-panel__back" onClick={() => focusBrain(false, reducedMotion)}>
-            ← 收起大脑
+            {t('human.close')}
           </button>
           <p className="human-panel__hint">
             {hovered
               ? `${hovered.label} · ${describeNode(hovered)}`
               : ui.hoverRegion >= 0
-                ? `占位脑区「${regionLabel(ui.hoverRegion)}」`
-                : '拖动旋转 · 点节点看详情 · Esc 收起'}
+                ? t('human.region', { name: regionLabel(ui.hoverRegion) })
+                : t('human.hint')}
           </p>
           {ui.selected && <NodeDetail resettable id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />}
         </div>

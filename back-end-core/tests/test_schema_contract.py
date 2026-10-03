@@ -142,6 +142,16 @@ class SchemaContractTests(unittest.TestCase):
         self.call("candidate_list")
         self.call("memory_list", partition="rational")
         self.call("memory_search", query="公平", partition="rational")
+        self.call("memory_search_semantic", query="公平", partition=None)
+        self.call("choice_feedback_set", source_id=source, event_id="reviewed-event", domain="daily",
+                  options=[{"id": "fair", "label": "User reviewed", "impacts": {"value.fairness": 1}},
+                           {"id": "other", "impacts": {"value.fairness": -1}}],
+                  actual_choice_id="fair", endorsed_choice_id=None, endorsement_partition=None,
+                  training_consent=False, reason=None, **self.guards(source))
+        self.call("choice_feedback_get", source_id=source)
+        self.call("preference_rank", options=[{"id": "fair", "impacts": {"value.fairness": 1}},
+                                              {"id": "other", "impacts": {"value.fairness": -1}}],
+                  target="actual", partition="rational", domain="daily")
         self.call("replay_preview", source_ids=[source])
         reopened = self.call("correction_reopen", source_id=source, corrections=[], immediate=True,
                              **self.guards(source))

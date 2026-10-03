@@ -48,6 +48,10 @@ import {
 } from '../src/backend/types';
 import type { BrainAdapter, InputRecord, ModelState, Translation } from '../src/backend/types';
 import { UnavailableAdapter } from '../src/backend/unavailable';
+import { langStore } from '../src/i18n/lang';
+
+// the checks below were written against the Chinese wording
+langStore.set('zh');
 
 const RARE = '\u{20BB7}'; // 𠮷, one code point, two UTF-16 units
 const EMOJI = '\u{1F600}';

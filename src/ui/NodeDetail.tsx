@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { inputStore, useInputs } from '../app/inputStore';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
+import { lazyLabels, t } from '../i18n/lang';
 
 /** Placeholder region names (the reference brain model's), shown as such (D36). */
 export const REGIONS = [
@@ -23,17 +24,7 @@ export const REGIONS = [
   'bridge',
 ] as const;
 
-export const REGION_LABEL: Record<string, string> = {
-  semantic: '语义',
-  episodic: '情景',
-  process: '程序',
-  analytic: '分析',
-  affective: '情感',
-  amygdala: '杏仁核',
-  cerebellum: '小脑',
-  brainstem: '脑干',
-  bridge: '脑桥',
-};
+export const REGION_LABEL: Record<string, string> = lazyLabels(REGIONS, 'region.');
 
 export const regionLabel = (i: number) => REGION_LABEL[REGIONS[i]] ?? '—';
 
@@ -63,22 +54,22 @@ function ModelReset() {
     <section className="node-detail__reset" data-testid="model-reset">
       {!asking ? (
         <button type="button" data-testid="model-reset-open" disabled={!offered} onClick={() => setAsking(true)}>
-          重置模型并清空历史
+          {t('reset.open')}
         </button>
       ) : (
         <>
-          <p>三个状态回到 0，所有效应历史一并清空，无法恢复。确定吗？</p>
+          <p>{t('reset.ask')}</p>
           <div>
             <button type="button" data-testid="model-reset-confirm" disabled={busy} onClick={() => void run()}>
-              {busy ? '重置中…' : '确认重置'}
+              {busy ? t('reset.busy') : t('reset.confirm')}
             </button>
             <button type="button" disabled={busy} onClick={() => setAsking(false)}>
-              取消
+              {t('common.cancel')}
             </button>
           </div>
         </>
       )}
-      {!offered && <p className="node-detail__quiet">当前后端没有提供模型重置，按钮暂不可用。</p>}
+      {!offered && <p className="node-detail__quiet">{t('reset.unavailable')}</p>}
       {s.error?.action === 'refresh' && asking && <p className="node-detail__quiet" role="alert">{s.error.message}</p>}
     </section>
   );
@@ -100,32 +91,32 @@ export function NodeDetail({ id, onSelect, resettable }: Props) {
     ));
 
   return (
-    <aside className="node-detail" data-testid="node-detail" aria-label="节点详情">
+    <aside className="node-detail" data-testid="node-detail" aria-label={t('node.detail.aria')}>
       <header>
         <span className="node-detail__tag">{describeNode(selected)}</span>
-        <button type="button" aria-label="关闭详情" onClick={() => onSelect(null)}>
+        <button type="button" aria-label={t('node.detail.close')} onClick={() => onSelect(null)}>
           ×
         </button>
       </header>
       <h2>{selected.label}</h2>
       <dl>
-        <dt>层级</dt>
+        <dt>{t('node.level')}</dt>
         <dd>{selected.depth}</dd>
         {parent && (
           <>
-            <dt>上级</dt>
+            <dt>{t('node.parent')}</dt>
             <dd>{list([parent])}</dd>
           </>
         )}
         {children.length > 0 && (
           <>
-            <dt>下级</dt>
+            <dt>{t('node.children')}</dt>
             <dd>{list(children)}</dd>
           </>
         )}
       </dl>
       {resettable && selected.kind === 'root' && <ModelReset />}
-      <p className="node-detail__note">脑区只是占位的分组，不代表这条内容在大脑里的位置。</p>
+      <p className="node-detail__note">{t('node.detail.note')}</p>
     </aside>
   );
 }

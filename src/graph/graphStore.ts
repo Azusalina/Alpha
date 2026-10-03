@@ -20,6 +20,7 @@ import { BackendError } from '../backend/types';
 import type { GraphData } from '../fixtures/graph';
 import { inputStore } from '../app/inputStore';
 import { baseGraph, buildGraph, isInModel, withExamples } from './build';
+import { langStore, t } from '../i18n/lang';
 
 const exampleBase = (): GraphData => withExamples(baseGraph());
 
@@ -71,7 +72,7 @@ async function allAgreed(): Promise<InputRecord[]> {
       if (!(e instanceof BackendError && e.code === 'STALE_CURSOR')) throw e;
     }
   }
-  throw new BackendError('STALE_CURSOR', '输入列表反复变化');
+  throw new BackendError('STALE_CURSOR', t('be.listChurn'));
 }
 
 let seq = 0;
@@ -115,7 +116,8 @@ export function startGraphSync(): () => void {
   const key = (): string => {
     const s = inputStore.get();
     const rows = s.records.map((r) => `${r.source_id}|${isInModel(r)}|${r.partition}|${r.reviewed_at ?? ''}|${r.edited_at ?? ''}`).join('\n');
-    return `${backendStore.get().generation}#${s.modelEpoch ?? ''}#${rows}`;
+    // the language is part of the key: node labels are read from the dictionaries when the graph is built
+    return `${langStore.get()}#${backendStore.get().generation}#${s.modelEpoch ?? ''}#${rows}`;
   };
   const check = () => {
     const k = key();
@@ -125,6 +127,7 @@ export function startGraphSync(): () => void {
   };
   const offBackend = backendStore.subscribe(check);
   const offInputs = inputStore.subscribe(check);
+  const offLang = langStore.subscribe(check);
   check();
   void refreshGraph();
   return () => {
@@ -132,5 +135,6 @@ export function startGraphSync(): () => void {
     if (timer) clearTimeout(timer);
     offBackend();
     offInputs();
+    offLang();
   };
 }

@@ -27,6 +27,7 @@
  */
 
 import type { RequestEnvelope, ResponseEnvelope, Transport } from './remote';
+import { t } from '../i18n/lang';
 
 /** The Tauri command name, as registered in `src-tauri/src/lib.rs`. */
 export const BRAIN_COMMAND = 'brain_call';
@@ -62,7 +63,7 @@ export function unavailableEnvelope(id: string, reason?: unknown): ResponseEnvel
     schema_version: 1,
     id,
     ok: false,
-    error: { code: 'MODEL_UNAVAILABLE', message: detail ? `桌面后端不可用：${detail}` : '桌面后端不可用' },
+    error: { code: 'MODEL_UNAVAILABLE', message: detail ? t('be.desktop.detail', { detail }) : t('be.desktop') },
   };
 }
 

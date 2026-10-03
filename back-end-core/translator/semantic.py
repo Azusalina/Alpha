@@ -1,0 +1,368 @@
+"""Standalone, local semantic retrieval; no persistence or approval decisions.
+
+Only caller-approved local model files should be supplied. Directory validation
+does not establish their provenance or safety. Callers own row eligibility and
+access control; similarity does not endorse a claim or publish its evidence.
+Importing this module requires only the standard library.
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from io import TextIOBase
+import json
+import logging
+import math
+from numbers import Real
+from pathlib import Path
+import sys
+from typing import Protocol
+import warnings
+
+__all__ = ["Encoder", "LocalSentenceEncoder", "rank_memories"]
+
+_BATCH_SIZE = 32
+_TEXT_LIMIT = 2048
+_CLAIM_LIMIT = 512
+_EVIDENCE_LIMIT = 1535
+_UNAVAILABLE = "local semantic encoder unavailable"
+_UNSAFE_SUFFIXES = {".bin", ".pt", ".pth", ".pkl", ".pickle"}
+_MODULE_TYPES = {
+    f"{prefix}.{name}": name
+    for prefix in ("sentence_transformers.models", "sentence_transformers.sentence_transformer.modules")
+    for name in ("Transformer", "Pooling", "Normalize")
+}
+_TRANSFORMER_CONFIGS = {
+    f"sentence_{name}_config.json"
+    for name in ("bert", "roberta", "distilbert", "camembert", "albert", "xlm-roberta", "xlnet")
+}
+_LOADER_KWARGS = {
+    "model_args", "model_kwargs", "tokenizer_args", "processor_kwargs", "config_args", "config_kwargs",
+}
+_FORBIDDEN_CONFIG_KEYS = {
+    "auto_map", "custom_pipelines", "base_model_name_or_path", "model_name_or_path",
+    "tokenizer_name_or_path", "trust_remote_code", "local_files_only", "use_safetensors",
+    "token", "use_auth_token", "code_revision", "cache_dir", "cache_folder", "subfolder",
+    "pretrained_model_name_or_path", "hf_hub_id", "repo_id",
+}
+_BACKBONE_TYPES = {"bert", "roberta", "distilbert", "albert", "camembert", "xlm-roberta", "mpnet", "electra"}
+
+
+class _Discard(TextIOBase):
+    def write(self, text):
+        return len(text)
+
+
+@contextmanager
+def _quiet_dependency():
+    """Discard Python output, warnings, and logs without retaining any content.
+
+    Redirects/global logging and warning settings require serialized calls. This
+    is not an OS sandbox: native fd writes or child processes are not intercepted.
+    """
+    previous_disable = logging.root.manager.disable
+    with _Discard() as sink, redirect_stdout(sink), redirect_stderr(sink), warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        logging.disable(sys.maxsize)
+        try:
+            yield
+        finally:
+            logging.disable(previous_disable)
+
+
+def _check_config(value):
+    if isinstance(value, dict):
+        if _FORBIDDEN_CONFIG_KEYS.intersection(value):
+            raise ValueError("unsupported model config")
+        for key, child in value.items():
+            # Saved overrides are outside the supported layout, even when they
+            # appear in nested configs. Top-level local-only flags cannot prove
+            # arbitrary alternate loader paths safe.
+            if key in _LOADER_KWARGS and child != {}:
+                raise ValueError("unsupported loader overrides")
+            if key.endswith(("_file", "_path")) and key != "_name_or_path" and child is not None:
+                raise ValueError("unsupported external file reference")
+            _check_config(child)
+    elif isinstance(value, list):
+        for child in value:
+            _check_config(child)
+
+
+def _validate_model_directory(path: Path):
+    """Fail closed on unsupported layouts, without importing any model code.
+
+    Supported: a self-contained Transformer -> Pooling -> optional Normalize
+    export, using builtin public module types, JSON configs and safetensors.
+    Backbone types are restricted to common builtin text encoders listed above.
+    No symlinks, adapters, custom code, nested manifests or pickle artifacts.
+    Trusted files must remain unchanged between this check and dependency load.
+    Dependency/runtime acceptance is pending; this is not a provenance audit.
+    """
+    # Loader review at pinned source commit 4a3b5cd6ec718e421f57e824a41ed3fd99595df6:
+    # https://github.com/huggingface/sentence-transformers/blob/4a3b5cd6ec718e421f57e824a41ed3fd99595df6/sentence_transformers/base/model.py
+    # https://github.com/huggingface/sentence-transformers/blob/4a3b5cd6ec718e421f57e824a41ed3fd99595df6/sentence_transformers/base/modules/module.py
+    # https://github.com/huggingface/sentence-transformers/blob/4a3b5cd6ec718e421f57e824a41ed3fd99595df6/sentence_transformers/base/modules/transformer.py
+    configs = {}
+    files = set()
+    for entry in path.rglob("*"):
+        if entry.is_symlink() or entry.suffix.lower() in _UNSAFE_SUFFIXES:
+            raise ValueError("unsafe model artifact")
+        if entry.is_dir():
+            continue
+        if not entry.is_file() or not entry.resolve(strict=True).is_relative_to(path):
+            raise ValueError("unsupported model artifact")
+        files.add(entry)
+        if entry.suffix.lower() in {".py", ".pyc"} or entry.name == "adapter_config.json":
+            raise ValueError("unsupported model artifact")
+        if entry.name == "modules.json" and entry.parent != path:
+            raise ValueError("nested module manifest")
+        if entry.suffix.lower() == ".json":
+            config = json.loads(entry.read_text(encoding="utf-8"))
+            _check_config(config)
+            configs[entry] = config
+            if entry.name in _TRANSFORMER_CONFIGS:
+                if (not isinstance(config, dict)
+                        or set(config) - ({"max_seq_length", "do_lower_case", "transformer_task"} | _LOADER_KWARGS)
+                        or config.get("transformer_task", "feature-extraction") != "feature-extraction"):
+                    raise ValueError("unsupported transformer config")
+    for config in configs.values():
+        if isinstance(config, dict) and "weight_map" in config:
+            weights = config["weight_map"]
+            if not isinstance(weights, dict) or not weights:
+                raise ValueError("unsupported weight index")
+            for filename in weights.values():
+                if (not isinstance(filename, str) or Path(filename).is_absolute()
+                        or ".." in Path(filename).parts or Path(filename).suffix != ".safetensors"):
+                    raise ValueError("unsafe weight index")
+    modules = configs.get(path / "modules.json")
+    if not isinstance(modules, list) or len(modules) not in (2, 3):
+        raise ValueError("unsupported module manifest")
+    names = set()
+    for index, (module, expected) in enumerate(zip(modules, ("Transformer", "Pooling", "Normalize"))):
+        if (not isinstance(module, dict)
+                or set(module) - {"idx", "name", "path", "type", "kwargs"}
+                or type(module.get("idx")) is not int or module["idx"] != index
+                or _MODULE_TYPES.get(module.get("type")) != expected
+                or module.get("kwargs", []) != []):
+            raise ValueError("unsupported module manifest")
+        name = _text(module.get("name"))
+        if name in names:
+            raise ValueError("duplicate module name")
+        names.add(name)
+        relative = module.get("path")
+        if (not isinstance(relative, str) or "\x00" in relative
+                or Path(relative).is_absolute() or ".." in Path(relative).parts):
+            raise ValueError("nonlocal module path")
+        directory = (path / relative).resolve(strict=True)
+        if not directory.is_relative_to(path) or not directory.is_dir():
+            raise ValueError("nonlocal module path")
+        if index == 0:
+            backbone = configs.get(directory / "config.json")
+            if not isinstance(backbone, dict) or backbone.get("model_type") not in _BACKBONE_TYPES:
+                raise ValueError("unsupported backbone")
+            if not any(file.parent == directory and file.suffix == ".safetensors" for file in files):
+                raise ValueError("missing local safetensors")
+            weight_index = configs.get(directory / "model.safetensors.index.json")
+            if weight_index is not None:
+                if not isinstance(weight_index, dict) or "weight_map" not in weight_index:
+                    raise ValueError("unsupported weight index")
+                for filename in weight_index["weight_map"].values():
+                    if directory / filename not in files:
+                        raise ValueError("missing local weight shard")
+
+
+class Encoder(Protocol):
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        """Return one finite, nonzero vector per text, in input order."""
+        ...
+
+
+def _text(value: object, *, max_length: int | None = None) -> str:
+    # Python lengths/slices count Unicode code points, including astral characters.
+    if (not isinstance(value, str) or not value.strip()
+            or (max_length is not None and len(value) > max_length)
+            or "\x00" in value
+            or any("\ud800" <= char <= "\udfff" for char in value)):
+        raise ValueError("invalid semantic text")
+    return value
+
+
+def _normalized_vectors(vectors: object, count: int,
+                        dimension: int | None = None) -> list[list[float]]:
+    """Validate strict list output and normalize without squaring huge values.
+
+    This internal function runs inside the sanitized encoder boundary. Scale
+    first, so both near-max floats and subnormal nonzero vectors remain usable.
+    """
+    if not isinstance(vectors, list) or len(vectors) != count:
+        raise ValueError("invalid vectors")
+    result = []
+    for vector in vectors:
+        if not isinstance(vector, list) or not vector:
+            raise ValueError("invalid vector")
+        if dimension is None:
+            dimension = len(vector)
+        if len(vector) != dimension:
+            raise ValueError("inconsistent vector dimensions")
+        if any(isinstance(value, bool) or not isinstance(value, Real) for value in vector):
+            raise ValueError("invalid vector component")
+        values = [float(value) for value in vector]
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("nonfinite vector")
+        scale = max(abs(value) for value in values)
+        if scale == 0:
+            raise ValueError("zero vector")
+        scaled = [value / scale for value in values]
+        norm = math.sqrt(math.fsum(value * value for value in scaled))
+        result.append([value / norm for value in scaled])
+    return result
+
+
+def _encode_batch(encoder: Encoder, texts: list[str],
+                  dimension: int | None = None) -> list[list[float]]:
+    try:
+        return _normalized_vectors(encoder.encode(texts), len(texts), dimension)
+    except Exception:
+        pass
+    # Raise after leaving the handler: no private exception context or cause.
+    raise RuntimeError(_UNAVAILABLE)
+
+
+class LocalSentenceEncoder:
+    """Lazy CPU encoder for an explicit existing directory of approved files.
+
+    No Hub identifiers or download fallback. Empty input does not import/load
+    dependencies. Larger inputs are split into model calls of at most 32 texts.
+    The loaded model is reused in memory; embeddings are never cached or saved.
+    Dependency versions lacking the required safety options fail closed.
+    Layout checks happen on first encode, before import/load, not in __init__.
+    Only the restricted builtin layout described above is supported; Dense,
+    Router, PEFT, custom modules and symlink-based Hub snapshots are excluded.
+    """
+
+    def __init__(self, model_path: str | Path):
+        path = None
+        if isinstance(model_path, (str, Path)) and str(model_path):
+            try:
+                candidate = Path(model_path).resolve(strict=True)
+                if candidate.is_dir():
+                    path = candidate
+            except (OSError, RuntimeError, ValueError):
+                pass
+        if path is None:
+            raise ValueError("model_path must be an existing local directory")
+        self._path = path
+        self._model = None
+        self._dimension: int | None = None
+
+    def _load(self):
+        if self._model is not None:
+            return self._model
+        try:
+            _validate_model_directory(self._path)
+            with _quiet_dependency():
+                from sentence_transformers import SentenceTransformer
+
+                # Official constructor API (including token=False), verified at:
+                # https://sbert.net/docs/package_reference/sentence_transformer/model.html
+                # Source: https://github.com/huggingface/sentence-transformers/blob/main/sentence_transformers/sentence_transformer/model.py
+                # use_safetensors applies to the backbone only; the preflight
+                # restricts module types and rejects pickle files independently.
+                model = SentenceTransformer(
+                    str(self._path), device="cpu", local_files_only=True,
+                    trust_remote_code=False, token=False,
+                    model_kwargs={"use_safetensors": True},
+                )
+        except Exception:
+            pass
+        else:
+            self._model = model
+            return model
+        raise RuntimeError(_UNAVAILABLE)
+
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        if not isinstance(texts, list):
+            raise ValueError("texts must be a list")
+        for text in texts:
+            _text(text, max_length=_TEXT_LIMIT)
+        if not texts:
+            return []
+        model = self._load()
+        vectors = []
+        for start in range(0, len(texts), _BATCH_SIZE):
+            batch = texts[start:start + _BATCH_SIZE]
+            try:
+                # Same official API/source above, SentenceTransformer.encode:
+                # convert_to_numpy and normalize_embeddings are documented.
+                # An explicit empty prompt overrides saved/default prompts, so
+                # only the bounded input text is embedded; progress is disabled.
+                with _quiet_dependency():
+                    output = model.encode(
+                        batch, batch_size=_BATCH_SIZE, device="cpu", prompt="",
+                        normalize_embeddings=True, convert_to_numpy=True,
+                        show_progress_bar=False,
+                    )
+                    normalized = _normalized_vectors(
+                        output.tolist(), len(batch), self._dimension,
+                    )
+            except Exception:
+                pass
+            else:
+                if self._dimension is None:
+                    self._dimension = len(normalized[0])
+                vectors.extend(normalized)
+                continue
+            raise RuntimeError(_UNAVAILABLE)
+        return vectors
+
+
+def rank_memories(query, rows: list[dict], encoder: Encoder, *,
+                  limit: int = 20, min_score: float = 0.0) -> list[dict]:
+    """Rank caller-eligible rows by cosine, then by ascending string ``id``.
+
+    Rows require nonblank string ``id``, ``claim`` and ``evidence``. All text is
+    validated before encoding, including clipped tails. The embedding text is
+    claim[:512] + newline + evidence[:1535]; truncation is reported separately.
+    Returned ``memory`` is the exact original row, with no modifications. Ties
+    with identical IDs retain input order. Scores are similarity, not confidence.
+    ``limit`` is a nonnegative integer; zero/empty rows perform no encoding.
+    No row approval, ownership, or status filtering is performed here.
+    """
+    _text(query, max_length=_TEXT_LIMIT)
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+        raise ValueError("limit must be a nonnegative integer")
+    score_valid = False
+    if not isinstance(min_score, bool) and isinstance(min_score, Real):
+        try:
+            threshold = float(min_score)
+            score_valid = math.isfinite(threshold) and -1 <= threshold <= 1
+        except (OverflowError, ValueError):
+            pass
+    if not score_valid:
+        raise ValueError("min_score must be finite and between -1 and 1")
+    if not isinstance(rows, list):
+        raise ValueError("rows must be a list of dictionaries")
+    prepared = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("rows must be a list of dictionaries")
+        _text(row.get("id"))
+        claim = _text(row.get("claim"))
+        evidence = _text(row.get("evidence"))
+        prepared.append((row, claim[:_CLAIM_LIMIT] + "\n" + evidence[:_EVIDENCE_LIMIT],
+                         len(claim) > _CLAIM_LIMIT or len(evidence) > _EVIDENCE_LIMIT))
+    if not prepared or limit == 0:
+        return []
+    query_vector = _encode_batch(encoder, [query])[0]
+    ranked = []
+    for start in range(0, len(prepared), _BATCH_SIZE):
+        batch = prepared[start:start + _BATCH_SIZE]
+        vectors = _encode_batch(encoder, [text for _, text, _ in batch], len(query_vector))
+        for (row, _, truncated), vector in zip(batch, vectors):
+            cosine = math.fsum(left * right for left, right in zip(query_vector, vector))
+            score = max(-1.0, min(1.0, cosine))
+            if score >= threshold:
+                ranked.append({"memory": row, "score": score,
+                               "encoded_text_truncated": truncated})
+    ranked.sort(key=lambda item: (-item["score"], item["memory"]["id"]))
+    return ranked[:limit]

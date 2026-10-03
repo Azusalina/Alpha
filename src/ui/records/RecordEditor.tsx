@@ -19,6 +19,8 @@ import { useEffect, useRef, useState } from 'react';
 import { inputStore, useInputs } from '../../app/inputStore';
 import { validateEntry } from '../../backend';
 import type { InputRecord } from '../../backend';
+import { t } from '../../i18n/lang';
+import { STATUS_LABELS } from '../shared/labels';
 
 interface Props {
   rec: InputRecord;
@@ -42,7 +44,7 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
 
   const check = validateEntry({ text, partition: rec.partition, kind: rec.kind, self_speaker: rec.self_speaker ?? undefined });
   const changed = text !== original || immediate !== rec.immediate;
-  const next = immediate ? '待确认' : '不同意';
+  const next = immediate ? STATUS_LABELS.pending : STATUS_LABELS.disagreed;
 
   return (
     <form
@@ -55,13 +57,13 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
       }}
     >
       <h4 className="rec__h">
-        编辑原文{demoTag && <span className="rec__tag">{demoTag}</span>}
+        {t('rec.editor.title')}{demoTag && <span className="rec__tag">{demoTag}</span>}
       </h4>
       <textarea
         ref={area}
         className="rec__textarea"
         data-testid="editor-text"
-        aria-label="原文"
+        aria-label={t('result.text')}
         value={text}
         rows={6}
         onChange={(e) => setText(e.target.value)}
@@ -69,10 +71,10 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
       />
       <label className="rec__check">
         <input type="checkbox" data-testid="editor-immediate" checked={immediate} onChange={(e) => setImmediate(e.target.checked)} disabled={saving} />
-        是否为真（当下）
+        {t('entry.immediate')}
       </label>
       <p className="rec__quiet" data-testid="editor-next">
-        保存后二次判断重置，旧证据位置全部失效；记录回到「{next}」。
+        {t('rec.editor.note', { next })}
       </p>
       {check.errors.map((m) => (
         <p key={m} className="rec__error" role="alert" data-testid="editor-error">
@@ -91,10 +93,10 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
       )}
       <div className="rec__acts">
         <button type="submit" className="rec__act rec__act--primary" data-testid="editor-save" disabled={saving || check.errors.length > 0 || !changed}>
-          {saving ? '保存中…' : '保存'}
+          {saving ? t('rec.editor.saving') : t('rec.editor.save')}
         </button>
         <button type="button" className="rec__act rec__act--plain" data-testid="editor-cancel" disabled={saving} onClick={() => inputStore.openEditor(null)}>
-          取消
+          {t('common.cancel')}
         </button>
       </div>
     </form>

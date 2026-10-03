@@ -36,6 +36,7 @@ import { STATE_PALETTE, themeStore } from '../config/theme';
 import { useGraph } from '../graph/graphStore';
 import { forearmWorld, junctionPoint } from '../tree/layout';
 import { treeLayout } from '../tree/layoutCache';
+import { t } from '../i18n/lang';
 
 type P = [number, number];
 
@@ -350,7 +351,7 @@ export function TreeOverlay({ state }: { state: SceneState }) {
           ].join(' ')}
           data-testid={`tree-node-${n.id}`}
           data-kind={n.kind}
-          aria-label={`${n.label}（双击进入）`}
+          aria-label={t('tree.node.aria', { name: n.label })}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             const d = dragRef.current;

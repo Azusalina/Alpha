@@ -21,6 +21,7 @@
 import { codePointLength, hasLoneSurrogate } from './spans';
 import { BackendError, KINDS, MAX_INPUT_CHARS, PARTITIONS } from './types';
 import type { Kind, Partition } from './types';
+import { t } from '../i18n/lang';
 
 /** Largest file the entry form reads: 1,000,000 code points need at most 4,000,000 UTF-8 bytes. */
 export const MAX_FILE_BYTES = 4_000_000;
@@ -165,25 +166,25 @@ function baseName(name: string): string {
 export async function readTextFile(file: FileLike): Promise<TextFile> {
   const name = baseName(file.name);
   if (!/\.(txt|md)$/i.test(name)) {
-    throw new TextFileError('EXTENSION', '只能读取 .txt 或 .md 文件');
+    throw new TextFileError('EXTENSION', t('text.ext'));
   }
   // A BOM is 3 bytes that never reach the back end, so a file of exactly
   // 1,000,000 code points plus a BOM is valid. The byte limit is only a memory
   // guard; the code point limit itself is checked by `validateEntry`.
   if (file.size > MAX_FILE_BYTES + BOM_BYTES) {
-    throw new TextFileError('TOO_LARGE', `文件超过 ${MAX_FILE_BYTES / 1_000_000} MB，无法读取`);
+    throw new TextFileError('TOO_LARGE', t('text.tooLarge', { mb: MAX_FILE_BYTES / 1_000_000 }));
   }
   let bytes: ArrayBuffer;
   try {
     bytes = await file.arrayBuffer();
   } catch {
-    throw new TextFileError('READ_FAILED', '文件读取失败');
+    throw new TextFileError('READ_FAILED', t('entry.file.failed'));
   }
   if (bytes.byteLength > MAX_FILE_BYTES) {
     const head = new Uint8Array(bytes, 0, Math.min(3, bytes.byteLength));
     const hasBom = head.length === 3 && head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf;
     if (!hasBom || bytes.byteLength > MAX_FILE_BYTES + BOM_BYTES) {
-      throw new TextFileError('TOO_LARGE', `文件超过 ${MAX_FILE_BYTES / 1_000_000} MB，无法读取`);
+      throw new TextFileError('TOO_LARGE', t('text.tooLarge', { mb: MAX_FILE_BYTES / 1_000_000 }));
     }
   }
   let decoded: string;
@@ -192,13 +193,13 @@ export async function readTextFile(file: FileLike): Promise<TextFile> {
     // single step rather than a decoder default.
     decoded = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
-    throw new TextFileError('INVALID_UTF8', '文件不是有效的 UTF-8 文本，已拒绝读取（不会替换乱码字符）');
+    throw new TextFileError('INVALID_UTF8', t('text.utf8'));
   }
   // A text file has no U+0000. UTF-16 without a BOM (every other byte is 00) decodes
   // as "valid" UTF-8 full of NULs and would otherwise be read as garbage text; the
   // back end also refuses a text with one anywhere (see `hasNul`).
   if (decoded.includes('\u0000')) {
-    throw new TextFileError('INVALID_UTF8', '文件含有空字符（U+0000），不像 UTF-8 纯文本（可能是 UTF-16 编码），已拒绝读取');
+    throw new TextFileError('INVALID_UTF8', t('text.nulFile'));
   }
   if (decoded.charCodeAt(0) === 0xfeff) decoded = decoded.slice(1);
   return { text: decoded, source_ref: name };
@@ -210,17 +211,17 @@ export async function readTextFile(file: FileLike): Promise<TextFile> {
  * was typed. Throws `BackendError('INVALID_ARGUMENT')` for a lone surrogate.
  */
 export function normalizeForSubmit(text: string): string {
-  const t = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
-  if (hasLoneSurrogate(t)) {
-    throw new BackendError('INVALID_ARGUMENT', '内容含有无法编码的孤立代理字符，请删除后重试');
+  const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  if (hasLoneSurrogate(body)) {
+    throw new BackendError('INVALID_ARGUMENT', t('text.surrogate'));
   }
-  if (hasNul(t)) throw new BackendError('INVALID_ARGUMENT', LEADING_NUL_MESSAGE);
-  return t;
+  if (hasNul(body)) throw new BackendError('INVALID_ARGUMENT', leadingNulMessage());
+  return body;
 }
 
 // ---- validation --------------------------------------------------------------------
 
-export const LEADING_NUL_MESSAGE = '内容不能含有空字符（U+0000）；若来自文件，它可能不是 UTF-8 纯文本';
+export const leadingNulMessage = (): string => t('text.nul');
 
 /**
  * True when the text holds U+0000 anywhere. The back end refuses a new submit or
@@ -281,29 +282,29 @@ export function validateEntry(draft: EntryDraft): EntryValidation {
   // What is sent has one leading BOM removed (`normalizeForSubmit`): judge that string.
   const text = draft.text.charCodeAt(0) === 0xfeff ? draft.text.slice(1) : draft.text;
 
-  if (!PARTITIONS.includes(draft.partition)) errors.push('请选择状态：理性、感性或癫狂');
-  if (!KINDS.includes(kind)) errors.push('请选择类型：日记、聊天或哲学');
+  if (!PARTITIONS.includes(draft.partition)) errors.push(t('text.pickState'));
+  if (!KINDS.includes(kind)) errors.push(t('text.pickKind'));
 
-  if (isBlank(text)) errors.push('内容不能为空');
+  if (isBlank(text)) errors.push(t('text.empty'));
   else if (codePointLength(text) > MAX_INPUT_CHARS) {
-    errors.push(`内容超过 ${MAX_INPUT_CHARS.toLocaleString('en-US')} 个字符的上限`);
+    errors.push(t('text.over', { n: MAX_INPUT_CHARS.toLocaleString('en-US') }));
   }
-  if (hasLoneSurrogate(text)) errors.push('内容含有无法编码的孤立代理字符，请删除后重试');
-  if (hasNul(text)) errors.push(LEADING_NUL_MESSAGE);
+  if (hasLoneSurrogate(text)) errors.push(t('text.surrogate'));
+  if (hasNul(text)) errors.push(leadingNulMessage());
 
   if (kind !== 'chat') return { errors, warnings };
 
   const speaker = draft.self_speaker ?? '';
   if (isBlank(speaker)) {
-    errors.push('聊天记录必须指定“我”的发言者名称');
+    errors.push(t('text.speaker.need'));
     return { errors, warnings };
   }
   if (splitLines(speaker).length > 1) {
-    errors.push('发言者名称必须是单独一行');
+    errors.push(t('text.speaker.line'));
     return { errors, warnings };
   }
   if (speaker !== pyStrip(speaker)) {
-    errors.push('发言者名称前后不能有空格');
+    errors.push(t('text.speaker.trim'));
     return { errors, warnings };
   }
   if (isBlank(text)) return { errors, warnings };
@@ -313,12 +314,12 @@ export function validateEntry(draft: EntryDraft): EntryValidation {
     const unmatchable = new RegExp(`[:：${PY_WS}]`, 'u').test(speaker) || codePointLength(speaker) > 32;
     warnings.push(
       unmatchable
-        ? `发言者「${speaker}」含有冒号、空白或超过 32 个字符，后端无法把它与任何行匹配，提交后不会提取任何内容。`
-        : `没有找到发言者「${speaker}」的行：聊天需逐行写成“姓名: 内容”，姓名须完全一致，否则提交后不会提取任何内容。`,
+        ? t('text.speaker.unmatchable', { name: speaker })
+        : t('text.speaker.none', { name: speaker }),
     );
   }
   if (counts.unlabeledLines > 0) {
-    warnings.push(`有 ${counts.unlabeledLines} 行不是“姓名: 内容”格式，将被跳过。`);
+    warnings.push(t('text.unlabeled', { n: counts.unlabeledLines }));
   }
   return { errors, warnings, chat: counts };
 }

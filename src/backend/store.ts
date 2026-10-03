@@ -28,6 +28,7 @@ import { createTauriTransport } from './tauriTransport';
 import { UnavailableAdapter } from './unavailable';
 import { BackendError } from './types';
 import type { BrainAdapter } from './types';
+import { t } from '../i18n/lang';
 
 export type BackendMode = 'unconnected' | 'demo' | 'remote';
 
@@ -100,7 +101,7 @@ class BackendStore {
   connectDesktopBackend = async (): Promise<boolean> => {
     const transport = createTauriTransport();
     if (!transport) {
-      this.setConnectError('当前不是桌面应用，无法连接本机后端');
+      this.setConnectError(t('be.notDesktop'));
       return false;
     }
     const generation = this.snapshot.generation;
@@ -112,7 +113,7 @@ class BackendStore {
       return true;
     } catch (e) {
       if (this.snapshot.generation === generation) {
-        this.setConnectError(e instanceof BackendError && e.message ? e.message : '无法连接本机后端');
+        this.setConnectError(e instanceof BackendError && e.message ? e.message : t('be.cannotConnect'));
       }
       return false;
     }

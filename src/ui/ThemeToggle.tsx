@@ -13,12 +13,13 @@ import { useEffect } from 'react';
 
 import { captureClean, themeStore, useTheme } from '../config/theme';
 import { useViewMode } from '../scene/useViewMode';
+import { t } from '../i18n/lang';
 
 export function ThemeToggle() {
   const theme = useTheme();
   // the dev capture modes (docs/CONTRACTS.md §9) must contain nothing but the hands
   const viewMode = useViewMode();
-  const next = theme === 'dark' ? '亮色' : '暗色';
+  const next = theme === 'dark' ? t('theme.light') : t('theme.dark');
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
@@ -39,8 +40,8 @@ export function ThemeToggle() {
       type="button"
       className="theme-toggle"
       data-testid="theme-toggle"
-      aria-label={`切换到${next}模式（T）`}
-      title={`切换到${next}模式（T）`}
+      aria-label={t('theme.switch', { to: next })}
+      title={t('theme.switch', { to: next })}
       onClick={() => themeStore.toggle()}
     >
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

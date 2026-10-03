@@ -19,9 +19,10 @@ import { PARAMETER_IDS, PARTITIONS } from '../backend/types';
 import type { InputRecord, ModelState, ParameterEffect, ParameterId, Partition } from '../backend/types';
 import type { GraphData, GraphEdge, GraphNode } from '../fixtures/graph';
 import { parameterLabel, PARTITION_LABELS } from '../ui/shared/labels';
+import { t } from '../i18n/lang';
 
 export const ROOT_ID = 'root';
-export const ROOT_LABEL = '主节点';
+
 /** Placeholder brain region per state (0–2 of the cortex regions). */
 const REGION: Record<Partition, number> = { rational: 0, emotional: 1, crazy: 2 };
 const EXCERPT_NODE_CHARS = 14;
@@ -32,7 +33,7 @@ export const inputNodeId = (sourceId: string): string => `i:${sourceId}`;
 
 /** The skeleton: the main node and the three states. What an install shows before any training. */
 export function baseGraph(): GraphData {
-  const nodes: GraphNode[] = [{ id: ROOT_ID, label: ROOT_LABEL, depth: 0, parent: null, region: 0, kind: 'root' }];
+  const nodes: GraphNode[] = [{ id: ROOT_ID, label: t('node.kind.root'), depth: 0, parent: null, region: 0, kind: 'root' }];
   const edges: GraphEdge[] = [];
   for (const p of PARTITIONS) {
     nodes.push({ id: partitionNodeId(p), label: PARTITION_LABELS[p], depth: 1, parent: ROOT_ID, region: REGION[p], kind: 'partition', partition: p });
@@ -49,7 +50,7 @@ export function isInModel(r: Pick<InputRecord, 'status' | 'immediate' | 'confirm
 function oneLine(text: string): string {
   const flat = text.replace(/[\u0000-\u001f\u007f\u0085\s]+/gu, ' ').trim();
   const chars = Array.from(flat);
-  return chars.length > EXCERPT_NODE_CHARS ? `${chars.slice(0, EXCERPT_NODE_CHARS).join('')}…` : flat || '（空）';
+  return chars.length > EXCERPT_NODE_CHARS ? `${chars.slice(0, EXCERPT_NODE_CHARS).join('')}…` : flat || t('rec.empty');
 }
 
 /** The effect an input is placed by: its largest approved change; the later revision wins a tie. */
@@ -67,7 +68,7 @@ function primaryEffect(effects: readonly ParameterEffect[]): ParameterEffect | n
  * install, or the demo): they let the tree show what it will look like. Labelled
  * 示例, never sent anywhere, never mixed with real inputs.
  */
-export const EXAMPLE_PREFIX = '示例 · ';
+
 export function withExamples(graph: GraphData): GraphData {
   const nodes = [...graph.nodes];
   const edges = [...graph.edges];
@@ -80,24 +81,24 @@ export function withExamples(graph: GraphData): GraphData {
   let k = 0;
   const addInput = (p: Partition, parent: string, label: string, delta: number, forkOn?: string, forkParent?: string) => {
     const nid = `i:example-${++k}`;
-    nodes.push({ id: nid, label: EXAMPLE_PREFIX + label, depth: 3, parent: forkOn ? (forkParent as string) : parent, region: REGION[p], kind: 'input', partition: p, delta, example: true, ...(forkOn ? { forkOn } : {}) });
+    nodes.push({ id: nid, label: t('example.prefix') + label, depth: 3, parent: forkOn ? (forkParent as string) : parent, region: REGION[p], kind: 'input', partition: p, delta, example: true, ...(forkOn ? { forkOn } : {}) });
     edges.push(forkOn ? { from: forkParent as string, to: nid, kind: 'tree', onLine: forkOn } : { from: parent, to: nid, kind: 'tree' });
     return nid;
   };
   const trust = addParam('rational', 'value.truth');
-  const t1 = addInput('rational', trust, '重视真实', 0.2);
-  const t2 = addInput('rational', t1, '再次提到真实', 0.1);
-  addInput('rational', trust, '一次相反的想法', -0.15, t2, t1);
+  const t1 = addInput('rational', trust, t('example.1'), 0.2);
+  const t2 = addInput('rational', t1, t('example.2'), 0.1);
+  addInput('rational', trust, t('example.3'), -0.15, t2, t1);
   const fair = addParam('rational', 'value.fairness');
-  addInput('rational', fair, '重视公平', 0.2);
+  addInput('rational', fair, t('example.4'), 0.2);
   const sad = addParam('emotional', 'affect.sadness');
-  const s1 = addInput('emotional', sad, '今天有点难过', 0.2);
-  addInput('emotional', s1, '还是难过', 0.1);
+  const s1 = addInput('emotional', sad, t('example.5'), 0.2);
+  addInput('emotional', s1, t('example.6'), 0.1);
   const joy = addParam('emotional', 'affect.happiness');
-  addInput('emotional', joy, '很开心', 0.2);
+  addInput('emotional', joy, t('example.7'), 0.2);
   const grow = addParam('crazy', 'value.growth');
-  const g1 = addInput('crazy', grow, '想要彻底改变', 0.2);
-  addInput('crazy', g1, '又想推翻重来', 0.1);
+  const g1 = addInput('crazy', grow, t('example.8'), 0.2);
+  addInput('crazy', g1, t('example.9'), 0.1);
   const dep = new Map<string, number>(nodes.map((n) => [n.id, n.depth]));
   for (const n of nodes) {
     if (n.parent !== null) n.depth = (dep.get(n.parent) ?? 0) + 1;
