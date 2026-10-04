@@ -22,13 +22,30 @@ function beat(x: number): number {
   return g(0.18, 0.05, 0.18) + g(0.37, 0.018, -0.25) + g(0.42, 0.016, 1) + g(0.47, 0.02, -0.38) + g(0.7, 0.07, 0.28);
 }
 
-/** Pixel offset from the straight line at `s` px along the half-line, at `time` seconds. */
-function offset(s: number, time: number, seed: number): number {
-  const period = 420;
+/**
+ * How strongly the pointer is touching the line, 0..1, eased. One line is shown across the brain and ball
+ * pages, so the state is shared: the hit areas set `target`, the one animation loop calls `ecgFrame`.
+ * Touch makes the trace taller, shorter in period and quicker; `tau` is the warped clock the trace runs on,
+ * so the change in speed never makes it jump.
+ */
+export const ecgDrive = { target: 0, level: 0, tau: 0, at: 0 };
+
+export function ecgFrame(now: number): { tau: number; level: number } {
+  const dt = Math.min(0.1, Math.max(0, now - ecgDrive.at));
+  ecgDrive.at = now;
+  const k = 1 - Math.exp(-dt * (ecgDrive.target > ecgDrive.level ? 10 : 3));
+  ecgDrive.level += (ecgDrive.target - ecgDrive.level) * k;
+  ecgDrive.tau += dt * (1 + 1.2 * ecgDrive.level);
+  return { tau: ecgDrive.tau, level: ecgDrive.level };
+}
+
+/** Pixel offset from the straight line at `s` px along the half-line, at `time` seconds, `touch` 0..1. */
+function offset(s: number, time: number, seed: number, touch: number): number {
+  const period = 340 / (1 + 0.8 * touch);
   const phase = ((s - time * 150 * (seed ? -1 : 1)) / period) % 1;
   const x = phase < 0 ? phase + 1 : phase;
-  const heart = beat(x) * 15 * (0.6 + 0.4 * hash(Math.floor((s - time * 150) / period) + seed * 7.3));
-  const wobble = Math.sin(s * 0.09 + time * 9 + seed) * 0.9 + Math.sin(s * 0.31 - time * 23) * 0.6;
+  const heart = beat(x) * 20 * (1 + 1.2 * touch) * (0.6 + 0.4 * hash(Math.floor((s - time * 150) / period) + seed * 7.3));
+  const wobble = (Math.sin(s * 0.09 + time * 9 + seed) * 0.9 + Math.sin(s * 0.31 - time * 23) * 0.6) * (1 + 1.5 * touch);
   // a sudden step now and then, as a loose contact would give
   const step = (hash(Math.floor(time * 5) + Math.floor(s / 90) * 1.7 + seed) > 0.93 ? 1 : 0) * (hash(Math.floor(time * 5) + seed) - 0.5) * 22;
   return heart + wobble + step;
@@ -38,8 +55,9 @@ function offset(s: number, time: number, seed: number): number {
  * The path of one half of the line, from the centre outwards.
  * @param end the corner this half runs to, in viewBox units (0 or 100 on both axes)
  * @param extent how much of the half is drawn, 0..1
+ * @param touch how strongly the pointer is on the line, 0..1 (taller, shorter period)
  */
-export function ecgPath(end: readonly [number, number], extent: number, width: number, height: number, time: number, seed: 0 | 1): string {
+export function ecgPath(end: readonly [number, number], extent: number, width: number, height: number, time: number, seed: 0 | 1, touch = 0): string {
   if (extent <= 0.001 || width <= 0 || height <= 0) return '';
   const dx = ((end[0] - 50) / 100) * width;
   const dy = ((end[1] - 50) / 100) * height;
@@ -67,7 +85,7 @@ export function ecgPath(end: readonly [number, number], extent: number, width: n
     }
     // the trace settles to a flat line at the centre so the two halves meet
     const edge = Math.min(1, s / 40);
-    const o = offset(s, time, seed) * edge;
+    const o = offset(s, time, seed, touch) * edge;
     const x = 50 + ((ux * s + nx * o) / width) * 100;
     const y = 50 + ((uy * s + ny * o) / height) * 100;
     d += `${pen ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`;

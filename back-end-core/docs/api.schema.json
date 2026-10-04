@@ -14,7 +14,7 @@
     "cosine": {"type": "number", "minimum": -1, "maximum": 1},
     "choiceId": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S", "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
     "nullableChoiceId": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/choiceId"}]},
-    "choiceReason": {"type": ["string", "null"], "maxLength": 2048, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "choiceReason": {"oneOf": [{"type": "null"}, {"type": "string", "maxLength": 2048, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}}]},
     "choiceDomain": {"enum": ["daily", "study", "relationships"]},
     "preferenceTarget": {"enum": ["actual", "endorsed"]},
     "valueFeature": {"enum": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection"]},
@@ -37,23 +37,25 @@
         "actual_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsed_choice_id": {"$ref": "#/$defs/nullableChoiceId"}, "endorsement_partition": {"$ref": "#/$defs/optionalPartition"},
         "training_consent": {"type": "boolean"}, "reason": {"$ref": "#/$defs/choiceReason"}, "partition": {"$ref": "#/$defs/partition"},
         "source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}, "body_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64},
-        "created_at": {"$ref": "#/$defs/text"}, "model_active": {"type": "boolean"}
+        "created_at": {"$ref": "#/$defs/text"}, "model_active": {"type": "boolean", "description": "Feedback eligibility under source approval, explicit training consent, current content/version and feedback epoch; distinct from input rule-model activity."}
       },
-      "allOf": [{"$ref": "#/$defs/endorsementLabels"}]
+      "allOf": [{"$ref": "#/$defs/endorsementLabels"},
+        {"if": {"properties": {"model_active": {"const": true}}}, "then": {"properties": {"training_consent": {"const": true}}}}]
     },
     "choiceFeedbackRecord": {"allOf": [{"$ref": "#/$defs/choiceFeedbackFields"}], "unevaluatedProperties": false},
     "valueWeights": {
       "type": "object", "required": ["value.autonomy", "value.fairness", "value.care", "value.truth", "value.security", "value.growth", "value.achievement", "value.connection"],
-      "minProperties": 8, "maxProperties": 8, "propertyNames": {"$ref": "#/$defs/valueFeature"}, "additionalProperties": {"type": "number"}
+      "minProperties": 8, "maxProperties": 8, "propertyNames": {"$ref": "#/$defs/valueFeature"}, "additionalProperties": {"type": "number", "minimum": -10, "maximum": 10}
     },
     "preferenceResult": {
+      "description": "Read-only database operation; recalculates temporary CPU fit weights from eligible explicit labels. Eight ML feature weights are separate from thirteen rule parameters. No encoder training or persisted fit weights.",
       "type": "object", "required": ["status", "reason", "basis", "not_calibrated", "target", "partition", "domain", "model_epoch", "input_revision", "training_sources", "used_features", "weights", "ranked"], "additionalProperties": false,
       "properties": {
-        "status": {"enum": ["abstain", "provisional"]}, "reason": {"enum": [null, "too_many_feedback_records", "endorsed_requires_rational_partition", "insufficient_independent_sources", "nonfinite_fit", "no_identifiable_preference", "invalid_feedback_snapshot", "options_tied_with_learned_weights", "unsupported_option_features"]},
+        "status": {"enum": ["abstain", "provisional"]}, "reason": {"enum": [null, "too_many_feedback_records", "endorsed_requires_rational_partition", "insufficient_independent_sources", "nonfinite_fit", "fit_not_converged", "no_identifiable_preference", "invalid_feedback_snapshot", "options_tied_with_learned_weights", "unsupported_option_features"]},
         "basis": {"const": "personal_choice_feedback_multinomial_logistic"}, "not_calibrated": {"const": true}, "target": {"$ref": "#/$defs/preferenceTarget"}, "partition": {"$ref": "#/$defs/partition"}, "domain": {"$ref": "#/$defs/choiceDomain"},
         "model_epoch": {"$ref": "#/$defs/revision"}, "input_revision": {"$ref": "#/$defs/revision"}, "training_sources": {"type": "integer", "minimum": 0, "maximum": 1000}, "used_features": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/valueFeature"}}, "weights": {"$ref": "#/$defs/valueWeights"},
         "ranked": {"type": "array", "maxItems": 8, "items": {"type": "object", "required": ["id", "score", "model_probability", "contributions"], "additionalProperties": false,
-          "properties": {"id": {"$ref": "#/$defs/choiceId"}, "score": {"type": "number"}, "model_probability": {"type": "number", "minimum": 0, "maximum": 1}, "contributions": {"$ref": "#/$defs/valueWeights"}}}}
+          "properties": {"id": {"$ref": "#/$defs/choiceId"}, "score": {"type": "number", "minimum": -80, "maximum": 80}, "model_probability": {"type": "number", "minimum": 0, "maximum": 1}, "contributions": {"$ref": "#/$defs/valueWeights"}}}}
       },
       "if": {"properties": {"status": {"const": "abstain"}}}, "then": {"properties": {"ranked": {"const": []}, "reason": {"type": "string"}}},
       "else": {"properties": {"reason": {"const": null}, "ranked": {"minItems": 2}, "training_sources": {"minimum": 3}}}
@@ -334,7 +336,7 @@
     },
     "semanticMemoryItem": {
       "type": "object", "required": ["memory", "score", "encoded_text_truncated"], "additionalProperties": false,
-      "properties": {"memory": {"$ref": "#/$defs/activeMemoryRow"}, "score": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/cosine"}]}, "encoded_text_truncated": {"type": "boolean"}}
+      "properties": {"memory": {"allOf": [{"$ref": "#/$defs/activeMemoryRow"}], "required": ["source_version"]}, "score": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/cosine"}]}, "encoded_text_truncated": {"type": "boolean"}}
     },
     "semanticMemoryResult": {
       "type": "object", "required": ["mode", "score_kind", "items", "pool_count", "pool_truncated"], "additionalProperties": false,
@@ -493,7 +495,7 @@
         }}}},
         {"if": {"properties": {"method": {"const": "memory_search_semantic"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["query"], "additionalProperties": false,
-          "properties": {"query": {"$ref": "#/$defs/semanticQuery"}, "partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "min_score": {"$ref": "#/$defs/cosine"}}
+          "properties": {"query": {"$ref": "#/$defs/semanticQuery"}, "partition": {"$ref": "#/$defs/optionalPartition"}, "limit": {"$ref": "#/$defs/limit"}, "min_score": {"$ref": "#/$defs/cosine", "default": 0}}
         }}}},
         {"if": {"properties": {"method": {"enum": ["health", "baseline", "access_status", "lock"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/empty"}}}},
         {"if": {"properties": {"method": {"const": "unlock"}}}, "then": {"properties": {"params": {

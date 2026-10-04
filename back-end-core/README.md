@@ -1,7 +1,42 @@
 # Alpha brain (backend)
 
+> Current continuation (2026-10-04): main's broader backend goal is active.
+> Oct 2 revision 2/30 methods is the accepted historical baseline; current source
+> declares revision 3/34 methods. Goodall's Oct 5 final worker delivery uses digest-
+> only preference screening, a converged pure-Python solver with near-tie abstention
+> and controlled huge-integer ValueError. Zeno owns a separate frozen-manifest
+> preference evaluator; its tests/docs/example are pending. Main's new scoped
+> base full proof and fresh-agent review remain pending; see
+> [hybrid plan](docs/hybrid-learning-plan.md) and [TODO](docs/TODO.md).
+>
+> Historical main proof: full discovery 396 tests/134.672s, subsequent semantic
+> 51/1.142s covering the last two additions in discovery 398, and independent
+> backup 12/11.220s; all 0 skips. This was not a single 398-test run and does not
+> verify later edits. Synthetic/mocked tests do not establish real encoder quality
+> or actual/endorsed predictive validity. P2/P3, production source-group/contrast
+> span acceptance, frontend/native and real validity remain open. No live DB,
+> private-data import or encoder weights are used for this documentation work.
+
 This directory contains the first local memory and self-model backend. The
 particle brain in `src/scene/BrainView.tsx` does not yet read from it.
+
+Confirmed next-phase decision: frontend supplies a user-reviewed event-group ID
+(`group_id` is PROPOSED). All materials in one group share one total training loss
+mass within each target/partition/domain fit. Backend only hints at exact-text
+duplicates and never infers same-event groups from distinct texts. A fresh owner
+will add the field/review gate after Goodall's base fixes; under that future gate,
+legacy/unknown-group feedback is excluded until user review. Group integration,
+frontend contracts and this exclusion remain unimplemented; see
+[handoff](docs/frontend-contract-handoff.md#confirmed-event-group-decision--frontend-contract-pending).
+
+Oct 5 current preference solver: L2=0.1, up to 64 damped Newton/Cholesky steps and
+32 backtracks per step; publishable weights require gradient infinity norm
+<=1e-11. Top gaps <=1e-8 abstain; nonfinite_fit/fit_not_converged describe numeric
+failures. Worker final 80 synthetic tests passed in 128.728s, 0 skips; new main/
+fresh acceptance is pending. Dense 1000-event/8-option fit took 2.144934741 CPU
+seconds in a synthetic benchmark, not a normal API latency guarantee. Memory
+measurements use Python tracemalloc, not native RSS; see
+[measurements and scope](docs/hybrid-learning-plan.md#oct-5-final-worker-proof--mainfresh-acceptance-pending).
 
 The product direction and open decisions are in [docs/architecture.md](docs/architecture.md).
 `core/` contains a dependency-free Python/SQLite memory prototype. It can

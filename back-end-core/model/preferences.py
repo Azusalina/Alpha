@@ -2,10 +2,9 @@
 
 Integration: after BrainModel initialization, call initialize(db) in its own
 transaction. Public store hooks own their transactions; the API caller must
-enforce its existing unlock boundary. F6 editing must later add an optional
-DELETE FROM brain_choice_feedback WHERE source_id=? to sources.purge_dependents.
-Until then, digest/version checks exclude retained obsolete feedback, but do
-not erase its labels/reason. Hard source deletion already cascades.
+enforce its existing unlock boundary. F6 editing purges optional feedback through
+sources.purge_dependents; digest/version checks also exclude obsolete feedback.
+Hard source deletion cascades.
 
 These eight learned feature weights are separate from the thirteen rule state
 parameters. Nothing here writes rule state, fits, effects, or review history.
@@ -33,11 +32,15 @@ TARGETS = ("actual", "endorsed")
 MAX_EVENTS = 32
 MAX_RECORDS = 1000
 MAX_PAYLOAD_BYTES = 65536
-ITERATIONS = 400
+MAX_ITERATIONS = 64
+MAX_BACKTRACKS = 32
+GRADIENT_TOLERANCE = 1e-11
 L2 = 0.1
-STEP = 0.2
 MIN_SOURCES = 3
-TIE_TOLERANCE = 1e-10
+# Strong convexity gives ||w-w*||2 <= ||g||2/L2. In eight dimensions,
+# ||option contrast||2 <= 2*sqrt(8), so gap error <= 160*||g||inf.
+# This exceeds 160*GRADIENT_TOLERANCE (1.6e-9), with roundoff slack.
+TIE_TOLERANCE = 1e-8
 PAYLOAD_FIELDS = frozenset((
     "source_id", "event_id", "domain", "options", "actual_choice_id",
     "endorsed_choice_id", "endorsement_partition", "training_consent", "reason",
@@ -138,7 +141,34 @@ def _source(db, source_id):
 
 
 def _digest(body: str) -> str:
-    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+    if not isinstance(body, str) or len(body) > sources.MAX_CHARS:
+        raise ValueError("source body exceeds text bound")
+    digest = hashlib.sha256()
+    for start in range(0, len(body), 65536):
+        digest.update(body[start:start + 65536].encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _source_metadata(db, source_id) -> dict:
+    # Never cache i.*: interpretation/source references can also contain text.
+    row = db.execute("SELECT i.status,i.immediate,i.confirm,i.source_version,i.partition "
+                     "FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
+                     "WHERE i.source_id=?", (source_id,)).fetchone()
+    if row is None:
+        raise KeyError("brain input not found")
+    return {**dict(row), "body_digest": None}
+
+
+def _source_digest(db, source_id) -> str:
+    # Bound validated, NUL-free source text before materializing it. SQLite's
+    # length stops at NUL; _digest rechecks Python length after fetching legacy
+    # text. This is not an allocation guarantee against malicious DB rewrites.
+    # This helper's single body dies on return; the cache receives only a digest.
+    row = db.execute("SELECT body FROM sources WHERE id=? AND length(body)<=?",
+                     (source_id, sources.MAX_CHARS)).fetchone()
+    if row is None:
+        raise ValueError("source body missing or exceeds text bound")
+    return _digest(row["body"])
 
 
 def _public(payload: dict, row, epoch: int) -> dict:
@@ -288,17 +318,127 @@ def _contrasts(vectors) -> set[str]:
 def _softmax(scores):
     maximum = max(scores)
     exp = [math.exp(score - maximum) for score in scores]
-    total = sum(exp)
+    total = math.fsum(exp)
     return [value / total for value in exp]
 
 
+def _objective(weights, events, *, derivatives=True):
+    """Source-normalized NLL + L2/2 * ||w||2, gradient and SPD Hessian."""
+    dimension = len(VALUE_PARAMETERS)
+    loss = L2 / 2 * math.fsum(w * w for w in weights)
+    gradient = [L2 * w for w in weights] if derivatives else []
+    hessian = [[L2 if i == j else 0.0 for j in range(dimension)]
+               for i in range(dimension)] if derivatives else []
+    for vectors, chosen, scale in events:
+        scores = [math.fsum(w * x for w, x in zip(weights, vector)) for vector in vectors]
+        if not all(math.isfinite(score) for score in scores):
+            raise ArithmeticError("nonfinite objective scores")
+        maximum = max(scores)
+        exp = [math.exp(score - maximum) for score in scores]
+        total = math.fsum(exp)
+        loss += scale * (maximum - scores[chosen] + math.log(total))
+        if not derivatives:
+            continue
+        probabilities = [value / total for value in exp]
+        mean = [math.fsum(p * vector[i] for p, vector in zip(probabilities, vectors))
+                for i in range(dimension)]
+        for i in range(dimension):
+            gradient[i] += scale * (mean[i] - vectors[chosen][i])
+        # Centered covariance avoids subtracting nearly equal second moments.
+        for probability, vector in zip(probabilities, vectors):
+            centered = [x - m for x, m in zip(vector, mean)]
+            mass = scale * probability
+            for i in range(dimension):
+                for j in range(i + 1):
+                    hessian[i][j] += mass * centered[i] * centered[j]
+    for i in range(len(hessian)):
+        for j in range(i):
+            hessian[j][i] = hessian[i][j]
+    if (not math.isfinite(loss) or not all(math.isfinite(g) for g in gradient)
+            or not all(math.isfinite(x) for row in hessian for x in row)):
+        raise ArithmeticError("nonfinite objective derivatives")
+    return loss, gradient, hessian
+
+
+def _solve_spd(hessian, gradient):
+    """Cholesky solve H*d = -g; L2 makes every exact Hessian positive definite."""
+    dimension = len(gradient)
+    lower = [[0.0] * dimension for _ in gradient]
+    for i in range(dimension):
+        for j in range(i + 1):
+            value = hessian[i][j] - math.fsum(lower[i][k] * lower[j][k] for k in range(j))
+            if not math.isfinite(value) or (i == j and value <= 0):
+                raise ArithmeticError("Hessian is not finite SPD")
+            lower[i][j] = math.sqrt(value) if i == j else value / lower[j][j]
+    forward = []
+    for i in range(dimension):
+        forward.append((-gradient[i] - math.fsum(lower[i][j] * forward[j] for j in range(i)))
+                       / lower[i][i])
+    direction = [0.0] * dimension
+    for i in reversed(range(dimension)):
+        direction[i] = (forward[i] - math.fsum(lower[j][i] * direction[j]
+                                              for j in range(i + 1, dimension))) / lower[i][i]
+    if not all(math.isfinite(value) for value in direction):
+        raise ArithmeticError("nonfinite Newton direction")
+    return direction
+
+
+def _minimize(events):
+    # Damped Newton/backtracking: Boyd & Vandenberghe, Convex Optimization, ch. 9
+    # https://web.stanford.edu/~boyd/cvxbook/bv_cvxslides.pdf
+    # A decrement or a small step alone never certifies a publishable fit.
+    weights = [0.0] * len(VALUE_PARAMETERS)
+    for iteration in range(MAX_ITERATIONS + 1):
+        try:
+            loss, gradient, hessian = _objective(weights, events)
+        except (ArithmeticError, ValueError):
+            return None, "nonfinite_fit"
+        if max(abs(g) for g in gradient) <= GRADIENT_TOLERANCE:
+            return weights, None  # actual gradient at the returned weights
+        if iteration == MAX_ITERATIONS:
+            break
+        try:
+            direction = _solve_spd(hessian, gradient)
+        except (ArithmeticError, ValueError):
+            break
+        slope = math.fsum(g * d for g, d in zip(gradient, direction))
+        if not math.isfinite(slope) or slope >= 0:
+            break
+        step = 1.0
+        for _ in range(MAX_BACKTRACKS):
+            candidate = [w + step * d for w, d in zip(weights, direction)]
+            try:
+                candidate_loss, _, _ = _objective(candidate, events, derivatives=False)
+            except (ArithmeticError, ValueError):
+                return None, "nonfinite_fit"
+            # Close to the minimum, an Armijo decrease may be below loss
+            # roundoff. That bounded exception also requires residual reduction.
+            slack = 8 * math.ulp(max(1.0, abs(loss)))
+            armijo = loss + 0.01 * step * slope
+            accept = candidate_loss <= armijo
+            if (not accept and abs(0.01 * step * slope) <= slack
+                    and candidate_loss <= armijo + slack):
+                try:
+                    _, candidate_gradient, _ = _objective(candidate, events)
+                except (ArithmeticError, ValueError):
+                    return None, "nonfinite_fit"
+                accept = max(abs(g) for g in candidate_gradient) < max(abs(g) for g in gradient)
+            if accept:
+                weights = candidate
+                break
+            step *= 0.5
+        else:
+            break
+    return None, "fit_not_converged"
+
+
 def fit_preferences(records: list[dict], *, target: str, partition: str, domain: str) -> dict:
-    """Pure fixed-step L2 multinomial fit, initialized at eight zero weights.
+    """Pure converged L2 multinomial fit, initialized at eight zero weights.
 
     Records require source_id, partition, domain, options; choice ids default to
     null. An endorsed id requires endorsement_partition. Pure callers screen
     provenance first; optional consent/eligibility flags are honored if present.
-    Every independent source receives equal total loss mass, divided over its
+    Every source identity receives equal total loss mass, divided over its
     informative labelled events. Contradictory events remain counterexamples.
     """
     _request(target, partition, domain)
@@ -324,6 +464,7 @@ def fit_preferences(records: list[dict], *, target: str, partition: str, domain:
             label = endorsed
         if label is None:
             continue
+        options = sorted(options, key=lambda option: option["id"])
         vectors = _vectors(options)
         if all(vector == vectors[0] for vector in vectors[1:]):
             continue
@@ -339,21 +480,15 @@ def fit_preferences(records: list[dict], *, target: str, partition: str, domain:
     if len(counts) < MIN_SOURCES:
         return _result(target, partition, domain, reason="insufficient_independent_sources",
                        training_sources=len(counts), used_features=used_features)
-    weights = [0.0] * len(VALUE_PARAMETERS)
-    for _ in range(ITERATIONS):
-        gradient = [L2 * weight for weight in weights]
-        for source, vectors, chosen in events:
-            scores = [sum(w * x for w, x in zip(weights, vector)) for vector in vectors]
-            probabilities = _softmax(scores)
-            scale = 1.0 / (len(counts) * counts[source])
-            for index, vector in enumerate(vectors):
-                error = (probabilities[index] - int(index == chosen)) * scale
-                for feature, value in enumerate(vector):
-                    gradient[feature] += error * value
-        weights = [w - STEP * g for w, g in zip(weights, gradient)]
+    # Canonical accumulation makes record and option permutations deterministic.
+    events.sort(key=lambda event: (event[0], event[1], event[2]))
+    normalized = [(vectors, chosen, 1.0 / (len(counts) * counts[source]))
+                  for source, vectors, chosen in events]
+    weights, failure = _minimize(normalized)
+    if failure:
+        return _result(target, partition, domain, reason=failure, training_sources=len(counts),
+                       used_features=used_features)
     learned = dict(zip(VALUE_PARAMETERS, weights))
-    if not all(math.isfinite(weight) for weight in weights):
-        return _result(target, partition, domain, reason="nonfinite_fit", training_sources=len(counts))
     if max(abs(weight) for weight in weights) <= TIE_TOLERANCE:
         return _result(target, partition, domain, reason="no_identifiable_preference",
                        training_sources=len(counts), weights=learned, used_features=used_features)
@@ -375,25 +510,53 @@ def rank_preferences(store, options, target, partition, domain) -> dict:
         epoch, input_revision = reset.epoch(db), revision(db)
         # domain is in JSON so no unbounded JSON predicate scan; cap the whole
         # current-epoch cohort before parsing/filtering its domains.
-        rows = db.execute("SELECT * FROM brain_choice_feedback WHERE model_epoch=? "
-                          "ORDER BY source_id,event_id LIMIT 1001", (epoch,)).fetchall()
-        if len(rows) > MAX_RECORDS:
+        cohort_size = db.execute("SELECT COUNT(*) FROM (SELECT 1 FROM brain_choice_feedback "
+                                 "WHERE model_epoch=? LIMIT 1001)", (epoch,)).fetchone()[0]
+        if cohort_size > MAX_RECORDS:
             result = _result(target, partition, domain, reason="too_many_feedback_records")
         else:
             records, source_rows = [], {}
             try:
+                rows = db.execute("SELECT * FROM brain_choice_feedback WHERE model_epoch=? "
+                                  "ORDER BY source_id,event_id LIMIT 1001", (epoch,))
                 for row in rows:
                     payload = _decode(row)
+                    # Decode even excluded events: malformed provenance must
+                    # still fail the snapshot closed. Skip text access afterward.
+                    if (not payload["training_consent"] or payload["domain"] != domain
+                            or (target == "actual" and (payload["partition"] != partition
+                                                        or payload["actual_choice_id"] is None))
+                            or (target == "endorsed" and (partition != "rational"
+                                or payload["endorsement_partition"] != "rational"
+                                or payload["endorsed_choice_id"] is None))):
+                        continue
                     source_id = payload["source_id"]
                     if source_id not in source_rows:
-                        source_rows[source_id] = _source(db, source_id)
-                    public = _public(payload, source_rows[source_id], epoch)
-                    if public["model_active"]:
-                        records.append(public)
+                        source_rows[source_id] = _source_metadata(db, source_id)
+                    source = source_rows[source_id]
+                    if (source["status"] != "agreed" or source["immediate"] != 1
+                            or source["confirm"] != 1
+                            or payload["source_version"] != source["source_version"]
+                            or payload["partition"] != source["partition"]
+                            or payload["model_epoch"] != epoch):
+                        continue
+                    if source["body_digest"] is None:
+                        source["body_digest"] = _source_digest(db, source_id)
+                    if payload["body_digest"] == source["body_digest"]:
+                        records.append({
+                            "source_id": source_id, "partition": payload["partition"],
+                            "domain": payload["domain"],
+                            "options": [{"id": option["id"], "impacts": option["impacts"]}
+                                        for option in payload["options"]],
+                            "actual_choice_id": payload["actual_choice_id"],
+                            "endorsed_choice_id": payload["endorsed_choice_id"],
+                            "endorsement_partition": payload["endorsement_partition"],
+                            "training_consent": True, "model_active": True,
+                        })
                 result = None
             except (ValueError, KeyError, UnicodeError, RecursionError, OverflowError):
                 result = _result(target, partition, domain, reason="invalid_feedback_snapshot")
-    # Release the read snapshot before all 400 gradient iterations. Return its
+    # Release the read snapshot before numerical fitting. Return its
     # revision/epoch so consumers can detect a concurrently superseded result.
     if result is None:
         result = fit_preferences(records, target=target, partition=partition, domain=domain)
@@ -433,13 +596,13 @@ def rank_from_fit(options, fit: dict) -> list[dict]:
     weights = []
     for feature in VALUE_PARAMETERS:
         value = learned[feature]
-        if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 10:
+        if type(value) not in (int, float) or abs(value) > 10 or not math.isfinite(value):
             raise ValueError("fit weights must be finite numbers bounded by 10")
         weights.append(float(value))
     vectors = _vectors(options)
     if _contrasts(vectors) - set(used_features):
         return []
-    scores = [sum(w * x for w, x in zip(weights, vector)) for vector in vectors]
+    scores = [math.fsum(w * x for w, x in zip(weights, vector)) for vector in vectors]
     probabilities = _softmax(scores)
     ranked = sorted((
         {"id": option["id"], "score": score, "model_probability": probability,

@@ -8,8 +8,7 @@
 
 import './shared.css';
 import type { InputReason, InputStatus } from '../../backend';
-import { useBackend } from '../../backend';
-import { statusHint, statusText } from './labels';
+import { statusText } from './labels';
 
 interface Props {
   status: InputStatus;
@@ -19,14 +18,12 @@ interface Props {
 }
 
 export function StatusChip({ status, reason = null, className }: Props) {
-  const demo = useBackend().mode === 'demo'; // D56: a demo tooltip never says "training"
   return (
     <span
       className={`status-chip status-chip--${status}${className ? ` ${className}` : ''}`}
       data-testid="status-chip"
       data-status={status}
       data-reason={reason ?? ''}
-      title={statusHint(status, demo)}
     >
       <i className="status-chip__dot" aria-hidden="true" />
       {statusText(status, reason)}

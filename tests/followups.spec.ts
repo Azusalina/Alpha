@@ -34,13 +34,34 @@ test('divide line — a click turns to the ball page; look 1/2 switch; Esc and t
   await expect(page.getByTestId('ball-page')).toHaveCount(0);
   // a point on the diagonal, away from the panels: a quarter of the way from the top-left corner
   const vp = page.viewportSize()!;
-  // hovering the click area: the cursor changes, the line brightens and a hint follows the pointer
-  await page.mouse.move(vp.width * 0.25 + 26, vp.height * 0.25 - 12); // off the exact line, inside the wide area
-  await expect(page.getByTestId('divide-line')).toHaveClass(/is-hot/);
-  await expect(page.getByTestId('divide-hint')).toHaveClass(/is-hot/);
-  expect(await page.getByTestId('divide-hit').evaluate((el) => getComputedStyle(el).cursor)).toContain('url(');
+  // the widest the trace strays from the straight line, over a stretch of frames
+  const swing = () =>
+    page.evaluate(async () => {
+      const [pa, pb] = Array.from(document.querySelectorAll('[data-testid="divide-ecg"] path'));
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const len = Math.hypot(w, h);
+      let max = 0;
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        for (const p of [pa, pb]) {
+          for (const m of (p.getAttribute('d') ?? '').matchAll(/[ML]([\d.-]+) ([\d.-]+)/g)) {
+            const x = (Number(m[1]) / 100) * w;
+            const y = (Number(m[2]) / 100) * h;
+            max = Math.max(max, Math.abs((x * h - y * w) / len));
+          }
+        }
+      }
+      return max;
+    });
+  const calm = await swing();
+  // touching the click area (off the exact line, inside the wide band): no special cursor, no hint, a bigger trace
+  await page.mouse.move(vp.width * 0.25 + 26, vp.height * 0.25 - 12);
+  expect(await page.getByTestId('divide-hit').evaluate((el) => getComputedStyle(el).cursor)).not.toContain('url(');
+  await expect(page.getByTestId('divide-hint')).toHaveCount(0);
+  await page.waitForTimeout(600);
+  expect(await swing()).toBeGreaterThan(calm * 1.2);
   await page.mouse.move(vp.width * 0.75, vp.height * 0.1);
-  await expect(page.getByTestId('divide-line')).not.toHaveClass(/is-hot/);
   await page.mouse.click(vp.width * 0.25 + 26, vp.height * 0.25 - 12);
   const ball = page.getByTestId('ball-page');
   await expect(ball).toBeVisible();

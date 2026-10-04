@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "kind": "preference_holdout",
+  "data_origin": "synthetic",
+  "protocol": {
+    "development_end": "2026-01-04T00:00:00Z",
+    "held_out_start": "2026-01-05T00:00:00Z",
+    "frozen_at": "2026-01-06T00:00:00Z"
+  },
+  "cases": [
+    {
+      "id": "synth-dev-1", "reviewed_group_id": "synth-event-1",
+      "source_ids": ["synth-file-1"],
+      "body_digests": ["1111111111111111111111111111111111111111111111111111111111111111"],
+      "split": "development", "partition": "rational", "domain": "daily",
+      "event_at": "2026-01-01T12:00:00Z", "endorsement_partition": "rational",
+      "options": [
+        {"id": "a", "impacts": {"value.autonomy": 1}},
+        {"id": "b", "impacts": {"value.autonomy": -1}}
+      ],
+      "attestations": {
+        "group_review": "reviewed", "whole_source_authenticity": true,
+        "training_consent": true, "evaluation_consent": true,
+        "options_review": {"status": "independent", "reviewer_id": "synth-reviewer", "blind_to_outputs": true, "reviewed_at": "2026-01-01T12:00:30Z"}
+      },
+      "exposure": {"model_fit": "none", "rule_development": "none", "manual_tuning": "none"},
+      "labels": {
+        "actual": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-01T12:01:00Z", "choice_id": "a"},
+        "endorsed": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-01T12:01:00Z", "choice_id": "b"}
+      }
+    },
+    {
+      "id": "synth-dev-2", "reviewed_group_id": "synth-event-2",
+      "source_ids": ["synth-file-2"],
+      "body_digests": ["2222222222222222222222222222222222222222222222222222222222222222"],
+      "split": "development", "partition": "rational", "domain": "daily",
+      "event_at": "2026-01-02T12:00:00Z", "endorsement_partition": "rational",
+      "options": [
+        {"id": "a", "impacts": {"value.autonomy": 1}},
+        {"id": "b", "impacts": {"value.autonomy": -1}}
+      ],
+      "attestations": {
+        "group_review": "reviewed", "whole_source_authenticity": true,
+        "training_consent": true, "evaluation_consent": true,
+        "options_review": {"status": "independent", "reviewer_id": "synth-reviewer", "blind_to_outputs": true, "reviewed_at": "2026-01-02T12:00:30Z"}
+      },
+      "exposure": {"model_fit": "none", "rule_development": "none", "manual_tuning": "none"},
+      "labels": {
+        "actual": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-02T12:01:00Z", "choice_id": "a"},
+        "endorsed": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-02T12:01:00Z", "choice_id": "b"}
+      }
+    },
+    {
+      "id": "synth-dev-3", "reviewed_group_id": "synth-event-3",
+      "source_ids": ["synth-file-3"],
+      "body_digests": ["3333333333333333333333333333333333333333333333333333333333333333"],
+      "split": "development", "partition": "rational", "domain": "daily",
+      "event_at": "2026-01-03T12:00:00Z", "endorsement_partition": "rational",
+      "options": [
+        {"id": "a", "impacts": {"value.autonomy": 1}},
+        {"id": "b", "impacts": {"value.autonomy": -1}}
+      ],
+      "attestations": {
+        "group_review": "reviewed", "whole_source_authenticity": true,
+        "training_consent": true, "evaluation_consent": true,
+        "options_review": {"status": "independent", "reviewer_id": "synth-reviewer", "blind_to_outputs": true, "reviewed_at": "2026-01-03T12:00:30Z"}
+      },
+      "exposure": {"model_fit": "none", "rule_development": "none", "manual_tuning": "none"},
+      "labels": {
+        "actual": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-03T12:01:00Z", "choice_id": "a"},
+        "endorsed": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-03T12:01:00Z", "choice_id": "b"}
+      }
+    },
+    {
+      "id": "synth-test-1", "reviewed_group_id": "synth-event-4",
+      "source_ids": ["synth-file-4"],
+      "body_digests": ["4444444444444444444444444444444444444444444444444444444444444444"],
+      "split": "held_out", "partition": "rational", "domain": "daily",
+      "event_at": "2026-01-05T12:00:00Z", "endorsement_partition": "rational",
+      "options": [
+        {"id": "a", "impacts": {"value.autonomy": 1}},
+        {"id": "b", "impacts": {"value.autonomy": -1}}
+      ],
+      "attestations": {
+        "group_review": "reviewed", "whole_source_authenticity": true,
+        "training_consent": false, "evaluation_consent": true,
+        "options_review": {"status": "independent", "reviewer_id": "synth-reviewer", "blind_to_outputs": true, "reviewed_at": "2026-01-05T12:00:30Z"}
+      },
+      "exposure": {"model_fit": "none", "rule_development": "none", "manual_tuning": "none"},
+      "labels": {
+        "actual": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-05T12:01:00Z", "choice_id": "a"},
+        "endorsed": {"status": "independent", "annotator_id": "synth-annotator", "blind_to_outputs": true, "labelled_at": "2026-01-05T12:01:00Z", "choice_id": "b"}
+      }
+    }
+  ]
+}

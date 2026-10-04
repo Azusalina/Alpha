@@ -218,7 +218,6 @@ test('real back end — F3: exclamation trains at once and shows the formal effe
   await atHuman(page);
 
   await write(page, { partition: 'emotional', text: '今天我真的很难过，也有点失望。', exclamation: true });
-  await expect(page.getByTestId('entry-trained-note')).toBeVisible();
   const revs = await page.getByTestId('effect-revision').allTextContents();
   expect(revs.length).toBe(2);
   for (const r of revs) expect(r).toMatch(/修订 #\d+/);

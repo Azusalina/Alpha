@@ -1,6 +1,12 @@
 # Backend TODO
 
-## Implemented application interface
+> 2026-10-04 resumed: main goal active; personal hybrid development is authorized,
+> F14 is no longer deferred. Source declares revision 3/34 methods, with final
+> independent acceptance pending. Oct 2 implemented/checked items below retain
+> their historical scope; they do not establish new hybrid compatibility or UI.
+> Completed task lines use //// - [x]; partial categories stay [ ] with notes.
+
+## Implemented application interface — Oct 2 accepted baseline
 
 - `core/brain.py`: unified model/source/candidate entry point; canonical queries
   exclude legacy store-only records and filter partitions before limiting results.
@@ -121,7 +127,8 @@ conversation is retained; bringing it back requires a separate user request.
   when exclamation skips the second confirmation. See `desktop-bridge.md`.
 - Provide separate feedback for whether a past *choice* is still endorsed in
   hindsight. This is distinct from confirming that the source is authentic;
-  its exact payload and timing are still to be agreed.
+  current flat payload is documented in api.md and hybrid-learning-plan.md;
+  final backend/collection/frontend acceptance remains pending. It does not infer labels.
 - Show the source, any inferred parameter changes, and the evidence behind
   them; permit correction without silently rewriting history.
 
@@ -135,30 +142,31 @@ conversation is retained; bringing it back requires a separate user request.
   graph, general semantic relabelling or ML.
 - Evaluate whether candidate parameters improve predictions using future
   retrospectively endorsed choice labels; remove ineffective parameters.
-- Define the user's retrospectively endorsed choice labels and the model's
-  abstention rule when too few examples exist.
+- F14 now explicitly separates actual_choice_id/endorsed_choice_id/consent;
+  current exploratory preference abstention thresholds await final synthetic
+  acceptance and independent real validity evidence.
 
-## Current backend queue (2026-10-02)
+## Accepted baseline and remaining queue (2026-10-02; annotated Oct 4)
 
-- [x] Terminal telemetry: CLI/API default-on stderr traces and bounded/validated
+//// - [x] Terminal telemetry: CLI/API default-on stderr traces and bounded/validated
   Rust host forwarding; no raw evidence, no response/schema changes. Commit-only
   param/fit reporting, receipt vs save/fit distinction, rollback and broken-sink
   checks. Nine synthetic Python tests and one Rust filter/framing test added.
   See terminal-tracing.md; no automatic on-disk logger or private-text logging.
-- [x] Frontend reports browser real-Python acceptance for F6, NUL and model
+//// - [x] Frontend reports browser real-Python acceptance for F6, NUL and model
   epoch/activity metadata with deliberate old-source re-enlistment. Verified
   prior adapter/record wiring read-only; Xvfb DOM F6 passed. Native administrative/
   physical acceptance and verification of latest frontend changes remain pending.
-- [x] Model-only reset: confirmed local CLI with exact existing absolute DB
+//// - [x] Model-only reset: confirmed local CLI with exact existing absolute DB
   target, epoch/revision checks and atomic zeroing. Translator, approvals and
   history preserved; old fits excluded until explicit re-review. Twelve synthetic
   reset tests plus one post-reset result-schema test. `model-reset.md` is the contract.
-- [x] Frontend browser activation: consume model_active/model_epoch, distinguish
+//// - [x] Frontend browser activation: consume model_active/model_epoch, distinguish
   approved history from current-model participation, and deliberately re-enlist
   old sources. Latest ledger reports cache/in-flight invalidation on reconnect
   and browser acceptance; native administrative model-reset/reconnect acceptance remains pending.
   No live reset endpoint/UI yet.
-- [x] Native DOM EOF/invalid-response/timeout faults: main's final command exited 0;
+//// - [x] Native DOM EOF/invalid-response/timeout faults: main's final command exited 0;
   summary and all three reports passed in `/tmp/alpha-native-faults-20261002`.
   Each verifies startup failure/explicit reconnect and ambiguous submit/explicit read
   recovering exactly one source; fixture logs show exactly one submit and
@@ -168,15 +176,15 @@ conversation is retained; bringing it back requires a separate user request.
 - [ ] Native administrative model-reset/reconnect and physical input/GPU acceptance.
   Xvfb DOM F6/paging and second-process persistence passed;
   browser and Xvfb evidence do not establish physical acceptance.
-- [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
+//// - [x] P0: F1-F4/F7 dual approval, exclamation, repeated review, decision audit,
   metadata migration and expanded preview implemented and regression-tested.
-- [x] P0: F5 summaries and input_page pagination implemented and regression-tested.
-- [x] P0: F6 source editing/deletion and NUL validation implemented; final contract
+//// - [x] P0: F5 summaries and input_page pagination implemented and regression-tested.
+//// - [x] P0: F6 source editing/deletion and NUL validation implemented; final contract
   and frontend activation/acceptance steps in `../../front-back-communicate.md`.
-- [x] P0: protected backup/recovery and explicit selected dependency replay
+//// - [x] P0: protected backup/recovery and explicit selected dependency replay
   delivered; historical effects, unselected frozen fits and reset exclusions
   remain preserved. General downstream causal replay is not implemented.
-- [x] P0 / F13: AccessSession gates all private API reads/writes with LOCKED;
+//// - [x] P0 / F13: AccessSession gates all private API reads/writes with LOCKED;
   malformed unlock revokes authorization and private caches. CLI/evaluation
   paths retain/recheck sessions. Argon2id gate and XChaCha20-Poly1305 backup/
   fresh-target recovery are implemented and verified. Frontend unlock UI remains
@@ -191,7 +199,7 @@ conversation is retained; bringing it back requires a separate user request.
   EOF/invalid-response/timeout fault cases passed. F13 frontend UI remains pending.
   Host transport/lifecycle/timeout/ACL code is implemented (`desktop-bridge.md`),
   with frontend wiring and Xvfb basic acceptance reported by the frontend.
-- [x] P1: type all 30 method result bodies and common records, and add local
+//// - [x] P1: type all 30 method result bodies and common records, and add local
   conformance tests covering lifecycle branches, negative shapes and serialized
   output. Backend CI requires the validator; runtime dependencies are unchanged.
 - [ ] P1: verify online backend CI and its Python 3.10 matrix job; local
@@ -212,11 +220,12 @@ conversation is retained; bringing it back requires a separate user request.
   real labels, split design and parameter decisions remain. This round supplies
   templates/tools only; no real predictive-validity claim can be accepted.
   Factual choices and retrospective endorsement are different labels; no frontend contract
-  or automatic parameter pruning is implemented.
-- [x] Implemented: automatically publish extracted authored candidate
+  for the new F14 UI or automatic parameter pruning is accepted; working F14
+  backend signatures are now documented, final verification pending.
+//// - [x] Implemented: automatically publish extracted authored candidate
   memories when the current source/version has immediate=true and confirm=true;
   preserve legacy pending/rejected statuses without migration auto-publication.
-- [x] Implemented: reviewed-source typed revisions withdraw
+//// - [x] Implemented: reviewed-source typed revisions withdraw
   current contributions and require renewed double consent before fitting;
   version-bound revisions and explicit replay must preserve old effect numbers,
   frozen history and model-reset exclusions. F6 text editing is a separate path.
@@ -225,8 +234,199 @@ conversation is retained; bringing it back requires a separate user request.
 - [ ] F6 future content-revision guard: source_version resets to 0 after editing,
   leaving queued unversioned review ambiguity; handoff documents cache/queue cleanup.
 - [ ] Typed corrections: assess per-item retranslation performance.
-- [ ] Deferred: F14 future choice-feedback contract and sphere v2.
+- [ ] F14 is authorized since Oct 3: current flat feedback/preferences implementation
+  and contract require final main verification, frontend labels/consent/impacts UI,
+  and separate native acceptance. Sphere v2 remains a later frontend scope.
 
 Completed statuses above reflect supplied worker evidence and main's independent
 verification. Main owns final full-suite counts and remaining native results;
 do not interpret synthetic tests/templates as real coverage or predictive validity.
+
+## Hybrid queue — resumed 2026-10-04 (overall acceptance pending)
+
+//// - [x] Tested security compatibility subtask: exact optional brain_choice_feedback
+  table/index reference in backup.validate_database, preserving unknown/tampered
+  DDL rejection. Backup owner reports tests.test_hybrid_backup 12/0 skips and
+  security/access/evalaccess 54/0 skips; main reviewed the six-line implementation.
+  This marks only this supplied owner-tested subtask, not full hybrid acceptance.
+- [ ] P0 final 34-method schema/allowlist/result/health and protected setup/access/
+  backup/restore full compatibility verification on final code. Main independently
+  passed hybrid/schema/access 39/0 skips (27.496s); workers are still adding checks.
+- [ ] P1 final semantic offline-protection and lifecycle/no-cache/no-network
+  synthetic evidence after last edits. Earlier semantic 35/preferences 28 pass
+  preceded current offline protection changes; actual weights/zero-network
+  runtime/CPU performance and real semantic quality are unverified.
+- [ ] P2 final F14/preferences lifecycle, consent, source/current-content/feedback
+  epoch gates, temporary CPU fit/no DB writes/no encoder training, Reset explicit
+  guarded feedback re-enlistment and full-suite main verification. Feedback
+  model_active differs from rule inputRecord.model_active.
+- [ ] P3 new grouped/time preference evaluator/templates and final synthetic
+  acceptance; independent real actual/endorsed labels, coverage/prediction and
+  parameter decisions remain unverified.
+- [ ] P4 frontend 34-method adapter update, unlock/private-cache/version/F14 UI,
+  user-reviewed impacts, administrative Reset/reconnect/native, offline encoder
+  packaging/resources, physical input/GPU and online CI/Python 3.10 evidence.
+
+Main evidence commands supplied (from back-end-core; temporary synthetic fixtures):
+
+```sh
+/tmp/alpha-verify-20261004.tPaapz/bin/python -m unittest tests.test_semantic_encoder tests.test_preferences -q
+TMPDIR=/tmp/alpha-verify-20261004.tPaapz /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest tests.test_hybrid_api tests.test_schema_contract tests.test_access_api -q
+```
+
+First: semantic 35/preferences 28, no skips, before final offline edits. Second:
+main 39/no skips. Backup owner test names/results above are supplied evidence;
+exact owner command/log and final discovery counts remain with main, not invented
+here. No new hybrid phase completion is inferred from these intermediate passes.
+Oct 4 main get_goal active replaces current paused status; historical pause remains
+in checkpoint. Personal hybrid scope has no digital-self or real validity claim.
+
+## Preference acceptance blockers — Oct 4 review (no implementation in audit)
+
+These are Mencius review findings supplied by main, not independently reproduced
+by the document worker. P2 remains unaccepted even if regression suites pass.
+
+- [ ] Bound ranking memory: cached whole source bodies for up to 1000 IDs can
+  approach 1GB; supplied 40 x 1m ASCII case is about 40MB. Use budgeted provenance/
+  digest screening without retaining all bodies; verify peak memory and unchanged
+  eligibility/ranking at input limits.
+- [ ] Define fit convergence/error bounds and abstain on unstable near ties:
+  fixed 400 iterations reversed the winner versus 4000 iterations/Newton in the
+  supplied example. Compare loss/gradient, ordering/permutations and a converged
+  reference; a fixed-step test pass does not establish convergence.
+- [ ] Reject enormous integer weights safely before float conversion can raise
+  OverflowError; verify controlled numeric/type error handling, no leaked
+  exception, and process survival at boundary values.
+- [ ] Define provenance and copy/paraphrase/event groups for training eligibility
+  and held-out isolation. Three distinct IDs do not prove independent samples;
+  prevent duplicated groups from inflating support or crossing splits.
+- [ ] Check identifiable contrast span and extrapolation: individual used_features
+  coverage does not establish that new option contrasts lie in the learned
+  subspace. Define abstention for collinear/unidentified new directions and
+  validate controlled synthetic counterexamples.
+
+Historical API-owner targeted result: 151 distinct tests passed; its exact
+command was not supplied here. The document audit did not implement P3;
+the current continuation authorizes Zeno's separate preference evaluator work.
+Historical privacy note: user answered "不管"; no action.
+
+//// - [x] Historical main-verified synthetic regression subtask: from back-end-core,
+  `TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q`
+  passed 396 tests in 134.672s, 0 skips. Subsequent same-environment
+  `-m unittest tests.test_semantic_encoder -q` passed 51 in 1.142s, 0 skips;
+  discovery then contained 398, with the last two semantic tests covered by that
+  separate run. This is not a single 398-test run or proof for subsequent edits.
+//// - [x] Historical main-verified backup compatibility subtask:
+  `tests.test_hybrid_backup` passed 12 in 11.220s, 0 skips. Semantic evidence uses
+  synthetic exports/mocks, without real encoder weights or validity claims.
+
+## Current implementation continuation — awaiting main's new proof
+
+- [ ] Goodall: digest-only source screening cache, converged pure-Python solver
+  and near-tie abstention, and controlled ValueError for huge integer weights;
+  preferences/tests/schema owner supplies final implementation and proof.
+- [ ] Zeno: `model/preference_evaluation.py`, its tests, and
+  `docs/preference-evaluation.md` / `docs/preference-evaluation.example.json`.
+  The documentation integrator does not edit these four owner files. Describe
+  the frozen-manifest/shared-production-fit/held-out-predict/scoring workflow
+  only after inspecting the delivered schema and implementation.
+- [ ] Main: final verification commands/results after all new changes, followed
+  by fresh-agent final review. Check only verified automated subtasks with
+  `//// - [x]`; P2/P3 and real validity remain pending.
+
+Source-group/provenance independence and identifiable contrast span remain live
+acceptance blockers unless main supplies implementation and proof. Offline
+evaluator group isolation alone does not resolve production eligibility.
+
+## Confirmed event-group decision — implementation pending (2026-10-05)
+
+DECISION: use explicit frontend event-group IDs reviewed by the user; draft
+`group_id` remains PROPOSED until main settles the contract. All materials in one
+group contribute one total training loss mass within each separate target/
+partition/domain fit. Backend may hint at exact-text duplicates only; it must not
+infer that distinct texts describe the same event, assign groups or grant review.
+
+- [ ] IMPLEMENTATION, next phase with a fresh owner after Goodall's base fixes:
+  group field and explicit review gate; aggregate all same-group source/events
+  into one total training mass. Under that future gate, existing feedback with
+  legacy/unknown groups is excluded until the user reviews its group. Current
+  feedback does not yet enforce this policy; no automatic backfill/endorsement.
+- [ ] Frontend contract and acceptance: explicit group input/review, guarded
+  updates and legacy review workflow; unresolved field names remain PROPOSED.
+  Do not declare schema/API integration or online provenance acceptance complete.
+
+This confirmed decision does not resolve contrast-subspace extrapolation and
+does not turn offline evaluator group isolation into production enforcement.
+
+## Oct 5 intermediate preference proof — no new completion marks
+
+Main supplied preferences 36 pass, 22.441s, 0 skips, before the final added tests;
+the exact command is not supplied here. Independent seed804 asserted winner=b
+with margin `1.0117349352838784e-05` after the patch, versus winner=a at the old
+400-step setting. This is a synthetic regression comparison, not real validity.
+Final worker proof, fresh reviews and main's final full-suite must all arrive
+before any new preference/evaluator subtask is marked `//// - [x]`.
+
+## Oct 5 final Goodall worker proof — acceptance still pending
+
+Main supplied final preferences 41 + hybrid 21 + schema 18 = 80 tests,
+128.728s, 0 skips; exact command awaits main. The only new schema reason is
+fit_not_converged; no online group fields were added. Current source uses
+64 Newton steps/32 backtracks, L2=0.1, gradient infinity norm <=1e-11 and
+tie tolerance 1e-8, with finite checks and residual-guarded roundoff slack.
+Dense 1000-event/8-option CPU benchmark: 2.144934741 CPU seconds,
+final gradient 2.609e-17. Memory/measurement limits are recorded in
+[hybrid plan](hybrid-learning-plan.md#oct-5-final-worker-proof--mainfresh-acceptance-pending).
+Independent 92-test verification (including 12 backup) and fresh antipattern/
+quality reviews are running; no result or new completion is inferred.
+
+Main's independent base-backend full discovery has also started; exact count/
+time/command await main. P3 tests/docs/example are not ready, so this must be
+reported as scoped base full proof, not final evaluator or whole-hybrid proof.
+
+Fresh reviews supplied by main (Oct 5): antipattern no findings, 17 pure tests/
+parity pass; jsonschema was unavailable only in that isolated review environment,
+while the full environment has the validator. Quality no blockers, 41 preferences
+pass; uneven source mass 7/1/1 reference difference 1.18e-12, seed804 gradient
+3.26e-15/max weight difference 1.89e-12, Cholesky residual 1.39e-17. A separate
+dense 1000-event/8-option observation was 1.48 CPU seconds, not API latency.
+Main 92-test and base full 411-test runs remain unfinished. Once both pass,
+mark only three limited fixes (digest cache, convergence/near ties, huge integer
+weights) `//// - [x]`; source groups, contrast span and whole P2/P3 remain pending.
+
+Oct 5 evaluator owner reports 47 tests, but tests/docs/example were created at
+the wrong repository-root paths. Main directed only that owner to correct its
+new files with apply_patch into back-end-core/tests/test_preference_evaluation.py,
+docs/preference-evaluation.md and docs/preference-evaluation.example.json.
+Do not link incorrect root artifacts or count these 47 in base full 411.
+Correct-path command (from back-end-core), new proof and fresh tool reviews
+must follow the correction; delivery and P3 acceptance remain unchecked.
+
+## Oct 5 scoped base acceptance — excludes P3
+
+Main independently ran from back-end-core:
+
+```sh
+TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q
+```
+
+411 tests, 170.066s, OK, 0 skips, before P3 test relocation; not evaluator or whole
+hybrid proof. FreshVerifier 92 (41 preferences/21 hybrid/18 schema/12 backup),
+85.576s, no failures/skips; fresh antipattern 17 pure and quality 41 found no
+blockers. Supplemental main synthetic live-API check verifies fit_not_converged
+against full result schema with 0 SQL writes/0 encoder calls and unchanged source
+hashes; no user live DB was used. These results supersede the running statuses.
+
+//// - [x] Limited fix: digest-only source screening and training-only record
+  cache, with synthetic 40-source/1m-code-point/1000-event tracemalloc proof.
+  Native RSS and real request latency are outside this completion.
+//// - [x] Limited fix: converged pure-Python solver/near-tie abstention,
+  fit_not_converged schema reason, independent residual/reference/seed804 checks
+  and supplemental no-write/no-encoder-call failure path.
+//// - [x] Limited fix: huge integer fitted weights safely rejected with ValueError
+  before float conversion, with synthetic preference/hybrid/schema regression.
+
+Production event-group implementation, contrast span, entire P2/P3, real validity
+and frontend/native remain pending. Correct-path [evaluator docs](preference-evaluation.md)
+and [synthetic manifest](preference-evaluation.example.json) now exist; P3 final
+proof and fresh tool reviews must follow owner path correction.

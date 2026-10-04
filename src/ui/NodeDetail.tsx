@@ -69,7 +69,6 @@ function ModelReset() {
           </div>
         </>
       )}
-      {!offered && <p className="node-detail__quiet">{t('reset.unavailable')}</p>}
       {s.error?.action === 'refresh' && asking && <p className="node-detail__quiet" role="alert">{s.error.message}</p>}
     </section>
   );
@@ -116,7 +115,6 @@ export function NodeDetail({ id, onSelect, resettable }: Props) {
         )}
       </dl>
       {resettable && selected.kind === 'root' && <ModelReset />}
-      <p className="node-detail__note">{t('node.detail.note')}</p>
     </aside>
   );
 }

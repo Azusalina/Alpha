@@ -30,10 +30,6 @@ export function WithheldNotes({ interpretation, onActiveChange }: Props) {
   if (!interpretation || !interpretation.evidence_policy || count === 0) return null;
   return (
     <section className="withheld" data-testid="withheld-notes" aria-label={t('withheld.aria')}>
-      <h4 className="withheld__h">{t('withheld.title')}</h4>
-      <p className="withheld__lead">
-        {t('withheld.lead')}
-      </p>
       <ul className="withheld__list">
         {items.map((w, i) => (
           <li
@@ -59,12 +55,6 @@ export function WithheldNotes({ interpretation, onActiveChange }: Props) {
           </li>
         ))}
       </ul>
-      {interpretation.withheld_truncated && (
-        <p className="withheld__lead" data-testid="withheld-truncated">
-          {t('withheld.truncated', { n: items.length, total: count })}
-        </p>
-      )}
-      <p className="withheld__policy">{t('withheld.policy', { v: interpretation.evidence_policy })}</p>
     </section>
   );
 }

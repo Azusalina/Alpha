@@ -20,14 +20,6 @@ export const parameterLabel = (id: string): string => (PARAMETER_LABELS as Recor
 
 export const PARTITION_LABELS: Record<Partition, string> = lazyLabels(PARTITIONS, 'partition.');
 
-/**
- * 癫狂 / "crazy" is the user's own name for a situational state (IDEA): it is not a
- * diagnosis and nothing here scores a person. Shown wherever the state is chosen.
- */
-export const partitionNote = (): string => t('partition.note');
-
-export const PARTITION_HINTS: Record<Partition, string> = lazyLabels(PARTITIONS, 'partition.hint.');
-
 export const KIND_LABELS: Record<Kind, string> = lazyLabels(KINDS, 'kind.');
 
 const STATUSES = ['pending', 'agreed', 'disagreed', 'revoked'] as const;
@@ -36,18 +28,6 @@ const REASONS = ['immediate_false', 'confirm_false', 'user_revoked'] as const;
 export const STATUS_LABELS: Record<InputStatus, string> = lazyLabels(STATUSES, 'status.');
 
 export const REASON_LABELS: Record<InputReason, string> = lazyLabels(REASONS, 'reason.');
-
-/** One-line explanation of a status, for a tooltip or a small note. */
-export const STATUS_HINTS: Record<InputStatus, string> = lazyLabels(STATUSES, 'status.hint.');
-
-/**
- * The same hints for demo mode (D56): the mock never trains anything, so no
- * word of a demo status may say the model is being trained.
- */
-export const DEMO_STATUS_HINTS: Record<InputStatus, string> = lazyLabels(STATUSES, 'status.demohint.');
-
-/** The hint for a status, in the wording of the current backend mode. */
-export const statusHint = (status: InputStatus, demo: boolean): string => (demo ? DEMO_STATUS_HINTS : STATUS_HINTS)[status];
 
 export const CONFIRMED_BY_LABELS = lazyLabels(['exclamation', 'manual', 'legacy'] as const, 'confirmedby.');
 

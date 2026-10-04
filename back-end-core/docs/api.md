@@ -1,4 +1,17 @@
-# Local API v1, contract revision 2
+# Local API v1 — revision 3 working contract (final acceptance pending)
+
+> 2026-10-04: source declares schema_version=1 / contract_revision=3 / 34 methods.
+> Oct 2 revision 2 / 30 methods is the accepted historical baseline. New hybrid
+> methods below describe current source, not completed full-suite/frontend/native
+> acceptance. Main's final verification is pending; do not enable by health alone.
+> New-table access/backup compatibility was reproduced and repaired in an owner
+> patch; owner tests and main review are intermediate evidence, not full acceptance.
+
+Historical main proof is 396 full-discovery tests (134.672s), then 51 semantic
+tests (1.142s) covering the two added tests in a 398-test discovery; all had 0 skips.
+Independent backup verification passed 12 (11.220s), 0 skips. This is not a single
+398-test run or acceptance of later preference/evaluator edits. See
+[current queue and proof](TODO.md#current-implementation-continuation--awaiting-mains-new-proof).
 
 `python -m core.api --db /absolute/synthetic.sqlite3` from `back-end-core` serves
 newline-delimited UTF-8 JSON on stdin/stdout. No network listener. The host selects
@@ -8,7 +21,7 @@ string. Success: `{schema_version:1,id,ok:true,result}`. Failure:
 `{schema_version:1,id:string|null,ok:false,error:{code,message}}`.
 ID is correlation, not idempotency. Do not retry uncertain writes automatically.
 
-## All 30 typed methods
+## 34 declared methods — final conformance pending
 
 [api.schema.json](api.schema.json) is Draft 2020-12. Root validates requests;
 `#/$defs/response` validates envelopes only. Validate successful bodies using
@@ -24,7 +37,7 @@ Nullable optional filters equal omitted filters.
 
 | Method | Params | Result fields/schema type |
 | --- | --- | --- |
-| health | `{}` | schema_version=1, contract_revision=2, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features, access; model_epoch when unlocked only |
+| health | `{}` | schema_version=1, contract_revision=3, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features, access; model_epoch when unlocked only |
 | baseline | `{}` | schema_version=1, partitions, parameters (13 immutable zeros) |
 | access_status | `{}` | configured:boolean, locked:boolean |
 | unlock | password | configured:boolean, locked:boolean |
@@ -54,6 +67,11 @@ Nullable optional filters equal omitted filters.
 | candidate_list | partition?, status?, limit? | candidateRow[] |
 | memory_list | partition?, limit? | activeMemory[] |
 | memory_search | query, partition?, limit? | activeMemory[]; literal claim/evidence search |
+| memory_search_semantic | query, partition?, limit?=20, min_score?=0.0 | {mode,score_kind,items:[{memory,score,encoded_text_truncated}],pool_count,pool_truncated}; working extension |
+| choice_feedback_set | source_id, event_id, domain, options, actual_choice_id:string|null, endorsed_choice_id:string|null, endorsement_partition:string|null, training_consent:boolean, expected_source_version, expected_revision, expected_epoch, reason?:string|null | feedback record plus input_revision; working extension |
+| choice_feedback_get | source_id | {source_id,records:feedbackRecord[],input_revision,model_epoch}; working extension |
+| preference_rank | options, target, partition, domain | {status,reason,basis,not_calibrated,target,partition,domain,training_sources,used_features,weights,ranked,model_epoch,input_revision}; working extension |
+
 
 approvalMetadata: status, immediate:boolean, confirm:boolean|null,
 exclamation:boolean, confirmed_by:manual/exclamation/legacy/null,
@@ -86,6 +104,106 @@ reviewEvent: revision, action, before, after, effect_revisions, created_at. Lega
 migration before can be status-only; reopen approval snapshots add source_version
 and reopened. correctionRecord: revision, corrections, created_at; archive entries
 add source_version. Full nested field types and negative-shape checks are in schema.
+
+## Hybrid extension semantics (current source; main acceptance pending)
+
+JSON params are closed and flat. There is no nested `feedback` dictionary.
+Targets: actual/endorsed; domains: daily/study/relationships; partitions retain
+rational/emotional/crazy. Options are explicit unique IDs with eight finite [-1,1]
+value.* impacts; frontend supplies them and the user reviews them. Labels are
+independent: actual_choice_id records what occurred, endorsed_choice_id records
+rational retrospective endorsement. A nonnull label must identify an option;
+nonnull endorsed_choice_id requires an explicit valid endorsement_partition;
+only "rational" endorsement contributes to the endorsed preference target. No endorsed
+label requires endorsement_partition=null. Missing labels use explicit null.
+Whole-source approval/exclamation never supplies labels, impacts or training_consent.
+
+feedbackRecord contains source_id, event_id, domain, options, actual_choice_id,
+endorsed_choice_id, endorsement_partition, training_consent, reason, source
+partition, source_version, model_epoch, body_digest, created_at, model_active.
+set additionally returns input_revision; get returns saved records and current
+snapshot input_revision/model_epoch. Guarded set fully replaces one source/event,
+binds current source version/body/epoch and advances global input revision.
+It can save pending feedback; neither set nor get fits. Bounds in source:
+32 events/source, 65,536 UTF-8 payload bytes, event IDs 1–128 characters,
+reason at most 2048 code points. Final schema conformance remains with main.
+
+Feedback `model_active` means preference eligibility: agreed source with both
+judgements true, explicit training_consent, matching source_version/partition/
+body_digest and feedback epoch equal to current epoch. It is distinct from
+inputRecord.model_active, which describes rule-fit participation. An inactive old
+rule fit does not itself forbid deliberately saved current-epoch feedback.
+Reset excludes old feedback; a new explicit guarded feedback save can re-enlist it.
+Rule re-review alone does not re-enlist old feedback. F6 edit/delete purge feedback;
+revoke/reopen/version/body changes invalidate its eligibility.
+
+preference_rank reads a bounded authorized eligible snapshot, releases its DB
+transaction, temporarily fits a CPU pure-Python L2 multinomial logistic baseline,
+then ranks. It calls fit_preferences; it is not inference on persistent weights.
+It writes no DB/rule state/effects/weights and never trains the encoder. Current
+settings (Oct 5 source and final worker proof; main/fresh acceptance pending):
+three distinct source IDs with informative events, L2=0.1, damped Newton with
+a pure-Python Cholesky solve, at most 64 steps and 32 backtracks per step.
+Returned weights must have gradient infinity norm <=1e-11. Backtracking starts
+at 1, halves the step and uses Armijo coefficient 0.01; loss-roundoff slack is
+bounded by 8 ulps and additionally requires residual reduction. Nonfinite
+objectives abstain with nonfinite_fit; exhausted/failed convergence abstains
+with fit_not_converged. The old 400 fixed steps/step=0.2 are historical.
+At most 1000 current-epoch
+records are screened; overflow/invalid snapshots abstain rather than fit a prefix.
+Actual isolates source partition/domain; endorsed fits rational/domain from explicit
+rational endorsement. Returned tokens describe the fitted snapshot, which may
+be superseded by concurrent writes. Clients handle stale results deliberately.
+
+ranked items contain id, score, model_probability and eight feature contributions.
+basis="personal_choice_feedback_multinomial_logistic", not_calibrated=true.
+Softmax is a model output, not a validated personal choice probability. Insufficient
+sources, no identifiable preference, unsupported feature contrasts or a top score
+gap <=1e-8 can abstain (options_tied_with_learned_weights for the latter).
+Feature coverage still does not certify identifiable contrast span. Three IDs
+are an exploratory count gate, not established independent sample sufficiency.
+rank_from_fit rejects huge integer weights with ValueError before float conversion;
+there is no JSON endpoint accepting an externally supplied fitted weight vector.
+
+Screening caches only bounded source status/version/partition metadata and body
+digests; it materializes one eligible source body at a time, hashing in 65,536-
+character chunks, and streams feedback rows. Fit records omit source body,
+nontraining reason and option labels. This does not make all fitting memory
+constant: options/events remain bounded by the snapshot/payload limits.
+
+memory_search_semantic validates query (1–2048 nonblank code points, no NUL/
+surrogates), limit 1–100, min_score finite [-1,1]. It screens accepted/agreed/
+matching-source-version memories and partition before selecting the latest bounded
+pool of 1000, ranks that pool then applies limit. pool_count/pool_truncated expose
+this bound. With no configured encoder it explicitly returns mode=lexical_fallback,
+score_kind=none, score=null. Configured path/provider/load/encode failures return
+MODEL_UNAVAILABLE; they do not fall back. Semantic mode returns cosine scores,
+original memory/evidence and encoded_text_truncated. No persistent embeddings.
+Global input revision is rechecked after encoding; API rechecks authorization,
+including failure paths. Similarity neither verifies facts nor publishes candidates.
+
+References: core/api.py METHODS/handle, core/brain.py memory_search_semantic,
+model/preferences.py _public/set_feedback/rank_preferences, translator/semantic.py.
+Actual weights, zero-network dependency execution, semantic quality, CPU performance
+and real predictive validity remain unverified. Distinct IDs do not prove sample
+independence. Memory/convergence/numeric fixes have final worker evidence, while
+new main/fresh acceptance remains pending; production groups and contrast-subspace
+extrapolation remain unimplemented acceptance work. Worker resource measurements
+and their scope are in the [hybrid plan](hybrid-learning-plan.md#oct-5-final-worker-proof--mainfresh-acceptance-pending).
+
+## Confirmed next-phase event-group policy (not implemented)
+
+Frontend will explicitly provide a user-reviewed event-group ID; `group_id` is
+PROPOSED, not a parameter/result field in the current closed JSON contract.
+All materials in one reviewed group must share one total training loss mass
+within each target/partition/domain fit. Backend may hint at exact-text duplicates
+only; it must not infer same-event membership for distinct texts or grant review.
+The next-phase review gate must exclude current feedback with legacy/unknown
+groups until its group is user-reviewed. This is a future eligibility requirement,
+not current runtime behavior or an automatic migration. Goodall completes the
+base fixes first; a fresh owner implements group integration afterward. Field/
+review/update semantics and frontend acceptance remain pending. Offline manifest
+groups do not implement this live gate; contrast-span acceptance is still open.
 
 ## Access and publication
 
@@ -121,7 +239,7 @@ All guards are nonnegative integers, not booleans. Source versions start at 0.
 | Operation | expected_revision token |
 | --- | --- |
 | correction_set | Latest correction_history.revision for THIS source, 0 before feedback |
-| correction_reopen/review_version/replay_reopen | GLOBAL input_page.revision, replay_preview.input_revision or latest version-result input_revision |
+| correction_reopen/review_version/replay_reopen/choice_feedback_set | GLOBAL input_page.revision, replay_preview.input_revision or latest version-result input_revision |
 
 input_page.revision equals reset_info().input_revision even with filters/limit=1.
 Get source_version from input_get/page, expected_epoch from unlocked health.model_epoch,
@@ -201,9 +319,10 @@ nonfinite numbers, malformed envelopes and unknown fields are refused; oversized
 lines are drained. Stdout carries only JSON responses.
 
 Offline evaluation/readiness uses authorized read-only snapshots and independently
-labelled strict held-out manifests, not feedback/training API. F14 and real validity
-evidence remain pending. Frontend unlock/version/replay UI and native acceptance
-belong to their owners; API tests do not establish those results.
+labelled strict held-out manifests. F14 development is authorized and has the working
+methods above; final backend acceptance, frontend unlock/version/replay/F14 UI,
+administrative reset/native and physical acceptance remain pending. Real validity
+and actual encoder weights are unverified; API tests do not establish those results.
 
 Full synthetic tests require `python -m pip install '.[test-schema,security]'` from
 back-end-core, including pinned PyNaCl. Do not rely on system crypto dependencies.

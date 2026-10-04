@@ -21,7 +21,6 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-import { useBackend } from '../../backend';
 import type { TranslationCue } from '../../backend';
 import { inputStore, type SubmitOutcome, useInputs } from '../../app/inputStore';
 import { codePointLength } from '../../backend';
@@ -100,10 +99,8 @@ function useMoreBelow(ref: RefObject<HTMLElement | null>): boolean {
 }
 
 export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function ResultPanel({ result, onBrain }, headingRef) {
-  const backend = useBackend();
   const inputs = useInputs();
   const [active, setActive] = useState<string | null>(null);
-  const demo = backend.mode === 'demo';
   const rootRef = useRef<HTMLDivElement | null>(null);
   const moreBelow = useMoreBelow(rootRef);
 
@@ -161,7 +158,6 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
       {/* the key message and the way on come FIRST: the evidence below can be long, and on a 1366x768 window it scrolls */}
       {result.status === 'pending' && (
         <div className="entry-result__block" data-testid="entry-pending-note">
-          <p>{t('result.pendingNote')}</p>
           <button type="button" className="entry-link" data-testid="entry-open-brain" onClick={onBrain}>
             {t('result.openBrain')}
           </button>
@@ -170,26 +166,10 @@ export const ResultPanel = forwardRef<HTMLHeadingElement, Props>(function Result
 
       {result.status === 'disagreed' && (
         <div className="entry-result__block" data-testid="entry-saved-note">
-          <p>{t('result.savedNotTrained')}</p>
-          {!inputStore.can('inputEdit') && inputStore.can('submit') && (
-            <p className="entry-result__fine">{t('result.noEdit')}</p>
-          )}
           <button type="button" className="entry-link" data-testid="entry-open-brain" onClick={onBrain}>
             {t('result.openBrain')}
           </button>
         </div>
-      )}
-
-      {result.trained && (
-        <div className="entry-result__block" data-testid="entry-trained-note">
-          <p>{demo ? t('result.assertedDemo') : t('result.asserted')}</p>
-        </div>
-      )}
-
-      {result.status === 'pending' && (
-        <p className="entry-result__fine" data-testid="entry-preview-note">
-          {t('result.previewNote')}
-        </p>
       )}
 
       {result.status === 'pending' && result.previewState === 'loading' && (

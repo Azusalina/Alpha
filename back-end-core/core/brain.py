@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import math
+import sqlite3
+import stat
+from contextlib import closing
 
 from model import BrainModel
-from model import preferences
+from model import preferences, reset
 from model.catalog import PARTITIONS
 from model.sources import public_record
 
@@ -261,6 +264,36 @@ class BrainCore:
         return self._memories(active=True, partition=partition, status=None,
                               query=query, limit=limit)
 
+    def _inference_snapshot(self, db=None) -> tuple:
+        """Bind inference to the file, database identity, revision and epoch.
+
+        Rechecks use a read-only connection: a deleted database must never be
+        recreated while deciding whether old private results may be returned.
+        The cursor key also detects a different database with equal counters.
+        """
+        try:
+            info = self.store.path.stat(follow_symlinks=False)
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("inference database unavailable")
+            identity = (info.st_dev, info.st_ino)
+            if db is None:
+                uri = self.store.path.absolute().as_uri() + "?mode=ro"
+                with closing(sqlite3.connect(uri, uri=True)) as connection:
+                    connection.row_factory = sqlite3.Row
+                    connection.execute("BEGIN")
+                    snapshot = self._inference_snapshot(connection)
+                current = self.store.path.stat(follow_symlinks=False)
+                if identity != snapshot[0] or identity != (current.st_dev, current.st_ino):
+                    raise ValueError("inference database changed")
+                return snapshot
+            return (identity, pagination.key(db), pagination.revision(db), reset.epoch(db))
+        except (OSError, sqlite3.Error, RuntimeError, ValueError):
+            raise ValueError("inference snapshot unavailable; request a fresh inference") from None
+
+    def _check_inference_snapshot(self, snapshot: tuple) -> None:
+        if self._inference_snapshot() != snapshot:
+            raise ValueError("inference snapshot changed; request a fresh inference")
+
     def memory_search_semantic(self, query: str, *, partition: str | None = None,
                                limit: int = 20, min_score: float = 0.0) -> dict:
         self._partition(partition)
@@ -283,7 +316,7 @@ class BrainCore:
             values.append(partition)
         with self.store._connect() as db:
             db.execute("BEGIN")
-            generation = pagination.revision(db)
+            snapshot = self._inference_snapshot(db)
             rows = db.execute(
                 "SELECT c.*, i.partition, i.status AS source_status, s.source_ref "
                 "FROM candidates c JOIN brain_inputs i ON i.source_id=c.source_id "
@@ -304,9 +337,7 @@ class BrainCore:
             except Exception:
                 raise RuntimeError("local model unavailable") from None
             result = {"mode": "semantic", "score_kind": "cosine", "items": items}
-        with self.store._connect() as db:
-            if pagination.revision(db) != generation:
-                raise ValueError("memory snapshot changed; request a fresh search")
+        self._check_inference_snapshot(snapshot)
         return {**result, "pool_count": len(pool), "pool_truncated": len(rows) > 1000}
 
     def choice_feedback_set(self, source_id: str, *, event_id: str, domain: str,
@@ -324,4 +355,11 @@ class BrainCore:
         return preferences.get_feedback(self.store, source_id)
 
     def preference_rank(self, options: list[dict], target: str, partition: str, domain: str) -> dict:
-        return preferences.rank_preferences(self.store, options, target, partition, domain)
+        # The module fits temporary CPU weights from explicitly approved labels;
+        # it neither writes the DB nor trains the encoder or thirteen rule values.
+        snapshot = self._inference_snapshot()
+        result = preferences.rank_preferences(self.store, options, target, partition, domain)
+        self._check_inference_snapshot(snapshot)
+        if (result["input_revision"], result["model_epoch"]) != snapshot[2:]:
+            raise ValueError("inference snapshot changed; request a fresh inference")
+        return result

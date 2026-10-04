@@ -67,22 +67,9 @@ export function BackendBanner({ className }: Props) {
   }
 
   if (backend.mode === 'remote') {
-    const caps = inputs.capabilities;
-    const missing: string[] = [];
-    if (caps) {
-      if (!caps.includes('inputEdit')) missing.push(t('banner.cap.edit'));
-      if (!caps.includes('inputDelete')) missing.push(t('banner.cap.delete'));
-    }
+    // nothing to say while connected (no "connected" line); the element stays, hidden, as the mode marker
     return (
-      <div className={cls} data-testid="backend-banner" data-mode="remote" role="status">
-        <span className="backend-banner__ok" data-testid="backend-connected">
-          {t('banner.connected')}
-        </span>
-        {missing.length > 0 && (
-          <span className="backend-banner__missing" data-testid="backend-missing">
-            {t('banner.missing', { list: missing.join(' / ') })}
-          </span>
-        )}
+      <div className={cls} data-testid="backend-banner" data-mode="remote" role="status" hidden={!backend.lastConnectError}>
         {backend.lastConnectError && (
           <span className="backend-banner__error" data-testid="backend-connect-error">
             {backend.lastConnectError}
@@ -98,7 +85,6 @@ export function BackendBanner({ className }: Props) {
       <p className="backend-banner__title" data-testid="backend-status">
         {t('banner.off')}
       </p>
-      <p className="backend-banner__text">{t('banner.off.text')}</p>
       {backend.lastConnectError && (
         <p className="backend-banner__error" data-testid="backend-connect-error">
           {backend.lastConnectError}

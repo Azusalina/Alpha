@@ -103,7 +103,7 @@ test('entry — unconnected: banner, a draft can be written, but 写入 is disab
   // the real banner button, not the inspector
   await page.getByTestId('backend-enter-demo').click();
   expect(await alpha(page, 'backend.mode()')).toBe('demo');
-  await expect(page.getByTestId('backend-banner')).toContainText('演示数据 · 未运行模型');
+  await expect(page.getByTestId('backend-banner')).toContainText('演示');
   await expect(page.getByTestId('entry-reason')).toHaveCount(0);
   await expect(page.getByTestId('human-input')).toHaveValue(TEXT); // the draft survived
   await expect(page.getByTestId('entry-submit')).toBeEnabled();
@@ -117,8 +117,6 @@ test('entry — empty form: nothing is preselected, the judgement boxes start un
   await expect(page.getByTestId('entry-immediate')).not.toBeChecked();
   await expect(page.getByTestId('entry-immediate')).toBeEnabled();
   await expect(page.getByTestId('entry-exclamation')).not.toBeChecked();
-  await expect(page.getByTestId('entry-crazy-note')).toHaveText('癫狂：用户命名的情境状态，不是诊断');
-  await expect(page.getByTestId('entry-exclamation-note')).toHaveText('仅当你强烈认同这是自己的想法：跳过大脑内的二次确认，直接用于训练');
   await expect(page.getByTestId('entry-count')).toHaveText('0 / 1,000,000');
   await expect(page.getByLabel('是否为真（当下）')).toBeVisible();
   await expect(page.getByTestId('entry-submit')).toBeDisabled();
@@ -149,7 +147,6 @@ test('entry — rational + T (no exclamation) is pending: a hypothetical preview
   await expect(page.getByTestId('entry-result-heading')).toBeFocused();
   await expect(page.getByTestId('entry-announce')).toContainText('待确认');
   await expect(page.getByTestId('status-chip')).toHaveText('待确认');
-  await expect(page.getByTestId('entry-preview-note')).toHaveText('预览是假设值，可能过期；以确认后返回的正式结果为准');
   await expect(page.getByTestId('entry-pending-note')).toContainText('尚未用于训练：展开大脑，在右侧列表里再次判定 T/F 后才会训练');
   await expect(page.getByTestId('entry-open-brain')).toBeVisible();
   // the form collapsed to one line
@@ -209,7 +206,6 @@ test('entry — T/F unchecked: saved as 不同意, no training, and no path to t
   await expect(page.getByTestId('effects-table')).toHaveCount(0);
   await expect(page.getByTestId('entry-cue')).toHaveCount(0);
   await expect(page.getByTestId('entry-pending-note')).toHaveCount(0);
-  await expect(page.getByTestId('entry-preview-note')).toHaveCount(0);
 
   const [rec] = await records(page);
   expect(rec).toMatchObject({ status: 'disagreed', reason: 'immediate_false', immediate: false, confirm: null, exclamation: false });
@@ -228,7 +224,6 @@ test('entry — 断言为真: the immediate box is locked checked, unticking res
   await excl.check();
   await expect(immediate).toBeChecked();
   await expect(immediate).toBeDisabled();
-  await expect(page.getByTestId('entry-immediate-note')).toContainText('已由「断言为真」决定');
   await excl.uncheck();
   await expect(immediate).not.toBeChecked();
   await expect(immediate).toBeEnabled();
@@ -247,14 +242,11 @@ test('entry — 断言为真: the immediate box is locked checked, unticking res
   await expect(result).toHaveAttribute('data-trained', 'true');
   await expect(page.getByTestId('status-chip')).toHaveText('已认可');
   // in demo mode the wording says it is not real training (D56)
-  await expect(page.getByTestId('entry-trained-note')).toContainText('演示：已按你的断言标记为直接训练');
-  await expect(page.getByTestId('entry-trained-note')).toContainText('不会真的训练');
   // formal effects: revision numbers, applied, no preview and no second confirmation
   await expect(page.getByTestId('effects-table')).toBeVisible();
   await expect(page.getByTestId('effect-revision').first()).toContainText(/#\d+/);
   await expect(page.getByTestId('effect-revision').first()).not.toContainText('预览');
   await expect(page.getByTestId('effect-action').first()).toHaveText('已应用');
-  await expect(page.getByTestId('entry-preview-note')).toHaveCount(0);
   await expect(page.getByTestId('entry-pending-note')).toHaveCount(0);
   await expect(page.getByTestId('hl-mark').first()).toBeVisible();
 

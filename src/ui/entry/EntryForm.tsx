@@ -189,9 +189,6 @@ export function EntryForm() {
               </label>
             ))}
           </div>
-          <span className="entry-note" data-testid="entry-crazy-note">
-            {t('entry.crazyNote')}
-          </span>
         </div>
 
         <div className="entry-field">
@@ -228,13 +225,11 @@ export function EntryForm() {
                 spellCheck={false}
                 required
                 aria-required="true"
-                aria-describedby="entry-speaker-help"
                 data-testid="entry-speaker"
                 placeholder={t('entry.speaker.ph')}
                 value={draft.self_speaker}
                 onChange={(e) => draftStore.set({ self_speaker: e.target.value })}
               />
-              <small id="entry-speaker-help">{t('entry.speaker.help')}</small>
             </div>
           </div>
         )}
@@ -286,7 +281,6 @@ export function EntryForm() {
             >
               {t('entry.file.choose')}
             </button>
-            <span className="entry-file__hint">{t('entry.file.drop')}</span>
             {draft.source_ref && (
               <span className="entry-file__name" data-testid="entry-file-name">
                 {t('entry.file.from', { name: draft.source_ref ?? '', n: (draft.file_chars ?? 0).toLocaleString('en-US') })}
@@ -322,31 +316,19 @@ export function EntryForm() {
               data-testid="entry-immediate"
               checked={immediateShown}
               disabled={draft.exclamation}
-              aria-describedby="entry-immediate-note"
               onChange={(e) => draftStore.set({ immediate: e.target.checked })}
             />
             <span>{t('entry.immediate')}</span>
           </label>
-          <small id="entry-immediate-note" className="entry-check__note" data-testid="entry-immediate-note">
-            {draft.exclamation
-              ? t('entry.immediate.note.excl')
-              : draft.immediate
-                ? t('entry.immediate.note.on')
-                : t('entry.immediate.note.off')}
-          </small>
           <label className="entry-check">
             <input
               type="checkbox"
               data-testid="entry-exclamation"
               checked={draft.exclamation}
-              aria-describedby="entry-exclamation-note"
               onChange={(e) => draftStore.set({ exclamation: e.target.checked })}
             />
             <span>{t('entry.assert')}</span>
           </label>
-          <small id="entry-exclamation-note" className="entry-check__note" data-testid="entry-exclamation-note">
-            {t('entry.exclNote')}
-          </small>
         </div>
 
         <ul className="entry-issues" aria-live="polite" data-testid="entry-issues">

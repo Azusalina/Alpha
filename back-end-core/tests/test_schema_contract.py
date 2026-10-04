@@ -7,6 +7,7 @@ Cross-field evidence/span and approval semantics remain runtime tests too.
 
 import copy
 import json
+import inspect
 import sqlite3
 import subprocess
 import sys
@@ -22,7 +23,9 @@ except ImportError:
     Draft202012Validator = None
 
 from core.api import BrainAPI, METHODS
+from core.brain import BrainCore
 from core.store import MemoryStore
+from model import preferences
 
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "docs/api.schema.json"
 
@@ -122,7 +125,7 @@ class SchemaContractTests(unittest.TestCase):
         self.call("access_status")
         self.call("unlock", password="synthetic unconfigured password")
         self.call("lock")
-        source = self.call("submit", text="😀我重视公平。\r\n我很开心。", partition="rational")["source_id"]
+        source = self.call("submit", text="😀我重视公平。\r\n我很开心。我想联系朋友。", partition="rational")["source_id"]
         self.call("input_get", source_id=source)
         self.call("input_list", partition="rational", status="pending")
         self.call("input_page", limit=1)
@@ -169,6 +172,7 @@ class SchemaContractTests(unittest.TestCase):
         self.call("input_delete", source_id=source)
         self.assertEqual(self.called, set(METHODS))
         self.assertEqual(set(self.result_validators), set(METHODS))
+        self.assertEqual(len(self.called), 34)
         for method, value in self.examples.items():
             with self.subTest(method=method):
                 # Every body rejects unknown fields, including inside list rows.
@@ -180,6 +184,157 @@ class SchemaContractTests(unittest.TestCase):
                 else:
                     malformed.append({"unexpected_contract_field": True})
                 self.assertFalse(self.result_validators[method].is_valid(malformed))
+
+    def test_additive_methods_match_actual_module_and_core_signatures(self):
+        methods = self.schema["$defs"]["request"]["properties"]["method"]["enum"]
+        self.assertEqual((len(methods), len(METHODS)), (34, 34))
+        self.assertEqual(set(methods), set(METHODS))
+        self.assertEqual(set(self.result_validators), set(METHODS))
+        request_schemas = {
+            branch["if"]["properties"]["method"]["const"]: branch["then"]["properties"]["params"]
+            for branch in self.schema["$defs"]["request"]["allOf"]
+            if "const" in branch["if"]["properties"]["method"]
+        }
+        for method, module in (("memory_search_semantic", None),
+                               ("choice_feedback_set", preferences.set_feedback),
+                               ("choice_feedback_get", preferences.get_feedback),
+                               ("preference_rank", preferences.rank_preferences)):
+            for function in (getattr(BrainCore, method), module):
+                if function is None:
+                    continue
+                with self.subTest(method=method, function=function.__name__):
+                    parameters = {name: parameter for name, parameter in inspect.signature(function).parameters.items()
+                                  if name not in {"self", "store"}}
+                    required = {name for name, parameter in parameters.items()
+                                if parameter.default is inspect.Parameter.empty}
+                    optional = set(parameters) - required
+                    self.assertEqual(required, set(METHODS[method][0]))
+                    self.assertEqual(optional, set(METHODS[method][1]))
+                    self.assertEqual(required, set(request_schemas[method]["required"]))
+                    self.assertEqual(set(parameters), set(request_schemas[method]["properties"]))
+        self.assertEqual(inspect.signature(BrainCore.memory_search_semantic).parameters["min_score"].default, 0)
+        self.assertEqual(request_schemas["memory_search_semantic"]["properties"]["min_score"]["default"], 0)
+
+    def feedback(self, source, **changes):
+        fields = dict(source_id=source, event_id="synthetic schema event", domain="daily",
+                      options=[{"id": "fair", "label": "Reviewed", "impacts": {"value.fairness": 1}},
+                               {"id": "other", "impacts": {"value.fairness": -1}}],
+                      actual_choice_id="fair", endorsed_choice_id="other", endorsement_partition="rational",
+                      training_consent=True, **self.guards(source))
+        fields.update(changes)
+        return self.call("choice_feedback_set", **fields)
+
+    def test_hybrid_live_results_and_nested_negative_types(self):
+        from tests.test_hybrid_api import FakeEncoder, OPTIONS
+        self.api = BrainAPI(self.api.path, semantic_encoder=FakeEncoder())
+        sources = [self.call("submit", text="我很开心。我想联系朋友。", partition="rational",
+                             exclamation=True)["source_id"] for _ in range(3)]
+        for source in sources:
+            record = self.feedback(source)
+            self.assertIsNone(record["reason"])
+            self.assertTrue(record["model_active"])
+            self.assertNotIn("learning_eligible", record)
+        semantic = self.call("memory_search_semantic", query="开心")
+        self.assertEqual(semantic["pool_count"], 3)
+        self.assertEqual(semantic["items"][0]["memory"]["evidence"], "开心")
+        feedback = self.call("choice_feedback_get", source_id=sources[0])
+        provisional = self.call("preference_rank", options=OPTIONS, target="actual", partition="rational", domain="daily")
+        self.assertEqual(provisional["status"], "provisional")
+        self.assertEqual(self.call("preference_rank", options=OPTIONS, target="endorsed", partition="rational",
+                                   domain="daily")["ranked"][0]["id"], "other")
+        self.assertEqual(self.call("preference_rank", options=OPTIONS, target="actual", partition="emotional",
+                                   domain="daily")["status"], "abstain")
+        self.api = BrainAPI(self.api.path)
+        fallback = self.call("memory_search_semantic", query="开心")
+        self.assertEqual(fallback["mode"], "lexical_fallback")
+        for method, example, mutations in (
+            ("memory_search_semantic", semantic, (
+                lambda x: x["items"][0]["memory"].update(source_version="0"),
+                lambda x: x["items"][0]["memory"].pop("source_version"),
+                lambda x: x["items"][0]["memory"].update(source_status="revoked"),
+                lambda x: x["items"][0]["memory"].update(status="pending"),
+                lambda x: x["items"][0]["memory"].update(extra=True),
+                lambda x: x["items"][0].update(score=None),
+                lambda x: x["items"][0].update(score=True),
+                lambda x: x["items"][0].update(score=1.01),
+                lambda x: x["items"][0].update(encoded_text_truncated=0),
+                lambda x: x.update(pool_count=True),
+                lambda x: x.update(score_kind="none"))),
+            ("memory_search_semantic", fallback, (
+                lambda x: x["items"][0].update(score=0),
+                lambda x: x["items"][0].update(encoded_text_truncated=True),
+                lambda x: x.update(score_kind="cosine"))),
+            ("choice_feedback_set", record, (
+                lambda x: x["options"][0]["impacts"].update({"value.fairness": True}),
+                lambda x: x["options"][0]["impacts"].update({"affect.anger": 1}),
+                lambda x: x["options"][0].update(extra=True),
+                lambda x: x.update(training_consent=1),
+                lambda x: x.update(training_consent=False),
+                lambda x: x.update(model_active=1),
+                lambda x: x.update(learning_eligible=True),
+                lambda x: x.update(endorsed_choice_id=None, endorsement_partition="rational"),
+                lambda x: x.update(body_digest="not-a-digest"),
+                lambda x: x.update(reason="bad\0reason"))),
+            ("choice_feedback_get", feedback, (
+                lambda x: x["records"][0].update(model_active="true"),
+                lambda x: x["records"][0].update(input_revision=0),
+                lambda x: x["records"][0].pop("training_consent"),
+                lambda x: x["records"][0]["options"][0].update(id=" "),
+                lambda x: x.update(model_epoch=False))),
+            ("preference_rank", provisional, (
+                lambda x: x["weights"].update({"value.fairness": "1"}),
+                lambda x: x["weights"].update({"value.fairness": float("inf")}),
+                lambda x: x["weights"].update({"affect.anger": 0}),
+                lambda x: x["ranked"][0]["contributions"].pop("value.fairness"),
+                lambda x: x["ranked"][0]["contributions"].update({"value.fairness": True}),
+                lambda x: x["ranked"][0].update(score="1"),
+                lambda x: x["ranked"][0].update(score=float("inf")),
+                lambda x: x["ranked"][0].update(model_probability=1.1),
+                lambda x: x["ranked"][0].update(extra=True),
+                lambda x: x.update(used_features=["affect.anger"]),
+                lambda x: x.update(not_calibrated=False),
+                lambda x: x.update(training_sources=2),
+                lambda x: x.update(reason="insufficient_independent_sources"),
+                lambda x: x.update(status="abstain")) )):
+            for index, mutate in enumerate(mutations):
+                with self.subTest(method=method, mode=example.get("mode"), mutation=index):
+                    malformed = copy.deepcopy(example)
+                    mutate(malformed)
+                    self.assertFalse(self.result_validators[method].is_valid(malformed))
+
+    def test_hybrid_requests_reject_nested_invalid_types_at_schema_and_runtime(self):
+        from tests.test_hybrid_api import OPTIONS
+        source = self.call("submit", text="我很开心。我想联系朋友。", partition="rational",
+                           exclamation=True)["source_id"]
+        valid = dict(source_id=source, event_id="synthetic event", domain="daily", options=copy.deepcopy(OPTIONS),
+                     actual_choice_id=None, endorsed_choice_id=None, endorsement_partition=None,
+                     training_consent=False, reason=None, **self.guards(source))
+        for method, params, mutations in (
+            ("memory_search_semantic", {"query": "开心"}, (
+                lambda x: x.update(min_score=True), lambda x: x.update(min_score=None),
+                lambda x: x.update(query="bad\0query"), lambda x: x.update(limit=0))),
+            ("choice_feedback_set", valid, (
+                lambda x: x.update(training_consent=1), lambda x: x.update(expected_epoch=True),
+                lambda x: x.update(event_id="\ud800"), lambda x: x.update(reason="bad\0reason"),
+                lambda x: x.update(endorsed_choice_id="fair", endorsement_partition=None),
+                lambda x: x["options"][0]["impacts"].update({"value.fairness": "1"}),
+                lambda x: x["options"][0]["impacts"].update({"affect.anger": 1}),
+                lambda x: x["options"][0].update(extra=True))),
+            ("choice_feedback_get", {"source_id": source}, (lambda x: x.update(source_id=" "),)),
+            ("preference_rank", {"options": copy.deepcopy(OPTIONS), "target": "actual", "partition": "rational", "domain": "daily"}, (
+                lambda x: x.update(target="inferred"), lambda x: x.update(domain="unknown"),
+                lambda x: x.update(partition=None), lambda x: x["options"][0]["impacts"].update({"value.fairness": True})))):
+            for index, mutate in enumerate(mutations):
+                with self.subTest(method=method, mutation=index):
+                    malformed = copy.deepcopy(params)
+                    mutate(malformed)
+                    request = {"schema_version": 1, "id": "negative hybrid", "method": method, "params": malformed}
+                    self.assertFalse(self.validators["request"].is_valid(request))
+                    response = self.api.handle(request)
+                    self.validate("response", response)
+                    self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+        self.assertEqual(self.call("choice_feedback_get", source_id=source)["records"], [])
+        self.call("choice_feedback_set", **valid)
 
     def test_protected_health_schema_matches_locked_and_authenticated_epoch(self):
         from core.access import setup_access
@@ -479,13 +634,27 @@ class SchemaContractTests(unittest.TestCase):
             return responses
 
         source = wire([{"schema_version": 1, "id": "submit", "method": "submit",
-                        "params": {"text": "😀我重视公平。\r\n", "partition": "rational"}}])[0]["result"]["source_id"]
+                        "params": {"text": "😀我重视公平。\r\n我很开心。我想联系朋友。", "partition": "rational"}}])[0]["result"]["source_id"]
         cases = [("health", {}), ("input_get", {"source_id": source}),
                  ("preview", {"source_id": source}), ("review", {"source_id": source, "agree": True}),
                  ("effects", {}), ("state", {}), ("review_history", {"source_id": source}),
                  ("correction_history", {"source_id": source}), ("input_page", {})]
         wire([{"schema_version": 1, "id": method, "method": method, "params": params}
               for method, params in cases])
+        from tests.test_hybrid_api import OPTIONS
+        self.api = BrainAPI(path)
+        cases = [("memory_search_semantic", {"query": "开心"}),
+                 ("choice_feedback_set", {"source_id": source, "event_id": "wire event", "domain": "daily",
+                                          "options": OPTIONS, "actual_choice_id": "fair", "endorsed_choice_id": None,
+                                          "endorsement_partition": None, "training_consent": False, **self.guards(source)}),
+                 ("choice_feedback_get", {"source_id": source}),
+                 ("preference_rank", {"options": OPTIONS, "target": "actual", "partition": "rational", "domain": "daily"})]
+        responses = wire([{"schema_version": 1, "id": method, "method": method, "params": params}
+                          for method, params in cases])
+        self.assertEqual(responses[0]["result"]["mode"], "lexical_fallback")
+        self.assertEqual(responses[0]["result"]["items"][0]["memory"]["evidence"], "开心")
+        self.assertFalse(responses[2]["result"]["records"][0]["model_active"])
+        self.assertEqual(responses[3]["result"]["status"], "abstain")
 
 
 if __name__ == "__main__":

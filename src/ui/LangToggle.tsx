@@ -19,7 +19,6 @@ export function LangToggle() {
       data-testid="lang-toggle"
       lang={lang === 'en' ? 'zh' : 'en'}
       aria-label={t('lang.switch')}
-      title={t('lang.switch')}
       onClick={() => langStore.toggle()}
     >
       <span className={lang === 'en' ? 'is-on' : ''}>EN</span>

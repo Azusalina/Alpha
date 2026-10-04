@@ -22,7 +22,7 @@
 import { PARAMETER_IDS, PARTITIONS } from '../../backend';
 import type { Partition } from '../../backend';
 import { EvidenceValue } from '../shared/EvidenceValue';
-import { PARTITION_HINTS, PARTITION_LABELS, partitionNote, parameterLabel, partitionColor } from '../shared/labels';
+import { PARTITION_LABELS, parameterLabel, partitionColor } from '../shared/labels';
 import { paramKey } from './useModelState';
 import type { ModelView } from './useModelState';
 import { t } from '../../i18n/lang';
@@ -35,25 +35,10 @@ interface Props {
 export function ModelStateView({ view, connected }: Props) {
   const { state, revisions, changed, loading, error } = view;
 
-  if (!connected) {
-    return (
-      <p className="recs__empty" data-testid="state-unconnected">
-        {t('mstate.unconnected')}
-      </p>
-    );
-  }
+  if (!connected) return null;
 
   return (
     <div className="mstate" data-testid="model-state" aria-busy={loading}>
-      <p className="mstate__lead">
-        {t('mstate.lead')}
-        {changed.size > 0 && (
-          <span data-testid="state-changed-note">
-            {' '}
-            {t('mstate.changed.pre')} <i className="mstate__pip" /> {t('mstate.changed.post')}
-          </span>
-        )}
-      </p>
       {error && (
         <p className="rec__error" role="alert" data-testid="state-error">
           <code>{error.code}</code> {error.message}{' '}
@@ -75,7 +60,7 @@ export function ModelStateView({ view, connected }: Props) {
               aria-label={PARTITION_LABELS[p]}
               style={{ ['--rec-accent' as string]: partitionColor(p) }}
             >
-              <h3 className="mstate__title" title={p === 'crazy' ? partitionNote() : PARTITION_HINTS[p]}>
+              <h3 className="mstate__title">
                 <span className="mstate__mark" aria-hidden="true" />
                 {PARTITION_LABELS[p]}
                 <small data-testid="state-observed-count">
@@ -101,12 +86,12 @@ export function ModelStateView({ view, connected }: Props) {
                       <EvidenceValue state={st} label={parameterLabel(id)} />
                       <span className="mp__tags">
                         {isChanged && (
-                          <span className="mp__changed" data-testid="state-changed" title={t('mstate.changed.title')}>
+                          <span className="mp__changed" data-testid="state-changed">
                             {t('mstate.justChanged')}
                           </span>
                         )}
                         {rev !== undefined && (
-                          <span className="mp__rev" data-testid="state-revision" title={t('mstate.rev.title')}>
+                          <span className="mp__rev" data-testid="state-revision">
                             #{rev}
                           </span>
                         )}

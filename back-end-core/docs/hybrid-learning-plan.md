@@ -1,214 +1,215 @@
 # Local hybrid understanding, evidence memory and choice preference learning
 
-> **PAUSED — 2026-10-03。** 用户已暂停今天的工作。此计划是未完成的文档草稿，下面部分签名、fallback、拟合触发及目标工具描述有漂移；以 [暂停检查点](hybrid-learning-checkpoint-2026-10-03.md) 和根沟通文件最后的暂停记录为准。不要将此草稿视为已发布 API 契约或完整验收。
+> **RESUMED — 2026-10-04；新 hybrid 主验收未完成。** 初稿日期 2026-10-03。用户已恢复开发，主线程工具目标为 active。[Oct 3 暂停检查点](hybrid-learning-checkpoint-2026-10-03.md) 保留历史；本版修正初稿与检查点指出的漂移。当前源码声明 schema_version=1 / contract_revision=3 / 34 methods；新阶段 [ ] 表示主验收未完成，不表示代码不存在。
 
-日期：2026-10-03。状态：main-authored synthesis 的文档转录；开发已获授权，本阶段仅写文档。所有阶段复选框表示 planned / not implemented，只有 main 核对实际实现与验收证据后才可勾选。**No real data used.** 未读私人语料、未开实际用户库、未导入／训练／下载模型权重；未改代码或提交／推送 Git。
+## 目标与授权
 
-## 工作目标与范围状态
+项目 working goal：本机有限自然语言理解＋可追溯／可编辑证据记忆＋明确选择标签的偏好 ML。SQLite 保存证据，偏好权重为可重新计算的派生层；相似度不证明事实，softmax 不代表已校准的真实选择概率。范围为个人 hybrid 后端；没有 digital-self、心理诊断、MMPI 或真实效度交付声明。
 
-项目 working goal：在本机组合有限自然语言理解、可追溯／可修改的证据记忆、用户明确标注的选择偏好 ML。记忆和来源保存在 SQLite；ML 是对合资格标签的可重算派生层。检索用于找相关证据，不证明事实或完整理解；选择排序不承诺预测人的真实行为。digital-self、心理诊断和 MMPI 不在这个目标内。
+F14 自 Oct 3 已解除延期。材料 immediate/confirm 双 true、实际选择 actual_choice_id、理性事后认可 endorsed_choice_id 与独立 training_consent 分开。首版前端显式提供 options/impacts，由用户审核；不得从日记、embedding、T/F 或模型建议推定标签、影响或同意。开发授权不包含私人语料导入、live DB 操作或权重下载。
 
-用户现已授权 hybrid 开发，F14 不再 deferred。此计划与 [追加沟通记录](../../front-back-communicate.md) 覆盖旧文档的 F14 延期范围表述；原文作为历史保留。[api.md](api.md)、[api.schema.json](api.schema.json)、[frontend-contract-handoff.md](frontend-contract-handoff.md) 仍定义当前已实现契约，新方法还不在其中。开发授权不等于私人材料导入、个别反馈训练同意或模型下载授权。
+主线程目标证据（用户／main 提供）：2026-10-04 本轮开始，线程 `01a0ece3-759d-7ec0-bccc-4157827f3358` 实际 get_goal 为 status=active、objective=`continue build back-end`、tokensUsed=1773028。项目目标继续在此 scope 内。Oct 3 create_goal 因已有未完成目标被拒绝、随后 paused 是历史；早期文档 worker 的 goal=null 不代表主线程，不是当前阻碍。不另建或完成目标。
 
-目标设置工具的既有记录（用户提供）：**BLOCKED — usageLimited，unfinished prior goal**。本阶段不替换／完成该旧目标，只在此记录新项目工作目标；没有调用 create_goal，没有创建产品 active goal。本次只读 get_goal 返回 goal=null，未复现上述历史拒绝，不能声称工具目前已有新目标或本次调用被拒绝。项目计划可以记录，产品功能和工具 active goal 都没有因此产生。
+## 当前事实与证据边界
 
-## P0 静态发现：当前实际基础
-
-| 事实 | 本轮源码／契约依据 | 适用边界 |
+| 层 | 本机源码／文档依据 | 当前边界 |
 | --- | --- | --- |
-| 桌面为 Tauri 2 | 根 [package.json](../../package.json) 的 @tauri-apps/cli ^2.12.0；[Cargo.toml](../../src-tauri/Cargo.toml) tauri／tauri-build major 2 | [Cargo.lock](../../src-tauri/Cargo.lock):3099 为 tauri 2.11.5，:3150 为 tauri-build 2.6.3；[package-lock.json](../../package-lock.json):1299 为 CLI 2.12.0。声明／锁文件证据，不是本轮运行时测量；不是 Tauri 3。 |
-| 前端 React 19、TypeScript、Vite 7 | 根 package.json dependencies／devDependencies | 只读核对版本；本轮不改 `src/`，不验收当前用户前端变更。 |
-| 核心 Python >=3.10，SQLite，jieba | [pyproject.toml](../pyproject.toml) 的 requires-python；[translator/learning.py](../translator/learning.py):16、:22、:50 | dependencies=[] 不代表无需 tokenizer：jieba 从 ext-refs/jieba 或已安装副本加载。词汇计数／分词提示不等于语义学习。 |
-| schema_version=1、contract_revision=2、30 methods | [core/api.py](../core/api.py):22–55；api.md 的 All 30 typed methods；schema `#/$defs/request/properties/method`、`#/$defs/results/$defs/health` | `memory_search_semantic`、`choice_feedback_set/get`、`preference_rank` 均不存在于当前方法集合；不提前升级版本或声称支持。 |
-| 私有访问门已存在 | [core/access.py](../core/access.py):146 AccessSession、:208 require、:220 check_authorized；core/api.py:138 handle | public 仅 health/baseline/access_status/unlock/lock；locked health 不读库且无 model_epoch。SQLite 仍明文，应用 gate 不阻止同 OS 用户直接读文件。 |
-| 证据记忆可活动查询 | [core/brain.py](../core/brain.py):212 `_memories`、:249 memory_list、:253 memory_search | accepted candidate＋agreed source＋source_version 相等；当前检索是 claim/evidence 字面匹配。Reset 保留这些记忆，不等于它们仍参与选择模型。 |
-| 当前 rank 是规则价值对齐 | [model/ranking.py](../model/ranking.py):9 VALUE_PARAMETERS、:12 validate_options、:32 rank_from_state；[model/engine.py](../model/engine.py):791 rank_options | 使用 rational 状态、support>=2；返回 abstain 或 provisional、not_a_probability=true。不是已训练 logistic／神经网络。 |
-| 当前 catalog 为 13 参数，选择特征取其中 8 个 value.* | [model/catalog.py](../model/catalog.py):9–16；[model/baseline.json](../model/baseline.json)；schema `#/$defs/parameter` | affect.*／expression.* 不纳入本次选择基线；零状态 observed=false 不等于测得中性。 |
-| 只读评估／收集工具已有 | [model/evaluation.py](../model/evaluation.py):27、:76、:172；[model/readiness.py](../model/readiness.py):80、:254、:259 | 旧评估仅 rational 对齐；readiness 分组／时间／暴露检查不能证明声明为真。不是 F14 写入或新 ML holdout evaluator。 |
+| 前端／宿主 | 根 package.json：React 19、TypeScript、Vite 7、Tauri CLI ^2.12.0；src-tauri/Cargo.toml：Tauri major 2 | Tauri 2，不是 Tauri 3；前端／Rust 各归 owner，本次仅文档。 |
+| 规则与存储 | pyproject.toml Python >=3.10；translator/learning.py jieba；core/store.py SQLite；model/catalog.py 13 参数 | 词汇计数和规则参数不等于通用语义学习，observed=false 不等于测得中性。 |
+| 当前扩展 | core/api.py CONTRACT_REVISION=3、METHODS 34 项；core/brain.py 新接入点 | Oct 2 rev2／30 methods 是已验收历史；rev3 最终 schema／生命周期／全量验收仍待 main。 |
+| 私有访问与备份 | core/access.py AccessSession；core/backup.py validate_database；tests/test_hybrid_backup.py | 新反馈表曾实际破坏 protected setup/access/backup；精确参考 schema 修复已有子套件证据，完整集成仍待 main。SQLite 明文，同 OS 用户直接文件读取在 gate 范围外。 |
+| 语义检索 | translator/semantic.py；core/brain.py memory_search_semantic | 可选冻结本机 encoder、请求内向量；未配置明确 lexical_fallback，配置后失败报错。最新至多 1000 候选池，非无界全集。 |
+| 偏好基线 | model/preferences.py；tests/test_preferences.py | 纯 Python L2 multinomial logistic，8 个 value.*；按请求临时 fit，不写 DB/持久权重、不训练 encoder。 |
+| 旧评测工具 | model/evaluation.py、model/readiness.py、translator/evaluation.py | 旧规则／收集工具已有历史验收；不证明新偏好 evaluator 已最终交付或真实材料有效。 |
 
-本轮高置信度来自上述静态文件；旧 283 backend／7 translator／16 Rust 等测试数只在历史交接中记录，本阶段未复跑，不用来证明 hybrid 实现。当前真实数据语义覆盖、选择效度、CPU 编码性能、离线 encoder 发行和新增前端／native 接线都未验证。
+技术候选为 SentenceTransformers 6.1.0／PyTorch CPU；参考源码 ext-refs/sentence-transformers 为 commit `4a3b5cd6ec718e421f57e824a41ed3fd99595df6`、6.2.0.dev0，不是已安装运行版本。BGE-M3 仅候选，无模型权重下载／加载／CPU 性能或真实中文语义验收。
 
-## 信号和学习层必须分开
-
-| 信号／层 | 含义 | 不可替代的信号 |
-| --- | --- | --- |
-| immediate / confirm（整份材料 T/F） | 当前 source/version 的双认可；现有规则拟合／记忆发布 gate | 不是 actual_choice、endorsed_choice，也不是新增 F14 training_consent。 |
-| actual_choice | 该事件里实际发生的选项 ID；未知为 null | 不从情绪词、记忆检索、T/F、模型首选推导。 |
-| endorsed_choice | 用户理性回顾后认可的选项 ID；可以不同于实际选择，未知为 null | 不要求相同，不把 emotional／crazy 材料认可自动升级为 rational 认可。 |
-| training_consent（计划） | 对明确 target／partition／domain、当前来源版本／epoch 的显式训练授权 | 保存反馈、查看反馈、解锁或阅读排序不会自动给出此同意。 |
-| encoder inference | 冻结预训练参数，将 query／证据片段转为向量 | read-only inference，不训练 encoder，不写记忆或个人模型。 |
-| preference inference | 使用明确拟合产生且仍有效的派生权重排序 | preference_rank 不调用 fit，不以读取触发后台训练。 |
-| explicit fit（计划） | 显式请求下从合资格反馈派生选择权重 | 不把原文／证据记忆压入预训练 encoder 权重，不在连接／get／search／rank 时训练。 |
-
-## Hybrid 流程（planned）
+## 技术栈与两条通道
 
 ```mermaid
-flowchart TD
-    A["本机材料与 exact evidence"] --> G["AccessSession 私有访问门"]
-    G --> R["现有规则 / jieba / 显式纠错"]
-    R --> T["材料 immediate + confirm T/F；current source version"]
-    T --> M["SQLite evidence memories；accepted + agreed + current version"]
-    G --> Q["只读 query"]
-    M --> S["P1 可选 CPU frozen encoder；request-local embeddings"]
-    Q --> S
-    S --> O["相关证据检索；不是事实 / 概率；不训练"]
-    A --> F["P2 F14 explicit actual_choice 与 rational endorsed_choice；分开"]
-    G --> F
-    F --> C["approved source + current version + epoch + explicit training consent"]
-    C --> D["显式 fit 请求；按 target / partition / domain 隔离"]
-    D --> W["纯 Python regularized multinomial logistic；8 value impacts"]
-    W --> I["preference_rank 只读推断；abstain；不是已校准真实概率"]
-    D --> E["P3 grouped / time heldout；独立标签；不回流训练"]
-    E --> L["有独立 holdout 增益后才考虑小 MLP / LoRA"]
-    X["edit / delete / revoke / reopen / Reset"] --> Y["清除或失效派生项；Reset 排除至显式 reenlist"]
-    Y --> C
-    O --> H["P4 前端 / native / offline packaging owner"]
-    I --> H
+flowchart LR
+    U["React 19 / TypeScript / Vite 7"] --> H["Tauri 2 brain_call; 本机 JSON-lines"]
+    H --> G["Python >=3.10 AccessSession"]
+    subgraph A["通道一：理解与证据记忆"]
+        R["规则 / jieba / 显式纠错"] --> T["材料 immediate + confirm; 当前版本"]
+        T --> M["SQLite accepted + agreed + current-version evidence"]
+        M --> S["可选冻结 SentenceTransformers / PyTorch CPU"]
+        Q["query"] --> S
+        S --> O["semantic 余弦检索; 请求内 embedding"]
+        Q --> F["无 encoder: 显式 lexical_fallback"]
+        M --> F
+        S --> X["已配置但失败: MODEL_UNAVAILABLE"]
+    end
+    subgraph B["通道二：显式选择偏好"]
+        C["flat F14: options / 用户审核 impacts / actual / endorsed / consent"]
+        C --> E["approved + 当前版本/内容 + 反馈 epoch"]
+        E --> L["preference_rank: 合资格快照临时 CPU fit"]
+        L --> P["纯 Python L2 multinomial logistic; 8 value 特征"]
+        P --> I["解释 / 未校准 softmax / abstain; 不写 DB/权重"]
+        I --> V["后续分组/时间留出; 真实效度未验证"]
+    end
+    G --> R
+    G --> Q
+    G --> C
+    D["edit/delete purge; revoke/reopen 失效; Reset 排除旧反馈 epoch"] --> E
 ```
-
-ASCII fallback（与图相同的边界）：
 
 ```text
-local source -> AccessSession -> rules/jieba/corrections -> material T/F
-   |                                                       |
-   |                                                       v
-   |                         SQLite accepted/agreed/current-version memories
-   |                                                       |
-   |                    read-only query -> optional CPU frozen encoder
-   |                                       -> related evidence (not truth)
-   v
-explicit F14: actual_choice != necessarily rational endorsed_choice
-   -> approved source + current version + epoch + separate training_consent
-   -> explicit fit request -> isolated target/partition/domain logistic weights
-   -> read-only preference_rank (no training; abstain; not calibrated probability)
-   -> grouped/time heldout evaluation -> only demonstrated gain -> MLP/LoRA later
-
-edit/delete: purge feedback/derived contributions; revoke/reopen: invalidate
-Reset: exclude prior fits until explicit reenlist; memories/translator may remain
-retrieval/ranking -> frontend/native/offline packaging owner (P4)
+React/TypeScript/Vite -> Tauri 2 brain_call -> Python AccessSession
+ 通道一：规则/jieba/纠错 -> 来源双确认 -> SQLite 活动证据记忆
+          query + memories -> 可选冻结 CPU encoder -> semantic/cosine
+          无 encoder -> 明确 lexical_fallback; 已配置失败 -> error
+ 通道二：前端 options + 用户审核 impacts + actual/endorsed + 独立 consent
+          -> approved + 当前版本/内容/反馈 epoch 筛选
+          -> preference_rank 临时 L2 logistic fit + 排序/解释/abstain
+          -> 不写 DB/持久权重、不训练 encoder -> 后续独立留出
 ```
 
-## 技术主线与公式
+## 信号、学习与活动状态
 
-核心继续 Python >=3.10＋SQLite＋jieba。语义理解层可选 SentenceTransformers／PyTorch CPU 的预训练 encoder，默认冻结参数，无须 LLM。先形成离线 adapter／合成替身及不可用状态，不下载权重、不增加本轮 dependencies。encoder 只支持相似性检索；主体归属、引述、否定、证据位置和用户纠错仍由显式规则／审核约束。
+| 字段／操作 | 实际语义 |
+| --- | --- |
+| immediate/confirm | 整份来源当前版本认可；规则拟合／记忆发布门，不生成 F14 标签或 consent。 |
+| actual_choice_id | 实际发生的选项 ID；未知为 null，不自动推断。actual 按来源 partition 隔离。 |
+| endorsed_choice_id | 事后认可的选项 ID，可不同于 actual；非空须显式有效 endorsement_partition。只有 rational endorsement 纳入 endorsed/rational target，不把 emotional/crazy 认可升级为理性认可。 |
+| training_consent | 显式反馈训练授权，与保存、解锁、材料认可、读取均分开；false 不纳入。 |
+| feedback.model_active | 来源 agreed＋双 true＋consent＋匹配 source_version/partition/body_digest＋反馈当前 epoch 的资格；不表示已有持久训练权重。 |
+| inputRecord.model_active | 该来源规则 fit 是否属于当前规则模型 epoch；不是反馈资格，也不是选择标签。 |
+| choice_feedback_set/get | guarded save 完整替换 source/event 的反馈并推进全局 input revision；get 读取。set/get 不 fit。 |
+| preference_rank | 对合资格只读 snapshot 临时 CPU fit＋rank；返回 snapshot input_revision/model_epoch，不写 DB、不持久保存权重、不训练 encoder。不是纯前向读取持久模型。 |
 
-八个选择特征沿用 VALUE_PARAMETERS：`value.autonomy`、`value.fairness`、`value.care`、`value.truth`、`value.security`、`value.growth`、`value.achievement`、`value.connection`。每个 option 的 impacts 是用户明确标注的有限 [-1,1] 数；不自动从自然语言／embedding 推导。缺项按现有评分约定贡献为 0，不能因此断言真实影响为零。
+Reset 排除旧反馈 epoch。明确 guarded feedback save 可以重新登记当前 epoch 的反馈，**不要求恢复旧规则 fit**；规则 re-review 不自动重新登记旧反馈。记忆／translator 保留不激活偏好 ML。F6 编辑／删除同事务 purge 反馈；revoke/reopen／版本或内容变化使旧反馈失效。反馈与规则的 model_active 必须独立展示。
 
-首个 ML 基线为纯 Python、带正则化的 multinomial logistic。事件 e 内每个候选 j 的特征为 x_ej∈[-1,1]^8；以该事件候选集合的 softmax 表示条件选择分布：
-
-```text
-s_ej = w[target, partition, domain] · x_ej
-q_ej = exp(s_ej - max_k s_ek) / sum_k exp(s_ek - max_k s_ek)
-loss(w) = - sum_e log q_e,y_e + (lambda / 2) * ||w||², lambda > 0
-```
-
-选项 ID 只是事件内标识，不是跨事件稳定的类别或额外学习特征；候选变化仍用同一组价值系数计算。actual 与 endorsed 分别拟合，partition 和 domain 分别隔离，不在样本不足时悄悄池化；未知标签不进入对应 loss。训练参数、样本门槛、拒答策略和最终输出字段须在实施契约里明确，本转录不替用户选数值。q 是模型内部归一化结果，不能作为已校准真实概率对用户展示。
-
-权重是显式请求产生、可从合资格反馈重新计算的派生物，证据记忆继续可编辑／可撤销地存在 SQLite；不保存成个人预训练 encoder 权重，不以「模型记住了原文」代替证据存储。`preference_rank` 使用此前明确 fit 产生且通过版本／epoch 复核的结果；没有有效结果时拒答，不隐式 fit。拟合触发与派生结果生命周期是实施契约要解决的接口细节，此文不新增训练 JSON 方法或暗定持久文件布局。
-
-小神经 MLP／LoRA 为后续候选，只有对独立、冻结留出集相较 logistic 基线有可复核增益后才考虑，需同时核对覆盖率、泄漏、资源与删除治理。P1 encoder 始终冻结；LoRA 若推进是另外明确的训练阶段，不由 inference 偷启。
-
-## 接口签名草案（PROPOSED；非当前 API）
-
-下面是供实施 owner 对齐的最小签名草案，尚未定义最终 JSON schema、结果字段或新增错误枚举。`feedback` 的数据含义由下文约束，不把开放 dict 当可直接发布的契约。
+## 当前源码签名（rev3 草稿；最终 schema 验收待 main）
 
 ```python
-# PROPOSED only; not in contract_revision=2 / current 30 methods.
 memory_search_semantic(query: str, *, partition: str | None = None,
-                       limit: int = 20) -> dict
-
-choice_feedback_set(source_id: str, *, feedback: dict, training_consent: bool,
+                       limit: int = 20, min_score: float = 0.0) -> dict
+choice_feedback_set(source_id: str, *, event_id: str, domain: str,
+                    options: list[dict], actual_choice_id: str | None,
+                    endorsed_choice_id: str | None,
+                    endorsement_partition: str | None, training_consent: bool,
                     expected_source_version: int, expected_revision: int,
-                    expected_epoch: int) -> dict
+                    expected_epoch: int, reason: str | None = None) -> dict
 choice_feedback_get(source_id: str) -> dict
-
 preference_rank(options: list[dict], *, target: str, partition: str,
-                domain: str) -> dict  # read-only; never fits
+                domain: str) -> dict  # temporary fit + rank, no DB writes
 ```
 
-F14 feedback 必须显式区分事件情境、选项及 impacts、actual_choice、理性 endorsed_choice 及理由；目标名称沿用两种 choice label，不把 target 混成 T/F。source_id 绑定当前 source_version；partition 来自明确来源／情境，domain 沿用 daily/study/interpersonal。未记录标签为 null，不能填模型建议或默认否定。记录时机／时间字段、一次来源多个事件的身份、独立 feedback revision／内容 guard、consent 撤回和最终返回结构仍需在实施契约定义；这里不选择额外产品行为。
+JSON params 是闭合、平铺字段，**没有 feedback:dict**。target=actual/endorsed；domain=daily/study/relationships；partition=rational/emotional/crazy。options 的 id 在事件内唯一、不是跨事件稳定类别；impacts 只含有限 [-1,1] 的八个 value.*，缺项贡献 0 不等于真实影响为零。标签非空时必须属于 options；来源可先保存 pending 反馈，但未双确认不得拟合。
 
-guard 含义沿用 rev2：expected_revision 是 GLOBAL input_page.revision／reset_info.input_revision，不是 correction_history.revision；expected_epoch 是 unlocked health 的当前 epoch，不是历史输入行的 epoch。整数非负且不能是 bool。读取不同快照会竞争，所有写入须在事务内再次校验，冲突不自动重试。
+expected_revision=GLOBAL input_page.revision／reset_info.input_revision；expected_source_version=当前来源版本；expected_epoch=unlocked health 当前 epoch，不能用历史输入行 epoch 或 correction_history.revision。非负整数且非 bool；事务内再校验，冲突不自动重试。同一 source_id/event_id 完整替换，记录 current source_version、来源 partition、body_digest 和反馈 epoch。
 
-`memory_search_semantic` 禁用／encoder 缺失时 **lexical fallback disabled**：返回明确不可用状态，不把字面结果伪装成语义结果。调用者仍可明确调用独立的现有 memory_search；本计划不添加静默 fallback。具体不可用响应须进入将来的 typed result／error contract。
+memory_search_semantic 无 encoder 返回 mode=lexical_fallback、score_kind=none、score=null；已配置 path/provider/load/encode 失败返回 MODEL_UNAVAILABLE，不转字面结果。semantic 使用 cosine，保留 memory/evidence、截断标识。先按 accepted/agreed/current-version/partition 筛，取最新至多 1000 项后打分再 limit，返回 pool_count/pool_truncated。返回前复核全局 revision；API 再复查授权。无持久 embedding cache，不因检索发布候选。
 
-## 阶段、精确复制模式与验收
+## 偏好模型与数值
 
-各阶段先读指定文档，再按定位的现有模式扩展；复制安全／治理模式不意味着复制未经验证的语义结论。下面的命令是后续 main 使用的合成验证参考，**本轮未执行**，也不代表尚未存在的新能力测试已通过。
+八个特征：autonomy/fairness/care/truth/security/growth/achievement/connection，字段前缀 value.*；13 个规则参数中的 affect.*／expression.* 不进入此偏好模型。每事件候选 j 的 x_ej∈[-1,1]^8，按 target/partition/domain 分组：
 
-### P0 — 当前契约与访问发现
-
-- [ ] 固定 rev2、30 methods 和 public/private 基线，记录扩展兼容计划；核对来源／全局修订／轮次 guard 与 F6 旧排队操作风险，交 main 验收。
-- 必读：[api.md](api.md) 的 All 30 typed methods、Access and publication、Revision tokens and source lifecycle；schema 的 `#/$defs/request`、`#/$defs/response`、`#/$defs/results/$defs`；[frontend-contract-handoff.md](frontend-contract-handoff.md) 的 Access and token acquisition；[local-security.md](local-security.md) Integration contract。
-- 复制位置：core/api.py:28 METHODS、:55 PUBLIC_METHODS、:138 BrainAPI.handle（:152 私有 gate 先于方法诊断；:156 malformed unlock 清缓存）；core/access.py:208 require／:220 check_authorized；model/engine.py:389 `_guards`／:408 review_version。
-- 验证模式：tests/test_access_api.py:31 `test_locked_startup_and_public_methods_never_open_database`、:91 `test_every_sensitive_method_fails_locked_before_parameter_validation`、:133 malformed-unlock 测试；tests/test_schema_contract.py:119 all-methods 和 :452 serialized-body 测试。后续命令：`python -m unittest tests.test_access_api tests.test_schema_contract -q`（back-end-core；测试 extras 预先具备）。
-- 反模式 guard：只验信封不验 method result；将 config-only health 当私有读取；从历史 epoch 或 correction revision 拼写入 token；以文档授权替代 training consent；把旧 F14 deferred 当现行范围。
-
-### P1 — 可选本机 encoder 与 evidence-gated semantic retrieval
-
-- [ ] 先定义离线 encoder adapter／禁用状态和合成替身；再计划 memory_search_semantic 的 typed request/result 与能力探测，不下载模型。
-- [ ] 检索前按 accepted／agreed／current source_version／partition gate 筛选；从合资格全集语义打分后再取 limit，不能仅给旧 memory_list 默认 20 条重排序。保存来源／版本／原证据与可复核位置，不从向量捏造 spans。
-- [ ] 只使用请求内向量，**no persistent embedding cache**；不写 SQLite embeddings、不落磁盘／向量库，不跨 lock/reconnect 保留私有向量。编码期间发生 edit/delete/revoke/reopen/lock 时丢弃过期结果，返回前复核访问／快照有效性。
-- 必读：api.md 的 active memory 与 private access；[source-revisions.md](source-revisions.md) 的 publication／typed evidence；[evidence-policy.md](evidence-policy.md)；下方官方 encoder 依据。
-- 复制位置：core/brain.py:212 `_memories` 的 accepted/agreed/current-version SQL gate、:249 memory_list、:253 literal memory_search；core/api.py:123 gated brain 与 :138 handle；model/engine.py:316 `_annotate_translation` 保留纠错边界。现有 `_memories` 带 SQL LIMIT，不应原样当语义候选全集实现。
-- 验证模式：tests/test_schema_contract.py:393 active-memory shape；tests/test_revisions.py:135 atomic/version-bound publication、:160 assertion/author/suppression guard；tests/test_access_api.py:91 全部私有方法 gate。新增合成语义替身应验证筛选、排序、删改期间失效、不可用、无持久写入与无网络；后续旧基线命令：`python -m unittest tests.test_access_api tests.test_revisions tests.test_schema_contract -q`。
-- 反模式 guard：用相似度判事实／作者／价值符号；检索时 candidate_propose／review／fit；禁用后静默 lexical fallback；盲抄官方 Hub ID 示例而触发下载；对混合私有原文全量 encode；把缓存泄漏说成已解决。
-
-### P2 — F14 guarded explicit feedback 与 logistic baseline
-
-- [ ] 制定 choice_feedback_set/get 和 preference_rank 的闭合结果 schema、能力声明与兼容变更；实施 actual／endorsed 标签和独立训练同意，保留既有 rank 行为作基线。
-- [ ] 训练 gate：来源 approved（现行双 true／agreed）、当前 source_version、current model_epoch 的已明确纳入状态、explicit training consent，缺一不拟合；仅反馈登记不宣称已训练。按 target／partition／domain 隔离，基于八维显式 impacts 的 pure-Python regularized multinomial logistic。
-- [ ] 显式 fit 才派生权重；get／search／preference_rank／health／重连均不训练。统计合资格样本和来源版本，过期或不足时拒答；不自动推断标签、自动补 consent 或从 memory retrieval 得到 impacts。
-- [ ] 扩展现有 edit/delete purge：同事务移除该来源 feedback 和派生贡献，并使相关派生 fit 失效；revoke/reopen／版本改变撤回旧贡献，不能被再次读回或旧队列复活。Reset 排除以前贡献直到用户明确 reenlist；translator／evidence memories 的保留不重新激活偏好 ML。
-- 必读：api.md 的 guards、Pagination/edit/delete/reset；source-revisions.md；[model-reset.md](model-reset.md)；evaluation.md 的 actual/endorsed 与 impacts；frontend-contract-handoff.md 的 consent／F6 in-flight 边界。
-- 复制位置：model/engine.py:389 `_guards`、:408 review_version（BEGIN IMMEDIATE）、:204 input_edit、:248 input_delete、:645 review／:656 `_review`；[model/sources.py](../model/sources.py):96 purge_dependents；[model/reset.py](../model/reset.py):65 info、:73 perform。新增 feedback 必须加入 purge／invalidations；旧 helper 目前不知道新表。model/ranking.py:12 validate_options 和 :32 rank_from_state；model/catalog.py:16 VALUE_WORDS 与 baseline 提供八维词汇清单，不复制 support>=2 为 ML 已验证阈值。
-- 验证模式：tests/test_revisions.py:81 stale/rollback、:104 concurrent one-winner、:336 purge archives、:355 reset/explicit reenlist；tests/test_source_governance.py:143 delete rollback、:255 edit rollback、:321 ever-fitted heldout exclusion；tests/test_reset.py:177 parallel reset。新增合成测试覆盖 F14 标签／consent／三个隔离轴、read-only 不 fit、训练请求与读取区分、数值稳定／正则化、选项排列不改变偏好、purge 和旧派生失效。后续旧基线命令：`python -m unittest tests.test_revisions tests.test_source_governance tests.test_reset tests.test_evaluation -q`。
-- 反模式 guard：将 immediate/confirm 或 exclamation 当 endorsed_choice／training_consent；用 emotional/crazy 的材料同意当理性认可；复用选项 ID 学习捷径；修改旧 effects 数字；用 reset/revoke/delete 清洗训练暴露；新方法套 legacy unversioned review 跨 F6。source_version 在 F6 重置为 0，必须结合全局 revision，未来内容／feedback guard 待实施确认。
-
-### P3 — grouped/time holdout 模板、评估与泄漏保护
-
-- [ ] 沿用现有收集模板与 validator，规划 hybrid target／partition／domain 报告、独立 labels、训练／开发／冻结最终留出。拟合只在开发／训练部分显式进行，评估只读固定派生结果，不能对留出再 fit。
-- [ ] 报告区分 labelled、answered、coverage、abstention、accuracy_on_answered、全标签命中与各 domain；actual／endorsed 分开。比较同批事件及覆盖率，拒答保留分母，top ties 不以 ID 排序伪造命中；新 ML 校准／不确定性证据仍待实施和真实数据。
-- [ ] 所有复制／摘录／改写属于同一 group，group 不跨 split；固定事件时间、label 时间、development_end／held_out_start／frozen_at 与暴露声明。guard 历史训练 IDs／ever_fitted、rule development、manual tuning、模型辅助 labels 和语义泄漏；未知不视为独立。所有模板／测试仅合成，无真实有效性声明。
-- 必读：[readiness.md](readiness.md) Collection protocol／Strict collection format／Exports；[evaluation.md](evaluation.md) 指标／消融；[translator-evaluation.md](translator-evaluation.md)。复制模板 [readiness.example.json](readiness.example.json)、[evaluation.example.json](evaluation.example.json)、[translator-evaluation.example.json](translator-evaluation.example.json) 的结构，非其合成标签作为训练资料。
-- 复制位置：model/readiness.py:80 validate_collection、:203 `_contaminated_groups`、:210 `_blockers`、:254 export_manifests、:259 assess_readiness；model/evaluation.py:27 read_snapshot（check_authorized、mode=ro、query_only、单事务）、:76 validate_cases、:121 `_predict`、:136 `_metrics`、:172 evaluate_database。现有 evaluate_database 只读取 rational 规则状态，不能直接声称已评估新 ML 或全部 partition。
-- 验证模式：tests/test_readiness.py:44 exact export／separate labels、:81 authenticity separation、:99 whole-group contamination、:135 split/source guard、:147 duplicate text、:273 privacy/no mutation；tests/test_evaluation.py:45 separate metrics、:65 top ties、:95 nonmutation、:107 historic leakage；tests/test_evaluation_access.py:42 locked-before-SQLite 和 :57 authorized read-only。后续命令：`python -m unittest tests.test_readiness tests.test_evaluation tests.test_evaluation_access tests.test_translator_evaluation -q`；`python -m model.readiness --collection docs/readiness.example.json` 仅合成草稿就绪检查。
-- 反模式 guard：把模板 held_out=true 当真实独立样本；只按当前 agreed 检查暴露；把 missing IDs、删除后重导入当未训练；将 hash 当独立性／隐私证明；训练 encoder／调 impacts 后对同一留出计分；仅比较 answered accuracy 忽略 coverage；一次开发增益就启用 MLP／LoRA。
-
-### P4 — frontend、native 与离线 encoder 发行交接
-
-- [ ] 前端 owner 按未来 health.methods／contract_revision 接新能力，完成 unlock／private-cache invalidation、F14 explicit labels／consent、version/epoch 冲突与只读显示；后端只提供契约，不编写 `src/`。
-- [ ] host/native owner 验证主窗口 ACL、无自动写重试、失败／重连／ambiguous write 后显式回读、F14 与 unlock/cache、admin reset/reconnect；physical input/GPU 与 Xvfb 分开验收。
-- [ ] release owner 后续定义只用预先提供本地模型目录的打包、依赖／模型版本／hash／license manifest、离线缺失错误与 CPU 峰值 RAM／启动／批量延迟／UI 响应测量。硬件指标和预算未选定；本轮没有新模型包装或下载。
-- 必读：[frontend-contract-handoff.md](frontend-contract-handoff.md)、[desktop-bridge.md](desktop-bridge.md)、[desktop-deployment.md](desktop-deployment.md)、[terminal-tracing.md](terminal-tracing.md)；沟通文件的最后 main native 记录。旧 release 是 Python／jieba／security 基线，不含新 encoder 的验收。
-- 复制位置：[src-tauri/src/lib.rs](../../src-tauri/src/lib.rs):18 brain_call；[src-tauri/src/brain_host.rs](../../src-tauri/src/brain_host.rs):19 request/response caps、:149 terminal_trace；[scripts/native/run.py](../../scripts/native/run.py):74 main；[scripts/release/build_runtime.py](../../scripts/release/build_runtime.py):48 backend_names、:59 build（:67 tokenizer hash gate）；[scripts/release/acceptance.py](../../scripts/release/acceptance.py):12 acceptance。前端只作 owner 交接，不在本轮读取私有 state 或修改实现。
-- 验证模式：src-tauri/src/ipc_tests.rs 的 `brain_call` main/local ACL 测试；scripts/release/test_release.py；scripts/native/acceptance.js 与 fault_api.py 的合成故障模式。未来 owner 可运行 `cargo test --manifest-path src-tauri/Cargo.toml` 和 `python3 scripts/release/test_release.py`；新增模型/native 流程须由 main 单独验收。这些命令本轮未运行。
-- 反模式 guard：从 mock、build、API 或旧 Xvfb pass 推导 F14 UI／新 encoder／physical GPU 已通过；对 ambiguous write 自动重试；密码／原文／embeddings 写入 trace；模型目录不存在时在线补下载；由后端改前端工作树或清掉用户变更。
-
-## 官方 encoder 依据与离线示意（未执行）
-
-[SentenceTransformer 官方 API](https://sbert.net/docs/package_reference/sentence_transformer/model.html) 说明可从本地路径加载、指定 CPU，并用 local_files_only 避免下载；encode 可输出归一化向量。以下仅示意未来 adapter 的加载边界，不是已安装／已运行证据，冻结参数和无训练路径仍须通过实现检查。
-
-```python
-# Illustrative only: no installation, model load or encoding in this phase.
-encoder = SentenceTransformer(
-    model_name_or_path=explicit_existing_local_model_directory,
-    device="cpu", local_files_only=True, trust_remote_code=False,
-)
-encoder.eval()
-for parameter in encoder.parameters():
-    parameter.requires_grad_(False)
-# In an explicit inference-only path, with gradients disabled:
-vectors = encoder.encode(approved_evidence_snippets, normalize_embeddings=True)
-# Vectors live only in this request; no persistent embedding cache.
+```text
+s_ej = w · x_ej
+q_ej = exp(s_ej - max_k s_ek) / sum_k exp(s_ek - max_k s_ek)
+L(w) = -(1/N_source_IDs) sum_source_ID (1/n_source_ID) sum_event log q_e,y_e
+       + (lambda/2) ||w||²
 ```
 
-[BAAI BGE-M3 官方 model card](https://huggingface.co/BAAI/bge-m3) 描述 multilingual encoder 与 SentenceTransformers 用法，可作为本地语义检索候选。**BGE-M3 未在本阶段安装、下载、加载或验证；也未确认环境已有可用权重**。不照抄会访问 Hub 的模型名加载示例，不把上游表现当 Alpha 中文证据检索质量或 CPU 资源承诺。选择具体模型、固定版本及依赖、硬件适配和离线发行证据仍 pending。
+Oct 5 当前源码／最终 worker 证据：MIN_SOURCES=3、L2=0.1；纯 Python damped Newton／Cholesky，MAX_ITERATIONS=64、MAX_BACKTRACKS=32，返回权重的 gradient infinity norm 必须 <=1e-11。每步从 1 开始、减半 backtrack，Armijo 系数 0.01；仅在下降量处于 roundoff slack（8 ulps）内时允许 slack，且须同时降低 gradient residual。超预算／无法收敛返回 fit_not_converged，非有限 objective 返回 nonfinite_fit；top gap <=1e-8 返回 options_tied_with_learned_weights。旧 ITERATIONS=400／STEP=0.2 是历史方案。有限数值与梯度检查不代替真实效度或 contrast span 验收。
 
-## main 验收证据与缺口记录
+各 source_id 总 loss 权重相同；不同 ID 不证明独立样本；未知／不可区分标签不进入 fit，跨轴不悄悄池化。3 个不同 IDs 只是探索数量门，不是已验证的样本充分性。当前 used_features 检查只防未使用特征，不证明新组合方向在可辨识子空间。rank_from_fit 在 float 转换前拒绝巨大整数权重并抛受控 ValueError；没有接收外部 fit weights 的 JSON endpoint。返回 weights／contributions／model_probability 带 not_calibrated=true；不能呈现为可靠实际行为概率。模型结果来自返回 tokens 所描述的快照，并发写入后可能过期。
 
-实施负责人逐阶段提供实际文件／签名、契约版本、合成测试命令与结果、rollback／access／no-write／no-network 边界、未验收项；main 核对后再勾选阶段。旧 source／effect 历史不重写，既有用户修改保留。文档完成不等于阶段完成。
+来源筛选缓存只留 bounded metadata／body digest，不缓存完整原文或 i.*；逐个 eligible body 读取，以 65,536 code-point chunks 做 SHA-256；反馈 row 流式遍历。fit records 只保留训练字段，不留原文、reason、option label。1000 current-epoch records 上限和 payload 上限仍限制事件／options 内存，不能宣称总内存为常量。
 
-本阶段交付只有本文件与沟通文件的追加段：源码／package／api/schema/handoff 静态核对、官方 API／model card 查阅、文档检查。没有真实材料、live database、fit、模型权重下载、frontend coding、commit/push。
+小 MLP／LoRA 只在独立冻结留出较 logistic 有可复核增益后考虑，需再核对覆盖、泄漏、资源和删除治理；不是当前实现或验收。P1 encoder 始终冻结。
 
-待实施／证据缺口：新增 typed methods 与兼容版本；F14 事件身份／采集时机／feedback revision 与内容 guards；明确训练触发和派生结果生命周期；样本门槛／正则化配置／abstention；encoder 与 dependencies 固定／打包；CPU 内存与延迟；多 target/partition/domain 的独立真实留出；前端 unlock/cache/F14 与 native/admin reset/physical 验收。此文按给定主线转录，没有替这些未决项选择额外行为。
+## 阶段与复制／验证路径
+
+- [ ] **P0 契约与完整安全兼容主验收**：保留 Oct 2 rev2 已验收基线，核对 rev3 34-method allowlist/schema/results/health、一致 guards、旧／新 DB 与 backup/restore 严格兼容。参考 core/api.py METHODS/PUBLIC_METHODS/handle、core/access.py AccessSession、core/backup.py validate_database；tests/test_access_api.py、test_schema_contract.py、test_hybrid_backup.py。安全子套件已有中间证据，整体仍待 main 最终验证。
+- [ ] **P1 semantic 最终合成主验收**：验证本机 encoder adapter 的 restricted builtin layout、safetensors、禁止 remote/custom/unsafe artifacts、配置失败不 fallback、输出抑制、向量形状、候选池/partition/current-version、长计算后 revision/access 复核、无持久 cache。参考 translator/semantic.py、core/brain.py memory_search_semantic、tests/test_semantic_encoder.py/test_hybrid_api.py。顶层 local_files_only 不足以证明所有嵌套配置离线；真实权重与零网络运行仍未验收。
+- [ ] **P2 F14／preferences 最终合成主验收**：验证平铺签名、actual/endorsed、consent、反馈 activity 与规则 activity 分开、目标/分区/domain 隔离、guard 竞争、临时 fit 的 no-write、set/get 不 fit、purge/revoke/reopen、Reset 明确 feedback save。参考 model/preferences.py、model/sources.py purge_dependents、model/reset.py、tests/test_preferences.py/test_hybrid_api.py/test_revisions.py/test_source_governance.py/test_reset.py。F6 source_version 重置为 0 的排队歧义须客户端清队列；未来 content-revision guard 仍待办。
+- [ ] **P3 分组／时间留出工具与独立效度**：新偏好 evaluator、合成模板与泄漏验证的交付待 main 最终确认；真实 labels/coverage/prediction 仍未验证。参考 model/readiness.py validate_collection/assess_readiness、model/evaluation.py read_snapshot、docs/readiness.example.json/evaluation.example.json/translator-evaluation.example.json。实际和认可目标分开，复制/摘录/改写同 group，不跨 split；冻结时间、训练暴露/ever_fitted/rule development/人工调参/model-assisted labels 留痕。拒答保留分母、ties 不伪造命中，读取测试标签不得回流训练。
+- [ ] **P4 前端/native/离线模型发行**：前端 owner 完成 unlock/cache、guarded version UI、F14 labels/consent/用户审核 impacts、34-method 接线；host owner 验证 administrative Reset/reconnect、ambiguous write 后显式回读、无写重试；release owner 定义本地模型版本/hash/license manifest、依赖包与 CPU RAM/延迟/UI 响应。参考 frontend-contract-handoff.md、desktop-bridge.md、desktop-deployment.md、scripts/native/run.py、scripts/release/test_release.py。Oct 2 release/Xvfb 不等于新 encoder/F14/physical GPU 验收；在线 CI/Python3.10 仍 pending。
+
+main 最终参考命令（本文件 worker 未执行；只使用合成材料／临时库）：
+
+```sh
+cd back-end-core
+/tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest tests.test_semantic_encoder tests.test_preferences tests.test_hybrid_api tests.test_schema_contract tests.test_access_api tests.test_hybrid_backup -q
+/tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q
+```
+
+环境路径来自 main，仅本轮有效，不保证后续存在。不安装依赖、不接 live DB、不为文档核对下载权重。文档审计部分不修改 src/、Rust、schema 或 core；各 owner 提供最终源码／签名、命令／结果、访问/rollback/no-write/no-network 范围和缺口，main 审核后再勾选。
+
+## 证据记录与剩余缺口
+
+Oct 2 历史：backend 283/0 skips、translator 7、Rust 16、release 3 及五个 Xvfb native DOM scenarios；不代表当前 hybrid 全量通过。Oct 3 中间 25 semantic pass、27 integration（7 failures/6 errors）保留在检查点，不描述现在最终结果。
+
+Oct 4 中间证据（用户／main 提供）：
+
+- `/tmp/alpha-verify-20261004.tPaapz/bin/python -m unittest tests.test_semantic_encoder tests.test_preferences -q`：semantic 35＋preferences 28 pass、0 skips，无 heavy dependencies；早于当前 offline protection 更新。
+- `TMPDIR=/tmp/alpha-verify-20261004.tPaapz /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest tests.test_hybrid_api tests.test_schema_contract tests.test_access_api -q`：39 pass、0 skips，27.496s；main 独立执行，worker 仍加检查。
+- backup owner 报 tests.test_hybrid_backup 12 pass/0 skips，security/access/evalaccess 54 pass/0 skips；main 已看过精确 reference schema 修复（6 行，保留 unknown/tampered DDL 拒绝）。这是已测试安全子任务证据，尚非新 hybrid 全量主验收。
+
+//// - [x] **历史已验证子任务｜合成回归及 semantic 复跑**：main 在 back-end-core 执行 `TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q`：396 tests、134.672s、OK、0 skips；随后同环境 `-m unittest tests.test_semantic_encoder -q`：51 tests、1.142s、OK、0 skips。其后 discovery 398 项，最后新增两项由 semantic 复跑覆盖；不是一次完整 398 项执行，不相加为互不重复测试数。
+//// - [x] **历史已验证子任务｜备份兼容**：main 独立 `tests.test_hybrid_backup` 12 pass／0 skips，11.220s。
+
+上述既有 main 证据更正此前「full-suite 仍运行」中间状态；不覆盖本次后续偏好修复或新 evaluator。semantic 为合成 export／mock，无真实权重。API owner targeted 151 distinct pass 的精确命令尚未提供。本次最终命令／结果由 main 补充，P0–P4 整体继续 [ ]。独立真实语义覆盖、实际权重加载/零网络/CPU 性能、选择预测效度、前端/native/physical 验收均未验证。**No real data used.**
+
+## 上游参考（历史研究依据，本轮未联网）
+
+[SentenceTransformer 官方 API](https://sbert.net/docs/package_reference/sentence_transformer/model.html)、[BAAI BGE-M3 model card](https://huggingface.co/BAAI/bge-m3) 是初稿研究链接。本轮仅按本机源码／检查点修正交接，未联网复查。上游模型能力不证明 Alpha 中文 evidence retrieval 质量、兼容性或 CPU 资源预算；具体模型仍待本地权重及环境验收。
+
+## 偏好阶段仍未接受（Oct 4 review）
+
+Mencius review 历史转交：最多 1000 来源完整 body 缓存潜在约 1GB（40×1m ASCII 合成约 40MB）；400 iterations near-tie winner 与 4000/Newton 不一致；huge integer float 转换 OverflowError；复制／改写 group/provenance 不保证独立；used_features 覆盖不保证新 option contrast 位于可辨识子空间。可执行未勾项见根沟通及 docs/TODO。即使最终合成测试全通过，P2 也不能据此自动验收。
+
+## 当前实现分工（最终证据待 main）
+
+- [ ] Goodall 已交付 digest-only 筛选缓存、收敛纯 Python solver＋near-tie abstain、huge integer weight 受控 ValueError；preferences/tests/schema 归该 owner。当前参数／reasons／资源证据已据源码及最终 worker 报告同步；main/fresh 验收待到，不因 worker 通过而勾选，旧 400 iterations/step=0.2 仅是历史草稿。
+- [ ] Zeno 交付 model/preference_evaluation.py、独立测试与 docs/preference-evaluation.md/example.json；文档整合不编辑这四个新文件。冻结 manifest 的 development groups → 共用 production pure fit → 不读 held-out labels 的预测 → 独立 labels 分 actual/endorsed、state/domain 计分 → coverage/abstain/group metrics，须按最终实际 schema 描述，尚不记录为已交付。
+- [ ] main 提供后续最终命令／结果并安排 fresh-agent final review；仅已验证自动化子任务使用 `//// - [x]`，不勾整个 P2/P3 或真实效度。
+
+source group/provenance 与 contrast span 的 production/live acceptance 继续待办；离线 evaluator 防跨组泄漏不等于线上已按独立组拟合。不接 DB、不导入私有实际材料、不下载或训练 encoder weights。
+
+## 用户确认的事件组决策（2026-10-05；实现未完成）
+
+**DECISION**：采用用户审核后的事件组 ID，前端显式提供；草稿 `group_id` 保持 PROPOSED，待 main 定稿。一个事件组的所有材料合计一份训练 loss 权重，不按 source_id 数量增加总 mass；actual/endorsed、partition/domain 继续隔离。后端仅提示原文完全重复，不推断不同文本属于同一事件，不自动指定 group 或授予用户审核。
+
+- [ ] **IMPLEMENTATION｜下一阶段 fresh owner**：Goodall 先完成当前基础修复；后续 owner 增加 group 字段、显式用户审核 gate 和按组聚合权重。新规则要求现有反馈绑定已审核组；legacy／未知 group 在用户补审前排除训练。此为未来规则，当前 eligibility／API/schema 尚未实现，不自动回填认可。
+- [ ] **前端契约验收**：main／frontend owner 定稿组输入、审核及既有反馈更新协议；所有未定字段保持 PROPOSED，未接线／未验收。
+
+离线 manifest 的 group split 是评测边界，不等于线上组 gate 已落实。contrast span／不可辨识方向的 production 拒答仍为独立待办；本决策不勾 P2/P3 整体。
+
+## Oct 5 中间验证（不勾新子任务）
+
+main 转交 preferences 36 pass、22.441s、0 skips，早于最后新增测试，精确命令尚未提供。main 独立 seed804 对照 assert pass：修复后 winner=b、margin=`1.0117349352838784e-05`；旧 400-step winner=a。此为合成反例证明，不是实际预测效度或最终规模／收敛验收。最终 worker 证据、fresh reviews 和 main 最终 full-suite 齐备前，本次偏好／evaluator 新子任务保持 [ ]；Oct 4 勾项只保留既有历史范围。
+
+## Oct 5 final worker proof — main/fresh acceptance pending
+
+main 转交 Goodall FINAL：preferences 41＋hybrid 21＋schema 18＝80 tests，128.728s，0 skips；精确命令仍待 main。schema 改动只增 fit_not_converged reason enum，没有新增 group 字段。另含 12 backup 的 92 项独立验证及 antipattern/quality reviews 正在运行，尚不记录结果。所有新子任务维持 [ ]。
+
+Worker dense 合成 CPU benchmark：1000 events、8 options、8 features，2.144934741 CPU seconds，最终 gradient infinity norm=2.609e-17。这是 solver 合成观测，不是 API 端到端／实际用户延迟保证。内存案例为 40 distinct sources×1,000,000 code points、1000 events：
+
+| body／consent | Python tracemalloc peak bytes |
+| --- | ---: |
+| ASCII／false | 55,959 |
+| ASCII／true | 2,531,834 |
+| Unicode／false | 54,423 |
+| Unicode／true | 5,924,752 |
+
+这些值仅是 Python tracemalloc peak，不含 SQLite/native 分配，不能写成 native RSS 或整进程峰值。Worker instrumented test 65.940s 包含追踪与测试开销，其中 CPU 18.66s；两者均不代表正常请求延迟。最终 main 命令／fresh reviews／full-suite 仍待补充；source group 与 contrast span 的下一阶段实现不因这些证据完成。
+
+main 独立基础后端 full discovery 已启动，精确 commands/counts/timing 待提供，不以预期 discovery 数量作结果。P3 tests/docs/example 未 ready；此轮 full 是 scoped base full proof，不是新 evaluator 或 whole hybrid 最终证明。
+
+Oct 5 fresh reviews（main 转交）：antipattern no findings，17 pure tests／parity pass；该隔离环境未装 jsonschema，另一个 full 环境有 validator。quality no blockers、41 preferences pass；uneven mass 7/1/1 的独立 reference difference=1.18e-12，seed804 gradient=3.26e-15／max weight difference=1.89e-12，Cholesky residual=1.39e-17。quality 另测 dense 1000-event／8-option 为 1.48 CPU seconds；不与 worker 2.144934741 CPU seconds 混成单次结果，不代表正常 API 延迟。main 92 项与 scoped base full 411 项仍运行；两者通过才勾三个有限修复子项，线上 group／contrast span／整个 P2/P3 保持 [ ]。
+
+Oct 5 Zeno 报 47 tool tests，但 tests/docs/example 曾误建于根目录；main 要求 owner 用 apply_patch 修正到 back-end-core/tests/test_preference_evaluation.py、docs/preference-evaluation.md、docs/preference-evaluation.example.json（后两者相对 back-end-core）。文档整合不改四个新 owner 文件，不链接根目录错误产物。修正后须在 back-end-core 复核命令／结果并做 fresh tool reviews；当前 411 base full 不含这 47 项，P3 交付仍待确认。
+
+## Oct 5 scoped base acceptance（不含 P3）
+
+main 独立 `TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q`（back-end-core）：411 tests、170.066s、OK、0 skips，早于 P3 测试迁移，不含新 evaluator。FreshVerifier 92（41 preferences／21 hybrid／18 schema／12 backup），85.576s、无失败／skips；fresh antipattern 17 pure、quality 41 均无阻碍项。main 补充合成临时 live-API 调用确认 fit_not_converged 全量结果 schema、0 SQL writes／0 encoder calls，source hashes unchanged；不是用户 live DB。此证据更正上文运行中状态，不是整个 hybrid 或新 P3 的最终 full proof。
+
+//// - [x] **有限修复｜digest-only 筛选缓存**：metadata/digest、逐个 body 分块 hash、流式 feedback、训练字段缓存；合成 tracemalloc 验证通过，native RSS／正常延迟不在完成范围。
+//// - [x] **有限修复｜收敛与 near-tie 拒答**：当前 Newton/gradient/slack/tie 参数与 fit_not_converged、独立 reference／seed804／残差及失败路径 no-write/no-encoder 证明通过。
+//// - [x] **有限修复｜巨大整数权重边界**：float 前 bounded finite 校验及受控 ValueError，合成 preference/hybrid/schema 回归通过。
+
+source groups／review gate／legacy unknown exclusion、contrast span、整个 P2/P3、真实效度、frontend/native 均继续 [ ]。正确路径 [evaluator 说明](preference-evaluation.md) 与 [合成 manifest](preference-evaluation.example.json) 已出现；最终 P3 命令及 fresh tool reviews 仍待 main。

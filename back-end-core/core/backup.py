@@ -94,6 +94,12 @@ def validate_database(path: str | Path) -> None:
                 from .store import MemoryStore
                 MemoryStore(reference).initialize()
             with closing(sqlite3.connect(reference)) as db:
+                if model_database and 'brain_choice_feedback' in actual:
+                    from model import preferences
+                    # Optional only as a complete, exact production extension.
+                    # Never run its additive initializer against the input DB.
+                    with db:
+                        preferences.initialize(db)
                 expected = _schema(db)
                 expected_objects = _schema_objects(db)
         if actual != expected or actual_objects != expected_objects:

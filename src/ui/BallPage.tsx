@@ -25,40 +25,18 @@ import { BallScene } from '../ball/ballScene';
 import { exampleFit, type BallFit } from '../ball/ballFit';
 import { TransitionFx, type FxShape } from '../ball/transitionFx';
 import { useT } from '../i18n/lang';
-import { ecgOpacity, ecgPath } from './divideEcg';
+import { ecgDrive } from './divideEcg';
 
 const GOLD = '#e3b04b';
 const EMPTY: FxShape = { segs: new Float32Array(0), alpha: new Float32Array(0), gold: new Uint8Array(0) };
 
-/** The diagonal line on the ball page: the same restless trace as the brain page's, fully drawn. */
-function BallDivider({ live }: { live: boolean }) {
+/**
+ * The ball page's end of the divide line. The visible trace is the brain page's own line, kept on screen above
+ * this page (HumanPanel, `is-over-ball`), so it never disappears while the pages change; this is only its click
+ * area. Touching it excites the trace (divideEcg.ts).
+ */
+function BallDivider() {
   const t = useT();
-  const svgRef = useRef<SVGSVGElement>(null);
-  const hintRef = useRef<HTMLDivElement>(null);
-  const hot = (on: boolean) => {
-    svgRef.current?.classList.toggle('is-hot', on);
-    hintRef.current?.classList.toggle('is-hot', on);
-  };
-
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const svg = svgRef.current;
-      if (svg) {
-        const [pa, pb] = svg.querySelectorAll('path');
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        const time = performance.now() / 1000;
-        pa.setAttribute('d', ecgPath([0, 0], 1, w, h, time, 0));
-        pb.setAttribute('d', ecgPath([100, 100], 1, w, h, time, 1));
-        svg.style.setProperty('--ecg-opacity', String(ecgOpacity(time)));
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
   const hitRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const fit = () => {
@@ -71,17 +49,14 @@ function BallDivider({ live }: { live: boolean }) {
     };
     fit();
     window.addEventListener('resize', fit);
-    return () => window.removeEventListener('resize', fit);
+    return () => {
+      window.removeEventListener('resize', fit);
+      ecgDrive.target = 0;
+    };
   }, []);
 
   return (
-    <div className={`ball-divider${live ? ' is-live' : ''}`}>
-      <svg ref={svgRef} className="ball-divider__svg" data-testid="ball-divide-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <g className="ball-divider__ecg">
-          <path d="" />
-          <path d="" />
-        </g>
-      </svg>
+    <div className="ball-divider">
       <div
         ref={hitRef}
         className="ball-divider__hit"
@@ -89,19 +64,12 @@ function BallDivider({ live }: { live: boolean }) {
         role="button"
         aria-label={t('ball.back.aria')}
         onClick={() => {
-          hot(false);
+          ecgDrive.target = 0;
           ballStore.close();
         }}
-        onPointerEnter={() => hot(true)}
-        onPointerLeave={() => hot(false)}
-        onPointerMove={(e) => {
-          const hint = hintRef.current;
-          if (hint) hint.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 14}px)`;
-        }}
+        onPointerEnter={() => (ecgDrive.target = 1)}
+        onPointerLeave={() => (ecgDrive.target = 0)}
       />
-      <div ref={hintRef} className="divide-hint" data-testid="ball-divide-hint" aria-hidden="true">
-        {t('ball.divider')}
-      </div>
     </div>
   );
 }
@@ -183,8 +151,6 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
   const flying = ui.fx !== null && (ui.phase === 'entering' || ui.phase === 'leaving');
   const showBall = !flying;
   const chrome = ui.phase === 'open' && ui.shown;
-  const dark = theme === 'dark';
-  const effect2Name = t(dark ? 'ball.look.name.dark' : 'ball.look.name.light');
   const fadeMs = ui.fx ? (ui.phase === 'entering' ? FX_FADE_IN_MS : FX_FADE_OUT_MS) : FADE_MS;
 
   const f = facet >= 0 ? fit[facet] : null;
@@ -214,7 +180,7 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
       />
       <canvas ref={fxCanvasRef} className={`ball-page__fx${flying ? ' is-visible' : ''}`} data-testid="ball-fx" aria-hidden="true" />
 
-      <BallDivider live={chrome} />
+      <BallDivider />
 
       <div className="ball-page__chrome">
         <button type="button" className="ball-page__back" data-testid="ball-back" onClick={() => ballStore.close()}>
@@ -226,7 +192,6 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
           className="ball-page__look"
           data-testid="ball-look"
           aria-label={t('ball.look.aria', { n: ui.effect })}
-          title={ui.effect === 1 ? t('ball.look.1', { name: effect2Name }) : t('ball.look.2')}
           onClick={() => ballStore.toggleEffect()}
         >
           <span className={ui.effect === 1 ? 'is-on' : ''}>1</span>
@@ -238,24 +203,18 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
             <rect className="ball-dash__rim-base" x="0.5" y="0.5" rx="14" />
             <rect className="ball-dash__rim-flow" x="0.5" y="0.5" rx="14" pathLength="100" />
           </svg>
-          <header>
-            <p className="ball-dash__kicker">{t('ball.title')}</p>
-            <p className="ball-dash__hint">{t('ball.sub')}</p>
-          </header>
           <ul className="ball-dash__legend">
             <li>
               <span className="ball-dash__mark" aria-hidden="true">
                 ∿
               </span>
               <span className="ball-dash__name">{t('ball.legend.ripple')}</span>
-              <span className="ball-dash__note">{t('ball.legend.ripple.note')}</span>
             </li>
             <li>
               <span className="ball-dash__mark" aria-hidden="true">
                 ╱
               </span>
               <span className="ball-dash__name">{t('ball.legend.spike')}</span>
-              <span className="ball-dash__note">{t('ball.legend.spike.note')}</span>
             </li>
           </ul>
           <div className="ball-dash__cells">
@@ -266,7 +225,6 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
               </div>
             ))}
           </div>
-          <p className="ball-dash__drag">{t('ball.hint.drag')}</p>
         </aside>
 
         <div ref={tipRef} className={`ball-tip${f ? ' is-on' : ''}`} data-testid="ball-tip" role="status">
@@ -275,8 +233,8 @@ export function BallPage({ reducedMotion }: { reducedMotion: boolean }) {
               <p className="ball-tip__name">
                 {name} <span>{t('ball.demo')}</span>
               </p>
-              <p>{f.fit > 0.02 ? t('ball.tip.ripple', { pct: pct(f.fit), name }) : t('ball.tip.ripple.none', { name })}</p>
-              <p>{f.peak >= 0.2 ? t('ball.tip.spike', { pct: pct(f.peak) }) : t('ball.tip.nospike')}</p>
+              <p>{t('ball.legend.ripple')} {f.fit > 0.02 ? `${pct(f.fit)}%` : '—'}</p>
+              <p>{t('ball.legend.spike')} {f.peak >= 0.2 ? `${pct(f.peak)}%` : '—'}</p>
             </>
           )}
         </div>

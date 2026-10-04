@@ -83,13 +83,13 @@ export function EffectsTable({ effects, emptyText = t('effects.empty'), activeId
               </span>
             </div>
             <div className="effect__nums">
-              <span data-testid="effect-value" title={t('effects.value.title')}>
+              <span data-testid="effect-value">
                 <b>{t('effects.value')}</b> {fmt(e.before)} → {fmt(e.after)}
                 <em className={`effect__delta effect__delta--${dir}`} data-testid="effect-delta">
                   {signed(e.delta)}
                 </em>
               </span>
-              <span data-testid="effect-support" title={t('effects.support.title')}>
+              <span data-testid="effect-support">
                 <b>{t('effects.support')}</b> {e.support_before} → {e.support_after}
               </span>
             </div>
@@ -97,7 +97,7 @@ export function EffectsTable({ effects, emptyText = t('effects.empty'), activeId
               {e.evidence}
             </blockquote>
             <div className="effect__meta">
-              <span data-testid="effect-span" title={t('effects.span.title')}>
+              <span data-testid="effect-span">
                 {t('effects.span', { a: e.span[0], b: e.span[1] })}
               </span>
               <span data-testid="effect-rule">
@@ -108,7 +108,7 @@ export function EffectsTable({ effects, emptyText = t('effects.empty'), activeId
                 {t('effects.revision')} {e.revision === undefined ? t('effects.revision.none') : `#${e.revision}`}
               </span>
               {currentEpoch !== null && e.model_epoch !== undefined && e.model_epoch < currentEpoch && (
-                <span className="effect__demo" data-testid="effect-old-epoch" title={t('effects.oldEpoch.title')}>
+                <span className="effect__demo" data-testid="effect-old-epoch">
                   {t('effects.oldEpoch')}
                 </span>
               )}

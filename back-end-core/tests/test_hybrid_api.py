@@ -2,6 +2,8 @@
 
 import copy
 import json
+import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -14,6 +16,7 @@ from unittest.mock import patch
 from core.access import change_password, setup_access
 from core.api import BrainAPI, METHODS, PUBLIC_METHODS
 from model.engine import BrainModel
+from model import preferences
 
 
 OPTIONS = [{"id": "fair", "label": "Reviewed fair option", "impacts": {"value.fairness": 1}},
@@ -30,7 +33,7 @@ class FakeEncoder:
         if self.callback:
             callback, self.callback = self.callback, None
             callback()
-        return [[0.0, 1.0] if "自由" in text else [1.0, 0.0] for text in texts]
+        return [[0.0, 1.0] if "难过" in text else [1.0, 0.0] for text in texts]
 
 
 class HybridAPITests(unittest.TestCase):
@@ -49,10 +52,8 @@ class HybridAPITests(unittest.TestCase):
         self.assertTrue(response["ok"], response.get("error"))
         return response["result"]
 
-    def submit(self, text="我重视公平。", partition="rational", approved=True):
+    def submit(self, text="我很开心。我想联系朋友。", partition="rational", approved=True):
         source = self.result("submit", text=text, partition=partition, exclamation=approved)["source_id"]
-        if approved:
-            self.result("candidate_propose", source_id=source, claim=text, evidence=text)
         return source
 
     def guards(self, source):
@@ -73,7 +74,7 @@ class HybridAPITests(unittest.TestCase):
         return self.result("preference_rank", **params)
 
     def test_real_api_fake_vectors_preserve_active_row_provenance_and_filters(self):
-        fair, free = self.submit(), self.submit("我重视自由。", "emotional")
+        fair, free = self.submit(), self.submit("我很难过。我想联系朋友。", "emotional")
         self.submit(approved=False)
         result = self.result("memory_search_semantic", query="an unseen paraphrase", min_score=0.1)
         self.assertEqual((result["mode"], result["score_kind"], result["pool_count"]), ("semantic", "cosine", 2))
@@ -83,15 +84,16 @@ class HybridAPITests(unittest.TestCase):
         row = result["items"][0]["memory"]
         self.assertEqual((row["status"], row["source_status"], row["source_version"]), ("accepted", "agreed", 0))
         self.assertIn("source_ref", row)
+        self.assertEqual((row["claim"], row["evidence"]), ("textual_emotion: happiness", "开心"))
         self.assertFalse(result["items"][0]["encoded_text_truncated"])
-        other = self.result("memory_search_semantic", query="自由", partition="emotional", limit=1)
+        other = self.result("memory_search_semantic", query="难过", partition="emotional", limit=1)
         self.assertEqual(other["items"][0]["memory"]["source_id"], free)
 
     def test_no_encoder_explicit_lexical_fallback_and_no_weight_autoload(self):
         source = self.submit()
         self.api = BrainAPI(self.path)
         with patch("translator.semantic.LocalSentenceEncoder", side_effect=AssertionError("autoload")):
-            result = self.result("memory_search_semantic", query="公平")
+            result = self.result("memory_search_semantic", query="开心")
             self.assertEqual((result["mode"], result["score_kind"]), ("lexical_fallback", "none"))
             self.assertIsNone(result["items"][0]["score"])
             self.assertEqual(result["items"][0]["memory"]["source_id"], source)
@@ -101,19 +103,21 @@ class HybridAPITests(unittest.TestCase):
         with patch("translator.semantic.LocalSentenceEncoder", side_effect=AssertionError("autoload")):
             self.assertTrue(self.result("health")["features"]["semantic_encoder_configured"])
             self.submit()
-        self.assertEqual(self.call("memory_search_semantic", query="公平")["error"],
+        self.assertEqual(self.call("memory_search_semantic", query="开心")["error"],
                          {"code": "MODEL_UNAVAILABLE", "message": "local model unavailable"})
         self.assertEqual(self.encoder.calls, [])
 
     def test_provider_errors_are_generic_and_never_fall_back(self):
         self.submit()
-        class BrokenEncoder:
-            def encode(self, texts):
-                raise ValueError("synthetic private text /secret/model/path")
-        self.api.brain.semantic_encoder = BrokenEncoder()
-        response = self.call("memory_search_semantic", query="公平")
-        self.assertEqual(response["error"], {"code": "MODEL_UNAVAILABLE", "message": "local model unavailable"})
-        self.assertNotIn("secret", json.dumps(response))
+        for error in (ValueError, RuntimeError, OSError):
+            with self.subTest(error=error.__name__):
+                class BrokenEncoder:
+                    def encode(self, texts):
+                        raise error("synthetic private text /secret/model/path")
+                self.api.brain.semantic_encoder = BrokenEncoder()
+                response = self.call("memory_search_semantic", query="开心")
+                self.assertEqual(response["error"], {"code": "MODEL_UNAVAILABLE", "message": "local model unavailable"})
+                self.assertNotIn("secret", json.dumps(response))
 
     def test_stale_revoke_edit_delete_reopen_while_encoding_rejects_snapshot(self):
         for mutation in ("revoke", "edit", "delete", "reopen"):
@@ -129,12 +133,12 @@ class HybridAPITests(unittest.TestCase):
                         if mutation == "edit":
                             self.result("input_edit", source_id=source, text="我重视自由。", immediate=True)
                 self.encoder.callback = change
-                response = self.call("memory_search_semantic", query="公平")
+                response = self.call("memory_search_semantic", query="开心")
                 self.assertFalse(response["ok"])
                 self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
                 self.assertNotIn("result", response)
                 self.assertFalse(any(item["memory"]["source_id"] == source
-                                     for item in self.result("memory_search_semantic", query="公平")["items"]))
+                                     for item in self.result("memory_search_semantic", query="开心")["items"]))
 
     def test_lock_and_config_rotation_mid_inference_block_result_and_discard_brain(self):
         source = self.submit()
@@ -146,7 +150,7 @@ class HybridAPITests(unittest.TestCase):
                 self.result("unlock", password=password)
                 self.encoder.callback = (lambda: self.result("lock")) if mutation == "lock" else (
                     lambda: change_password(self.path, password, "synthetic new hybrid password"))
-                response = self.call("memory_search_semantic", query="公平")
+                response = self.call("memory_search_semantic", query="开心")
                 self.assertEqual(response["error"], {"code": "LOCKED", "message": "access is locked"})
                 self.assertIsNone(self.api._brain)
                 self.assertNotIn(source, json.dumps(response))
@@ -194,15 +198,19 @@ class HybridAPITests(unittest.TestCase):
         info = self.api.brain.model.reset_info()
         self.api.brain.model.reset_model(confirmation="RESET_MODEL", expected_epoch=info["model_epoch"],
                                         expected_revision=info["input_revision"])
-        self.assertEqual(self.result("memory_search_semantic", query="公平")["pool_count"], 3)
-        self.assertEqual(len(self.result("memory_search", query="公平")), 3)
+        self.assertEqual(self.result("memory_search_semantic", query="开心")["pool_count"], 3)
+        self.assertEqual(len(self.result("memory_search", query="开心")), 3)
         self.assertEqual(self.rank()["status"], "abstain")
         records = self.result("choice_feedback_get", source_id=sources[0])["records"]
         self.assertFalse(records[0]["model_active"])
+        self.result("review", source_id=sources[0], agree=True)
+        self.assertTrue(self.result("input_get", source_id=sources[0])["model_active"])
+        self.assertFalse(self.result("choice_feedback_get", source_id=sources[0])["records"][0]["model_active"])
+        self.assertEqual(self.rank()["status"], "abstain")
         for source in sources:
             record = self.feedback(source)
             self.assertTrue(record["model_active"])
-            self.assertFalse(self.result("input_get", source_id=source)["model_active"])
+            self.assertEqual(self.result("input_get", source_id=source)["model_active"], source == sources[0])
         self.assertEqual(self.rank()["status"], "provisional")
 
     def test_f6_standalone_model_purges_feedback_evidence_and_reasons_if_table_exists(self):
@@ -253,12 +261,200 @@ class HybridAPITests(unittest.TestCase):
                           actual_choice_id="fair", endorsed_choice_id=None, endorsement_partition=None,
                           training_consent=True, **guard)
         self.assertEqual(stale["error"]["code"], "INVALID_ARGUMENT")
+        for field in ("expected_source_version", "expected_revision", "expected_epoch"):
+            wrong = self.guards(source)
+            wrong[field] += 1
+            response = self.call("choice_feedback_set", source_id=source, event_id="other", domain="daily",
+                                 options=OPTIONS, actual_choice_id="fair", endorsed_choice_id=None,
+                                 endorsement_partition=None, training_consent=True, **wrong)
+            self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
         self.assertEqual(len(self.result("choice_feedback_get", source_id=source)["records"]), 1)
 
     def test_cli_exposes_only_explicit_embedding_model_option(self):
         run = subprocess.run([sys.executable, "-m", "core.api", "--help"], text=True, capture_output=True)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("--embedding-model", run.stdout)
+
+    def test_value_only_source_does_not_invent_memory_and_min_score_defaults_to_zero(self):
+        self.submit("我重视公平。")
+        self.assertEqual(self.result("memory_search_semantic", query="公平")["items"], [])
+        self.assertEqual(self.encoder.calls, [])
+        self.submit()
+        class OppositeEncoder:
+            def encode(self, texts):
+                return [[1.0, 0.0] if text == "synthetic opposite" else [-1.0, 0.0] for text in texts]
+        self.api.brain.semantic_encoder = OppositeEncoder()
+        self.assertEqual(self.result("memory_search_semantic", query="synthetic opposite")["items"], [])
+        result = self.result("memory_search_semantic", query="synthetic opposite", min_score=-1)
+        self.assertEqual(result["items"][0]["score"], -1)
+
+    def database_snapshot(self):
+        with closing(sqlite3.connect(self.path)) as db:
+            return list(db.iterdump())
+
+    def test_preference_read_fits_again_without_any_database_writes_or_encoder_calls(self):
+        sources = [self.submit() for _ in range(3)]
+        for source in sources:
+            self.feedback(source)
+        before = self.database_snapshot()
+        with patch("model.preferences.fit_preferences", wraps=preferences.fit_preferences) as fit:
+            first, second = self.rank(), self.rank()
+            self.assertEqual(fit.call_count, 2)
+        self.assertEqual(first, second)
+        self.assertEqual(first["status"], "provisional")
+        self.assertEqual(len(first["weights"]), 8)
+        self.assertEqual(len(self.result("baseline")["parameters"]), 13)
+        self.assertEqual(before, self.database_snapshot())
+        self.assertEqual(self.encoder.calls, [])
+
+    def test_feedback_requires_independent_consent_and_double_approval(self):
+        source = self.submit(approved=False)
+        self.assertFalse(self.feedback(source)["model_active"])
+        self.assertEqual(self.rank()["training_sources"], 0)
+        self.result("review", source_id=source, agree=True)
+        self.assertTrue(self.result("choice_feedback_get", source_id=source)["records"][0]["model_active"])
+        self.assertFalse(self.feedback(source, training_consent=False)["model_active"])
+        self.assertEqual(self.rank()["training_sources"], 0)
+
+    def test_preference_fit_rejects_mutation_during_cpu_work(self):
+        fit = preferences.fit_preferences
+        for mutation in ("revoke", "edit", "delete", "reopen", "reset", "consent"):
+            with self.subTest(mutation=mutation):
+                sources = [self.submit() for _ in range(3)]
+                for source in sources:
+                    self.feedback(source)
+                source = sources[0]
+                def changed_fit(*args, **kwargs):
+                    result = fit(*args, **kwargs)
+                    if mutation == "delete":
+                        self.result("input_delete", source_id=source)
+                    elif mutation == "reopen":
+                        self.result("correction_reopen", source_id=source, corrections=[], immediate=True,
+                                    **self.guards(source))
+                    elif mutation == "reset":
+                        info = self.api.brain.model.reset_info()
+                        self.api.brain.model.reset_model(confirmation="RESET_MODEL",
+                            expected_epoch=info["model_epoch"], expected_revision=info["input_revision"])
+                    elif mutation == "consent":
+                        self.feedback(source, training_consent=False)
+                    else:
+                        self.result("revoke", source_id=source)
+                        if mutation == "edit":
+                            self.result("input_edit", source_id=source, text="我很难过。", immediate=True)
+                    return result
+                with patch("model.preferences.fit_preferences", side_effect=changed_fit):
+                    response = self.call("preference_rank", options=OPTIONS, target="actual",
+                                         partition="rational", domain="daily")
+                self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+                self.assertNotIn("result", response)
+                self.assertNotIn(source, json.dumps(response))
+
+    def test_same_revision_database_replacement_during_either_inference_never_leaks(self):
+        fit = preferences.fit_preferences
+        for method, mutation in ((method, mutation) for method in ("memory_search_semantic", "preference_rank")
+                                 for mutation in ("replace", "overwrite")):
+            with self.subTest(method=method, mutation=mutation):
+                sources = [self.submit() for _ in range(3)]
+                for source in sources:
+                    self.feedback(source)
+                replacement = Path(self.temp.name) / f"replacement-{method}.sqlite3"
+                BrainAPI(replacement)
+                with closing(sqlite3.connect(self.path)) as original, closing(sqlite3.connect(replacement)) as db, db:
+                    original.backup(db)
+                    key = original.execute("SELECT value FROM brain_meta WHERE key='input_cursor_key'").fetchone()[0]
+                    db.execute("UPDATE brain_meta SET value=? WHERE key='input_cursor_key'",
+                               (("b" if key == "a" * 64 else "a") * 64,))
+                def replace():
+                    if mutation == "replace":
+                        os.replace(replacement, self.path)
+                    else:
+                        inode = self.path.stat().st_ino
+                        shutil.copyfile(replacement, self.path)
+                        self.assertEqual(self.path.stat().st_ino, inode)
+                if method == "memory_search_semantic":
+                    self.encoder.callback = replace
+                    response = self.call(method, query="开心")
+                else:
+                    def replace_during_fit(*args, **kwargs):
+                        result = fit(*args, **kwargs)
+                        replace()
+                        return result
+                    with patch("model.preferences.fit_preferences", side_effect=replace_during_fit):
+                        response = self.call(method, options=OPTIONS, target="actual", partition="rational", domain="daily")
+                self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+                self.assertNotIn("result", response)
+                self.assertNotIn(sources[0], json.dumps(response))
+
+    def test_deleted_database_during_encoding_is_not_recreated(self):
+        self.submit()
+        self.encoder.callback = self.path.unlink
+        response = self.call("memory_search_semantic", query="开心")
+        self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+        self.assertFalse(self.path.exists())
+        self.assertNotIn("result", response)
+
+    def test_source_reapproval_after_edit_or_reopen_does_not_restore_old_feedback(self):
+        for mutation in ("edit", "reopen"):
+            with self.subTest(mutation=mutation):
+                source = self.submit()
+                self.feedback(source)
+                if mutation == "edit":
+                    self.result("revoke", source_id=source)
+                    self.result("input_edit", source_id=source, text="我很开心。我想联系朋友。", immediate=True)
+                    self.result("review", source_id=source, agree=True)
+                    self.assertEqual(self.result("choice_feedback_get", source_id=source)["records"], [])
+                else:
+                    self.result("correction_reopen", source_id=source, corrections=[], immediate=True,
+                                **self.guards(source))
+                    self.result("review_version", source_id=source, agree=True, **self.guards(source))
+                    record = self.result("choice_feedback_get", source_id=source)["records"][0]
+                    self.assertFalse(record["model_active"])
+                self.assertTrue(self.feedback(source)["model_active"])
+
+    def test_semantic_snapshot_is_rejected_on_model_reset_but_fresh_memory_survives(self):
+        source = self.submit()
+        def reset():
+            info = self.api.brain.model.reset_info()
+            self.api.brain.model.reset_model(confirmation="RESET_MODEL", expected_epoch=info["model_epoch"],
+                                            expected_revision=info["input_revision"])
+        self.encoder.callback = reset
+        response = self.call("memory_search_semantic", query="开心")
+        self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+        self.assertNotIn("result", response)
+        self.assertEqual(self.result("memory_search_semantic", query="开心")["items"][0]["memory"]["source_id"], source)
+
+    def test_lock_during_failed_provider_and_preference_fit_still_rechecks_auth(self):
+        for source in [self.submit() for _ in range(3)]:
+            self.feedback(source)
+        password = "synthetic post inference password"
+        setup_access(self.path, password)
+        self.api = BrainAPI(self.path, semantic_encoder=self.encoder)
+        self.result("unlock", password=password)
+        api = self.api
+        class LockingBrokenEncoder:
+            def encode(self, texts):
+                api.access.lock()
+                raise ValueError("synthetic private provider details")
+        self.api.brain.semantic_encoder = LockingBrokenEncoder()
+        response = self.call("memory_search_semantic", query="开心")
+        self.assertEqual(response["error"], {"code": "LOCKED", "message": "access is locked"})
+        self.assertIsNone(self.api._brain)
+        fit = preferences.fit_preferences
+        for mutation in ("lock", "rotate"):
+            with self.subTest(mutation=mutation):
+                self.result("unlock", password=password)
+                def lock_during_fit(*args, **kwargs):
+                    result = fit(*args, **kwargs)
+                    if mutation == "lock":
+                        self.api.access.lock()
+                    else:
+                        change_password(self.path, password, "synthetic rotated post inference password")
+                    return result
+                with patch("model.preferences.fit_preferences", side_effect=lock_during_fit):
+                    response = self.call("preference_rank", options=OPTIONS, target="actual", partition="rational", domain="daily")
+                self.assertEqual(response["error"], {"code": "LOCKED", "message": "access is locked"})
+                self.assertIsNone(self.api._brain)
+                self.assertNotIn("result", response)
 
 
 if __name__ == "__main__":

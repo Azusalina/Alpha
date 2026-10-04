@@ -20,7 +20,7 @@
 
 import { useEffect, useRef } from 'react';
 
-import { ballStore } from '../app/ballStore';
+import { ballStore, useBall } from '../app/ballStore';
 import { humanStore, useHumanUi } from '../app/humanStore';
 import { inputStore } from '../app/inputStore';
 import { focusBrain, navigate } from '../app/navigation';
@@ -29,7 +29,7 @@ import { TRANSITION, phaseProgress } from '../config/timing';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 import { EntryPanel } from './entry/EntryPanel';
-import { ecgOpacity, ecgPath } from './divideEcg';
+import { ecgDrive, ecgFrame, ecgOpacity, ecgPath } from './divideEcg';
 import { NodeDetail, regionLabel } from './NodeDetail';
 import { RecordsPanel } from './records/RecordsPanel';
 import { t } from '../i18n/lang';
@@ -51,12 +51,11 @@ export function HumanPanel({ state, reducedMotion }: Props) {
   const labelRef = useRef<HTMLParagraphElement>(null);
   const ecgRef = useRef<SVGGElement>(null);
   const hitRef = useRef<HTMLDivElement>(null);
-  const hintRef = useRef<HTMLDivElement>(null);
-  // while the pointer is over the line's click area: the cursor, the line and a hint change (CSS, by class)
+  // while the pointer touches the line's click area the trace gets taller and quicker (divideEcg.ts, shared with the ball page)
   const setHot = (on: boolean) => {
-    dividerRef.current?.classList.toggle('is-hot', on);
-    hintRef.current?.classList.toggle('is-hot', on);
+    ecgDrive.target = on ? 1 : 0;
   };
+  const ballMounted = useBall().mounted;
   const reducedRef = useRef(reducedMotion);
   reducedRef.current = reducedMotion;
 
@@ -83,14 +82,14 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           const [pa, pb] = ecg.querySelectorAll('path');
           const w = window.innerWidth;
           const h = window.innerHeight;
-          const time = performance.now() / 1000;
+          const { tau: time, level } = ecgFrame(performance.now() / 1000);
           if (reducedRef.current) {
             pa.setAttribute('d', ext > 0.001 ? `M50 50L${50 - 50 * ext} ${50 - 50 * ext}` : '');
             pb.setAttribute('d', ext > 0.001 ? `M50 50L${50 + 50 * ext} ${50 + 50 * ext}` : '');
             ecg.style.opacity = '1';
           } else {
-            pa.setAttribute('d', ecgPath([0, 0], ext, w, h, time, 0));
-            pb.setAttribute('d', ecgPath([100, 100], ext, w, h, time, 1));
+            pa.setAttribute('d', ecgPath([0, 0], ext, w, h, time, 0, level));
+            pb.setAttribute('d', ecgPath([100, 100], ext, w, h, time, 1, level));
             ecg.style.opacity = String(ecgOpacity(time));
           }
         }
@@ -138,7 +137,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
     */}
     <svg
       ref={dividerRef}
-      className={`divide-line divide-line--human${ui.focused ? ' is-muted' : ''}`}
+      className={`divide-line divide-line--human${ui.focused ? ' is-muted' : ''}${ballMounted ? ' is-over-ball' : ''}`}
       data-testid="divide-line"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
@@ -164,14 +163,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         }}
         onPointerEnter={() => setHot(true)}
         onPointerLeave={() => setHot(false)}
-        onPointerMove={(e) => {
-          const hint = hintRef.current;
-          if (hint) hint.style.transform = `translate(${e.clientX + 18}px, ${e.clientY + 14}px)`;
-        }}
     />
-    <div ref={hintRef} className="divide-hint" data-testid="divide-hint" aria-hidden="true">
-      {t('human.flip')}
-    </div>
     <div
       ref={rootRef}
       className={`human-panel${ui.focused ? ' is-focused' : ''}`}
@@ -199,13 +191,7 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           <button type="button" className="human-panel__back" onClick={() => focusBrain(false, reducedMotion)}>
             {t('human.close')}
           </button>
-          <p className="human-panel__hint">
-            {hovered
-              ? `${hovered.label} · ${describeNode(hovered)}`
-              : ui.hoverRegion >= 0
-                ? t('human.region', { name: regionLabel(ui.hoverRegion) })
-                : t('human.hint')}
-          </p>
+          {hovered && <p className="human-panel__hint">{`${hovered.label} · ${describeNode(hovered)}`}</p>}
           {ui.selected && <NodeDetail resettable id={ui.selected} onSelect={(id) => humanStore.set({ selected: id })} />}
         </div>
       )}

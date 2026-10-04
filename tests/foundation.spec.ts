@@ -37,7 +37,6 @@ test('foundation — banner: unconnected by default, demo by hand, permanent str
   await atHuman(page);
   const banner = page.getByTestId('backend-banner');
   await expect(banner).toContainText('后端未连接');
-  await expect(banner).toContainText('本机后端尚未接通；录入与反馈暂不可用');
   expect(await alpha(page, 'backend.mode()')).toBe('unconnected');
   // a plain browser never connects by itself, and there is no retry without a desktop host
   await expect(page.getByTestId('backend-retry')).toHaveCount(0);

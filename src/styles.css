@@ -471,33 +471,13 @@ body {
   height: 60px;
   width: 0;
   z-index: 3;
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><g stroke='white' stroke-width='4'><circle cx='17' cy='17' r='11'/><path d='M10 17h14M20 12.5l4.5 4.5-4.5 4.5'/></g><g stroke='black' stroke-width='1.5'><circle cx='17' cy='17' r='11'/><path d='M10 17h14M20 12.5l4.5 4.5-4.5 4.5'/></g></g></svg>") 17 17, pointer;
+  cursor: default;
 }
 .divide-line__hit.is-muted {
   pointer-events: none;
 }
-.divide-line--human.is-hot .divide-line__ecg path {
-  stroke-width: 3px;
-  filter: drop-shadow(0 0 5px var(--alpha-ink));
-}
-.divide-hint {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 6;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--alpha-construction);
-  background: var(--alpha-paper);
-  color: var(--alpha-ink);
-  font-size: 0.74rem;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-.divide-hint.is-hot {
-  opacity: 0.95;
+.divide-line--human.is-over-ball {
+  z-index: 5;
 }
 
 /*
@@ -881,31 +861,13 @@ body {
   position: absolute;
   inset: 0;
 }
-.ball-divider__svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.ball-divider__ecg path {
-  fill: none;
-  stroke: var(--alpha-ink);
-  stroke-width: 1.5px;
-  vector-effect: non-scaling-stroke;
-  stroke-linejoin: round;
-  opacity: var(--ecg-opacity, 1);
-}
-.ball-divider__svg.is-hot .ball-divider__ecg path {
-  stroke-width: 3px;
-  filter: drop-shadow(0 0 5px var(--alpha-ink));
-}
 .ball-divider__hit {
   position: absolute;
   left: 50%;
   top: 50%;
   height: 60px;
   width: 0;
-  cursor: pointer;
+  cursor: default;
 }
 .ball-page.is-chrome .ball-divider__hit {
   pointer-events: auto;

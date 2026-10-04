@@ -9,6 +9,8 @@
 > - 尚未被对方确认的字段，前端类型里标 `PROPOSED`（见 `src/backend/types.ts`），只由带明确标识的 mock 实现，**不会被当成真实训练**。
 > - 前端不修改 `back-end-core/`；后端不修改 `src/`。两边以本文件和 `back-end-core/docs/api.md` 为准。
 
+> [back] **2026-10-04 当前状态**：用户已恢复开发；主线程目标为 active。Oct 2 的 rev2／30 methods 是已验收历史基线；当前源码声明 rev3／34 methods，hybrid 新能力仍待 main 最终独立验证，不能仅据 health 能力启用。Oct 3 暂停及旧 F14 延期均为历史记录；本轮 F14 已获授权。下方旧文本／日期保留，按逐项 Oct 4 注释及末尾恢复记录解读。
+
 ---
 
 # 后端交接索引（Backend handoff index — 2026-10-02）
@@ -92,17 +94,28 @@
 
 ## 后端待办
 
-- [ ] **P0｜发布策略实现**：[back] 2026-10-01：用户已确认当前来源／版本双 true 后自动发布提取的候选记忆；实现与验证仍待办，最近已验收基线为逐条审核，并行变更待证据确认，不通过迁移静默发布旧 pending／rejected 候选。统一编排接口已实现，旧版 `core.cli add-source` 记录保留但不进入统一入口的活动查询。
+//// - [x] **P0｜发布策略实现**：[back] 2026-10-01：用户已确认当前来源／版本双 true 后自动发布提取的候选记忆；实现与验证仍待办，最近已验收基线为逐条审核，并行变更待证据确认，不通过迁移静默发布旧 pending／rejected 候选。统一编排接口已实现，旧版 `core.cli add-source` 记录保留但不进入统一入口的活动查询。
+  - [back] 2026-10-04：完成状态依据 Oct 2 最终文档对齐：fresh 当前来源／版本双 true 在同事务发布 authored candidates；migration/startup/frozen reapproval 不发布 legacy pending/rejected。见 core/brain.py、model/engine.py、tests/test_revisions.py 与 api.md「Access and publication」。上行 Oct 1「实现仍待办」仅为历史。
 - [ ] **P0｜纠错扩展**：[back] 2026-10-01：pending 参数纠正与保守原句复用已完成；用户确认已审核材料的语义修订先撤回当前贡献，再对修订解释重新取得双 true 才拟合。版本绑定修订、广义事件／语义标签和显式依赖重放仍待实现／验证，历史 effect 数值与 Reset 排除不改写；不是 F6 文本替换。
+  - [back] 2026-10-04：原始广义纠错任务保持 [ ]；有限 typed retain/suppress、版本双同意与 selected replay 子任务另列，不以缩小广义语义修订／标签范围勾整个类别。一般语义重标／一般因果图／通用下游重放未完成。
+  //// - [x] **已完成子任务｜版本绑定有限纠错与 selected replay**：Oct 2 main 已验收 correction_reopen/review_version/replay_preview/replay_reopen、exact typed event/intent/tone/candidate retain/suppress；保留历史 effects／冻结拟合／Reset 排除。见 tests/test_revisions.py、api.md「Revision tokens and source lifecycle」与 Oct 2 主验收记录。
 - [ ] **P0｜前端新增需求验收**：[back] 2026-10-01：F1-F7 后端均已实现；最新 [front]／[back] 记录确认 F6 能力探测启用、浏览器真实 Python 与模型活动／轮次接线已验收。原生 F6／Reset 重连与故障恢复仍待办，不能标 ////。修改 immediate 通过 input_edit，编辑前 agreed 必须先撤回；删除允许任意状态。
+  - [back] 2026-10-04：部分完成，保留 [ ]：Oct 2 native DOM 已验证 F6/paging137、第二进程持久性及三种故障重连／恰好一次 submit；行政 model-only Reset 后重连、guarded version-consent UI 和最新并行前端完整验收仍待办。见末尾 Oct 2 native fault 记录、docs/TODO.md。
 - [ ] **P0｜原文治理**：[back] 2026-10-01：F6 已明确并实现当前库内无旧原文历史的编辑／整体硬删；外部备份保护与恢复、通用下游拟合重放仍待办。不会删除原文件／手动备份／系统快照，不声称法证不可恢复或全副本遗忘。
+  - [back] 2026-10-04：部分完成，保留 [ ]：F6 与 encrypted backup/fresh-target restore、显式选定 replay 已于 Oct 2 交付；通用下游因果重放／全副本遗忘没有完成，也不作此承诺。新增反馈表与 access/backup/restore 兼容修复正在另一 worker 范围内，最终主验收待提供。
 - [ ] **P0｜本机安全 / F13**：[back] 2026-10-01：访问口令门与加密备份／恢复已获用户确认纳入本轮，不再延期；实现、API 集成、前端解锁接线与验证仍待办。门须覆盖原文、excerpt、evidence、历史与写入；恢复验证到明确的新目标，不静默覆盖运行库。当前 SQLite 仍为明文，整库加密在本轮之外；应用门不防同 OS 用户直接读文件。
+  - [back] 2026-10-04：部分完成，保留 [ ]：Oct 2 backend AccessSession／LOCKED、CLI/eval 复查、Argon2id 与 XChaCha20 backup/fresh-target restore 有主验收记录；frontend unlock/private-cache UI 未验收。Oct 4 新反馈表曾实际触发 unsupported Alpha database schema；修复草稿存在，独立最终 access/backup/restore 回归未提供，历史完成不代表当前 hybrid 安全兼容已通过。
 - [ ] **P1｜真实拟合验证**：[back] 2026-10-01：离线评估／参数消融工具已完成，见 `back-end-core/docs/evaluation.md`。用户确认本轮没有真实私有留出材料，只交付本地收集模板／就绪检查工具，交付仍待 worker 验证。独立实际／事后认可标签、分组／时间切分、真实覆盖／预测效度与参数去留仍是后续验收前提；合成样例不能代替。有效后才考虑监督式 ML。
+  - [back] 2026-10-04：部分完成，保留 [ ]：Oct 2 collection/readiness/evaluation 模板与工具已交付验收；真实独立标签、分组／时间留出、覆盖／预测效度及参数去留未验证。没有本轮私人留出材料，工具／合成结果不能代替真实验证。
 - [ ] **P1｜表达覆盖**：用用户可纠错样本评估杂乱日记、复杂聊天、引述、否定与哲学陈述；必要时局部引入本地 NLP／LLM，不预设必须使用。
+  - [back] 2026-10-04：保留 [ ]：基础规则／v2 主体保护及只读评测工具已有合成证据；真实代表性材料、任意人名／复杂归属／反讽与新 encoder 的真实语义覆盖仍未验证。
   - [back] 2026-10-01：基础非断言保护与 14 项合成回归已实现；疑问／引述／假设／转述和复杂否定不自动拟合为价值。真实材料覆盖仍待验证，不能据此将本项标为全部完成。
   - [back] 2026-10-01：新增 translator.evaluation 只读评测（另有 14 项工具测试），按人工 label_scope／来源组／开发及留出分组计分，方向与证据位置分开。只评估基础规则，不打开数据库或使用语料纠正后再给自身计分。v2 已修复已知常见主体的间接价值误提取（新增 9 项回归），任意人名／复杂混合归属与真实材料验证仍未完成。不是 F14 的未来选择反馈。
 - [ ] **P1｜桌面接线／部署**：[back] 2026-10-01：已核对最新浏览器真实 Python F6／模型活动元数据接线与较早 Xvfb 原生基本录入记录。仍待原生 F6、故障／重连／重启回读、大列表、release 构建与 Python／后端／jieba 打包及真实 GPU 测试；不以 MockRuntime 或软件渲染代替硬件验收。
+  - [back] 2026-10-04：部分完成，保留 [ ]：Oct 2 Linux portable release/runtime／relocation/security/artifact hashes 和五个 Xvfb DOM scenarios 有主验收记录；行政 Reset 重连、F13/F14 前端 native、实体输入／GPU、跨平台及新 encoder 离线发行未验收。
 - [ ] **P1｜反馈契约**：[back] 2026-09-30：继续稳定 `state/effects/evidence` 与结果 schema；F12 确认无需后端视觉字段，动画映射由前端负责。球体属后续版本，后端不产出临床风险值。
+  - [back] 2026-10-04：持续稳定契约为原始任务，整体 [ ]；rev3／34 methods、F14 与后续交接仍待最终主验收，不因旧 rev2 子任务通过而关闭类别。
+  //// - [x] **已完成子任务｜Oct 2 rev2 结果体与 F12 边界**：30 methods typed results、state/effects/evidence 与不新增后端视觉／临床字段已验收；见 tests/test_schema_contract.py、Oct 2 主验收记录、frontend-contract-handoff.md。
 
 ## 前端需要提供的 input（基础录入已接线；未来选择反馈待定义）
 
@@ -113,6 +126,7 @@
 //// - [x] **审核前预览**：仅对非 agreed 输入调用 `preview`，呈现只读假设结果。数值可能过期，须以正式 submit／review 的 effect 为准；exclamation 已训练后不能再调用 preview。
 //// - [x] **反馈显示**：展示 `effects` 的 `parameter`、`before/after`、`support_before/after`、`evidence`、`span`、`rule_id`、`revision`；也要能显示 `observed=false` 和 `abstain`，避免把空白数据画成确定人格。
 - [ ] **未来选择反馈**：另收集实际选项、情境、事后是否认可及理由；与上述整份输入的 `agree` 分开。字段与采集时机尚待共同定义，不应由前端自行推断为现有接口。
+  - [back] 2026-10-04：F14 自 Oct 3 已解除延期；当前有未验收 choice_feedback_set/get/preference_rank 草稿。actual_choice_id／endorsed_choice_id 分开，独立 training_consent、前端提供且用户审核 impacts；与材料双 true 分开。契约和 UI 最终验收未完成，保留 [ ]。
 
 相关说明：`back-end-core/README.md`、`back-end-core/model/README.md`、`back-end-core/docs/architecture.md`、`back-end-core/docs/parameters.md`、`back-end-core/docs/TODO.md`。
 
@@ -162,7 +176,8 @@
 //// - [x] **F5 `input_list` 补字段。** `immediate`、`confirm`、`exclamation`、`confirmed_by`、`reason`、`excerpt`（原文前 80 个 Unicode 码点）、`char_count`、`edited_at`；超过 100 条时提供分页。
   - [back] 2026-10-01 接受并实现字段；edited_at 暂为 null，不伪装已经支持编辑。input_list 保持现有数组契约，前端已有 hydrate 将跳过额外 input_get。分页新增 input_page({partition?,status?,limit?,cursor?}) → {items,total,next_cursor,revision}，旧适配器尚未接这个方法。游标绑定数据库／筛选及输入审核修订，单页计数与内容同快照；支持 >100 条同时间戳输入，不漏项／重复。输入改变后旧游标返回 STALE_CURSOR，须丢弃旧页再取第一页。完整契约与 inputRecord／inputPage schema 已同步。
   - [back] 2026-10-01 隐私边界：excerpt 是原文片段而非脱敏或语义摘要，按纯文本显示；未来口令门须覆盖 list/page/evidence 等，不只是 input_get。游标完整性校验不等于口令、加密或原文保护。
-- [x] **F6 编辑与删除（后端已完成，前端浏览器启用／验收已完成，原生验收仍待办）。**
+//// - [x] **F6 编辑与删除（后端已完成，前端浏览器启用／验收已完成，原生验收仍待办）。**
+  - [back] 2026-10-04：Oct 2 main 已验证 native DOM F6/paging 与持久性，故将此既有已确认任务补齐 //// 前缀；原行「原生验收仍待办」是 Oct 1 的历史状态。删除任意状态，agreed 编辑先 revoke；行政 Reset/reconnect 与 physical 验收另列未完成，不包含在 F6 完成标记中。
   - `input_edit(source_id, text, immediate, kind?, self_speaker?)`：仅允许非 `agreed`；替换原文，重置 `confirm=null`，旧 span 全部失效。请 [back] 定：是否保留修改前原文的历史？
   - `input_delete(source_id)`：仅允许非 `agreed`（已训练的须先 `revoke`）。硬删、墓碑还是备份，请 [back] 定；前端会二次确认，文案按你们的选择写（不会假装「已彻底删除」）。
   - 这两个方法未提供时，前端在真实后端下把「编辑/删除」置灰并提示「后端尚不支持」；在 mock 下可用并标「仅演示」。
@@ -185,8 +200,10 @@
 //// - [x] **F12 动画所需。** 训练发生后，前端用返回的 `effects`（含 `partition`）驱动脑内反应：`partition` 决定风格（理性沉稳 / 感性缤纷 / 癫狂整脑），`effects` 的条数与 `|delta|` 决定强度。**不需要**后端提供视觉字段，也请不要产出临床风险值。
   - [back] 2026-10-01 更新边界：只消费正式 submit（exclamation）／review 的 effects，不把 preview 当作训练；反馈也应覆盖 support 增加但 delta 为 0 的情况。不新增视觉或临床字段。
 - [ ] **F13 原文口令门。** 若 `input_get` 之后会需要解锁（待办 P0「本机安全」），请约定错误码 `LOCKED`；前端到时补解锁界面，本轮不做。
+  - [back] 2026-10-04：部分完成，保留 [ ]：Oct 2 LOCKED/backend gate 与 encrypted backup/restore 已交付，旧「本轮不做／LOCKED 未实现」为历史；frontend unlock/cache/native 未验收，且新反馈表的安全兼容最终验证待 main。
   - [back] 2026-10-01 最新用户决定覆盖上方历史提案的“本轮不做”：F13 访问门与加密备份纳入本轮，整库加密除外；实现／接口集成／解锁 UI／验收仍待办，`LOCKED` 不据此成为已实现错误码。门的覆盖范围须包括原文、excerpt、evidence、历史及写操作。
 - [ ] **F14（本轮不做）** 「未来选择反馈」（实际选项、情境、事后认可）；待共同定义字段与采集时机后再议。
+  - [back] 2026-10-04：此行标题保留历史；当前 F14 已解除延期，实际／认可标签、独立 consent、审核 impacts 与反馈专用 activity 按 hybrid-learning-plan.md 和 api.md 草稿交接。功能／前端验收未完成，保留 [ ]。
 
 ### 前端已经做了 / 不会做
 
@@ -317,3 +334,94 @@
 - 已保存 semantic/preferences 模块与测试、API/来源清理/schema 草稿及计划。代码尝试声明 revision 3 / 34 methods，但契约、文档、安全兼容和全量回归尚未完成，前端 **不要据此启用新能力**。
 - 最后已观察证据：semantic 25 项合成测试通过（早于最后修改）；集成中间态 27 项有 7 failures/6 errors，后续草稿未复跑。首要实际问题是新反馈表尚未进入 backup.validate_database 的严格参考 schema，导致 setup_access 失败；下次先补旧/新库与备份/恢复兼容，再统一反馈字段/schema/tests/docs。离线预检、最终回归、新偏好留出工具、前端/native/模型硬件验收均未完成。
 - **暂停状态：未交付 hybrid 新能力、没有真实效度证明；暂不要在真实运行库启用/迁移本轮草稿。** 保存进度后不继续开发，等待用户明确恢复。
+
+### [back] 2026-10-04 恢复与文档审计（新 hybrid 未验收）
+
+- 用户已明确恢复开发。主线程 `01a0ece3-759d-7ec0-bccc-4157827f3358` 在本轮开始实际 `get_goal` 返回 `status=active`、objective=`continue build back-end`、tokensUsed=1773028；这是主线程提供的目标证据，不是文档 worker 的 goal=null。Oct 3 pause/create_goal 拒绝只保留为历史，不描述当前状态。项目范围继续为本机个人 hybrid 理解／证据记忆／显式选择偏好，不宣称 digital-self 或真实效度。
+- 当前静态事实：`core/api.py` 声明 schema_version=1、contract_revision=3、34 methods。Oct 2 rev2／30 methods 主验收是历史基线；新表曾破坏 protected setup/access/backup 严格校验，backup owner 已实际复现该 gate error。当前兼容修复草稿正在核对，不把源码存在或中间结果写成最终通过。
+- 更正 Oct 3 初稿：未配置 encoder 返回明确 `mode=lexical_fallback`（score=null），配置后的 provider/path/load/encode 失败返回错误（MODEL_UNAVAILABLE），不自动回退；domain 为 daily/study/relationships。反馈为闭合的平铺字段，非 `feedback: dict`，实际签名／结果见 api.md。F14 独立 actual/endorsed、training_consent、前端显式 impacts 与用户审核缺一不可。
+- `preference_rank` 按请求在通过来源双确认、版本／内容摘要、反馈 epoch 和独立 consent 筛选的快照上临时 CPU 拟合再排序；返回快照 input_revision/model_epoch，不写 DB、不保存权重、不训练 encoder。`choice_feedback_set/get` 不拟合。反馈记录 `model_active` 表示偏好反馈资格，**不同于 inputRecord 的规则模型 model_active**；Reset 后须明确 guarded save 重新纳入反馈，不因规则 re-review 自动恢复。
+- 技术栈及两通道完整流程见 [hybrid-learning-plan.md](back-end-core/docs/hybrid-learning-plan.md)：React/TypeScript/Vite → Tauri 2 brain_call → Python AccessSession；规则/证据记忆/可选冻结 SentenceTransformers＋PyTorch CPU 检索，与 flat F14 labels/consent/impacts → 独立纯 Python L2 logistic 临时拟合/排序分开。真实 encoder 权重、资源性能、语义质量与选择效度均未验证。
+- 中间证据（主线程转交，非最终）：`/tmp/alpha-verify-20261004.tPaapz/bin/python -m unittest tests.test_semantic_encoder tests.test_preferences -q`，semantic 35＋preferences 28 项通过，0 skips，无 heavy dependencies；**早于当前 offline protection 更新**。不据此勾选新 hybrid，也不替代 access/backup/schema/full-suite 的最终验证。Oct 3 的 25 pass 与 27 项 7 failures/6 errors 是更早历史快照。
+- Oct 2 native 报告路径／命令保留在上节；此文档 worker 本轮未找到对应 /tmp 报告，因此使用既有 main 验收记录，未声称重新执行或当前 artifact 仍存在。
+
+- [ ] **Hybrid 契约／安全兼容主验收**：main 提供最终版本、34 方法 request/result schema 一致性、旧／新库及严格异常 DDL、protected setup/access/backup/restore 的独立命令／结果／报告后再更新。
+- [ ] **Hybrid semantic／preferences／lifecycle 主验收**：最后 offline protection 修改后的模块与全量回归，授权／快照竞态、F6 purge、reopen/revoke、Reset 明确反馈再纳入及 no-write/no-encoder-training 证据待 main；中间 35＋28 pass 不足以勾选。
+- [ ] **Hybrid 分组／时间留出工具与真实效度**：新偏好评测交付及最终主验收待确认；真实独立语义覆盖／actual 和 endorsed 预测效度仍未验证。
+- [ ] **Frontend／native／发行与物理验收**：unlock/cache、guarded version UI、F14 标签/consent/审核 impacts、行政 Reset 重连、新 encoder 离线发行/资源测量与实体输入/GPU 待各 owner 验收；在线 CI/Python 3.10 仍待办。
+
+- 文档审计部分仅修改指定文档；既有 [front] 发言、历史日期／结果及已勾项上下文保留。完成任务统一 `//// - [x]`，部分完成类别维持 `[ ]` 并逐项注明；文档 worker 未改源码／前端／Rust／schema，未访问 live DB、私人 corpus、weights、网络或 Git。已向 main 请求最终独立验收证据；未收到前不勾整体 hybrid 阶段；已测试安全子任务不代表整体完成。
+
+### [front] 2026-10-04 前端状态核对（对照上方全部条目）
+
+- 前端负责且已完成：F1–F5/F7–F12 接线；F6 能力探测启用（浏览器真实 Python 验收）；U+0000 全位置拦截；model_epoch／model_active 显示与「纳入当前模型」；evidence_policy v2 标签；`input_page`＋STALE_CURSOR；`brain_call` Transport；D62 crazy 坍缩动画。均已有测试，见 2026-10-01 各节。
+- 前端仍待办（`src/` 中尚无任何实现，grep 无 `LOCKED`／unlock／choice_feedback／preference_rank／source_version）：
+  - [ ] F13 解锁界面＋私有缓存失效（`LOCKED` 处理、malformed unlock 清缓存）。
+  - [ ] 版本同意 UI／`source_version`、F6 version=0 排队操作丢弃（见 frontend-contract-handoff.md）。
+  - [ ] F14 选择反馈（actual／endorsed／training_consent／显式 impacts）与能力探测；**后端 revision 3／34 methods 仍是暂停草稿，前端不据此启用。**
+  - [ ] 原生窗口 F6／model-reset／重连验收（目前只有后端 main 的 Xvfb DOM 记录和前端浏览器记录）；真实 GPU／帧率验收。
+- 无需前端动作：Reset 无按钮／接口，留待另行定义；其余 [back] 待办（CI、评估、打包）属后端。
+- 提醒 [back]：`test-ref-data/mental.txt`（含私人日记）已在提交 b2ba2a4 进入 Git 并已在 origin/main，与 material-import-static-review.md 的「保持本地、不入 Git」冲突，待用户决定处理方式。
+
+### [back] 2026-10-04 中间验证追加（保留上方 [front] 原文）
+
+- main 独立执行 `TMPDIR=/tmp/alpha-verify-20261004.tPaapz /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest tests.test_hybrid_api tests.test_schema_contract tests.test_access_api -q`：39 pass／0 skips，27.496s；worker 仍在增加检查，不是最终全量验收。
+//// - [x] **Hybrid 安全兼容已测试子任务**：backup owner 完成 brain_choice_feedback 可选表／索引的精确参考 schema 支持，保留 unknown/tampered DDL 拒绝；tests.test_hybrid_backup 12 pass／0 skips，security/access/evalaccess 54 pass／0 skips，main 已看过 6 行实现补丁。此勾选只表示 owner 测试＋main 代码审核的子任务证据，不表示完整 hybrid 主验收。
+  - [back] 2026-10-04：具体严格 schema 路径为 core/backup.py validate_database；测试路径 back-end-core/tests/test_hybrid_backup.py、test_security.py、test_access_api.py、test_evaluation_access.py。精确 owner 命令／最终全套结果仍由 main 提供，此处不杜撰或称已独立重跑。
+- [ ] **Hybrid 最终全量主验收**：最终 offline protection、semantic/preferences/evaluator/schema/access/backup/lifecycle 所有变更后的独立 full-suite 命令／结果待 main。上面的新安全子任务和 35＋28／39 项中间通过不改变整体 [ ]。
+- [back] 2026-10-04：上方 [front] 的全部 Oct 4 文字／复选框原样保留。其「暂停草稿」措辞为当时状态；用户现已恢复，但 backend 最终 34-method 证据尚未提供。main 完成后再明确通知 frontend：后端契约通过，不等于前端 34-method 接线／unlock/version/F14/native 已验收。
+- [back] 2026-10-04：用户已对上方历史隐私提醒答「不管」，记录 no action；保留 [front] 原文。文档审计未访问 Git／远端或移除文件／修改历史，不再追加相关警告。
+
+### [back] 2026-10-04 偏好验收阻碍与审计收尾
+
+- API owner 最新 targeted 151 项 distinct tests pass；main 已完成下方独立回归。新 hybrid 未最终验收，以下偏好阻碍即使测试通过也须单独解决／验证。此审计不实施修复或新增 P3 实现。
+- 以下为 Mencius review 转交的具体阻碍，非文档 worker 独立复现实验：
+- [ ] **偏好内存预算**：最多 1000 来源的整份 body 缓存，40×1,000,000 ASCII 合成约 40MB、潜在约 1GB；改为有明确预算的 provenance/digest 筛选，避免全部原文同时驻留；验证来源数／文本上限的峰值内存与输出一致性。
+- [ ] **收敛与 near-tie 拒答**：固定 400 iterations 与 4000/Newton 对照出现 winner reversal；定义可测收敛／误差界和不稳定 tie 的 abstain，验证 loss/gradient／排序及排列稳定性。
+- [ ] **巨大整数权重边界**：huge integer weight 的 float 转换可 OverflowError；校验数值／类型与安全错误响应，补边界回归，拒绝泄漏或进程崩溃。
+- [ ] **反馈 provenance／复制 group 独立性**：3 个不同 source_id 只是数量门，不证明独立样本；明确复制／改写／同事件 group、暴露／标签 provenance 的资格和评估隔离，验证复制不虚增支持。
+- [ ] **contrast span／外推限制**：used_features 单特征覆盖不足以证明新 option contrasts 位于训练可识别方向；定义 contrast 子空间／不可识别组合的拒答，验证共线与新方向外推。
+- [back] 2026-10-04：用户 `test-ref-data/split/` 及其他并行修改保留、未检查。文档审计只操作指定五份文档，保留历史与前端新发言；偏好阶段保持未接受，真实语义／weights／选择效度未验证。
+- [back] 2026-10-04 最新主线程证据：此前所有「full discover 仍运行／结果待 main」均为中间状态，以下实测记录覆盖它们。访问／备份兼容子任务不再仅据 worker 报告；main 独立 `tests.test_hybrid_backup` 12 pass／0 skips，11.220s。
+//// - [x] **已完成子任务｜本轮合成回归与最终 semantic 复跑**：在 `back-end-core/` 执行 `TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q`：396 tests、134.672s、OK、0 skips。随后同一环境执行 `-m unittest tests.test_semantic_encoder -q`：51 tests、1.142s、OK、0 skips。最新 discovery 有 398 项，新增的两项 semantic 测试已由后一次复跑覆盖；不声称一次执行过完整 398 项，不相加为互不重复测试数。semantic 使用合成 export／mock，不是实际预训练模型验收。
+  - [back] 2026-10-04：独立复核完成标记格式，全部任务 `[x]` 都带 `////`；`git diff HEAD --check -- front-back-communicate.md back-end-core` 通过。保留并行暂存区和私人材料，不 commit/push。此完成标记只覆盖测试执行与文档审计；上述偏好缺陷、P3、新前端／native／权重及真实效度任务继续 `[ ]`，整体目标未完成。
+
+### [back] 2026-10-04 当前实现续接与文档整合（待最终证据）
+
+- [back] 上节 396 full／134.672s、之后 semantic 51／1.142s（discovery 398 的最后两项另行覆盖）及独立 backup 12／11.220s，均为已提供的历史合成证明、0 skips；不覆盖本次后续修改，不宣称新 full 结果。主目标 active、整体未完成；前端／历史／暂存及并行修改保留。
+- [ ] **偏好修复自动化子任务**：Goodall 负责 digest-only 筛选缓存、收敛纯 Python solver＋near-tie 拒答、巨大整数 weight 受控 ValueError 与 preferences/tests/schema；main 最终命令／结果未到前保持待办，核对后再同步实际超参数／reason／资源证据。
+- [ ] **新偏好 evaluator 自动化子任务**：Zeno 负责 model/preference_evaluation.py、tests 与 docs/preference-evaluation.md/example.json 四个新文件，文档整合不修改；最终冻结 manifest／development groups／共用 production pure fit／不读留出 labels 的预测／独立 labels 分轴计分和 coverage/abstain/group metrics 按实际 schema 核对后才记录交付。
+- [ ] **线上来源组与 contrast span 验收**：source_id 数量不证明独立样本；离线 group 隔离不自动改变 production training eligibility，used_features 也不证明可辨识方向。除非 main 后续提供实现与证明，继续保留待办。
+- [ ] **后续最终验证与 fresh-agent review**：仅 main 已验证自动化子任务可标 `//// - [x]`；P2/P3 整体及真实效度不因测试通过而完成。不接 live DB／导入私人实际数据／encoder weights；文档 owner 只修改指定六份 Markdown。
+
+### [back] 2026-10-05 用户确认决策：审核后的事件组 ID
+
+- [back] **DECISION（已确认，不代表实现完成）**：采用前端显式提供、用户审核后的事件组 ID，草稿字段 `group_id` 为 **PROPOSED**。同一组所有材料的训练 loss 总权重合计一份，不能因多个 source_id、复制／改写／摘录而重复加权；actual/endorsed、partition/domain 仍按原有轴隔离。后端仅提供原文完全重复提示，不推断不同文本属于同一事件，不自动分组或替用户审核。
+- [ ] **IMPLEMENTATION｜下一阶段 fresh owner**：Goodall 先完成当前基础修复，再另设 owner 实施组字段、明确审核 gate、按组总训练权重与回归。新规则要求当前反馈绑定已审核事件组；legacy／未知 group 反馈在补齐用户审核前排除训练。此排除是待实现目标，不是当前线上行为；不得静默迁移或自动认可。
+- [ ] **前端契约／接线验收**：组输入／审核状态／编辑及既有反馈更新协议须 main 和 frontend owner 定稿；`group_id` 及所有未定新字段保持 PROPOSED，当前 API/schema 未据此扩展。离线 evaluator 的 manifest group 隔离不代表此线上 gate 已实现；contrast span 验收仍待办。
+
+### [back] 2026-10-05 偏好修复中间证据（不勾完成）
+
+- [back] main 提供 preferences 36 pass、22.441s、0 skips，早于最终新增 tests；不是最终 worker／full-suite 结果，精确命令待提供。
+- [back] main 独立 seed804：修复后 winner=b，margin=`1.0117349352838784e-05`，assert pass；旧 400-step winner=a。此为受控合成反例对照，不是实际选择预测效度，也不覆盖其他收敛／规模边界。
+- [ ] **最终验收门**：最终 worker 证据＋fresh reviews＋最终 full-suite 齐备并由 main 确认前，本次偏好／evaluator 新子任务均不标 `//// - [x]`。既有 Oct 4 已验证子项只保留其历史范围。
+
+### [back] 2026-10-05 Goodall 最终交付与主验证中（不勾完成）
+
+- [back] main 转交 FINAL worker：preferences 41＋hybrid 21＋schema 18＝80 tests，128.728s，0 skips。当前 solver 为纯 Python damped Newton／Cholesky，64 steps、32 backtracks、gradient infinity norm <=1e-11、L2=0.1、tie gap tolerance=1e-8；有限数值及 roundoff slack 的 residual 降低 guard。schema 仅新增 fit_not_converged reason enum，未接入线上 group 字段。缓存只留 metadata／digest、逐个 body 分块 hash；rank_from_fit 的巨大整数 weight 在 float 前抛 ValueError。源码参数及资源明细见 [hybrid plan](back-end-core/docs/hybrid-learning-plan.md#oct-5-final-worker-proof--mainfresh-acceptance-pending)。
+- [back] worker dense 1000-event／8-option fit：2.144934741 CPU seconds、final grad=2.609e-17。40 distinct sources×1m code points／1000 events 的 Python tracemalloc peak：ASCII consent false/true 为 55,959／2,531,834 bytes，Unicode false/true 为 54,423／5,924,752 bytes。这些不含 native RSS；instrumented test 65.940s（含 tracing，CPU 18.66s）不是正常请求延迟。
+- [ ] **main scoped base full proof／fresh reviews**：含 backup 的独立验证、基础后端 full discovery 和 fresh preference reviews 正在运行；精确 commands/counts/timing 待 main，不据预期 discovery 数量填结果。P3 tests/docs/example 尚未 ready，当前 base full 不能称最终新工具或 whole hybrid 证明。
+
+- [back] Oct 5 main 转交 fresh antipattern review：no findings，17 pure tests／parity pass；该隔离环境没有 jsonschema，schema 验证由另一个装有 validator 的 full 环境承担。fresh quality review：no blockers，41 preferences pass；uneven mass 7/1/1 的 reference difference=1.18e-12，seed804 gradient=3.26e-15、max weight difference=1.89e-12，Cholesky residual=1.39e-17；另一次 1000-event／8-option 观测为 1.48 CPU seconds，仍非请求延迟保证。
+- [ ] main 92 项验证与 scoped base full 411 项仍运行，结果未到；两者通过后仅勾 **digest 缓存／收敛 near-tie／巨大整数边界** 三个有限修复子任务，不勾线上 source groups、contrast span、整个 P2 或 P3。
+
+- [back] Oct 5 evaluator 路径核对：Zeno 报 47 tool tests，但三个新 tests/docs/example 文件误建于根目录；main 已要求该 owner 用 apply_patch 修正为 back-end-core/tests/test_preference_evaluation.py、back-end-core/docs/preference-evaluation.md、back-end-core/docs/preference-evaluation.example.json。文档整合不移动／修改这些 owner 文件、不链接根目录错误产物。修正后在 back-end-core 执行 tests.test_preference_evaluation 的精确命令／结果及 fresh tool reviews 待 main；411 base full 不包含这 47 项。
+
+### [back] 2026-10-05 基础修复有限验收（不含 P3）
+
+- [back] main 在 back-end-core 独立执行 `TMPDIR=/tmp/alpha-verify-20261004.tPaapz HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261004.tPaapz/bin/python -B -m unittest discover -s tests -q`：411 tests、170.066s、OK、0 skips；执行早于 P3 测试迁移，明确不含新 evaluator。此证明更新上节「411 仍运行」，不是 whole hybrid／P3 final proof。
+- [back] FreshVerifier 92 tests（41 preferences＋21 hybrid＋18 schema＋12 backup），85.576s、无 failures／skips；fresh antipattern 17 pure 与 quality 41 均 no findings／blockers。main supplemental live API（合成临时测试调用，不是用户 live DB）验证 fit_not_converged 的完整 schema、0 SQL writes、0 encoder calls，source hashes unchanged；精确补充命令未提供，不杜撰。
+//// - [x] **已完成有限修复｜digest-only 筛选缓存**：逐个 source body 分块摘要、缓存 metadata／digest，流式 feedback 和仅训练字段；40 distinct 1m-code-point sources／1000 events 合成内存证据通过。只验收此次修复与 Python tracemalloc 范围，不声称 native RSS／正常延迟／线上 group 独立性。
+//// - [x] **已完成有限修复｜收敛与 near-tie 拒答**：64-step／32-backtrack 纯 Python Newton、gradient infinity norm <=1e-11、L2=0.1、tie gap <=1e-8、residual-guarded slack，fit_not_converged reason 与 fail-closed/no-write 合成证据通过；seed804 对照及独立 reference／Cholesky residual 由 main／fresh reviews 确认。
+//// - [x] **已完成有限修复｜巨大整数 weight 受控错误**：rank_from_fit 在 float 前验证 bounded finite weights，巨大整数抛 ValueError；对应 preference/hybrid/schema 边界回归通过，不新增外部 fitted-weight JSON endpoint。
+- [ ] **后续范围**：source-group field/review gate/legacy exclusion、contrast span、整个 P2、P3 工具最终证据／fresh reviews、真实效度、frontend/native 均未完成。正确路径已出现的 [evaluator 说明](back-end-core/docs/preference-evaluation.md) 与 [合成 manifest](back-end-core/docs/preference-evaluation.example.json) 可供核对，交付验收仍待 main；未链接根目录错误产物。

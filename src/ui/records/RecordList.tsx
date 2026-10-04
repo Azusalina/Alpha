@@ -31,7 +31,6 @@ export function RecordList({ s, mode }: Props) {
   for (const r of s.records) counts[r.status]++;
 
   const visible = s.records.filter((r) => filter === 'all' || r.status === filter || r.source_id === s.expandedId);
-  const empty = s.loaded && s.records.length === 0;
 
   return (
     <div className="recs" data-testid="records-list-view">
@@ -51,24 +50,6 @@ export function RecordList({ s, mode }: Props) {
         ))}
       </div>
 
-      {mode === 'unconnected' && (
-        <p className="recs__empty" data-testid="records-unconnected">
-          {t('rec.list.unconnected')}
-        </p>
-      )}
-
-      {empty && mode !== 'unconnected' && (
-        <p className="recs__empty" data-testid="records-empty">
-          {t('rec.list.empty')}
-          <small>{t('rec.list.emptyHint')}</small>
-        </p>
-      )}
-
-      {s.records.length > 0 && visible.length === 0 && (
-        <p className="recs__empty" data-testid="records-filter-empty">
-          {t('rec.list.filterEmpty', { name: filterLabel(filter) })}
-        </p>
-      )}
 
       {visible.length > 0 && (
         <ul className="recs__list" data-testid="records-list" aria-label={t('rec.list.aria')}>
@@ -94,7 +75,6 @@ export function RecordList({ s, mode }: Props) {
               <button type="button" data-testid="records-more" disabled={s.busy.refresh} onClick={() => void inputStore.loadMore()}>
                 {s.busy.refresh ? t('rec.list.loading') : t('rec.list.more')}
               </button>
-              <small>{t('rec.list.note')}</small>
             </>
           )}
         </p>

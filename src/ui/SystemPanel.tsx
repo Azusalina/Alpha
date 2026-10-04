@@ -18,7 +18,6 @@ import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 import { NodePage } from './NodePage';
 import { TreeOverlay } from './TreeOverlay';
-import { t } from '../i18n/lang';
 
 export function SystemPanel({ state }: { state: SceneState }) {
   const ui = useTreeUi();
@@ -50,12 +49,7 @@ export function SystemPanel({ state }: { state: SceneState }) {
       style={{ opacity: 0 }}
     >
       <div className="system-panel__caption">
-        <p className="system-panel__title">{t('sys.title')}</p>
-        <p className="system-panel__hint">
-          {hovered
-            ? `${hovered.label} · ${describeNode(hovered)}`
-            : t('sys.hint')}
-        </p>
+        {hovered && <p className="system-panel__hint">{`${hovered.label} · ${describeNode(hovered)}`}</p>}
       </div>
       {ui.opened && <NodePage id={ui.opened} />}
     </div>

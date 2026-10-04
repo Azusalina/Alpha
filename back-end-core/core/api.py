@@ -258,15 +258,18 @@ class BrainAPI:
                 self._brain = None
             else:
                 brain = self.brain
-                if method == "memory_search_semantic" and self.semantic_model_path is not None and brain.semantic_encoder is None:
-                    try:
-                        from translator.semantic import LocalSentenceEncoder
-                        brain.semantic_encoder = LocalSentenceEncoder(self.semantic_model_path)
-                    except Exception:
-                        raise RuntimeError("local model unavailable") from None
-                result = getattr(brain, method)(**params)
-                # Authorization may change during a long encoder call.
-                self.access.require()
+                try:
+                    if method == "memory_search_semantic" and self.semantic_model_path is not None and brain.semantic_encoder is None:
+                        try:
+                            from translator.semantic import LocalSentenceEncoder
+                            brain.semantic_encoder = LocalSentenceEncoder(self.semantic_model_path)
+                        except Exception:
+                            raise RuntimeError("local model unavailable") from None
+                    result = getattr(brain, method)(**params)
+                finally:
+                    # Recheck even on provider/snapshot failure. A lock or config
+                    # rotation during inference takes precedence over its result.
+                    self.access.require()
             return {"schema_version": SCHEMA_VERSION, "id": request_id, "ok": True,
                     "result": result}
         except RequestError as error:

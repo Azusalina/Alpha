@@ -20,7 +20,6 @@ import { inputStore, useInputs } from '../../app/inputStore';
 import { validateEntry } from '../../backend';
 import type { InputRecord } from '../../backend';
 import { t } from '../../i18n/lang';
-import { STATUS_LABELS } from '../shared/labels';
 
 interface Props {
   rec: InputRecord;
@@ -29,7 +28,7 @@ interface Props {
   demoTag: string | null;
 }
 
-export function RecordEditor({ rec, original, demoTag }: Props) {
+export function RecordEditor({ rec, original }: Props) {
   const s = useInputs();
   const [text, setText] = useState(original);
   const [immediate, setImmediate] = useState(rec.immediate);
@@ -44,7 +43,6 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
 
   const check = validateEntry({ text, partition: rec.partition, kind: rec.kind, self_speaker: rec.self_speaker ?? undefined });
   const changed = text !== original || immediate !== rec.immediate;
-  const next = immediate ? STATUS_LABELS.pending : STATUS_LABELS.disagreed;
 
   return (
     <form
@@ -56,9 +54,6 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
         void inputStore.edit(id, { text, immediate });
       }}
     >
-      <h4 className="rec__h">
-        {t('rec.editor.title')}{demoTag && <span className="rec__tag">{demoTag}</span>}
-      </h4>
       <textarea
         ref={area}
         className="rec__textarea"
@@ -73,9 +68,6 @@ export function RecordEditor({ rec, original, demoTag }: Props) {
         <input type="checkbox" data-testid="editor-immediate" checked={immediate} onChange={(e) => setImmediate(e.target.checked)} disabled={saving} />
         {t('entry.immediate')}
       </label>
-      <p className="rec__quiet" data-testid="editor-next">
-        {t('rec.editor.note', { next })}
-      </p>
       {check.errors.map((m) => (
         <p key={m} className="rec__error" role="alert" data-testid="editor-error">
           {m}

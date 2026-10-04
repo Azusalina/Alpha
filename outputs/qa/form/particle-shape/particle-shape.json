@@ -7,35 +7,15 @@
   "shots": [
     {
       "screenshot": "outputs/qa/form/particles-full-seed20260919.png",
-      "particles_detected": 1763,
-      "iou": 0.87047,
-      "contour_mean_px": 5.901,
-      "contour_p95_px": 19.003,
-      "negative_space_iou": 0.71519,
+      "particles_detected": 1757,
+      "iou": 0.87045,
+      "contour_mean_px": 5.909,
+      "contour_p95_px": 20.533,
+      "negative_space_iou": 0.71957,
       "tips_px": {
-        "index_tip": 5.0,
-        "middle_tip": 1.41,
-        "ring_tip": 3.61,
-        "pinky_tip": 5.0
-      },
-      "tips_at_edge": {
-        "index_tip": false,
-        "middle_tip": false,
-        "ring_tip": false,
-        "pinky_tip": false
-      }
-    },
-    {
-      "screenshot": "outputs/qa/form/particles-full-seed1.png",
-      "particles_detected": 1841,
-      "iou": 0.85341,
-      "contour_mean_px": 6.151,
-      "contour_p95_px": 18.601,
-      "negative_space_iou": 0.67576,
-      "tips_px": {
-        "index_tip": 4.47,
-        "middle_tip": 17.12,
-        "ring_tip": 4.0,
+        "index_tip": 3.61,
+        "middle_tip": 5.1,
+        "ring_tip": 3.0,
         "pinky_tip": 6.32
       },
       "tips_at_edge": {
@@ -46,17 +26,37 @@
       }
     },
     {
-      "screenshot": "outputs/qa/form/particles-full-seed2.png",
-      "particles_detected": 1745,
-      "iou": 0.87572,
-      "contour_mean_px": 5.768,
-      "contour_p95_px": 16.401,
-      "negative_space_iou": 0.71743,
+      "screenshot": "outputs/qa/form/particles-full-seed1.png",
+      "particles_detected": 1825,
+      "iou": 0.85883,
+      "contour_mean_px": 6.927,
+      "contour_p95_px": 27.044,
+      "negative_space_iou": 0.69916,
       "tips_px": {
-        "index_tip": 3.61,
-        "middle_tip": 6.4,
-        "ring_tip": 5.1,
-        "pinky_tip": 4.47
+        "index_tip": 5.1,
+        "middle_tip": 4.24,
+        "ring_tip": 6.32,
+        "pinky_tip": 4.0
+      },
+      "tips_at_edge": {
+        "index_tip": false,
+        "middle_tip": false,
+        "ring_tip": false,
+        "pinky_tip": false
+      }
+    },
+    {
+      "screenshot": "outputs/qa/form/particles-full-seed2.png",
+      "particles_detected": 1713,
+      "iou": 0.86114,
+      "contour_mean_px": 6.248,
+      "contour_p95_px": 23.087,
+      "negative_space_iou": 0.71033,
+      "tips_px": {
+        "index_tip": 6.0,
+        "middle_tip": 5.0,
+        "ring_tip": 6.32,
+        "pinky_tip": 1.41
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -67,16 +67,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed3.png",
-      "particles_detected": 1798,
-      "iou": 0.85978,
-      "contour_mean_px": 6.033,
-      "contour_p95_px": 16.0,
-      "negative_space_iou": 0.68591,
+      "particles_detected": 1737,
+      "iou": 0.85184,
+      "contour_mean_px": 6.398,
+      "contour_p95_px": 22.636,
+      "negative_space_iou": 0.66168,
       "tips_px": {
-        "index_tip": 4.12,
-        "middle_tip": 4.12,
-        "ring_tip": 5.83,
-        "pinky_tip": 3.61
+        "index_tip": 5.0,
+        "middle_tip": 4.24,
+        "ring_tip": 5.0,
+        "pinky_tip": 5.66
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -87,16 +87,16 @@
     },
     {
       "screenshot": "outputs/qa/form/particles-full-seed4.png",
-      "particles_detected": 1752,
-      "iou": 0.85753,
-      "contour_mean_px": 6.182,
-      "contour_p95_px": 24.01,
-      "negative_space_iou": 0.7144,
+      "particles_detected": 1689,
+      "iou": 0.83891,
+      "contour_mean_px": 6.603,
+      "contour_p95_px": 22.705,
+      "negative_space_iou": 0.66478,
       "tips_px": {
-        "index_tip": 3.16,
-        "middle_tip": 9.0,
-        "ring_tip": 3.61,
-        "pinky_tip": 3.16
+        "index_tip": 3.0,
+        "middle_tip": 5.0,
+        "ring_tip": 7.62,
+        "pinky_tip": 4.0
       },
       "tips_at_edge": {
         "index_tip": false,
@@ -107,52 +107,52 @@
     }
   ],
   "median": {
-    "iou": 0.85978,
-    "contour_mean_px": 6.033,
-    "contour_p95_px_not_gated": 18.601,
-    "negative_space_iou": 0.7144,
+    "iou": 0.85883,
+    "contour_mean_px": 6.398,
+    "contour_p95_px_not_gated": 22.705,
+    "negative_space_iou": 0.69916,
     "tips_px": {
-      "index_tip": 4.12,
-      "middle_tip": 6.4,
-      "ring_tip": 4.0,
-      "pinky_tip": 4.47
+      "index_tip": 5.0,
+      "middle_tip": 5.0,
+      "ring_tip": 6.32,
+      "pinky_tip": 4.0
     }
   },
   "gates": {
     "source": "decisions D10, D27 (documentations/log/log-v2.md), docs/ACCEPTANCE.md section 7",
     "checks": {
       "iou": {
-        "value": 0.85978,
+        "value": 0.85883,
         "gate": ">= 0.84",
         "pass": true
       },
       "contour_mean_px": {
-        "value": 6.033,
+        "value": 6.398,
         "gate": "<= 7.0",
         "pass": true
       },
       "negative_space_iou": {
-        "value": 0.7144,
+        "value": 0.69916,
         "gate": ">= 0.65",
         "pass": true
       },
       "tip:index_tip": {
-        "value": 4.12,
+        "value": 5.0,
         "gate": "<= 6.0",
         "pass": true
       },
       "tip:middle_tip": {
-        "value": 6.4,
+        "value": 5.0,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:ring_tip": {
-        "value": 4.0,
+        "value": 6.32,
         "gate": "<= 7.0",
         "pass": true
       },
       "tip:pinky_tip": {
-        "value": 4.47,
+        "value": 4.0,
         "gate": "<= 7.0",
         "pass": true
       }

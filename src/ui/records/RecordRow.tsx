@@ -39,13 +39,13 @@ import { inputStore } from '../../app/inputStore';
 import type { InputState } from '../../app/inputStore';
 import type { AdapterMethod, InputRecord } from '../../backend';
 import type { BackendMode } from '../../backend';
-import { CONFIRMED_BY_LABELS, KIND_LABELS, PARTITION_LABELS, partitionColor, statusHint } from '../shared/labels';
+import { CONFIRMED_BY_LABELS, KIND_LABELS, PARTITION_LABELS, partitionColor} from '../shared/labels';
 import { WithheldNotes } from '../shared/WithheldNotes';
 import { EffectsTable } from '../shared/EffectsTable';
 import { HighlightedText, marksFromEffects } from '../shared/HighlightedText';
 import { StatusChip } from '../shared/StatusChip';
 import { RecordEditor } from './RecordEditor';
-import { displayExcerpt, formatFull, formatTime, tf } from './format';
+import { displayExcerpt, formatTime, tf } from './format';
 import { t } from '../../i18n/lang';
 
 interface Props {
@@ -55,37 +55,6 @@ interface Props {
   mode: BackendMode;
   /** The row is held open although the current filter no longer matches it. */
   sticky: boolean;
-}
-
-/**
- * Why a record is what it is, in one sentence, with what the user may do. In
- * demo mode (D56) nothing says the model is being trained: the mock only marks.
- */
-function explain(rec: InputRecord, demo: boolean): string {
-  switch (rec.status) {
-    case 'pending':
-      return demo
-        ? t('rec.explain.pending.demo')
-        : t('rec.explain.pending');
-    case 'agreed':
-      if (rec.model_active === false) {
-        return t('rec.explain.inactive');
-      }
-      if (demo) {
-        return rec.confirmed_by === 'exclamation'
-          ? t('rec.explain.agreed.demo.excl')
-          : t('rec.explain.agreed.demo');
-      }
-      return rec.confirmed_by === 'exclamation'
-        ? t('rec.explain.agreed.excl')
-        : t('rec.explain.agreed');
-    case 'disagreed':
-      return rec.reason === 'confirm_false'
-        ? t('rec.explain.disagreed.confirm')
-        : t('rec.explain.disagreed.immediate');
-    case 'revoked':
-      return t('rec.explain.revoked');
-  }
 }
 
 /** Clicks on a row's action buttons are ignored this long after its status changes. */
@@ -102,12 +71,11 @@ interface ActionProps {
   busyText?: string;
   busy?: boolean;
   tone?: 'primary' | 'plain';
-  title?: string;
   /** The row's status changed a moment ago: the button is held back (SETTLE_MS). */
   settling?: boolean;
 }
 
-function Action({ method, id, label, testid, onClick, tag, busy, busyText, tone = 'plain', title, settling }: ActionProps) {
+function Action({ method, id, label, testid, onClick, tag, busy, busyText, tone = 'plain', settling }: ActionProps) {
   const supported = inputStore.can(method);
   const disabled = !supported || busy === true || settling === true || inputStore.isMutating(id);
   return (
@@ -119,7 +87,6 @@ function Action({ method, id, label, testid, onClick, tag, busy, busyText, tone 
       data-settling={settling ? 'true' : undefined}
       disabled={disabled}
       aria-disabled={disabled}
-      title={!supported ? t('rec.unsupported') : title}
       onClick={onClick}
     >
       {busy && busyText ? busyText : label}
@@ -271,18 +238,18 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
         </span>
         <span className="rec__meta">
           <StatusChip status={rec.status} reason={rec.reason} />
-          <span className="rec__j" data-testid="record-immediate" title={t('rec.immediate.title')}>
+          <span className="rec__j" data-testid="record-immediate">
             <b>{t('rec.immediate')}</b> {tf(rec.immediate)}
           </span>
-          <span className="rec__j" data-testid="record-confirm" title={t('rec.second.title')}>
+          <span className="rec__j" data-testid="record-confirm">
             <b>{t('rec.second')}</b> {tf(rec.confirm)}
           </span>
           {rec.exclamation && (
-            <span className="rec__bang" data-testid="record-exclamation" title={t('rec.bang.title')}>
+            <span className="rec__bang" data-testid="record-exclamation">
               !<span className="rec__sr">{t('entry.assert')}</span>
             </span>
           )}
-          <span className="rec__when" title={t('rec.created', { when: formatFull(rec.created_at) })}>
+          <span className="rec__when">
             <span data-testid="record-partition">{PARTITION_LABELS[rec.partition]}</span> · {formatTime(rec.created_at)} ·{' '}
             <span data-testid="record-chars">{rec.char_count}</span> {t('rec.chars')}
           </span>
@@ -297,9 +264,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
             {rec.source_ref ? ` · ${rec.source_ref}` : ''}
             {rec.confirmed_by ? ` · ${CONFIRMED_BY_LABELS[rec.confirmed_by]}` : ''}
             {rec.edited_at ? ` · ${t('rec.edited', { when: formatTime(rec.edited_at) })}` : ''}
-          </p>
-          <p className="rec__explain" data-testid="record-explain" title={statusHint(rec.status, demo)}>
-            {explain(rec, demo)}
           </p>
 
           {editing ? (
@@ -391,7 +355,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                     settling={settling}
                     tone="primary"
                     testid="act-confirm-true"
-                    title={demo ? t('rec.act.T.title.demo') : t('rec.act.T.title')}
                     onClick={() => void inputStore.confirm(id, true)}
                   />
                   <Action
@@ -402,7 +365,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                     busy={busyConfirm}
                     settling={settling}
                     testid="act-confirm-false"
-                    title={demo ? t('rec.act.F.title.demo') : t('rec.act.F.title')}
                     onClick={() => void inputStore.confirm(id, false)}
                   />
                 </>
@@ -417,7 +379,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   settling={settling}
                   tone="primary"
                   testid="act-reenlist"
-                  title={t('rec.act.enlist.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -430,7 +391,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   busy={busyRevoke}
                   settling={settling}
                   testid="act-revoke"
-                  title={demo ? t('rec.act.revoke.title.demo') : t('rec.act.revoke.title')}
                   onClick={() => void inputStore.revoke(id)}
                 />
               )}
@@ -443,7 +403,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   busy={busyConfirm}
                   tone="primary"
                   testid="act-rejudge"
-                  title={demo ? t('rec.act.toT.title.demo') : t('rec.act.toT.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -457,7 +416,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
                   settling={settling}
                   tone="primary"
                   testid="act-reagree"
-                  title={demo ? t('rec.act.again.title.demo') : t('rec.act.again.title')}
                   onClick={() => void inputStore.confirm(id, true)}
                 />
               )}
@@ -475,8 +433,7 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
               {confirmDelete ? (
                 <span className="rec__confirm" data-testid="delete-confirm" role="group" aria-label={t('rec.delete.confirm')}>
                   <span>
-                    {t('rec.delete.ask')}<em>{t('rec.delete.history')}{rec.status === 'agreed' ? t('rec.delete.contribution') : ''}</em>
-                    {mode === 'demo' && <em>{t('rec.delete.demo')}</em>}
+                    {t('rec.delete.ask')}
                   </span>
                   <button
                     type="button"
@@ -505,12 +462,6 @@ export function RecordRow({ rec, s, open, mode, sticky }: Props) {
               )}
             </div>
           )}
-          {!editing && unsupported.length > 0 && (
-            <p className="rec__unsupported" data-testid="record-unsupported" role="note">
-              {unsupported.join(t('list.sep'))}: {t('rec.unsupported')}
-            </p>
-          )}
-          {sticky && <p className="rec__quiet">{t('rec.sticky')}</p>}
         </div>
       )}
     </li>
