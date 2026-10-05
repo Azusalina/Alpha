@@ -18,6 +18,7 @@ def validate_corrections(text: str, kind: str, self_speaker: str | None,
         raise ValueError("corrections must be an array of at most 64 items")
     checked, seen = [], set()
     author_ranges = own_chat_ranges(text, self_speaker) if kind == "chat" else [(0, len(text))]
+    report = None
     for item in corrections:
         if isinstance(item, dict) and "type" in item:
             if set(item) != {"type", "value", "sign", "evidence", "span"}:
@@ -35,8 +36,10 @@ def validate_corrections(text: str, kind: str, self_speaker: str | None,
                 raise ValueError("unknown annotation type")
             if type(item['sign']) is not int or item['sign'] not in (0, 1):
                 raise ValueError("annotation sign must be 0 (suppress) or 1 (retain)")
-            report = translate(text, kind='diary' if kind == 'philosophy' else kind,
-                               self_speaker=self_speaker)
+            if report is None:
+                # One deterministic snapshot per invocation, after local validation.
+                report = translate(text, kind='diary' if kind == 'philosophy' else kind,
+                                   self_speaker=self_speaker)
             pool = (report['cues'] if family == 'event' else report['candidates'])
             pool = [r for r in pool if (family != 'event' or r['category'] == 'event_word')
                     and (family != 'intent' or r['type'] == 'contact_intention')

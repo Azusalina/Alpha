@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import math
 
-from .catalog import PARAMETERS
-
-VALUE_PARAMETERS = tuple(key for key in PARAMETERS if key.startswith("value."))
+# Fixed public feature/contrast-basis column order, matching schema valueFeature.
+# Catalog iteration belongs to the thirteen rule parameters, not this mapping.
+VALUE_PARAMETERS = (
+    "value.autonomy",
+    "value.fairness",
+    "value.care",
+    "value.truth",
+    "value.security",
+    "value.growth",
+    "value.achievement",
+    "value.connection",
+)
 
 
 def validate_options(options: list[dict]) -> None:
@@ -22,7 +31,7 @@ def validate_options(options: list[dict]) -> None:
         for parameter, value in impacts.items():
             if parameter not in VALUE_PARAMETERS:
                 raise ValueError(f"unknown or non-value parameter: {parameter}")
-            if type(value) not in (int, float) or not math.isfinite(value) or not -1 <= value <= 1:
+            if type(value) not in (int, float) or not -1 <= value <= 1 or not math.isfinite(value):
                 raise ValueError("impacts must be finite numbers from -1 to 1")
         ids.append(option["id"])
     if len(set(ids)) != len(ids):

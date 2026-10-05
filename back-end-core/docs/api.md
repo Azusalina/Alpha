@@ -1,17 +1,19 @@
-# Local API v1 — revision 3 working contract (final acceptance pending)
+# Local API v1 — revision 5 backend synthetic contract delivered
 
-> 2026-10-04: source declares schema_version=1 / contract_revision=3 / 34 methods.
-> Oct 2 revision 2 / 30 methods is the accepted historical baseline. New hybrid
-> methods below describe current source, not completed full-suite/frontend/native
-> acceptance. Main's final verification is pending; do not enable by health alone.
-> New-table access/backup compatibility was reproduced and repaired in an owner
-> patch; owner tests and main review are intermediate evidence, not full acceptance.
+> 2026-10-06 (Asia/Taipei): schema_version=1 / contract_revision=5 / 34 methods,
+> features.preference_contrast_guard=true. Main session80693 exit0: 576 tests,
+> 59.590s, OK, 0 skips; final verification, quality and antipattern reviews found
+> no blockers. Main accepts only the rev5 backend synthetic contract; see
+> [contrast semantics](#rev5-contrast-contract) and [exact final proof](#oct-6-final-rev5-backend-synthetic-contract).
+> P2/P3 overall, frontend/native, general correction/generic replay, actual weights
+> and real validity remain pending. Dated proposals/intermediate pending below
+> are superseded for current status; rev4 483/rev3 458/411 retain historical scope.
 
 Historical main proof is 396 full-discovery tests (134.672s), then 51 semantic
 tests (1.142s) covering the two added tests in a 398-test discovery; all had 0 skips.
 Independent backup verification passed 12 (11.220s), 0 skips. This is not a single
 398-test run or acceptance of later preference/evaluator edits. See
-[current queue and proof](TODO.md#current-implementation-continuation--awaiting-mains-new-proof).
+[current queue and proof](TODO.md#oct-6-current-rev5-delivery-and-remaining-queue).
 
 `python -m core.api --db /absolute/synthetic.sqlite3` from `back-end-core` serves
 newline-delimited UTF-8 JSON on stdin/stdout. No network listener. The host selects
@@ -21,7 +23,7 @@ string. Success: `{schema_version:1,id,ok:true,result}`. Failure:
 `{schema_version:1,id:string|null,ok:false,error:{code,message}}`.
 ID is correlation, not idempotency. Do not retry uncertain writes automatically.
 
-## 34 declared methods — final conformance pending
+## 34 methods — revision 5 synthetic backend conformance verified
 
 [api.schema.json](api.schema.json) is Draft 2020-12. Root validates requests;
 `#/$defs/response` validates envelopes only. Validate successful bodies using
@@ -37,7 +39,7 @@ Nullable optional filters equal omitted filters.
 
 | Method | Params | Result fields/schema type |
 | --- | --- | --- |
-| health | `{}` | schema_version=1, contract_revision=3, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features, access; model_epoch when unlocked only |
+| health | `{}` | schema_version=1, contract_revision=5, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features.reviewed_event_groups=true, features.preference_contrast_guard=true, access; model_epoch when unlocked only |
 | baseline | `{}` | schema_version=1, partitions, parameters (13 immutable zeros) |
 | access_status | `{}` | configured:boolean, locked:boolean |
 | unlock | password | configured:boolean, locked:boolean |
@@ -67,10 +69,10 @@ Nullable optional filters equal omitted filters.
 | candidate_list | partition?, status?, limit? | candidateRow[] |
 | memory_list | partition?, limit? | activeMemory[] |
 | memory_search | query, partition?, limit? | activeMemory[]; literal claim/evidence search |
-| memory_search_semantic | query, partition?, limit?=20, min_score?=0.0 | {mode,score_kind,items:[{memory,score,encoded_text_truncated}],pool_count,pool_truncated}; working extension |
-| choice_feedback_set | source_id, event_id, domain, options, actual_choice_id:string|null, endorsed_choice_id:string|null, endorsement_partition:string|null, training_consent:boolean, expected_source_version, expected_revision, expected_epoch, reason?:string|null | feedback record plus input_revision; working extension |
-| choice_feedback_get | source_id | {source_id,records:feedbackRecord[],input_revision,model_epoch}; working extension |
-| preference_rank | options, target, partition, domain | {status,reason,basis,not_calibrated,target,partition,domain,training_sources,used_features,weights,ranked,model_epoch,input_revision}; working extension |
+| memory_search_semantic | query, partition?, limit?=20, min_score?=0.0 | {mode,score_kind,items:[{memory,score,encoded_text_truncated}],pool_count,pool_truncated} |
+| choice_feedback_set | source_id, event_id, domain, options, actual_choice_id:string|null, endorsed_choice_id:string|null, endorsement_partition:string|null, training_consent:boolean, expected_source_version, expected_revision, expected_epoch, reason?:string|null, group_id?:string|null=null, group_reviewed?:boolean=false | feedback record including group_id/group_reviewed, plus input_revision |
+| choice_feedback_get | source_id | {source_id,records:feedbackRecord[],input_revision,model_epoch}; all records include normalized group_id/group_reviewed |
+| preference_rank | options, target, partition, domain | {status,reason,basis,not_calibrated,target,partition,domain,training_sources,training_groups,used_features,weights,contrast_rank,contrast_basis,ranked,model_epoch,input_revision} |
 
 
 approvalMetadata: status, immediate:boolean, confirm:boolean|null,
@@ -105,7 +107,7 @@ migration before can be status-only; reopen approval snapshots add source_versio
 and reopened. correctionRecord: revision, corrections, created_at; archive entries
 add source_version. Full nested field types and negative-shape checks are in schema.
 
-## Hybrid extension semantics (current source; main acceptance pending)
+## Hybrid extension semantics (current revision 5)
 
 JSON params are closed and flat. There is no nested `feedback` dictionary.
 Targets: actual/endorsed; domains: daily/study/relationships; partitions retain
@@ -119,17 +121,24 @@ label requires endorsement_partition=null. Missing labels use explicit null.
 Whole-source approval/exclamation never supplies labels, impacts or training_consent.
 
 feedbackRecord contains source_id, event_id, domain, options, actual_choice_id,
-endorsed_choice_id, endorsement_partition, training_consent, reason, source
+endorsed_choice_id, endorsement_partition, training_consent, group_id,
+group_reviewed, reason, source
 partition, source_version, model_epoch, body_digest, created_at, model_active.
 set additionally returns input_revision; get returns saved records and current
 snapshot input_revision/model_epoch. Guarded set fully replaces one source/event,
 binds current source version/body/epoch and advances global input revision.
 It can save pending feedback; neither set nor get fits. Bounds in source:
 32 events/source, 65,536 UTF-8 payload bytes, event IDs 1–128 characters,
-reason at most 2048 code points. Final schema conformance remains with main.
+reason at most 2048 code points. group_id defaults null and, when nonnull, is
+nonblank 1–128 Unicode code points without NUL/surrogates; group_reviewed defaults
+false and must be a real boolean. True requires a nonnull group_id. Draft saves
+are allowed. Groups belong to feedback events, not entire text files. Old exact
+payloads normalize to null/false on read without stored-payload backfill; partial
+new/unknown field shapes are rejected. User-reviewed guarded save is required
+to make legacy feedback eligible; no automatic grouping/review/consent.
 
 Feedback `model_active` means preference eligibility: agreed source with both
-judgements true, explicit training_consent, matching source_version/partition/
+judgements true, explicit training_consent and group_reviewed, matching source_version/partition/
 body_digest and feedback epoch equal to current epoch. It is distinct from
 inputRecord.model_active, which describes rule-fit participation. An inactive old
 rule fit does not itself forbid deliberately saved current-epoch feedback.
@@ -141,8 +150,8 @@ preference_rank reads a bounded authorized eligible snapshot, releases its DB
 transaction, temporarily fits a CPU pure-Python L2 multinomial logistic baseline,
 then ranks. It calls fit_preferences; it is not inference on persistent weights.
 It writes no DB/rule state/effects/weights and never trains the encoder. Current
-settings (Oct 5 source and final worker proof; main/fresh acceptance pending):
-three distinct source IDs with informative events, L2=0.1, damped Newton with
+settings (revision 5): at least three informative reviewed groups per
+target/partition/domain, L2=0.1, damped Newton with
 a pure-Python Cholesky solve, at most 64 steps and 32 backtracks per step.
 Returned weights must have gradient infinity norm <=1e-11. Backtracking starts
 at 1, halves the step and uses Armijo coefficient 0.01; loss-roundoff slack is
@@ -158,12 +167,27 @@ be superseded by concurrent writes. Clients handle stale results deliberately.
 ranked items contain id, score, model_probability and eight feature contributions.
 basis="personal_choice_feedback_multinomial_logistic", not_calibrated=true.
 Softmax is a model output, not a validated personal choice probability. Insufficient
-sources, no identifiable preference, unsupported feature contrasts or a top score
+groups (insufficient_training_groups), no identifiable preference, unsupported feature contrasts or a top score
 gap <=1e-8 can abstain (options_tied_with_learned_weights for the latter).
-Feature coverage still does not certify identifiable contrast span. Three IDs
-are an exploratory count gate, not established independent sample sufficiency.
+Feature coverage still does not certify identifiable contrast span; rev5 also
+checks every query pair with the span guard below. training_sources
+counts actual informative source IDs; training_groups counts informative groups
+separately. One source can contain three groups, while many sources in one group
+cannot cross the gate. Three reviewed group IDs remain an exploratory count gate,
+not proof of independent samples or sufficient data.
+
+For G informative groups and n_g informative events in group g in this axis:
+L(w) = -(1/G) sum_g (1/n_g) sum_e log q_e,y_e + (L2/2)||w||².
+Each event has loss weight 1/(G*n_g), each group total 1/G: the global mean of
+group means. The one group weight unit is before group averaging, not normalized
+mass=1. Pure offline callers screen their own provenance and may use source-ID
+fallback only when group fields are absent. Explicit unreviewed groups never
+fall back; online snapshots always supply group fields and require review.
 rank_from_fit rejects huge integer weights with ValueError before float conversion;
 there is no JSON endpoint accepting an externally supplied fitted weight vector.
+Option-impact validation checks exact int/float types and [-1,1] bounds before
+math.isfinite/float conversion. Enormous integers raise controlled ValueError;
+API calls return INVALID_ARGUMENT while preserving stored state and process survival.
 
 Screening caches only bounded source status/version/partition metadata and body
 digests; it materializes one eligible source body at a time, hashing in 65,536-
@@ -186,18 +210,72 @@ References: core/api.py METHODS/handle, core/brain.py memory_search_semantic,
 model/preferences.py _public/set_feedback/rank_preferences, translator/semantic.py.
 Actual weights, zero-network dependency execution, semantic quality, CPU performance
 and real predictive validity remain unverified. Distinct IDs do not prove sample
-independence. Memory/convergence/numeric fixes have final worker evidence, while
-new main/fresh acceptance remains pending; production groups and contrast-subspace
-extrapolation remain unimplemented acceptance work. Worker resource measurements
+independence. Memory/convergence/numeric base fixes have scoped main/fresh acceptance;
+reviewed production groups now have narrow synthetic contract acceptance.
+Contrast-span refusal has narrow rev5 synthetic acceptance; same-span utility,
+magnitude/convex-hull coverage and real extrapolation validity remain unverified. Worker resource measurements
 and their scope are in the [hybrid plan](hybrid-learning-plan.md#oct-5-final-worker-proof--mainfresh-acceptance-pending).
 
+## Rev5 contrast contract
+
+Contrast metadata belongs to `preference_rank`. Legacy `rank` retains its
+value-alignment result shape without contrast_rank/contrast_basis fields.
+
+Health declares schema_version=1, contract_revision=5 and 34 methods with
+features.preference_contrast_guard=true; reviewed_event_groups=true remains.
+The closed preference_rank result requires contrast_rank and contrast_basis in
+both provisional and abstain results, alongside the existing weights/used_features,
+counts, snapshot tokens and ranked fields. contrast_rank is an integer 0–8
+(not bool); contrast_basis has exactly contrast_rank rows (rank0 gives []).
+Each row has exactly eight finite numeric coordinates in [-1,1]. Runtime also
+validates unit length and mutual orthogonality within 1e-12; schema shape alone
+does not certify that geometry. The fixed column order is:
+
+```text
+value.autonomy, value.fairness, value.care, value.truth,
+value.security, value.growth, value.achievement, value.connection
+```
+
+This order comes from VALUE_PARAMETERS, not baseline JSON/catalog iteration.
+Fit geometry uses informative eligible option differences per target/partition/
+domain; query membership checks EVERY pair (at most 28 for eight options).
+unsupported_option_features retains feature-support precedence. Otherwise any
+nonzero normalized pair outside the identified span returns status=abstain,
+reason=unidentified_option_contrasts and ranked=[]. A query is never projected
+into the span to manufacture support; used_features alone cannot establish it.
+
+The deterministic pivoted/twice-reorthogonalized construction converts original
+binary floats exactly inside an isolated 80-digit Decimal context before
+normalization; only exported basis coordinates become floats. Rank tolerance
+1e-10, membership tolerance 1e-12 and orthogonality tolerance 1e-12 are unchanged.
+Membership uses the exported validated basis; a direction dropped by rank policy
+has no membership exemption, even if it occurred in training. These are engineering
+policies, not statistical confidence, calibrated precision, covariance,
+parameter-magnitude identification, convex-hull/magnitude coverage or real utility
+validity. L2 regularization and same-span membership do not establish those claims.
+There is no formal numerical error bound or general SVD-equivalence claim.
+
+The offline P3 evaluator uses the production preference fit/rank guard and reports scalar
+contrast_rank per training axis only, without raw contrast_basis, weights or
+private internal variables. Public preference_rank still returns contrast_basis
+and learned weights under its existing private-access boundary. Neither report
+nor preference_rank establishes real predictive validity. The reviewed-group gate applies
+only to the eight-weight preference branch; source t/t still updates translator,
+13-rule model and memories without choice metadata. preference_rank fits
+temporarily at read time without DB/rule/effect/weight writes or encoder training;
+feedback_set/get do not fit. Counts and activity meanings remain separate.
+
 ## Confirmed next-phase event-group policy (not implemented)
+
+Historical Oct 5 proposal, superseded by the current revision 4 contract above.
+The following planned-field/do-not-send implications no longer describe the
+backend. Frontend UI/adapter acceptance and exact duplicate hints remain TODO.
 
 Frontend will explicitly provide a user-reviewed event-group ID; `group_id` is
 PROPOSED, not a parameter/result field in the current closed JSON contract.
 All materials in one reviewed group must share one total training loss mass
-within each target/partition/domain fit. Backend may hint at exact-text duplicates
-only; it must not infer same-event membership for distinct texts or grant review.
+within each target/partition/domain fit. Exact-text duplicate hints remain TODO;
+backend must not infer same-event membership for distinct texts or grant review.
 The next-phase review gate must exclude current feedback with legacy/unknown
 groups until its group is user-reviewed. This is a future eligibility requirement,
 not current runtime behavior or an automatic migration. Goodall completes the
@@ -320,7 +398,7 @@ lines are drained. Stdout carries only JSON responses.
 
 Offline evaluation/readiness uses authorized read-only snapshots and independently
 labelled strict held-out manifests. F14 development is authorized and has the working
-methods above; final backend acceptance, frontend unlock/version/replay/F14 UI,
+methods above; narrow rev5 synthetic backend contract is delivered. Frontend unlock/version/replay/F14 UI,
 administrative reset/native and physical acceptance remain pending. Real validity
 and actual encoder weights are unverified; API tests do not establish those results.
 
@@ -328,3 +406,201 @@ Full synthetic tests require `python -m pip install '.[test-schema,security]'` f
 back-end-core, including pinned PyNaCl. Do not rely on system crypto dependencies.
 The backend workflow installs both extras; pinned Actions/tokenizer refs remain.
 Online CI has not been run by this integration worker.
+
+## Oct 5 fresh rev3 baseline proof
+
+Historical recovery sequence: pending/PROPOSED statuses through the pre-final
+delivery records are superseded by the current revision 4 contract and final
+accepted section below. All counts retain their stated pre-fix/pre-group scope.
+
+Main supplied terminal proof from `back-end-core`:
+
+```sh
+TMPDIR=/tmp/alpha-verify-20261005.SHU7GE HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261005.SHU7GE/bin/python -B -m unittest discover -s tests -q
+```
+
+458 tests, 181.564s, OK, 0 skips, before the evaluator zero/numeric-impact fix
+and rev4 group edits. This verifies the scoped rev3 baseline, including the
+then-present evaluator tests, but the recovered duplicate defect prevents P3
+tool acceptance. The earlier 411-test proof is retained in TODO/hybrid history.
+Old job 97510 lacks terminal proof; fresh job 9839 supersedes its pending result.
+The temporary Python 3.14.7/jsonschema 4.26.0 environment inherited PyNaCl and
+does not prove hosted CI, Python 3.10 or release dependency provisioning.
+
+Pauli's pending evaluator fix makes omitted impacts and exact `0`/`0.0`/`-0.0`
+equivalent and normalizes equal int/float values without rounding distinct
+nonzero impacts. Pauli supplied 68 pass = 51 evaluator (47 old + 4 new) + 17 pure
+before concurrent partial group edits. Independent Lorentz/fresh antipattern/
+quality reviews and settled-code proof remain pending. Main's overlapping
+evaluator51 encountered WIP MIN_SOURCES NameError, not acceptance. Do not mark
+final P3 or use the pre-group proof to accept group behavior.
+
+## Prospective revision 4 — PROPOSED until owner proof
+
+Descartes has started group implementation after the fresh baseline terminal.
+This section is the agreed plan, not the current accepted request/result schema.
+Prospective contract_revision=4 retains the same 34 methods.
+
+| Proposed change | Planned semantics |
+| --- | --- |
+| `choice_feedback_set` optional `group_id: string|null`, `group_reviewed: boolean=false` | Explicit frontend user review per feedback event; draft/unknown records may be saved. Existing flat fields and version/revision/epoch guards remain. |
+| Legacy stored payloads | Preserve their exact old field set; normalize missing group metadata to unknown/unreviewed on read. Exclude from online preference eligibility until deliberate guarded user-reviewed save. No silent migration or approval. |
+| Online eligibility | Require training_consent, source immediate/confirm both true, current version/body digest/epoch and reviewed group. Group review grants neither source approval nor training consent. |
+| Group loss and support | One total loss mass per reviewed group within target/partition/domain. Require at least 3 distinct informative `training_groups`; `training_sources` counts actual source IDs separately. |
+| Pure offline fitting | Legacy callers retain responsibility for provenance screening and may fall back to source-ID grouping. This fallback must not bypass the online review gate or create frontend training eligibility. |
+
+Group scope is the feedback event, not the complete diary/chat file. Exact-text
+duplicate hints remain TODO; no backend inference of distinct texts as the same
+event. Final field placement, signatures and reason enums will be documented
+from delivered source/schema and owner proof. Next safe action: reconcile that
+delivery, then record fresh fix/group verification with its precise scope.
+P2/P3, contrast span, real held-out/calibration/weights/GPU and frontend/native
+remain pending.
+
+Oct 5 latest limited acceptance: canonical zero/numeric-copy identity has Pauli's
+68 targeted pass and independent Lorentz 51 evaluator/4.258s/0 skips, unchanged
+module hashes and eight stable actual/endorsed repro checks. Mill and James static
+reviews found no blocker (James supplied no runtime). Only canonicalization is
+accepted. The evaluator report's fit['training_groups'] integration still needs
+final rerun; main session 37713 is running. Group checkpoint 92 existing/91.197s
+and 18 new/7.916s, 0 skips separately, precedes final schema/backup additions and
+fresh group reviews. Rev4 remains PROPOSED/unaccepted for frontend handoff;
+whole P3, baselines/ablation and real validity remain pending.
+
+### Stable actual rev4 delivery — implemented, awaiting acceptance
+
+This supersedes the preceding PROPOSED implementation status. Owner source and
+schema now implement the group contract; main's full suite and three fresh
+group reviews must finish before accepted header/health-table switch. Actual
+extension to the flat `choice_feedback_set` signature:
+
+```python
+reason: str | None = None,
+group_id: str | None = None,
+group_reviewed: bool = False
+```
+
+Group IDs are nonblank 1–128 Unicode code points with no NUL/surrogates; true
+group_reviewed requires a nonnull group_id. Every returned feedback record has
+group_id/group_reviewed, including normalized legacy null/false; stored legacy
+payloads are not backfilled. Health declares revision 4, 34 methods and
+features.reviewed_event_groups=true. `training_sources` counts actual informative
+source IDs separately from `training_groups`; min3 groups returns
+insufficient_training_groups when unmet. Other solver reasons are unchanged.
+The pure offline source-ID fallback retains caller responsibility for screening.
+
+The review gate applies only to the eight supervised preference weights.
+Whole-source double approval continues updating translator, the 13-rule model
+and memories without choice-group metadata. choice_feedback_set/get do not fit;
+preference_rank performs temporary recomputation at read/rank time, without
+persisting fit weights or training the encoder. inputRecord.model_active and
+feedbackRecord.model_active retain their separate rule/eligibility meanings.
+
+Owner new final group20 + schema19 = 39 tests/34.034s/0 skips; existing
+92/91.197s/0 skips is earlier scoped proof. Encrypted reviewed/exact legacy
+payload backup/DDL/no-backfill tests are in test_preference_groups.py; backup
+code/file is unchanged. Groups remain unaccepted pending main/fresh finals.
+
+Limited synthetic P3 tool provision is accepted: report integration now reads
+authoritative fit['training_groups'], owner51/4.695s/0 skips and main settled
+evaluator51/4.139s/0 skips. Numeric canonicalization is unchanged; earlier
+independent51/eight repros/static reviews retain scope. This does not accept
+whole P3, baselines/ablation/calibration/real held-out validity or frontend.
+
+Current rev4 group objective (synthetic backend contract accepted): for G informative
+groups and n_g informative events in group g within this target/partition/domain,
+L(w) = -(1/G) sum_g (1/n_g) sum_e log q_e,y_e + (L2/2)||w||².
+Each event has loss weight 1/(G*n_g), each group total 1/G. "One group, one
+weight unit" describes the pre-average group contribution, not normalized mass=1.
+The source-ID objective/gate in the rev3 baseline above is historical; group IDs
+and this min3 gate still do not prove independence or real predictive validity.
+
+## Oct 5 final rev4 backend synthetic contract
+
+Main terminal session 28196, exit 0, from `back-end-core`:
+
+```sh
+TMPDIR=/tmp/alpha-verify-20261005.SHU7GE HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261005.SHU7GE/bin/python -B -m unittest discover -s tests -q
+```
+
+483 tests, 121.151s, OK, 0 skips, covering final canonicalization, group20,
+schema19 and evaluator51 report integration. Lagrange independently passed
+51 focused (20 group + 19 schema + 12 backup), 19.543s test/20.215s wall,
+0 skips, then 3 inline checks, 7.380s test/8.227s wall, 0 skips: all 54 passed
+in two runs. Legacy DB bytes remained identical across two restarts; online
+axes stayed isolated, unequal groups matched an independent scalar equal-mass
+reference, network calls=0 and all DB connections used temporary paths.
+62 tracked-file hashes were stable. Exact focused command from `back-end-core`:
+
+```sh
+time env TMPDIR=/tmp/alpha-verify-20261005.SHU7GE HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 /tmp/alpha-verify-20261005.SHU7GE/bin/python -B -m unittest tests.test_preference_groups tests.test_schema_contract tests.test_hybrid_backup -v
+```
+
+Meitner quality: no blockers, 8 targeted/7.990s/0 skips, 12 valid-axis mass
+checks and all 34 callable required/optional-field/schema parity; hashes stable.
+Kant antipattern: no blockers, 5 stable hashes, 9 pure pass and 8 synthetic
+API/schema guard cases with network/SQLite blocked. Confirmed no automatic
+group/review/consent, no legacy backfill, no live fallback, no persisted fit or
+encoder training. These are scoped synthetic proofs, not real-data/GPU/CI proof.
+Earlier recovery/proposal/intermediate statuses below dated headings are historical.
+
+Narrow reviewed-group backend contract and synthetic P3 tool provision are
+delivered. Whole P2/P3, baselines/ablation, contrast span, duplicate hints,
+frontend/native, calibration, actual weights and real held-out validity remain
+pending. Next: frontend owner integrates the accepted fields with explicit
+review/consent and independent UI tests; contrast span stays a separate task.
+
+## Oct 6 final rev5 backend synthetic contract
+
+2026-10-06 (Asia/Taipei): main accepts only the limited rev5 backend synthetic
+contract after the input-bounds repair and all three final review rechecks.
+Authoritative main session80693, exit0, from `back-end-core`:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=/tmp/alpha-verify-20261005-night.khVPhV /tmp/alpha-verify-20261005-night.khVPhV/bin/python -B -m unittest discover -s tests -q
+```
+
+576 tests, 59.590s, OK, 0 skips. The documentation owner records main's terminal
+evidence and did not rerun this suite. Previous main574/61.668s is prerepair
+history only; quality's duplicate successful574/61.968s is not a main proof.
+
+All three final reviews found no blockers, with distinct scopes:
+
+- Archimedes verification: 161 distinct tests across initial/corrected temporary-URI
+  guard runs (not 161 from each run); independent 216 Fraction cases with
+  2160 inside/756 outside/2772 normal checks, maximum residual6.939e-17, 0.613s.
+  Post-bounds recheck8/1.113s/0 skips.
+- Chandrasekhar quality: post-bounds8/1.144s/0 skips. Original exploratory3684
+  checks exited1: nine incorrect rank-threshold expectations were independently
+  explained as expected rank6/residual6.93855e-11. The complete harness was NOT
+  rerun green and is not recorded as passed; final no-blocker status does not
+  convert that exploratory exit1 into a successful run.
+- Kant antipattern: 13 pure/0.057s/0 skips and post-repair pure1/0.003s/0 skips
+  with DB/network denied.
+
+The phase includes the preexisting huge-integer impact-validation edge repair:
+bounds precede math.isfinite/float conversion, controlled ValueError/API
+INVALID_ARGUMENT preserves stored state/process survival; two new regressions,
+owner8+69 pass. Review/test/check counts overlap and are not added to main576
+or combined into an invented single-run total. Exact reviewer commands were
+not supplied to this documentation owner; none are fabricated.
+Numeric owner55/8.020s, benchmark and residual scopes are recorded in the
+[hybrid numeric proof](hybrid-learning-plan.md#oct-6-rev5-numeric-proof-and-remaining-scope).
+
+Final source identities (read-only hash check by documentation owner):
+
+| File | SHA-256 |
+| --- | --- |
+| model/contrast.py | `abf73e8d962a11bced7951c80c15459fd7b4b9483d6320c7eb38010afd239bcd` |
+| model/ranking.py | `b9d7e2724728571bad2825337ca1774f10f6e1c73b941c457de292f6167516b2` |
+| tests/test_value_order.py | `a17c5ef97aa1b000051ef093de07a2f4c080e5c841e0a85c9a6bafddb04cccbd` |
+| model/baseline.json | `7531203bda3cb9c3572e17502d95d68df7a429df2480def9be1592f616c06d7c` |
+
+Contrast remains the stable 80-digit Decimal implementation; ranking reflects
+the final bounded validation-order repair. Rev4/483 and all dated proposals/
+intermediate pending records above retain their historical scope and are
+superseded for current status only. Completed root tasks moved to the
+[Oct 6 log](../../frontback-log.md#oct-6-final-rev5-backend-synthetic-contract).
+Overall goal remains active: P2/P3, real validity/calibration/parameter selection,
+frontend/native, general correction/generic replay, actual weights/GPU and
+online CI/Python3.10 remain pending.

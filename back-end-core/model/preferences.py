@@ -10,7 +10,8 @@ These eight learned feature weights are separate from the thirteen rule state
 parameters. Nothing here writes rule state, fits, effects, or review history.
 No clinical, accuracy, calibrated probability, or maximum outcome utility claim.
 Pure fit callers supply provenance-screened records; store ranking does that
-screening in one snapshot. Three source identities are only an exploratory gate.
+screening in one snapshot. Three user-reviewed groups are only an exploratory
+gate; neither group identities nor source counts prove event independence.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from datetime import datetime, timezone
 from core.pagination import revision
 from . import reset, sources
 from .catalog import PARTITIONS
+from .contrast import basis_from_contrasts, contains_contrasts, validate_basis
 from .ranking import VALUE_PARAMETERS, validate_options
 
 DOMAINS = ("daily", "study", "relationships")
@@ -36,16 +38,17 @@ MAX_ITERATIONS = 64
 MAX_BACKTRACKS = 32
 GRADIENT_TOLERANCE = 1e-11
 L2 = 0.1
-MIN_SOURCES = 3
+MIN_GROUPS = 3
 # Strong convexity gives ||w-w*||2 <= ||g||2/L2. In eight dimensions,
 # ||option contrast||2 <= 2*sqrt(8), so gap error <= 160*||g||inf.
 # This exceeds 160*GRADIENT_TOLERANCE (1.6e-9), with roundoff slack.
 TIE_TOLERANCE = 1e-8
-PAYLOAD_FIELDS = frozenset((
+LEGACY_PAYLOAD_FIELDS = frozenset((
     "source_id", "event_id", "domain", "options", "actual_choice_id",
     "endorsed_choice_id", "endorsement_partition", "training_consent", "reason",
     "partition", "source_version", "model_epoch", "body_digest", "created_at",
 ))
+PAYLOAD_FIELDS = LEGACY_PAYLOAD_FIELDS | {"group_id", "group_reviewed"}
 
 
 def initialize(db: sqlite3.Connection) -> None:
@@ -80,6 +83,17 @@ def _enum(value, choices: tuple, name: str) -> str:
     if value not in choices:
         raise ValueError(f"invalid {name}")
     return value
+
+
+def _group(group_id, group_reviewed) -> None:
+    if type(group_reviewed) is not bool:
+        raise ValueError("group_reviewed must be an explicit boolean")
+    if group_id is not None:
+        _text(group_id, "group_id", 128, minimum=1)
+        if not group_id.strip():
+            raise ValueError("group_id must contain text")
+    if group_reviewed and group_id is None:
+        raise ValueError("reviewed feedback requires a nonempty group_id")
 
 
 def _integer(value, name: str) -> int:
@@ -174,6 +188,7 @@ def _source_digest(db, source_id) -> str:
 def _public(payload: dict, row, epoch: int) -> dict:
     approved = row["status"] == "agreed" and row["immediate"] == 1 and row["confirm"] == 1
     eligible = (approved and payload["training_consent"] is True
+                and payload["group_reviewed"] is True
                 and payload["source_version"] == row["source_version"]
                 and payload["partition"] == row["partition"]
                 and payload["body_digest"] == _digest(row["body"])
@@ -187,8 +202,11 @@ def _decode(row) -> dict:
     if not isinstance(raw, str) or len(raw.encode("utf-8")) > MAX_PAYLOAD_BYTES:
         raise ValueError("invalid feedback payload")
     payload = json.loads(raw)
-    if not isinstance(payload, dict) or set(payload) != PAYLOAD_FIELDS:
+    if not isinstance(payload, dict) or set(payload) not in (LEGACY_PAYLOAD_FIELDS, PAYLOAD_FIELDS):
         raise ValueError("invalid feedback schema")
+    if set(payload) == LEGACY_PAYLOAD_FIELDS:
+        # Normalize only the decoded view; never backfill persisted history.
+        payload = {**payload, "group_id": None, "group_reviewed": False}
     for key in ("source_id", "event_id", "source_version", "model_epoch", "body_digest", "created_at"):
         if type(payload[key]) is not type(row[key]) or payload[key] != row[key]:
             raise ValueError("feedback provenance differs from row")
@@ -207,7 +225,7 @@ def _decode(row) -> dict:
 def set_feedback(store, source_id, event_id, domain, options, actual_choice_id,
                  endorsed_choice_id, endorsement_partition, training_consent,
                  expected_source_version, expected_revision, expected_epoch,
-                 reason=None) -> dict:
+                 reason=None, group_id: str | None = None, group_reviewed: bool = False) -> dict:
     """Fully replace one event under exact version/revision/epoch guards.
 
     Pending feedback is saved, but consent never substitutes for source double
@@ -221,6 +239,7 @@ def set_feedback(store, source_id, event_id, domain, options, actual_choice_id,
     _labels(options, actual_choice_id, endorsed_choice_id, endorsement_partition)
     if type(training_consent) is not bool:
         raise ValueError("training_consent must be an explicit boolean")
+    _group(group_id, group_reviewed)
     if reason is not None:
         _text(reason, "reason", 2048)
     for name, value in (("expected_source_version", expected_source_version),
@@ -243,6 +262,7 @@ def set_feedback(store, source_id, event_id, domain, options, actual_choice_id,
                    "endorsed_choice_id": endorsed_choice_id,
                    "endorsement_partition": endorsement_partition,
                    "training_consent": training_consent, "reason": reason,
+                   "group_id": group_id, "group_reviewed": group_reviewed,
                    "partition": row["partition"], "source_version": row["source_version"],
                    "model_epoch": epoch, "body_digest": _digest(row["body"]),
                    "created_at": datetime.now(timezone.utc).isoformat(timespec="microseconds")}
@@ -288,18 +308,22 @@ def _training_record(record: dict) -> tuple[list[dict], str | None, str | None]:
         raise ValueError("training_consent must be an explicit boolean")
     if "model_active" in record and type(record["model_active"]) is not bool:
         raise ValueError("model_active must be boolean")
+    if "group_id" in record or "group_reviewed" in record:
+        _group(record.get("group_id"), record.get("group_reviewed", False))
     if record.get("reason") is not None:
         _text(record["reason"], "reason", 2048)
     return options, actual, endorsed
 
 
-def _result(target, partition, domain, *, reason, training_sources=0, weights=None,
-            used_features=()) -> dict:
+def _result(target, partition, domain, *, reason, training_sources=0, training_groups=0, weights=None,
+            used_features=(), contrast_basis=None) -> dict:
+    contrast_basis = [] if contrast_basis is None else contrast_basis
     return {"status": "abstain" if reason else "provisional", "reason": reason,
             "basis": "personal_choice_feedback_multinomial_logistic",
             "not_calibrated": True, "target": target, "partition": partition, "domain": domain,
-            "training_sources": training_sources,
+            "training_sources": training_sources, "training_groups": training_groups,
             "used_features": list(used_features),
+            "contrast_rank": len(contrast_basis), "contrast_basis": contrast_basis,
             "weights": weights if weights is not None else dict.fromkeys(VALUE_PARAMETERS, 0.0),
             "ranked": []}
 
@@ -315,6 +339,32 @@ def _contrasts(vectors) -> set[str]:
             if any(vector[index] != vectors[0][index] for vector in vectors[1:])}
 
 
+def _training_contrast_rows(vectors):
+    # Vector content, rather than option IDs or labels, defines the anchor and
+    # row order. At most seven rows describe an event's training geometry.
+    ordered = sorted(vectors)
+    return [[x - anchor for x, anchor in zip(vector, ordered[0])]
+            for vector in ordered[1:]]
+
+
+def _query_contrast_rows(vectors):
+    # Approximate, normalized membership of anchor rows does not imply
+    # membership of their difference: cancellation can expose a new direction.
+    # Check all <=28 pairs; never project a query back into the training span.
+    return [[x - y for x, y in zip(vector, other)]
+            for i, vector in enumerate(vectors) for other in vectors[i + 1:]]
+
+
+def _query_contrast_reason(vectors, used_features, contrast_basis):
+    # Column support retains precedence; spanning those columns is a separate
+    # engineering condition, not a claim of statistical validity or confidence.
+    if _contrasts(vectors) - set(used_features):
+        return "unsupported_option_features"
+    if not contains_contrasts(_query_contrast_rows(vectors), contrast_basis):
+        return "unidentified_option_contrasts"
+    return None
+
+
 def _softmax(scores):
     maximum = max(scores)
     exp = [math.exp(score - maximum) for score in scores]
@@ -323,7 +373,7 @@ def _softmax(scores):
 
 
 def _objective(weights, events, *, derivatives=True):
-    """Source-normalized NLL + L2/2 * ||w||2, gradient and SPD Hessian."""
+    """Group-normalized NLL + L2/2 * ||w||2, gradient and SPD Hessian."""
     dimension = len(VALUE_PARAMETERS)
     loss = L2 / 2 * math.fsum(w * w for w in weights)
     gradient = [L2 * w for w in weights] if derivatives else []
@@ -438,8 +488,11 @@ def fit_preferences(records: list[dict], *, target: str, partition: str, domain:
     Records require source_id, partition, domain, options; choice ids default to
     null. An endorsed id requires endorsement_partition. Pure callers screen
     provenance first; optional consent/eligibility flags are honored if present.
-    Every source identity receives equal total loss mass, divided over its
-    informative labelled events. Contradictory events remain counterexamples.
+    Explicit group fields require user review; each informative group receives
+    equal total loss mass across its sources and events, for this target/state/
+    domain. Absent group fields retain caller-screened source_id fallback for
+    offline callers. Three groups do not prove independence. Contradictory
+    events remain counterexamples.
     """
     _request(target, partition, domain)
     if not isinstance(records, list):
@@ -449,11 +502,18 @@ def fit_preferences(records: list[dict], *, target: str, partition: str, domain:
     if target == "endorsed" and partition != "rational":
         return _result(target, partition, domain, reason="endorsed_requires_rational_partition")
     events = []
+    informative_sources = set()
     for record in records:
         options, actual, endorsed = _training_record(record)
         if (record["domain"] != domain or record.get("training_consent") is False
                 or record.get("model_active") is False):
             continue
+        if "group_id" in record or "group_reviewed" in record:
+            if record.get("group_reviewed", False) is not True:
+                continue
+            group = ("reviewed", record["group_id"])
+        else:
+            group = ("source", record["source_id"])
         if target == "actual":
             if record["partition"] != partition:
                 continue
@@ -470,30 +530,39 @@ def fit_preferences(records: list[dict], *, target: str, partition: str, domain:
             continue
         chosen = next(i for i, option in enumerate(options) if option["id"] == label)
         # A labelled option sharing its entire feature vector supplies an
-        # unidentifiable label; do not count it toward independent support.
+        # unidentifiable label; do not count it toward informative support.
         if any(vector == vectors[chosen] for i, vector in enumerate(vectors) if i != chosen):
             continue
-        events.append((record["source_id"], vectors, chosen))
-    counts = Counter(source for source, _, _ in events)
+        events.append((group, vectors, chosen))
+        informative_sources.add(record["source_id"])
+    counts = Counter(group for group, _, _ in events)
+    training_sources, training_groups = len(informative_sources), len(counts)
     varied = set().union(*(_contrasts(vectors) for _, vectors, _ in events))
     used_features = [feature for feature in VALUE_PARAMETERS if feature in varied]
-    if len(counts) < MIN_SOURCES:
-        return _result(target, partition, domain, reason="insufficient_independent_sources",
-                       training_sources=len(counts), used_features=used_features)
-    # Canonical accumulation makes record and option permutations deterministic.
+    # Geometry uses exactly the informative events admitted above. Canonical
+    # accumulation and <=1000 events bound this to <=7000 eight-dimensional rows.
     events.sort(key=lambda event: (event[0], event[1], event[2]))
-    normalized = [(vectors, chosen, 1.0 / (len(counts) * counts[source]))
-                  for source, vectors, chosen in events]
+    contrast_basis = basis_from_contrasts([
+        row for _, vectors, _ in events for row in _training_contrast_rows(vectors)])
+    if training_groups < MIN_GROUPS:
+        return _result(target, partition, domain, reason="insufficient_training_groups",
+                       training_sources=training_sources, training_groups=training_groups,
+                       used_features=used_features, contrast_basis=contrast_basis)
+    normalized = [(vectors, chosen, 1.0 / (training_groups * counts[group]))
+                  for group, vectors, chosen in events]
     weights, failure = _minimize(normalized)
     if failure:
-        return _result(target, partition, domain, reason=failure, training_sources=len(counts),
-                       used_features=used_features)
+        return _result(target, partition, domain, reason=failure,
+                       training_sources=training_sources, training_groups=training_groups,
+                       used_features=used_features, contrast_basis=contrast_basis)
     learned = dict(zip(VALUE_PARAMETERS, weights))
-    if max(abs(weight) for weight in weights) <= TIE_TOLERANCE:
+    if not contrast_basis or max(abs(weight) for weight in weights) <= TIE_TOLERANCE:
         return _result(target, partition, domain, reason="no_identifiable_preference",
-                       training_sources=len(counts), weights=learned, used_features=used_features)
-    return _result(target, partition, domain, reason=None, training_sources=len(counts),
-                   weights=learned, used_features=used_features)
+                       training_sources=training_sources, training_groups=training_groups,
+                       weights=learned, used_features=used_features, contrast_basis=contrast_basis)
+    return _result(target, partition, domain, reason=None,
+                   training_sources=training_sources, training_groups=training_groups,
+                   weights=learned, used_features=used_features, contrast_basis=contrast_basis)
 
 
 def rank_preferences(store, options, target, partition, domain) -> dict:
@@ -523,7 +592,8 @@ def rank_preferences(store, options, target, partition, domain) -> dict:
                     payload = _decode(row)
                     # Decode even excluded events: malformed provenance must
                     # still fail the snapshot closed. Skip text access afterward.
-                    if (not payload["training_consent"] or payload["domain"] != domain
+                    if (not payload["training_consent"] or not payload["group_reviewed"]
+                            or payload["domain"] != domain
                             or (target == "actual" and (payload["partition"] != partition
                                                         or payload["actual_choice_id"] is None))
                             or (target == "endorsed" and (partition != "rational"
@@ -552,6 +622,7 @@ def rank_preferences(store, options, target, partition, domain) -> dict:
                             "endorsed_choice_id": payload["endorsed_choice_id"],
                             "endorsement_partition": payload["endorsement_partition"],
                             "training_consent": True, "model_active": True,
+                            "group_id": payload["group_id"], "group_reviewed": True,
                         })
                 result = None
             except (ValueError, KeyError, UnicodeError, RecursionError, OverflowError):
@@ -563,8 +634,10 @@ def rank_preferences(store, options, target, partition, domain) -> dict:
     result.update(model_epoch=epoch, input_revision=input_revision)
     if result["status"] == "abstain":
         return result
-    if _contrasts(_vectors(options)) - set(result["used_features"]):
-        result.update(status="abstain", reason="unsupported_option_features")
+    contrast_reason = _query_contrast_reason(
+        _vectors(options), result["used_features"], result["contrast_basis"])
+    if contrast_reason:
+        result.update(status="abstain", reason=contrast_reason)
         return result
     ranked = rank_from_fit(options, result)
     if not ranked:
@@ -575,7 +648,7 @@ def rank_preferences(store, options, target, partition, domain) -> dict:
 
 
 def rank_from_fit(options, fit: dict) -> list[dict]:
-    """Pure scoring: abstention, unsupported option contrasts or top ties give [].
+    """Pure scoring: abstention, unsupported/unidentified contrasts or top ties give [].
 
     model_probability is only a softmax model output, never calibrated personal
     likelihood. No source access, database writes, or rule-state interaction.
@@ -590,6 +663,19 @@ def rank_from_fit(options, fit: dict) -> list[dict]:
             or any(not isinstance(key, str) or key not in VALUE_PARAMETERS for key in used_features)
             or len(set(used_features)) != len(used_features)):
         raise ValueError("fit must list distinct varied training features")
+    contrast_rank, contrast_basis = fit.get("contrast_rank"), fit.get("contrast_basis")
+    if (type(contrast_rank) is not int or not 1 <= contrast_rank <= 8
+            or not isinstance(contrast_basis, list) or len(contrast_basis) != contrast_rank):
+        raise ValueError("provisional fit requires an exact nonbool contrast rank and basis")
+    if any(not isinstance(row, list) or len(row) != 8
+           or any(type(value) not in (int, float) or not -1 <= value <= 1
+                  or not math.isfinite(value) for value in row)
+           for row in contrast_basis):
+        raise ValueError("fit contrast basis requires eight finite nonbool coordinates in [-1, 1]")
+    validate_basis(contrast_basis)
+    if any(row[i] != 0 for row in contrast_basis
+           for i, feature in enumerate(VALUE_PARAMETERS) if feature not in used_features):
+        raise ValueError("fit contrast basis must be zero in unused feature columns")
     learned = fit.get("weights")
     if not isinstance(learned, dict) or set(learned) != set(VALUE_PARAMETERS):
         raise ValueError("fit must have exactly eight learned weights")
@@ -600,7 +686,7 @@ def rank_from_fit(options, fit: dict) -> list[dict]:
             raise ValueError("fit weights must be finite numbers bounded by 10")
         weights.append(float(value))
     vectors = _vectors(options)
-    if _contrasts(vectors) - set(used_features):
+    if _query_contrast_reason(vectors, used_features, contrast_basis):
         return []
     scores = [math.fsum(w * x for w, x in zip(weights, vector)) for vector in vectors]
     probabilities = _softmax(scores)

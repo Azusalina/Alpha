@@ -29,6 +29,7 @@ def options():
 def record(source, *, actual="a", endorsed="b", partition="rational", domain="daily",
            endorsement_partition="rational", opts=None):
     return {"source_id": source, "partition": partition, "domain": domain,
+            "group_id": source, "group_reviewed": True,
             "options": options() if opts is None else opts, "actual_choice_id": actual,
             "endorsed_choice_id": endorsed,
             "endorsement_partition": endorsement_partition if endorsed is not None else None}
@@ -93,6 +94,8 @@ class PurePreferenceTests(unittest.TestCase):
         self.assertEqual(records, before)
         self.assertEqual(actual["status"], "provisional")
         self.assertEqual(actual["training_sources"], 3)
+        self.assertEqual(actual["contrast_rank"], 1)
+        self.assertEqual(actual["contrast_basis"], endorsed["contrast_basis"])
         self.assertGreater(actual["weights"]["value.autonomy"], 0)
         self.assertLess(endorsed["weights"]["value.autonomy"], 0)
         self.assertEqual(preferences.rank_from_fit(options(), actual)[0]["id"], "a")
@@ -293,6 +296,7 @@ class PurePreferenceTests(unittest.TestCase):
             self.assertEqual(fit["status"], "abstain")
             self.assertEqual(fit["ranked"], [])
             self.assertTrue(all(w == 0 for w in fit["weights"].values()))
+            self.assertEqual((fit["contrast_rank"], len(fit["contrast_basis"])), (1, 1))
         with patch.object(preferences, "MAX_BACKTRACKS", 0):
             self.assertEqual(self.fit(records)["reason"], "fit_not_converged")
         with patch.object(preferences, "_objective", side_effect=ArithmeticError("nonfinite Hessian")):
@@ -325,6 +329,7 @@ class PurePreferenceTests(unittest.TestCase):
         elapsed = time.process_time() - start
         self.assertEqual(fit["status"], "provisional")
         self.assertEqual(fit["training_sources"], preferences.MAX_RECORDS)
+        self.assertEqual((fit["contrast_rank"], len(fit["contrast_basis"])), (8, 8))
         weights = [fit["weights"][key] for key in VALUE_PARAMETERS]
         loss, gradient = reference_loss_gradient(records, weights)
         self.assertTrue(math.isfinite(loss))
@@ -372,7 +377,8 @@ class StoredPreferenceTests(unittest.TestCase):
     def save(self, source, **overrides):
         args = {"source_id": source, "event_id": "event", "domain": "daily", "options": options(),
                 "actual_choice_id": "a", "endorsed_choice_id": "b", "endorsement_partition": "rational",
-                "training_consent": True, **self.guards(source)}
+                "training_consent": True, "group_id": source, "group_reviewed": True,
+                **self.guards(source)}
         args.update(overrides)
         return preferences.set_feedback(self.store, **args)
 
@@ -470,6 +476,7 @@ class StoredPreferenceTests(unittest.TestCase):
                     option["label"] = "😀" * 512
                 for j in range(25):
                     payload = {**original, "source_id": source_id,
+                               "group_id": source_id,
                                "event_id": "event" if j == 0 else f"event-{j}",
                                "body_digest": digest, "training_consent": consent,
                                "options": opts, "reason": "😀" * 2048}
@@ -514,6 +521,7 @@ class StoredPreferenceTests(unittest.TestCase):
                     self.assertLess(peak, 12_000_000 if character == "😀" else 8_000_000,
                                     f"rank retained {peak} bytes for distinct large sources")
                     self.assertEqual(result["training_sources"], 40 if consent else 0)
+                    self.assertEqual(result["training_groups"], 40 if consent else 0)
                     self.assertEqual(result["status"], "provisional" if consent else "abstain")
                     if consent:
                         self.assertEqual(result["ranked"][0]["id"], "a")
@@ -531,7 +539,8 @@ class StoredPreferenceTests(unittest.TestCase):
             return original_digest(db, source_id)
         def checked_fit(records, **kwargs):
             expected = {"source_id", "partition", "domain", "options", "actual_choice_id",
-                        "endorsed_choice_id", "endorsement_partition", "training_consent", "model_active"}
+                        "endorsed_choice_id", "endorsement_partition", "training_consent", "model_active",
+                        "group_id", "group_reviewed"}
             for item in records:
                 self.assertEqual(set(item), expected)
                 for option in item["options"]:

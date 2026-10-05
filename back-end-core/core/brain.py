@@ -344,12 +344,14 @@ class BrainCore:
                             options: list[dict], actual_choice_id: str | None,
                             endorsed_choice_id: str | None, endorsement_partition: str | None,
                             training_consent: bool, expected_source_version: int,
-                            expected_revision: int, expected_epoch: int, reason: str | None = None) -> dict:
+                            expected_revision: int, expected_epoch: int, reason: str | None = None,
+                            group_id: str | None = None, group_reviewed: bool = False) -> dict:
         return preferences.set_feedback(self.store, source_id=source_id, event_id=event_id,
             domain=domain, options=options, actual_choice_id=actual_choice_id,
             endorsed_choice_id=endorsed_choice_id, endorsement_partition=endorsement_partition,
             training_consent=training_consent, expected_source_version=expected_source_version,
-            expected_revision=expected_revision, expected_epoch=expected_epoch, reason=reason)
+            expected_revision=expected_revision, expected_epoch=expected_epoch, reason=reason,
+            group_id=group_id, group_reviewed=group_reviewed)
 
     def choice_feedback_get(self, source_id: str) -> dict:
         return preferences.get_feedback(self.store, source_id)

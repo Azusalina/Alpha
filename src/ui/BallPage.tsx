@@ -25,7 +25,8 @@ import { BallScene } from '../ball/ballScene';
 import { exampleFit, type BallFit } from '../ball/ballFit';
 import { TransitionFx, type FxShape } from '../ball/transitionFx';
 import { useT } from '../i18n/lang';
-import { ecgDrive } from './divideEcg';
+import { HOTZONE_END } from '../config/timing';
+import { ecgDrive, ecgTouch } from './divideEcg';
 
 const GOLD = '#e3b04b';
 const EMPTY: FxShape = { segs: new Float32Array(0), alpha: new Float32Array(0), gold: new Uint8Array(0) };
@@ -44,7 +45,7 @@ function BallDivider() {
       if (!hit) return;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      hit.style.width = `${Math.hypot(w, h)}px`;
+      hit.style.width = `${Math.hypot(w, h) * (1 - 2 * HOTZONE_END)}px`;
       hit.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(h, w)}rad)`;
     };
     fit();
@@ -67,7 +68,8 @@ function BallDivider() {
           ecgDrive.target = 0;
           ballStore.close();
         }}
-        onPointerEnter={() => (ecgDrive.target = 1)}
+        onPointerEnter={(e) => ecgTouch(e.clientX, e.clientY, window.innerWidth, window.innerHeight)}
+        onPointerMove={(e) => ecgTouch(e.clientX, e.clientY, window.innerWidth, window.innerHeight)}
         onPointerLeave={() => (ecgDrive.target = 0)}
       />
     </div>

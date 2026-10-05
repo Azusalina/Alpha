@@ -29,7 +29,8 @@ import { TRANSITION, phaseProgress } from '../config/timing';
 import { describeNode } from '../graph/describe';
 import { useGraph } from '../graph/graphStore';
 import { EntryPanel } from './entry/EntryPanel';
-import { ecgDrive, ecgFrame, ecgOpacity, ecgPath } from './divideEcg';
+import { HOTZONE_END } from '../config/timing';
+import { ecgDrive, ecgFrame, ecgOpacity, ecgPath, ecgTouch } from './divideEcg';
 import { NodeDetail, regionLabel } from './NodeDetail';
 import { RecordsPanel } from './records/RecordsPanel';
 import { t } from '../i18n/lang';
@@ -82,14 +83,14 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           const [pa, pb] = ecg.querySelectorAll('path');
           const w = window.innerWidth;
           const h = window.innerHeight;
-          const { tau: time, level } = ecgFrame(performance.now() / 1000);
+          const { tau: time, level, pos } = ecgFrame(performance.now() / 1000);
           if (reducedRef.current) {
             pa.setAttribute('d', ext > 0.001 ? `M50 50L${50 - 50 * ext} ${50 - 50 * ext}` : '');
             pb.setAttribute('d', ext > 0.001 ? `M50 50L${50 + 50 * ext} ${50 + 50 * ext}` : '');
             ecg.style.opacity = '1';
           } else {
-            pa.setAttribute('d', ecgPath([0, 0], ext, w, h, time, 0, level));
-            pb.setAttribute('d', ecgPath([100, 100], ext, w, h, time, 1, level));
+            pa.setAttribute('d', ecgPath([0, 0], ext, w, h, time, 0, level, pos));
+            pb.setAttribute('d', ecgPath([100, 100], ext, w, h, time, 1, level, pos));
             ecg.style.opacity = String(ecgOpacity(time));
           }
         }
@@ -98,7 +99,8 @@ export function HumanPanel({ state, reducedMotion }: Props) {
         if (hit) {
           const w = window.innerWidth;
           const h = window.innerHeight;
-          hit.style.width = `${Math.hypot(w, h) * ext}px`;
+          // the two ends belong to the corner hot zones (camera switch), so the band stops short of them
+          hit.style.width = `${Math.hypot(w, h) * Math.min(ext, 1 - 2 * HOTZONE_END)}px`;
           hit.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(h, w)}rad)`;
           hit.style.display = ext > 0.05 ? 'block' : 'none';
         }
@@ -161,7 +163,8 @@ export function HumanPanel({ state, reducedMotion }: Props) {
           setHot(false);
           ballStore.open();
         }}
-        onPointerEnter={() => setHot(true)}
+        onPointerEnter={(e) => ecgTouch(e.clientX, e.clientY, window.innerWidth, window.innerHeight)}
+        onPointerMove={(e) => ecgTouch(e.clientX, e.clientY, window.innerWidth, window.innerHeight)}
         onPointerLeave={() => setHot(false)}
     />
     <div

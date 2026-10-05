@@ -21,7 +21,7 @@ from .brain import BrainCore
 from .pagination import StaleCursor
 
 SCHEMA_VERSION = 1
-CONTRACT_REVISION = 3
+CONTRACT_REVISION = 5
 MAX_REQUEST_CHARS = MAX_CHARS * 6 + 4096
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
 
@@ -55,7 +55,8 @@ METHODS = {
     "memory_search_semantic": (("query",), ("partition", "limit", "min_score")),
     "choice_feedback_set": (("source_id", "event_id", "domain", "options", "actual_choice_id",
                              "endorsed_choice_id", "endorsement_partition", "training_consent",
-                             "expected_source_version", "expected_revision", "expected_epoch"), ("reason",)),
+                             "expected_source_version", "expected_revision", "expected_epoch"),
+                            ("reason", "group_id", "group_reviewed")),
     "choice_feedback_get": (("source_id",), ()),
     "preference_rank": (("options", "target", "partition", "domain"), ()),
 }
@@ -175,14 +176,16 @@ class BrainAPI:
                 raise RequestError("INVALID_ARGUMENT", "missing or unknown parameter fields")
             for field, value in params.items():
                 if method == "choice_feedback_set" and field in {
-                        "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "reason"}:
+                        "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "reason", "group_id"}:
                     if value is None:
                         continue
                 if method in {"choice_feedback_set", "choice_feedback_get", "preference_rank"}:
-                    if field in {"source_id", "event_id", "actual_choice_id", "endorsed_choice_id"}:
+                    if field in {"source_id", "event_id", "actual_choice_id", "endorsed_choice_id", "group_id"}:
                         if (not isinstance(value, str) or not value.strip() or len(value) > 128
                                 or "\0" in value):
                             raise RequestError("INVALID_ARGUMENT", f"{field} must contain 1 to 128 characters without NUL")
+                        if any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+                            raise RequestError("INVALID_ARGUMENT", f"{field} must not contain surrogate code points")
                     if field == "options" and isinstance(value, list):
                         for option in value:
                             if isinstance(option, dict) and isinstance(option.get("id"), str) and not option["id"].strip():
@@ -197,7 +200,7 @@ class BrainAPI:
                         value.encode("utf-8")
                     except UnicodeEncodeError:
                         raise RequestError("INVALID_ARGUMENT", f"{field} must not contain surrogate code points") from None
-                if field in {"agree", "accept", "immediate", "exclamation", "training_consent"} and type(value) is not bool:
+                if field in {"agree", "accept", "immediate", "exclamation", "training_consent", "group_reviewed"} and type(value) is not bool:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be a boolean")
                 if field in {"limit", "min_documents"} and type(value) is not int:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be an integer")
@@ -231,6 +234,9 @@ class BrainAPI:
                         valid_password = False
                     if not valid_password:
                         raise RequestError("INVALID_ARGUMENT", "invalid password")
+            if (method == "choice_feedback_set" and params.get("group_reviewed") is True
+                    and params.get("group_id") is None):
+                raise RequestError("INVALID_ARGUMENT", "reviewed feedback requires a nonempty group_id")
             if method == "health":
                 access = self._access_status()
                 result = {"schema_version": SCHEMA_VERSION, "contract_revision": CONTRACT_REVISION,
@@ -244,7 +250,9 @@ class BrainAPI:
                                        "correction_reopen": True, "explicit_replay": True,
                                        "typed_corrections": True, "semantic_memory_search": True,
                                        "semantic_encoder_configured": self.semantic_encoder is not None or self.semantic_model_path is not None,
-                                       "choice_feedback": True, "preference_learning": True}}
+                                       "choice_feedback": True, "preference_learning": True,
+                                       "reviewed_event_groups": True,
+                                       "preference_contrast_guard": True}}
                 if not access["locked"]:
                     result["model_epoch"] = self.brain.model.reset_info()["model_epoch"]
             elif method == "baseline":

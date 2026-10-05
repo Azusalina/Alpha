@@ -214,13 +214,19 @@ class SchemaContractTests(unittest.TestCase):
                     self.assertEqual(set(parameters), set(request_schemas[method]["properties"]))
         self.assertEqual(inspect.signature(BrainCore.memory_search_semantic).parameters["min_score"].default, 0)
         self.assertEqual(request_schemas["memory_search_semantic"]["properties"]["min_score"]["default"], 0)
+        for function in (BrainCore.choice_feedback_set, preferences.set_feedback):
+            self.assertIsNone(inspect.signature(function).parameters["group_id"].default)
+            self.assertIs(inspect.signature(function).parameters["group_reviewed"].default, False)
+        group_fields = request_schemas["choice_feedback_set"]["properties"]
+        self.assertIsNone(group_fields["group_id"]["default"])
+        self.assertIs(group_fields["group_reviewed"]["default"], False)
 
     def feedback(self, source, **changes):
         fields = dict(source_id=source, event_id="synthetic schema event", domain="daily",
                       options=[{"id": "fair", "label": "Reviewed", "impacts": {"value.fairness": 1}},
                                {"id": "other", "impacts": {"value.fairness": -1}}],
                       actual_choice_id="fair", endorsed_choice_id="other", endorsement_partition="rational",
-                      training_consent=True, **self.guards(source))
+                      training_consent=True, group_id=source, group_reviewed=True, **self.guards(source))
         fields.update(changes)
         return self.call("choice_feedback_set", **fields)
 
@@ -270,6 +276,12 @@ class SchemaContractTests(unittest.TestCase):
                 lambda x: x["options"][0].update(extra=True),
                 lambda x: x.update(training_consent=1),
                 lambda x: x.update(training_consent=False),
+                lambda x: x.update(group_reviewed=False),
+                lambda x: x.update(group_reviewed=1),
+                lambda x: x.update(group_id=None),
+                lambda x: x.update(group_id=" \t"),
+                lambda x: x.pop("group_id"),
+                lambda x: x.pop("group_reviewed"),
                 lambda x: x.update(model_active=1),
                 lambda x: x.update(learning_eligible=True),
                 lambda x: x.update(endorsed_choice_id=None, endorsement_partition="rational"),
@@ -293,7 +305,10 @@ class SchemaContractTests(unittest.TestCase):
                 lambda x: x["ranked"][0].update(extra=True),
                 lambda x: x.update(used_features=["affect.anger"]),
                 lambda x: x.update(not_calibrated=False),
-                lambda x: x.update(training_sources=2),
+                lambda x: x.update(training_sources=0),
+                lambda x: x.update(training_groups=2),
+                lambda x: x.update(training_groups=True),
+                lambda x: x.pop("training_groups"),
                 lambda x: x.update(reason="insufficient_independent_sources"),
                 lambda x: x.update(status="abstain")) )):
             for index, mutate in enumerate(mutations):
@@ -301,6 +316,82 @@ class SchemaContractTests(unittest.TestCase):
                     malformed = copy.deepcopy(example)
                     mutate(malformed)
                     self.assertFalse(self.result_validators[method].is_valid(malformed))
+
+    def test_preference_contrast_schema_requires_exact_basis_length_for_every_rank(self):
+        options = [{"id": "a", "impacts": {"value.growth": 1}},
+                   {"id": "b", "impacts": {}}]
+        empty = self.call("preference_rank", options=options, target="actual",
+                          partition="rational", domain="daily")
+        validators = (self.validators["preferenceResult"], self.result_validators["preference_rank"])
+        for rank in range(9):
+            example = {**empty, "contrast_rank": rank,
+                       "contrast_basis": [[float(i == j) for j in range(8)] for i in range(rank)]}
+            for validator in validators:
+                with self.subTest(rank=rank, definition=validator.schema["$ref"]):
+                    self.assertTrue(validator.is_valid(example))
+                    for length in range(10):
+                        if length != rank:
+                            malformed = {**example, "contrast_basis": [[0.0] * 8 for _ in range(length)]}
+                            self.assertFalse(validator.is_valid(malformed), (rank, length))
+
+    def test_preference_contrast_schema_rejects_missing_mistyped_and_out_of_bounds_metadata(self):
+        options = [{"id": "a", "impacts": {"value.growth": 1}},
+                   {"id": "b", "impacts": {}}]
+        example = self.call("preference_rank", options=options, target="actual",
+                            partition="rational", domain="daily")
+        example.update(contrast_rank=1, contrast_basis=[[0.0] * 5 + [1.0, 0.0, 0.0]])
+        mutations = (
+            lambda x: x.pop("contrast_rank"), lambda x: x.pop("contrast_basis"),
+            lambda x: x.update(contrast_rank=True), lambda x: x.update(contrast_rank="1"),
+            lambda x: x.update(contrast_rank=None), lambda x: x.update(contrast_rank=1.5),
+            lambda x: x.update(contrast_rank=-1), lambda x: x.update(contrast_rank=9),
+            lambda x: x.update(contrast_basis=None), lambda x: x.update(contrast_basis={}),
+            lambda x: x.update(contrast_basis="basis"),
+            lambda x: x.update(contrast_basis=[None]), lambda x: x.update(contrast_basis=[{}]),
+            lambda x: x.update(contrast_basis=["row"]),
+            lambda x: x["contrast_basis"][0].pop(),
+            lambda x: x["contrast_basis"][0].append(0.0),
+            lambda x: x["contrast_basis"][0].__setitem__(0, True),
+            lambda x: x["contrast_basis"][0].__setitem__(0, "0"),
+            lambda x: x["contrast_basis"][0].__setitem__(0, None),
+            lambda x: x["contrast_basis"][0].__setitem__(0, float("inf")),
+            lambda x: x["contrast_basis"][0].__setitem__(0, -float("inf")),
+            lambda x: x["contrast_basis"][0].__setitem__(0, 1.0000000000005),
+            lambda x: x["contrast_basis"][0].__setitem__(0, -1.0000000000005),
+            lambda x: x.update(extra_contrast_metadata=True),
+        )
+        validators = (self.validators["preferenceResult"], self.result_validators["preference_rank"])
+        for validator in validators:
+            self.assertTrue(validator.is_valid(example))
+            for index, mutate in enumerate(mutations):
+                with self.subTest(mutation=index, definition=validator.schema["$ref"]):
+                    malformed = copy.deepcopy(example)
+                    mutate(malformed)
+                    self.assertFalse(validator.is_valid(malformed))
+        # Numeric JSON values such as 1.0 satisfy JSON Schema's integer type;
+        # exact Python types, NaN and dynamic geometry are runtime obligations.
+        for basis in ([[0.0] * 8], [[1.0] + [0.0] * 7] * 2):
+            structural = {**example, "contrast_rank": len(basis), "contrast_basis": basis}
+            self.assertTrue(self.result_validators["preference_rank"].is_valid(structural))
+            runtime_fit = {**structural, "status": "provisional", "used_features": ["value.growth"]}
+            with self.assertRaises(ValueError):
+                preferences.rank_from_fit(options, runtime_fit)
+
+    def test_rev5_health_contrast_feature_is_required_typed_and_closed(self):
+        health = self.call("health")
+        self.assertEqual(health["contract_revision"], 5)
+        self.assertEqual(len(health["methods"]), 34)
+        self.assertIs(health["features"]["preference_contrast_guard"], True)
+        for mutate in (
+            lambda x: x.update(contract_revision=4),
+            lambda x: x["features"].pop("preference_contrast_guard"),
+            lambda x: x["features"].update(preference_contrast_guard=False),
+            lambda x: x["features"].update(preference_contrast_guard=1),
+            lambda x: x["features"].update(extra_contrast_feature=True),
+        ):
+            malformed = copy.deepcopy(health)
+            mutate(malformed)
+            self.assertFalse(self.result_validators["health"].is_valid(malformed))
 
     def test_hybrid_requests_reject_nested_invalid_types_at_schema_and_runtime(self):
         from tests.test_hybrid_api import OPTIONS
@@ -315,6 +406,10 @@ class SchemaContractTests(unittest.TestCase):
                 lambda x: x.update(query="bad\0query"), lambda x: x.update(limit=0))),
             ("choice_feedback_set", valid, (
                 lambda x: x.update(training_consent=1), lambda x: x.update(expected_epoch=True),
+                lambda x: x.update(group_id=" \t"), lambda x: x.update(group_id="bad\0group"),
+                lambda x: x.update(group_id="\udfff"), lambda x: x.update(group_id="x" * 129),
+                lambda x: x.update(group_id=1), lambda x: x.update(group_reviewed=1),
+                lambda x: x.update(group_reviewed=None), lambda x: x.update(group_reviewed=True),
                 lambda x: x.update(event_id="\ud800"), lambda x: x.update(reason="bad\0reason"),
                 lambda x: x.update(endorsed_choice_id="fair", endorsement_partition=None),
                 lambda x: x["options"][0]["impacts"].update({"value.fairness": "1"}),
@@ -335,6 +430,16 @@ class SchemaContractTests(unittest.TestCase):
                     self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
         self.assertEqual(self.call("choice_feedback_get", source_id=source)["records"], [])
         self.call("choice_feedback_set", **valid)
+
+    def test_three_group_events_in_one_source_are_valid_provisional_contract(self):
+        from tests.test_hybrid_api import OPTIONS
+        source = self.call("submit", text="Synthetic schema group source.", partition="rational",
+                           exclamation=True)["source_id"]
+        for i in range(3):
+            self.feedback(source, event_id=f"event-{i}", group_id=f"group-{i}")
+        fit = self.call("preference_rank", options=OPTIONS, target="actual", partition="rational", domain="daily")
+        self.assertEqual((fit["status"], fit["training_sources"], fit["training_groups"]),
+                         ("provisional", 1, 3))
 
     def test_protected_health_schema_matches_locked_and_authenticated_epoch(self):
         from core.access import setup_access

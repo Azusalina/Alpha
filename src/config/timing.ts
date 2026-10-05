@@ -68,6 +68,12 @@ export const HOTZONE = {
 } as const;
 
 /**
+ * Share of the divide line (from each corner) that belongs to the corner zones: the line's click area and its
+ * hover reaction stop short of it. Along the diagonal a corner zone reaches min(width, height) of the way in.
+ */
+export const HOTZONE_END = Math.min(HOTZONE.width, HOTZONE.height) + 0.02;
+
+/**
  * home ↔ destination transitions (spec 7.2). One progress scalar p; the return
  * runs the same path with p from 1 to 0. Phase windows are fractions of p.
  */

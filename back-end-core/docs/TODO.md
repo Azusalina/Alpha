@@ -1,9 +1,14 @@
 # Backend TODO
 
-> 2026-10-04 resumed: main goal active; personal hybrid development is authorized,
-> F14 is no longer deferred. Source declares revision 3/34 methods, with final
-> independent acceptance pending. Oct 2 implemented/checked items below retain
-> their historical scope; they do not establish new hybrid compatibility or UI.
+> 2026-10-06 (Asia/Taipei): main goal active; schema_version=1 /
+> contract_revision=5 / 34 methods, features.preference_contrast_guard=true.
+> Main session80693 exit0: 576/59.590s/OK/0 skips; all three final reviews found
+> no blockers. Main accepts only the rev5 backend synthetic contract. Numeric
+> repair, fixed column order and final verification are archived in the
+> [Oct 6 log](../../frontback-log.md#oct-6-final-rev5-backend-synthetic-contract).
+> P2/P3 overall, frontend/native, general correction/generic replay, actual weights
+> and real validity remain pending. Dated historical pending/PROPOSED statements
+> are superseded for current status by the [Oct 6 queue](#oct-6-current-rev5-delivery-and-remaining-queue).
 > Completed task lines use //// - [x]; partial categories stay [ ] with notes.
 
 ## Implemented application interface — Oct 2 accepted baseline
@@ -322,14 +327,18 @@ Historical privacy note: user answered "不管"; no action.
 
 ## Current implementation continuation — awaiting main's new proof
 
-- [ ] Goodall: digest-only source screening cache, converged pure-Python solver
+Historical Oct 4 continuation; scoped deliveries are now checked below, with
+final Oct 5 evidence at the end. Broad phases remain open.
+
+//// - [x] Goodall: digest-only source screening cache, converged pure-Python solver
   and near-tie abstention, and controlled ValueError for huge integer weights;
-  preferences/tests/schema owner supplies final implementation and proof.
-- [ ] Zeno: `model/preference_evaluation.py`, its tests, and
+  final scoped proof is the historical 411 acceptance recorded below.
+//// - [x] Limited synthetic evaluator provision: `model/preference_evaluation.py`, its tests, and
   `docs/preference-evaluation.md` / `docs/preference-evaluation.example.json`.
   The documentation integrator does not edit these four owner files. Describe
   the frozen-manifest/shared-production-fit/held-out-predict/scoring workflow
-  only after inspecting the delivered schema and implementation.
+  now inspected and verified; see final Oct 5 milestone. Baselines/ablation/real
+  validity and whole P3 are not completed by this tool delivery.
 - [ ] Main: final verification commands/results after all new changes, followed
   by fresh-agent final review. Check only verified automated subtasks with
   `//// - [x]`; P2/P3 and real validity remain pending.
@@ -340,17 +349,21 @@ evaluator group isolation alone does not resolve production eligibility.
 
 ## Confirmed event-group decision — implementation pending (2026-10-05)
 
+Historical proposal, superseded by current rev4 and final proof below. Pending
+field/handoff wording in the dated narrative is not the current backend contract.
+
 DECISION: use explicit frontend event-group IDs reviewed by the user; draft
 `group_id` remains PROPOSED until main settles the contract. All materials in one
 group contribute one total training loss mass within each separate target/
 partition/domain fit. Backend may hint at exact-text duplicates only; it must not
 infer that distinct texts describe the same event, assign groups or grant review.
 
-- [ ] IMPLEMENTATION, next phase with a fresh owner after Goodall's base fixes:
+//// - [x] IMPLEMENTATION, next phase with a fresh owner after Goodall's base fixes:
   group field and explicit review gate; aggregate all same-group source/events
   into one total training mass. Under that future gate, existing feedback with
   legacy/unknown groups is excluded until the user reviews its group. Current
-  feedback does not yet enforce this policy; no automatic backfill/endorsement.
+  feedback now enforces this policy without automatic backfill/endorsement.
+  Completed narrowly by main483 and all three fresh reviews; see final milestone.
 - [ ] Frontend contract and acceptance: explicit group input/review, guarded
   updates and legacy review workflow; unresolved field names remain PROPOSED.
   Do not declare schema/API integration or online provenance acceptance complete.
@@ -430,3 +443,177 @@ Production event-group implementation, contrast span, entire P2/P3, real validit
 and frontend/native remain pending. Correct-path [evaluator docs](preference-evaluation.md)
 and [synthetic manifest](preference-evaluation.example.json) now exist; P3 final
 proof and fresh tool reviews must follow owner path correction.
+
+## Oct 5 recovery — fresh rev3 baseline, subsequent changes pending
+
+Historical recovery sequence: pending statuses in the following dated delivery
+records are superseded by the final accepted milestone. Counts remain scoped.
+
+//// - [x] Scoped rev3 baseline full regression: main supplied the terminal result
+  from `back-end-core` for
+  `TMPDIR=/tmp/alpha-verify-20261005.SHU7GE HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /tmp/alpha-verify-20261005.SHU7GE/bin/python -B -m unittest discover -s tests -q`:
+  458 tests, 181.564s, OK, 0 skips. This predates the evaluator zero/numeric-impact
+  canonicalization fix and new rev4 group edits; it does not accept either change
+  or the whole P2/P3. Existing 411/170.066s scoped proof stays historical.
+
+Old main job 97510 has no recovered terminal proof; UnknownProcess and the lost
+old temporary environment cannot prove success. Fresh job 9839 supplies the
+result above. Its temporary environment had Python 3.14.7, jsonschema 4.26.0
+and inherited PyNaCl, not a permanent runtime or portable-install acceptance.
+The recovered quota limit is no longer an agent blocker; the broad goal remains
+active. Existing front Oct 4 comments and other owners' changes are preserved.
+
+- [ ] P3 tool fix acceptance: Lorentz's recovered 47-test review found omitted
+  zero/equivalent numeric impacts could evade duplicate identity and inflate
+  metrics. Pauli supplied 68 pass = 51 evaluator (47 old + 4 new) + 17 pure
+  using the Oct 5 temporary environment, before concurrent partial group edits.
+  The final numeric-copy patch has targeted proof, but independent Lorentz
+  re-review and fresh antipattern/code-quality reviews are still underway.
+  Main's overlapping 51-test run encountered transient MIN_SOURCES NameError
+  during group WIP; it is not acceptance. Await settled-code fresh verification;
+  no final P3 completion mark.
+- [ ] Rev4 online groups: Descartes began writes after the baseline terminal.
+  Optional nullable `group_id`, `group_reviewed: bool=false`, normalized legacy
+  unknown/unreviewed exclusion and the reviewed save path remain PROPOSED for
+  handoff until final source/schema and proof. Preserve exact legacy stored
+  payloads; no automatic review. Consent, double approval, version/digest/epoch
+  and group review must all gate online eligibility. Scope is per feedback event.
+- [ ] Group weighting/counts: one total loss mass per reviewed group; at least
+  3 informative training_groups, with actual source IDs counted separately as
+  training_sources. Pure offline legacy callers may screen their own provenance
+  and fall back to source IDs; that fallback grants no online/UI eligibility.
+- [ ] Exact-text duplicate hints remain TODO; never infer distinct texts as the
+  same event. Contrast span, frontend adapters/review UI/native, real held-out
+  validity, calibration, actual weights and physical GPU acceptance remain open.
+- [ ] Next safe action: inspect final evaluator/group signatures and reason
+  statuses, integrate only actual delivered behavior, then append new main/fresh
+  verification with counts/commands/scope. Only independently verified subtasks
+  receive `//// - [x]`; no wholesale historical rewrite or broad-goal completion.
+
+Portable synthetic CLI examples are in [README](../README.md#oct-5-verification-recovery-and-next-integration)
+and the [hybrid plan](hybrid-learning-plan.md#oct-5-recovery--baseline-proof-and-pending-integration).
+Their normal `python -m model.preference_evaluation --manifest docs/preference-evaluation.example.json`
+invocation runs from `back-end-core`; a recorded `/tmp` test interpreter is not
+a permanent execution requirement.
+
+### Canonicalization subfix accepted; report/group integration still pending
+
+//// - [x] Narrow numeric-copy canonicalization subfix: Pauli supplied 68 pass
+  (51 evaluator = 47 old + 4 new, plus 17 pure) before group WIP. Independent
+  Lorentz reran 51 evaluator tests in 4.258s, 0 skips, with unchanged module
+  hashes; eight actual/endorsed int/float/0/0.0/-0.0 repro checks kept held-out
+  and macro metrics at 0.5, development records at 4, and fits/predictions
+  identical. Mill's fresh static quality review found no blocker. James' fresh
+  antipattern static review found no blocker, parsing 2 ASTs and inspecting 51
+  test definitions; James did not provide runtime evidence. This completion is
+  limited to canonicalization and does not accept whole P3 or group integration.
+
+- [ ] Pauli's evaluator report integration now uses fit['training_groups']; final
+  settled-code rerun is required. Main evaluator51 session 37713 is running;
+  no terminal result is inferred. Baselines, eight-feature ablation and real
+  held-out validity remain pending even after tool fixes pass.
+- [ ] Group owner checkpoint: 92 existing tests/91.197s/0 skips and 18 new
+  tests/7.916s/0 skips, reported separately. Code is coherent, but additional
+  final schema/backup tests and fresh group verification/quality/antipattern
+  reviews are underway. Fields remain PROPOSED/unaccepted for frontend handoff
+  until exact final code, commands/results and owner/main/fresh proof arrive.
+
+### Stable owner deliveries — final group acceptance pending
+
+//// - [x] Limited synthetic P3 tool provision: Pauli's final report integration
+  reads authoritative fit['training_groups'] and regresses distinct source/group
+  counts: 51 evaluator tests, 4.695s, 0 skips. Main's settled-code evaluator
+  rerun passed 51, 4.139s, 0 skips (session 37713). Earlier independent Lorentz
+  51/4.258s/0 skips plus eight numeric repros and Mill/James no-blocker reviews
+  retain their exact scope; canonicalization was unchanged by the tiny report
+  integration. This accepts synthetic tool provision only, not whole P3,
+  baselines, eight-feature ablation, calibration or real held-out validity.
+
+- [ ] Rev4 group final acceptance: owner completed eight scoped paths; fields are
+  implemented, awaiting main/fresh acceptance rather than absent/PROPOSED code.
+  Actual `choice_feedback_set` optional `group_id: str|null=None`,
+  `group_reviewed: bool=False`; all returned feedback records include both
+  normalized fields. Health reports rev4/34 and reviewed_event_groups=true.
+  Rank separately counts informative actual source IDs and training_groups;
+  fewer than 3 groups gives insufficient_training_groups. Source/schema inspected
+  read-only by the documentation integrator; no frontend acceptance inferred.
+- [ ] Owner final new tests: 20 group + 19 schema = 39, 34.034s, 0 skips; prior
+  existing 92/91.197s/0 skips retained separately. New group test file covers
+  encrypted reviewed and exact legacy-payload backup/DDL/no-backfill; existing
+  backup implementation/file is unchanged. Main's new full suite and three fresh
+  group reviews are running. Wait for their final proof before group completion
+  marks and the accepted rev4 header/health-table switch. Duplicate hints TODO.
+
+Current implemented math: G informative groups and n_g informative events within
+group g for one target/partition/domain; event loss weight 1/(G*n_g), group total
+1/G. Objective = mean of group means + (L2/2)||w||². One pre-average group weight
+unit does not mean normalized mass=1. Earlier dated proposal wording is retained
+as history; group/source counts remain separate and do not establish independence.
+
+## Oct 5 final rev4 backend synthetic contract
+
+//// - [x] Reviewed-event-group backend contract delivered: rev4/34 methods,
+  optional group_id=None/group_reviewed=False, both normalized feedback result
+  fields, explicit review/consent/double-source-approval/version/digest/epoch
+  eligibility, no legacy backfill, event group weighting and separate informative
+  source/group counts. MIN_GROUPS=3; insufficient_training_groups abstains.
+  Main final full483/121.151s/OK/0 skips and all three fresh reviews accept only
+  this backend synthetic contract. Exact proof commands are in
+  [API final evidence](api.md#oct-5-final-rev4-backend-synthetic-contract).
+//// - [x] Final synthetic regression execution: session28196 exit0, final
+  canonicalization + group20 + schema19 + evaluator51 report integration covered.
+  Lagrange independent focused51/19.543s/0 skips plus probes3/7.380s/0 skips,
+  62 stable hashes; Meitner8/7.990s/0 skips, all34 parity/12 axes; Kant9 pure
+  plus8 guards, no blockers. Two verifier runs are not a single 54-test run;
+  overlaps are not added to main full counts.
+//// - [x] Limited synthetic P3 tool provision and numeric-copy subfix: final
+  owner evaluator51/4.695s and main51/4.139s, 0 skips each, authoritative
+  fit['training_groups'] report and source/group regression; earlier independent
+  Lorentz51/4.258s/eight repros/Mill/James reviews retain scope.
+
+G informative groups and n_g informative events in this axis give event weight
+1/(G*n_g), group total1/G; objective is mean of group means + (L2/2)||w||².
+Only the eight-weight preference branch requires reviewed groups. Existing
+whole-source double approval still updates translator/13-rule model/memories
+without choice metadata. feedback_set/get do not fit; preference_rank temporarily
+CPU-recomputes fit and ranks/explains/abstains, no saved weights/encoder training.
+input.model_active and feedback.model_active describe separate activities.
+
+- [ ] Broad online groups AND contrast span: group backend subtask done above;
+  identifiable contrast-span abstention remains the next model task.
+- [ ] Frontend per-event group-review/labels/impacts/consent/guard UI and adapters,
+  unlock/version/F14/native acceptance; backend delivery does not check UI tasks.
+- [ ] Exact-text duplicate hint; no inferred groups/review/consent.
+- [ ] P2/P3 overall, baselines/eight-feature ablation/calibration, real held-out
+  validity, actual encoder weights, native/GPU and hosted CI/Python3.10 remain open.
+
+This is the stable six-document milestone for main diff review; no further edits
+are planned here. No code/schema/test/frontend/evaluator-doc/Git mutations or
+real corpus/DB/weight access were performed by this documentation owner.
+
+## Oct 6 current rev5 delivery and remaining queue
+
+2026-10-06 (Asia/Taipei): main accepted the limited rev5 backend synthetic
+contract, including 80-digit Decimal contrast repair with unchanged tolerances,
+fixed eight-column order, every-pair span refusal, closed preference_rank fields,
+scalar-only evaluator contrast reporting and controlled huge-integer bounds
+validation. Exact main576/59.590s/OK/0 skips and all three final reviews are in
+[API final proof](api.md#oct-6-final-rev5-backend-synthetic-contract); completed
+root tasks are in the [log](../../frontback-log.md#oct-6-final-rev5-backend-synthetic-contract).
+The dated rev4/483 records above retain their scope; their contrast pending
+statements describe Oct 5 and are superseded only for this backend subtask.
+
+- [ ] P2/P3 overall, independent provenance/real held-out validity, baselines,
+  eight-parameter ablations, calibration, same-span utility/magnitude/convex-hull
+  validity and parameter selection.
+- [ ] Frontend group-review/labels/impacts/consent/guards/adapters, unlock/private
+  caches/version/F14/native acceptance; general semantic correction/generic replay
+  and typed-correction performance.
+- [ ] Exact-text duplicate hint, future content-revision guards, actual encoder
+  weights/offline distribution/resources, physical input/GPU/cross-platform,
+  online CI/Python3.10 and optional whole-database-encryption decision.
+
+Root [active queue](../../front-back-communicate.md) contains 15 pending items.
+Source t/t still feeds translator/13-rule model/memories without choice groups;
+groups gate only preference. Fit stays temporary/read-only, with no DB writes,
+persisted weights or encoder training. Overall goal active, not achieved.

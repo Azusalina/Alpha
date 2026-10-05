@@ -64,7 +64,8 @@ class HybridAPITests(unittest.TestCase):
     def feedback(self, source, **changes):
         params = dict(source_id=source, event_id="synthetic-event", domain="daily", options=copy.deepcopy(OPTIONS),
                       actual_choice_id="fair", endorsed_choice_id="other", endorsement_partition="rational",
-                      training_consent=True, reason="synthetic reviewed reason", **self.guards(source))
+                      training_consent=True, reason="synthetic reviewed reason",
+                      group_id=source, group_reviewed=True, **self.guards(source))
         params.update(changes)
         return self.result("choice_feedback_set", **params)
 
@@ -163,7 +164,9 @@ class HybridAPITests(unittest.TestCase):
                 with self.subTest(method=method):
                     self.assertEqual(self.call(method)["error"]["code"], "LOCKED")
             health = self.result("health")
-            self.assertEqual((health["contract_revision"], len(health["methods"])), (3, 34))
+            self.assertEqual((health["contract_revision"], len(health["methods"])), (5, 34))
+            self.assertTrue(health["features"]["reviewed_event_groups"])
+            self.assertTrue(health["features"]["preference_contrast_guard"])
             self.assertNotIn("model_epoch", health)
             self.assertTrue(health["features"]["semantic_encoder_configured"])
             self.result("unlock", password="synthetic lock sweep password")
@@ -303,6 +306,7 @@ class HybridAPITests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["status"], "provisional")
         self.assertEqual(len(first["weights"]), 8)
+        self.assertEqual((first["contrast_rank"], len(first["contrast_basis"])), (1, 1))
         self.assertEqual(len(self.result("baseline")["parameters"]), 13)
         self.assertEqual(before, self.database_snapshot())
         self.assertEqual(self.encoder.calls, [])
