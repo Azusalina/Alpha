@@ -40,11 +40,15 @@ def _jieba():
 @lru_cache(maxsize=16)
 def _tokenizer(personal_phrases: tuple[str, ...]):
     tokenizer = _jieba().Tokenizer()
-    for phrase in personal_phrases:
-        if _CHINESE.fullmatch(phrase):
-            tokenizer.add_word(phrase)
+    for phrase in configured_phrases(personal_phrases):
+        tokenizer.add_word(phrase)
     tokenizer.initialize()
     return tokenizer
+
+
+def configured_phrases(personal_phrases: tuple[str, ...]) -> tuple[str, ...]:
+    """Exactly the phrases added to jieba; preserve caller order/cache keys."""
+    return tuple(phrase for phrase in personal_phrases if _CHINESE.fullmatch(phrase))
 
 
 def learnable_terms(text: str, *, personal_phrases: tuple[str, ...] = ()) -> dict[str, int]:

@@ -1,14 +1,19 @@
 # Backend TODO
 
 > 2026-10-06 (Asia/Taipei): main goal active; schema_version=1 /
-> contract_revision=5 / 34 methods, features.preference_contrast_guard=true.
-> Main session80693 exit0: 576/59.590s/OK/0 skips; all three final reviews found
-> no blockers. Main accepts only the rev5 backend synthetic contract. Numeric
-> repair, fixed column order and final verification are archived in the
-> [Oct 6 log](../../frontback-log.md#oct-6-final-rev5-backend-synthetic-contract).
+> contract_revision=6 / 35 methods, features.exact_text_duplicate_hint=true;
+> prior contrast guarantees unchanged. Latest main session90162 exit0:
+> 620/100.682s/OK/0 skips; independent discovery620 unique IDs/0 loader errors.
+> Aquinas/Tesla/Franklin terminal fresh reviews found no blockers. Only the
+> exact-text duplicate hint backend is accepted this phase; see the
+> [latest Oct 6 log](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+> Earlier [main601/84.585s](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance)
+> retains its historical offline-tools/typed-validation scope.
+> Earlier main576/59.590s remains the dated rev5 contract/numeric proof.
 > P2/P3 overall, frontend/native, general correction/generic replay, actual weights
 > and real validity remain pending. Dated historical pending/PROPOSED statements
-> are superseded for current status by the [Oct 6 queue](#oct-6-current-rev5-delivery-and-remaining-queue).
+> are superseded for current status by the [Oct 6 queue](#oct-6-rev6-exact-text-duplicate-hint).
+> Root has 13 pending items; overall goal ACTIVE/NOT ACHIEVED.
 > Completed task lines use //// - [x]; partial categories stay [ ] with notes.
 
 ## Implemented application interface — Oct 2 accepted baseline
@@ -238,7 +243,10 @@ conversation is retained; bringing it back requires a separate user request.
   concurrent frontend changes have not all been verified. See frontend-contract-handoff.md.
 - [ ] F6 future content-revision guard: source_version resets to 0 after editing,
   leaving queued unversioned review ambiguity; handoff documents cache/queue cleanup.
-- [ ] Typed corrections: assess per-item retranslation performance.
+//// - [x] 2026-10-06: Typed validation call budget and consistency accepted;
+  at most one full translation per validate_corrections invocation, batch <=64.
+  correction_reopen retains two validation phases; no API latency/RSS claim.
+  See [latest acceptance](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance).
 - [ ] F14 is authorized since Oct 3: current flat feedback/preferences implementation
   and contract require final main verification, frontend labels/consent/impacts UI,
   and separate native acceptance. Sphere v2 remains a later frontend scope.
@@ -603,17 +611,74 @@ root tasks are in the [log](../../frontback-log.md#oct-6-final-rev5-backend-synt
 The dated rev4/483 records above retain their scope; their contrast pending
 statements describe Oct 5 and are superseded only for this backend subtask.
 
-- [ ] P2/P3 overall, independent provenance/real held-out validity, baselines,
-  eight-parameter ablations, calibration, same-span utility/magnitude/convex-hull
-  validity and parameter selection.
+Latest accepted phase: main full session65720 exit0, 601/84.585s/OK/0 skips;
+independent discovery601 unique IDs/0 loader errors. Main focused session67821
+exit0, 40/9.939s/OK/0 skips overlaps full; owner evaluator69/3.415s used DB/network
+denials. Lovelace/Linnaeus/Ramanujan reviews completed with no demonstrated
+blockers. Exact commands, review details and frozen hashes are in the
+[latest root log](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance);
+counts are not summed, and this documentation recovery reruns no tests.
+
+//// - [x] 2026-10-06: Opt-in offline two-baseline tools: nonpersonal equal_weight
+  sum heuristic and analytic uniform chance; all predictions/distributions
+  precede held-out-label scoring, no automatic selection/validity claim.
+//// - [x] 2026-10-06: Eight matched leave-one-feature-out tools: original cohort
+  admission/numeric dedup before projection, no projection dedup; 11 variants /
+  10 pairs, original event/group mass, axis isolation and support-loss denominators
+  preserved. See [protocol](preference-evaluation.md#opt-in-offline-comparisons).
+//// - [x] 2026-10-06: Typed validation resource/consistency proof: at most one
+  parse per function invocation, zero for empty/parameter-only/pretranslation
+  failures; batch bound64 unchanged. Reopen retains both validation phases and
+  observations translate separately. Historical benchmark is not rerun or an
+  API latency/native RSS guarantee; see [proof](correction-performance.md).
+
+- [ ] Broad P0/P2/P3, independent provenance/real held-out labels and validity,
+  calibration, same-span utility/magnitude/convex-hull validity and parameter
+  selection using the delivered tools. Selection on holdout results requires a
+  new independent final holdout; tool acceptance does not close these tasks.
 - [ ] Frontend group-review/labels/impacts/consent/guards/adapters, unlock/private
   caches/version/F14/native acceptance; general semantic correction/generic replay
-  and typed-correction performance.
+  and the unanswered future unified typed-annotation consumption decision.
+  Current typed annotations intentionally do not override the 13 rule parameters.
 - [ ] Exact-text duplicate hint, future content-revision guards, actual encoder
   weights/offline distribution/resources, physical input/GPU/cross-platform,
   online CI/Python3.10 and optional whole-database-encryption decision.
 
-Root [active queue](../../front-back-communicate.md) contains 15 pending items.
+Root [active queue](../../front-back-communicate.md) contains 14 pending items.
 Source t/t still feeds translator/13-rule model/memories without choice groups;
 groups gate only preference. Fit stays temporary/read-only, with no DB writes,
 persisted weights or encoder training. Overall goal active, not achieved.
+
+## Oct 6 rev6 exact-text duplicate hint
+
+//// - [x] 2026-10-06: Exact-current-text duplicate hint backend accepted:
+  authenticated read-only input_duplicates, schema1/rev6/35 methods and
+  health.features.exact_text_duplicate_hint=true. Main620/100.682s/OK/0 skips,
+  independent discovery620 unique/0 loader errors and all three terminal
+  no-blocker reviews; [exact command/reviews/hashes](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+  [API semantics](api.md#oct-6-rev6-exact-text-duplicate-hint) bound metadata
+  output, not scan latency. Backend submit/edit/review do not invoke it;
+  frontend may request after save/edit, with trigger acceptance by its owner.
+
+The [root queue](../../front-back-communicate.md) now has13 pending items.
+Duplicate frontend method+feature negotiation, adapter/UI/read trigger and
+private-cache/stale-snapshot/native acceptance remain under existing
+F14/guards/native tasks; not closed by backend delivery. No automatic
+grouping/approval/consent/merge/dedup/block-submit/refit; user reviews event
+groups. General semantic correction and generic dependency/downstream replay
+remain pending, as do independent real holdout/validity/parameter selection,
+encoder weights/resources/CI/Python3.10 and broad P0/P2/P3. Current typed split
+does not override13 rule parameters; future unified consumption still needs
+the unanswered user decision. Overall goal ACTIVE/NOT ACHIEVED. Earlier
+main601 and rev5 main576 proofs/recovery amendments retain historical scope.
+
+## Oct 6 semantic label revision
+
+- [ ] Rev7 `revised_value` / `health.features.semantic_label_revision` backend delivered
+  locally (657 tests OK with jsonschema, no independent review); needs main acceptance,
+  frontend adapter/UI and a decision on adding translator-missed labels.
+
+- [ ] Rev7 `relation_set`/`relation_list` + planner merge delivered locally (664 tests,
+  jsonschema venv, 0 skips, no independent review); needs main acceptance, frontend
+  adapter/UI for the human relation workflow and an explicit decision whether manual
+  edges should also feed replay_preview defaults (currently they do not).

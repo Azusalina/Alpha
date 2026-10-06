@@ -100,6 +100,8 @@ def purge_dependents(db: sqlite3.Connection, source_id: str) -> None:
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
                   "AND name='brain_choice_feedback'").fetchone():
         db.execute("DELETE FROM brain_choice_feedback WHERE source_id=?", (source_id,))
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='brain_relations'").fetchone():
+        db.execute("DELETE FROM brain_relations WHERE from_source_id=? OR to_source_id=?", (source_id, source_id))
 
 
 def public_record(row: sqlite3.Row | dict, text: str) -> dict:

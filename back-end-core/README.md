@@ -1,16 +1,24 @@
 # Alpha brain (backend)
 
 > Current continuation (2026-10-06, Asia/Taipei): main's broader goal is active.
-> Current schema_version=1 / contract_revision=5 / 34 methods,
-> features.preference_contrast_guard=true. Main session80693 exit0: 576 tests,
-> 59.590s, OK, 0 skips; all three final reviews found no blockers. Main narrowly
-> accepts the rev5 backend synthetic contract; see [current API and exact proof](docs/api.md#oct-6-final-rev5-backend-synthetic-contract).
+> Current schema_version=1 / contract_revision=6 / 35 methods,
+> features.exact_text_duplicate_hint=true; prior contrast guarantees unchanged.
+> Latest main session90162 exit0: 620 tests / 100.682s / OK / 0 skips;
+> independent discovery: 620 unique IDs / 0 loader errors. Aquinas, Tesla and
+> Franklin terminal fresh reviews found no blockers. Only the exact-text
+> duplicate hint backend is accepted this phase; see
+> [latest root log](../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+> Earlier [main601/84.585s](../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance)
+> retains its offline-tools/typed-validation proof scope.
+> Earlier rev5 main576/59.590s remains a dated contract proof;
+> see [current API and exact numeric proof](docs/api.md#oct-6-final-rev5-backend-synthetic-contract).
 > Historical rev4 483, rev3 458, scoped 411 and prerepair 574 retain their scope.
 > Dated proposals/intermediate pending narratives below are historical and
 > superseded for current status. Overall P2/P3, frontend/native, general semantic
 > correction/generic replay, actual encoder weights and real validity remain open.
-> See [current queue](docs/TODO.md#oct-6-current-rev5-delivery-and-remaining-queue)
-> and [hybrid plan](docs/hybrid-learning-plan.md#oct-6-rev5-numeric-proof-and-remaining-scope).
+> Root queue retains 13 pending items; overall goal ACTIVE/NOT ACHIEVED.
+> See [current queue](docs/TODO.md#oct-6-rev6-exact-text-duplicate-hint)
+> and [hybrid plan](docs/hybrid-learning-plan.md#oct-6-rev6-exact-text-duplicate-hint).
 >
 > Historical main396/134.672s then semantic51/1.142s (last two additions in
 > discovery398) and backup12/11.220s all had 0 skips; these are not a single
@@ -32,9 +40,10 @@ variables; see [rev5 contract](docs/api.md#rev5-contrast-contract). Legacy `rank
 retains its value-alignment result shape without contrast metadata.
 preference_rank separately counts
 actual informative training_sources and training_groups; fewer than 3 groups
-abstains with insufficient_training_groups. Exact-text duplicate hints remain
-TODO; backend never infers groups/review/consent. Frontend integration is pending; see
-[handoff](docs/frontend-contract-handoff.md#confirmed-event-group-decision--frontend-contract-pending).
+abstains with insufficient_training_groups. Authenticated `input_duplicates`
+now supplies a read-only exact-current-text hint; it never infers groups/review/
+consent. Frontend duplicate adapter/UI/cache/native integration remains pending;
+see [handoff](docs/frontend-contract-handoff.md#oct-6-rev6-exact-text-duplicate-hint).
 
 Oct 5 current preference solver: L2=0.1, up to 64 damped Newton/Cholesky steps and
 32 backtracks per step; publishable weights require gradient infinity norm
@@ -163,6 +172,70 @@ exact evidence excerpts, then stages the batch as pending. It never accepts
 candidates automatically. A usable adapter and model benchmark are still
 pending the runtime decision.
 
+## Oct 6 offline tools and typed validation performance
+
+Accepted 2026-10-06 (Asia/Taipei): only the offline two-baseline comparison tool,
+eight matched leave-one-feature-out ablations and typed validation resource /
+consistency proof. Main full session65720 exit0: 601 tests / 84.585s / OK /
+0 skips; independent discovery found 601 unique IDs / 0 loader errors. Main
+focused session67821 exit0: 40 tests / 9.939s / OK / 0 skips overlaps the full
+suite. Owner evaluator69/3.415s used DB/network denials. Counts are not added.
+Completed Lovelace verification, Linnaeus antipattern and Ramanujan quality
+reviews have no demonstrated blockers; details and frozen source hashes are
+authoritative in the [latest root log](../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance).
+
+Use the selected project Python environment from `back-end-core`:
+
+```sh
+python -m model.preference_evaluation --manifest docs/preference-evaluation.example.json
+python -m model.preference_evaluation --manifest docs/preference-evaluation.example.json --comparisons
+python -m model.preference_evaluation --manifest docs/preference-evaluation.example.json --comparisons --validate-only
+python -B -m unittest discover -s tests -q
+```
+
+These are generic how-to commands, not executions by this documentation owner.
+Comparisons require explicit `--comparisons`: full + nonpersonal equal_weight
+sum heuristic + analytic uniform chance + eight fixed ablations = 11 variants,
+10 full-vs-variant pairs. Original cohort admission/numeric deduplication occurs
+before projection, once; projections preserve event multiplicity/group ownership
+without further deduplication. All predictions/distributions precede held-out
+scoring-label reads; support loss, original-cohort and equal-group denominators
+remain visible. There is no automatic selection or calibration/validity claim.
+Using holdout comparisons to select parameters requires a new independent final
+holdout. See the [comparison protocol](docs/preference-evaluation.md#opt-in-offline-comparisons).
+
+Main synthetic comparisons CLI exited 0 with empty stderr: 11 variants / 10 pairs,
+automatic_selection=False, validity_claim=False, database_opened=False. This
+proves synthetic wiring only. Main's exact recorded full-suite command was:
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=/tmp/alpha-verify-20261006.ltAAKM /tmp/alpha-verify-20261006.ltAAKM/bin/python -B -m unittest discover -s tests -q
+```
+
+That dated temporary environment used CPython 3.14.7 / jsonschema 4.26.0; it is
+verification evidence, not a permanent runtime path or a promise it still exists.
+No tests or benchmarks were rerun for this documentation recovery.
+
+`validate_corrections` lazily performs at most one complete translation per
+function invocation; empty/parameter-only/pretranslation failure uses zero.
+The batch bound remains 64, without global/cross-invocation caching.
+`correction_reopen` still validates before and inside the transaction, and
+observations translate separately. This is not a one-translation API-request
+budget. The historical 98,752-character / 64 distinct-tone-target benchmark
+remains median 2.857913091s -> 0.057367233s and Python peak 542,710 -> 429,267B;
+it measures function timing/Python allocation, not API latency/native RSS.
+See the [original performance proof](docs/correction-performance.md).
+
+Source t/t continues to update translator/13-rule model/memories; independent
+labels/impacts/consent/reviewed groups gate the separate temporary CPU preference
+fit. Typed annotations intentionally do not override the 13 rule parameters;
+future unified consumption remains an unanswered user decision. General
+correction/generic replay, broad P0/P2/P3, real holdout/calibration/parameter
+selection, frontend/native, actual weights/resources/GPU/CI and the encryption
+decision remain pending. Exact-text duplicate hints are not implemented or
+accepted here. Schema v1 / rev5 / 34 methods is unchanged; the broader goal
+remains active, not achieved, with [14 root pending items](../front-back-communicate.md).
+
 ## Oct 5 verification recovery and next integration
 
 Historical recovery sequence: all pending/PROPOSED statements in this section
@@ -258,3 +331,24 @@ no automatic retry. Model next: contrast-span abstention. Duplicate hints,
 P2/P3 overall, baselines/ablation/calibration, real held-out validity, actual
 weights, native/GPU and frontend acceptance stay pending. No further edits are
 planned for this documentation milestone; main can review the six owned files.
+
+## Oct 6 rev6 exact-text duplicate hint
+
+Accepted backend only: authenticated read-only
+`input_duplicates(source_id: str, *, limit: int = 20)`, schema1/rev6/35 methods,
+health.features.exact_text_duplicate_hint=true. It compares current stored raw
+text with SQLite BINARY equality, returning bounded private metadata and
+snapshot tokens, no raw text or mutation. Backend submit/edit/review do not
+invoke it; frontend may request after save/edit, including its own post-save
+trigger. User-reviewed groups remain necessary; no automatic grouping/approval/
+consent/merge/dedup/block-submit/refit. See the [API](docs/api.md#oct-6-rev6-exact-text-duplicate-hint)
+and [pending frontend handoff](docs/frontend-contract-handoff.md#oct-6-rev6-exact-text-duplicate-hint).
+
+Main620/100.682s/OK/0 skips, discovery620 unique/0 loader errors and three
+terminal no-blocker reviews are recorded with the exact dated command and
+frozen hashes in the [rev6 log](../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint);
+the temporary verification environment is not a permanent runtime path.
+Root13 pending; frontend adapter/UI/cache/native, general correction/dependency
+replay, real holdout/weights/resources/CI/Python3.10 and broad P0/P2/P3 remain
+open. Overall goal ACTIVE/NOT ACHIEVED; earlier main601/rev5 main576 proofs and
+recovery amendments keep their historical scope.

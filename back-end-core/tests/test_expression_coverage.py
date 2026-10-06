@@ -131,7 +131,10 @@ class ExpressionIntegrationTests(unittest.TestCase):
         self.assertEqual(preview["interpretation"]["evidence_policy"], POLICY_VERSION)
         self.assertEqual(preview["interpretation"]["withheld_count"], 1)
         result = self.model.review(source, agree=True)
-        self.assertEqual(preview["interpretation"], result["interpretation"])
+        self.assertIsNone(preview["interpretation"]["dependency_provenance"]["fit_id"])
+        self.assertRegex(result["interpretation"]["dependency_provenance"]["fit_id"], "^[0-9a-f]{32}$")
+        strip = lambda value: {**value, "dependency_provenance": {**value["dependency_provenance"], "fit_id": None}}
+        self.assertEqual(strip(preview["interpretation"]), strip(result["interpretation"]))
         self.assertEqual(self.model.state("rational")["value.fairness"]["support"], 0)
         self.assertEqual(self.model.state("rational")["value.autonomy"]["support"], 1)
         self.assertEqual(self.api.brain.input_get(source)["text"], text)

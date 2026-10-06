@@ -100,6 +100,10 @@ def validate_database(path: str | Path) -> None:
                     # Never run its additive initializer against the input DB.
                     with db:
                         preferences.initialize(db)
+                if model_database and 'brain_relations' in actual:
+                    from model import relations
+                    with db:
+                        relations.initialize(db)
                 expected = _schema(db)
                 expected_objects = _schema_objects(db)
         if actual != expected or actual_objects != expected_objects:

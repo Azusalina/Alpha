@@ -1,19 +1,25 @@
-# Local API v1 — revision 5 backend synthetic contract delivered
+<a id="local-api-v1--revision-5-backend-synthetic-contract-delivered"></a>
 
-> 2026-10-06 (Asia/Taipei): schema_version=1 / contract_revision=5 / 34 methods,
-> features.preference_contrast_guard=true. Main session80693 exit0: 576 tests,
-> 59.590s, OK, 0 skips; final verification, quality and antipattern reviews found
-> no blockers. Main accepts only the rev5 backend synthetic contract; see
-> [contrast semantics](#rev5-contrast-contract) and [exact final proof](#oct-6-final-rev5-backend-synthetic-contract).
+# Local API v1 — revision 6 exact-text duplicate hint backend accepted
+
+> 2026-10-06 (Asia/Taipei): schema_version=1 / contract_revision=6 / 35 methods,
+> features.exact_text_duplicate_hint=true; prior contrast guarantees unchanged.
+> Main session90162 exit0: 620 tests/100.682s/OK/0 skips; independent discovery
+> 620 unique IDs/0 loader errors. Aquinas/Tesla/Franklin terminal reviews found
+> no blockers. Only the exact-text duplicate hint backend is accepted this phase;
+> see [current contract](#oct-6-rev6-exact-text-duplicate-hint) and [full proof](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+> Earlier [main601](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance)
+> and [rev5 main576](#oct-6-final-rev5-backend-synthetic-contract) retain historical scope.
 > P2/P3 overall, frontend/native, general correction/generic replay, actual weights
 > and real validity remain pending. Dated proposals/intermediate pending below
 > are superseded for current status; rev4 483/rev3 458/411 retain historical scope.
+> Root queue has 13 pending items; overall goal ACTIVE/NOT ACHIEVED.
 
 Historical main proof is 396 full-discovery tests (134.672s), then 51 semantic
 tests (1.142s) covering the two added tests in a 398-test discovery; all had 0 skips.
 Independent backup verification passed 12 (11.220s), 0 skips. This is not a single
 398-test run or acceptance of later preference/evaluator edits. See
-[current queue and proof](TODO.md#oct-6-current-rev5-delivery-and-remaining-queue).
+[current queue and proof](TODO.md#oct-6-rev6-exact-text-duplicate-hint).
 
 `python -m core.api --db /absolute/synthetic.sqlite3` from `back-end-core` serves
 newline-delimited UTF-8 JSON on stdin/stdout. No network listener. The host selects
@@ -23,7 +29,9 @@ string. Success: `{schema_version:1,id,ok:true,result}`. Failure:
 `{schema_version:1,id:string|null,ok:false,error:{code,message}}`.
 ID is correlation, not idempotency. Do not retry uncertain writes automatically.
 
-## 34 methods — revision 5 synthetic backend conformance verified
+<a id="34-methods--revision-5-synthetic-backend-conformance-verified"></a>
+
+## 35 methods — revision 6 backend conformance accepted
 
 [api.schema.json](api.schema.json) is Draft 2020-12. Root validates requests;
 `#/$defs/response` validates envelopes only. Validate successful bodies using
@@ -39,13 +47,14 @@ Nullable optional filters equal omitted filters.
 
 | Method | Params | Result fields/schema type |
 | --- | --- | --- |
-| health | `{}` | schema_version=1, contract_revision=5, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features.reviewed_event_groups=true, features.preference_contrast_guard=true, access; model_epoch when unlocked only |
+| health | `{}` | schema_version=1, contract_revision=6, candidate_publication="automatic_double_approval", llm_runtime_configured=false, methods, features.reviewed_event_groups=true, features.preference_contrast_guard=true, features.exact_text_duplicate_hint=true, access; model_epoch when unlocked only |
 | baseline | `{}` | schema_version=1, partitions, parameters (13 immutable zeros) |
 | access_status | `{}` | configured:boolean, locked:boolean |
 | unlock | password | configured:boolean, locked:boolean |
 | lock | `{}` | configured:boolean, locked:boolean |
 | submit | text, partition, kind?="diary", self_speaker?, source_ref?, immediate?=true, exclamation?=false | decisionFields; actual fit fields on exclamation |
 | input_get | source_id | inputRecord plus text |
+| input_duplicates | source_id, limit?=20 | {source_id,source_version,match_kind="exact_text",items:duplicateItem[],total,truncated,input_revision,model_epoch}; [closed metadata contract](#oct-6-rev6-exact-text-duplicate-hint) |
 | input_edit | source_id, text, immediate, kind?, self_speaker? | inputRecord, confirmation reset |
 | input_delete | source_id | source_id, deleted=true |
 | input_list | partition?, status?, limit? | inputRecord[] |
@@ -107,7 +116,9 @@ migration before can be status-only; reopen approval snapshots add source_versio
 and reopened. correctionRecord: revision, corrections, created_at; archive entries
 add source_version. Full nested field types and negative-shape checks are in schema.
 
-## Hybrid extension semantics (current revision 5)
+<a id="hybrid-extension-semantics-current-revision-5"></a>
+
+## Hybrid extension semantics (current revision 6)
 
 JSON params are closed and flat. There is no nested `feedback` dictionary.
 Targets: actual/endorsed; domains: daily/study/relationships; partitions retain
@@ -604,3 +615,86 @@ superseded for current status only. Completed root tasks moved to the
 Overall goal remains active: P2/P3, real validity/calibration/parameter selection,
 frontend/native, general correction/generic replay, actual weights/GPU and
 online CI/Python3.10 remain pending.
+
+## Oct 6 rev6 exact-text duplicate hint
+
+`input_duplicates(source_id: str, *, limit: int = 20) -> dict` is an
+authenticated, read-only advisory query for an already stored submit/current
+edit. Closed flat params require source_id and allow only optional limit.
+Runtime rejects blank/non-string/NUL/surrogate IDs and limits other than exact
+int (non-bool) 1..100; JSON Schema integer accepts 1.0 while runtime rejects it,
+an existing validator limitation. Shape validation is not semantic proof.
+The target must be an application input or returns NOT_FOUND; legacy-only
+targets/matches and the target itself are excluded. All statuses, kinds,
+partitions and current/old epochs are included. Match CURRENT stored raw text
+using SQLite BINARY equality: no trim, casefold, normalization, CRLF conversion,
+fuzzy/semantic comparison, hash matching or history matching.
+
+The closed result contains exactly source_id, source_version,
+match_kind="exact_text", items, total, truncated, input_revision, model_epoch.
+Each closed item contains exactly source_id, partition, kind, status,
+source_version, model_epoch, model_active, created_at. Items order by
+created_at DESC, source_id DESC; limit bounds output, not full-scan latency.
+Target version, total, limited items, GLOBAL input_revision and CURRENT
+model_epoch share one BEGIN read snapshot. Item model_active means rule source
+agreed in the current epoch, not feedback eligibility. Target source_version
+and top-level revision/epoch are snapshot tokens, not guaranteed latest at
+return; the frontend must discard stale hints against current guards before use.
+
+No raw text, source refs, excerpts, evidence, hash, labels, weights, group review
+or consent are returned. Counts/IDs/statuses remain private: clear hint caches
+on LOCKED/reconnect/Reset/edit/delete/version changes. Access is checked before
+and after operation; lock/config rotation suppresses metadata. Locked calls
+with a missing DB create none; SQLite remains plaintext. The backend does not
+invoke the hint inside submit/edit/review or other operations; a frontend may
+explicitly request it after save/edit, including its own post-save trigger.
+There is no automatic grouping/approval/consent/merge/dedup/block-submit/refit,
+and different text does not imply the same event. User-reviewed event groups
+remain necessary.
+
+Health now exposes features.exact_text_duplicate_hint=true with rev6/35 methods;
+schema_version=1, the closed request/envelope design and prior contrast guarantees
+remain unchanged. Frontend negotiation requires BOTH the input_duplicates method
+and the feature, plus owner adapter/UI/cache/native acceptance, still pending;
+no automatic write retry. Read-only main inspection found Remote.readHealth
+permits new fields but API_METHOD has no duplicate method; this is not UI proof.
+Main620/100.682s/OK/0 skips and all three terminal reviews accept only this
+backend phase; exact command, review scopes and six hashes are in the
+[rev6 log](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+Root13 pending; overall goal ACTIVE/NOT ACHIEVED.
+
+## Oct 6 rev7 semantic label revision (pending acceptance)
+
+typedCorrection accepts an optional `revised_value` (trimmed 1–64 characters, no
+control/surrogate characters, different from `value`, only with `sign` 1) when
+`health.features.semantic_label_revision` is true. It targets exact existing
+translator output as before and replaces only that record's `value` in
+`interpretation.translation` and in deterministic memory claims. Raw text, the raw
+`preview.translation` report, the 13 rule parameters and learned rules are
+unchanged; typed annotations still never teach rules. Already-fitted sources use
+`correction_reopen`/`replay_reopen` with the usual source_version/revision/epoch
+guards and return to pending/disagreed, so both judgements must be reconfirmed.
+Nothing is inferred, propagated to other sources or auto-reviewed. Adding labels
+the translator did not produce is not implemented. Local synthetic tests only.
+
+## Oct 6 rev7 manual relations (pending acceptance; 38 methods)
+
+`relation_set` and `relation_list` (health.features.manual_relations) store only
+user-reviewed directed edges between two existing sources, kind `semantic` or `causal`.
+`relation_set` is guarded by both source versions, global input revision and model
+epoch; `reviewed=true` saves/replaces the edge (optional note up to 1024 characters),
+`reviewed=false` retracts it (idempotent, `changed=false` when absent; no note). A
+source may touch at most 64 edges. Nothing is inferred: the backend never creates,
+reviews, consents, fits, replays or rewrites effects because of an edge.
+
+An edge is bound to both source_versions and the model epoch. `relation_list`
+(`source_id`, limit 1–100) returns incoming/outgoing edges with `stale=true` once
+either source was reopened/versioned or the model was Reset; stale edges are
+ignored by the planner and not auto-deleted. F6 edit/delete purge the source's
+edges. `dependency_plan` now also follows fresh edges (via_kinds `manual_semantic`/
+`manual_causal`); manual-only targets have fit_id=null, provenance_complete=false and
+replay_eligible only if they were fitted in the current epoch. Manual edges do not
+make `status` partial and are user claims, not proof of causation. Notes and ids are
+private: frontends clear them on LOCKED/reconnect/Reset like other private caches.
+Replay still requires explicit `replay_reopen` with guards and fresh double
+confirmation. Local synthetic tests only; no independent review.

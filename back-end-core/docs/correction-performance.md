@@ -140,3 +140,13 @@ change and would enlarge the semantic review surface.
 
 This document is evidence for main-owner verification; active TODO/log files and
 archive status were not edited.
+
+## Dated acceptance suffix — 2026-10-06
+
+Main subsequently accepted only the validation call budget/resource consistency:
+focused40/9.939s/OK/0 skips, session67821 exit0, overlaps full601/84.585s/OK/
+0 skips, session65720 exit0. All three fresh reviews completed without demonstrated
+blockers; see [latest root log](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance).
+The original measurements and two-phase reopen boundary above remain unchanged;
+this suffix reruns no tests/benchmark and makes no API latency/native RSS claim.
+General correction/generic replay and future unified typed consumption remain pending.

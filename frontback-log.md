@@ -2,7 +2,7 @@
 
 整理日期：2026-10-05；最新限定验收追加于 2026-10-06（Asia/Taipei）。活动未完成清单见 [front-back-communicate.md](front-back-communicate.md)。
 
-> **当前最新状态｜2026-10-06（Asia/Taipei）**：main 已限定接受 rev5 backend synthetic contract，576／59.590s／OK／0 skips、三份最终 reviews 无 blockers；见 [Oct 6 最新完成记录](#oct-6-final-rev5-backend-synthetic-contract) 和 [当前 API／精确证明](back-end-core/docs/api.md#oct-6-final-rev5-backend-synthetic-contract)。下方八项既有索引是截至 Oct 5 的 dated history，其中「当前 rev5 未接受」仅描述当时状态，现已由 Oct 6 限定接受 supersede；索引和原始快照保留原文。整体目标 active，root 仍有 15 项 pending。
+> **当前最新状态｜2026-10-06（Asia/Taipei）**：main session90162 exit0，620／100.682s／OK／0 skips＋Aquinas／Tesla／Franklin 三份终态 fresh reviews 无 blockers，仅接受 rev6 exact-text duplicate hint 后端；见 [最新完成记录／精确证明](#oct-6-rev6-exact-text-duplicate-hint)。当前 schema_version=1／contract_revision=6／35 methods；旧 [main601／84.585s](#oct-6-offline-comparisons-and-typed-validation-performance) 与 [rev5 main576／59.590s](#oct-6-final-rev5-backend-synthetic-contract) 保留历史范围。下方八项既有索引、原始快照及 dated proof 保留原文。整体目标 ACTIVE／NOT ACHIEVED，root 仍有 13 项 pending，frontend adapter／UI／cache／native 继续待验收。
 
 本日志汇集已有完成记录；以下结果来自原沟通记录，本次文档整理未重新执行代码或测试。后续已验证事项按日期、实际结果／证据、限定范围追加 `//// - [x]`；批准、方案和源码存在不单独构成完成，部分完成只归档已完成子项。
 
@@ -505,3 +505,91 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=/tmp/alpha-verify-20261005-night.
 ```
 
 本次只接受 rev5 backend synthetic contract。来源 t/t → translator／13-rule model／memories 保持原有语义，reviewed groups 只约束八参数 preference；rank 临时 read-time fit，不写 DB／持久 weights，不训练 encoder。Frontend、一般语义纠错／一般因果重放、P2/P3 整体、真实效度、actual weights／GPU／CI 仍 pending；不重新纳入历史排除议题。
+
+## Oct 6 offline comparisons and typed validation performance
+
+2026-10-06（Asia/Taipei）：main 独立检查冻结源码／hashes、完整证明和三份已完成 fresh reviews 后，仅接受本节三个限定子项。根清单的 typed 性能项迁入，baselines／ablations 从 broad 真实效度任务拆出工具交付部分；根未完成数由 15 减至 14。整体目标 **active，未 achieved**。上方八项旧索引、原始 464 行快照及 rev5 main576／59.590s 的 dated proof 均逐字保留，不以新计数改写旧证明。
+
+//// - [x] **2026-10-06｜离线 baseline 比较工具**：显式 opt-in `--comparisons` 提供 full、nonpersonal equal_weight sum heuristic 与 analytic uniform chance；chance 是期望值而非随机抽样或实际个人准确率。沿用原始 target eligibility／consent／contamination／axis 边界，所有 predictions／distributions 在 scoring labels 读取前完成；无自动选择、promotion 或真实效度声明。owner69／3.415s、main601／84.585s、main synthetic CLI 和三份 fresh reviews 支持本次工具交付；参见 [evaluator 协议](back-end-core/docs/preference-evaluation.md#opt-in-offline-comparisons)。
+//// - [x] **2026-10-06｜八参数 matched-ablation 比较工具**：full＋两种 baselines＋固定八个 leave-one-feature-out ablations 共 11 variants／10 full-vs-variant pairs；原始 cohort 只 admission／numeric dedup 一次，projection 后不再次去重，保留原始 event multiplicity／group ownership／target masking，无跨轴 pooling。生产 support／span／tie／convergence guards 保持；BOTH_PREDICTED 交集与原始 cohort／equal-group denominators 同时披露 support loss，18 default／162 comparison fits，既有 1000-case 上限不变。只交付比较工具，不完成参数选择、calibration、独立真实 holdout 或整个 P3。
+//// - [x] **2026-10-06｜Typed validation 性能预算及一致性证明**：`validate_corrections` 每次函数调用惰性完整重译至多一次，empty／parameter-only／pretranslation failure 为零；batch 上限仍 64，无跨调用／全局缓存。`correction_reopen` 仍有事务前后两次 validation，observations 另有翻译，不能写成每个 API request 仅一次。main40／9.939s 与 full601、fresh resources12 支持一致性／调用预算限定验收。历史 98,752-char／64 distinct-tone-target benchmark 的 median2.857913091s→0.057367233s、64→1 calls、Python peak542,710→429,267B 保留原始测量；本轮文档整合未重跑 benchmark。不是 API latency／native RSS／前端响应保证。Typed annotations 仍不产生 13 参数贡献，一般语义纠错／generic replay 和未来统一消费问题仍待用户决定；见 [原始性能证明](back-end-core/docs/correction-performance.md)。
+
+Main 独立完整执行：session65720 exit0，**601 tests／84.585s／OK／0 skips**；另独立 discovery 得 601 unique IDs／0 loader errors。这是实际完整 suite，不由旧576＋新增 counts 算出，也未为取回终态重新启动。Main focused session67821 exit0：**40 tests／9.939s／OK／0 skips**，与 full 重叠，不相加。Owner evaluator69／3.415s，DB／network denied，及其 synthetic comparisons／validate-only exit0 保留 owner 原证明范围。
+
+Main full 的精确命令（工作目录 `back-end-core`；文档 owner 未重跑）：
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=/tmp/alpha-verify-20261006.ltAAKM /tmp/alpha-verify-20261006.ltAAKM/bin/python -B -m unittest discover -s tests -q
+```
+
+`/tmp/alpha-verify-20261006.ltAAKM` 为该日期的临时验证环境：CPython3.14.7／jsonschema4.26.0，不是永久 runtime，不能保证以后仍存在。通用项目 Python 命令见 [README](back-end-core/README.md#oct-6-offline-tools-and-typed-validation-performance)。Main synthetic `--comparisons` CLI exit0／stderrEmpty：11 variants、10 pairs，full actual／endorsed 各 correct=1，chance expected=0.5，automatic_selection=False／validity_claim=False／database_opened=False；只证明 synthetic wiring。
+
+三份 fresh reviews 均 completed，无 demonstrated blockers；重叠测试、assertions 和 probes 不合算成独立 suite 数：
+
+- **Lovelace verification**：81 focused／5.403s／0 skips；21,313 independent Fraction assertions／1.147228s，pre-import DB／network denials 下 0 attempts。核对 matched original cohort，chance expected63/40、21/80、63/320；held-out flips 及全部162 queries 先于72 scoring label reads；六个 axis scenarios、support loss3→2、无 automatic selection。Reviewer harness 的 SSL import order 与 substring privacy assertion 两项错误在成功 probe 前已修正，非 production defects，失败 runs 不列 passed。
+- **Linnaeus antipattern**：12 resources／5.590s＋18 pure preferences／0.722s，两轮 guarded no file writes／DB／network0 attempts；四个 positive CLI 和五个 failure CLI（exit2／generic error），20/20 source hashes stable。CLI stdout 大小只是该合成 fixture 的观测，不是资源硬上限或 API latency。
+- **Ramanujan quality**：24 focused／0 skips；1000 randomized Fraction paired-summary probes／60,000 field assertions，original projection group mass matched；1000 cases 的18／162 fit bounds 与1001 rejection 正确。未编辑源码／未运行 full。非阻碍建议：`_ratio` numerator annotation 应允许 float；`_informative_events` 镜像 production admission，未来 fitter 更改时须维护 parity。当前 runtime 正确，本轮不改源码，也不新增强制 root tasks。
+
+Main 接受的冻结 SHA-256（文档整合前核对一致）：
+
+| File（相对 back-end-core） | SHA-256 |
+| --- | --- |
+| model/preference_evaluation.py | `58ad89efc4b9921e6d8ed952da0c259ca4d341a266c6f0becb224c31a0f5a5c8` |
+| model/corrections.py | `cddf331fc10baf7041946c35d6b2ef74b2c61d1cee4a0deb7ced2728a4d95f96` |
+| tests/test_preference_evaluation.py | `44036f7a05d3c4a9e1668b7879df31a92b7e3e09bc913525084773ed26676050` |
+| tests/test_correction_resources.py | `271c1f822a94638ebdf45d6306aa588cc4b3b1b7c7489648c665591a6a097a58` |
+
+API／schema／preferences／contrast／baseline 未因本阶段更改，schema_version=1／contract_revision=5／34 methods 不变。来源 t/t → translator／13-rule model／memories 与显式 labels／consent／reviewed groups → 八参数临时 preference fit 保持分开；不写 DB／持久 weights、不训练 encoder。独立真实 labels／holdout／calibration／参数选择、整体 P0／P2／P3、一般纠错／generic replay、frontend/native、encoder weights／资源发行／GPU／CI 及整库加密决策仍待办。使用 holdout 比较结果选参会使其成为 development data，最终效度需要新的独立 holdout。此记录是已验证阶段的文档整合，不完成整体目标。
+
+## Oct 6 rev6 exact-text duplicate hint
+
+2026-10-06（Asia/Taipei）：main 核对冻结源码与三份终态 fresh reviews 后，仅接受 exact-text duplicate hint 后端。根独立 hint task 从14项迁出，剩13项；frontend duplicate adapter／UI／cache／native acceptance 合入既有 F14／guards／native bullets，继续 pending。八项旧索引、原始464行快照和全部 dated history／recovery amendments 保留；整体目标 **ACTIVE／NOT ACHIEVED**。
+
+//// - [x] **2026-10-06｜Exact-text duplicate hint 后端限定交付**：authenticated read-only `input_duplicates(source_id: str, *, limit: int = 20)`、health.features.exact_text_duplicate_hint=true；schema_version=1／contract_revision=6／35 methods。仅对当前 stored raw text 做 SQLite BINARY equality，单 BEGIN read snapshot 返回 bounded metadata／total／target version／GLOBAL revision／CURRENT epoch；不返回原文／引用／证据／hash／labels／weights，不写 DB、不 refit。后端不在 submit/edit/review 等操作内自动调用；前端可在保存／编辑后显式请求读取，trigger 由 owner 接线验收。不同文本不推断同事件；不自动分组／审核／认可／consent／合并／去重／阻挡提交。用户审核 event groups 仍需要，前端能力／guards／缓存要求见 [API](back-end-core/docs/api.md#oct-6-rev6-exact-text-duplicate-hint) 与 [handoff](back-end-core/docs/frontend-contract-handoff.md#oct-6-rev6-exact-text-duplicate-hint)。
+
+Main full session90162 exit0，**620 tests／100.682s／OK／0 skips**；独立 discovery620 unique IDs／0 loader errors。工作目录 `back-end-core`，精确命令（本次文档整合未重跑）：
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=/tmp/alpha-duplicate-20261006.gbby9M /tmp/alpha-duplicate-20261006.gbby9M/bin/python -B -m unittest discover -s tests -q
+```
+
+Main translator7／0.002s／0 skips；临时 CPython3.14.7／jsonschema4.26.0／PyNaCl1.6.2 仅属本轮验证环境，不是永久 how-to 路径或 Python3.10／发行验收。Owner Carson focused187／23.090s／0 skips；此前81 tests 四项 fixture failures、84 tests 一项 fixture failure均为修正 lifecycle assumptions 前的失败 runs，不列 passed 或 production bugs。三份 fresh reviews 均终态无 blockers，重叠 counts 不相加：
+
+- **Aquinas verification**：109／36.019s；独立 seeded20261006 oracle 用360 application／36 legacy／25 body variants，1800 matching queries＋4 missing/legacy＋26 invalid probes／8.689s；另8 snapshot/access probes／1.334s。初始 oracle trigger fixture failed 后修正，不是 production bug，不记为成功 run。
+- **Tesla antipattern**：18／2.946s＋selected7／2.470s＋6 new adversarial／1.259s；核对 read-only SQL、无 raw-text locals、WAL delete/Reset 与 lock/config rotation。
+- **Franklin quality**：26／11.850s＋3／0.264s＋1／0.189s＋7 independent／0.271s。非阻碍建议为 duplicated-validation coordination 与既有 JSON Schema integer 接受1.0、runtime exact-int 拒绝的限制；validator 不构成 semantic proof。
+
+Main 另核对 Unicode／closed shape／DB dump stable；readonly URI authorizer0 write attempts，910000 chars 的一次观测为402B wire／0.02693s／cold Python peak1508952B，不是全库 scan latency／RSS 保证。Access gate 在操作前后复查，lock/config rotation 抑制 metadata；locked missing DB 不创建库，SQLite 明文边界不变。
+
+Main 接受的六个 SHA-256（相对 `back-end-core`；文档整合时只读核对）：
+
+| File | SHA-256 |
+| --- | --- |
+| core/brain.py | `c34824ab3eeda19a1cd1c8b8b9fcdbfd33497766f4809206187479673c618081` |
+| core/api.py | `787d2c43d1dfbf00d2d2dcc0aebeb9aa318ee75ceaaccb04f710b3eace9567d8` |
+| docs/api.schema.json | `0c2d75893f2172a8613f546c35a6bf143975507d288c18f0eeef86f78be02989` |
+| tests/test_input_duplicates.py | `d1ed6b8ffadf812ef792758f4671278659ab08b0c768246456912f54ac8807ae` |
+| tests/test_schema_contract.py | `4c00234c3e00a4355469d60e61705e9e95f6422e230f2250acd4213f91f874a9` |
+| tests/test_hybrid_api.py | `f8de6354f4cd0b95b91ddde6099cd5c2060845d0be0d7e339b2083931ab84110` |
+
+Main verified preferences／corrections／evaluator／contrast／baseline unchanged. 旧 main601／84.585s、rev5 main576／59.590s 保留各自历史范围。Typed annotations 的未来统一消费用户决定仍未回答，当前 split／13-rule params 不自动覆盖。一般语义纠错／依赖重放、真实 holdout／encoder weights／资源／CI／Python3.10／native／frontend 与 broad P0/P2/P3 仍 pending；duplicate hint 不关闭这些任务。
+
+## Oct 6 general downstream replay scope decision
+
+- **2026-10-06（Asia/Taipei）｜用户确认**：一般因果／下游重放范围为「计算依赖＋人工审核的语义／因果依赖（推荐）」。这是范围授权，非实现或验收；用户审核的语义／因果边仍待实现，根 P0 保持未完成，根清单仍为 13 项 pending／0 项 completed。
+- **阶段与边界**：main 指定当前阶段为 computational input provenance／read-only transitive planner，尚未验收；下一阶段为人工关系工作流。不自动推断心理／事件因果，不自动审核／认可／consent／拟合，不强制改写既有 effects；重放仍须显式请求并对修订解释重新取得双确认，保留历史 effects／冻结拟合／Reset 排除边界。
+- **保留未决事项**：typed annotations 未来统一消费仍待用户决定，当前 split／13-rule params 不自动覆盖。本记录不更改 rev6／620 证明、日志头部验收状态或整体 ACTIVE／NOT ACHIEVED 状态。
+
+## Oct 6 semantic label revision (rev7 backend, pending acceptance)
+
+- **2026-10-06（Asia/Taipei）｜用户确认范围**：一般语义纠错取「版本绑定的事件／语义标签修订＋修订后强制重新双确认，不自动推断」。
+- **已实现（待 main 验收，非完成）**：typed correction 增加可选 `revised_value`（1–64 字符、已 trim、无控制字符／代理项、≠原 value，仅 sign=1）；仅改写精确命中的 translator 输出在 interpretation.translation 与 deterministic memory claim 中的值，原文、13 规则 effects、raw translation 报告不变。`health.features.semantic_label_revision=true`；前端须同时检查此特性位才可发送 `revised_value`。沿用既有 `correction_reopen`／`replay_reopen` 的 source_version／revision／epoch guards：已 fitted 来源修订后回到 pending／disagreed，必须重新双确认。修订不自动审核、不扩散到其他来源、不教授新规则（学习规则仍只读 parameter 类纠错）。
+- **证据**：本机 `python -B -m unittest discover -s tests -q` 在临时 venv（含 jsonschema4.26.0）657 tests／OK／0 skips；新增 tests/test_label_revision.py 5 项与 schema 契约 1 项＋health 特性位变异。未经独立 reviews；无真实数据。同时修复上一阶段遗留的 test_expression_coverage 断言（preview 的 dependency_provenance.fit_id 为 null、review 后为实 ID，属设计行为）。
+- **未做**：任意新增（translator 未识别的）标签、前端 UI／adapter、对 13 规则参数的覆盖（仍待用户统一消费决定）。
+
+## Oct 6 manual relations (rev7 backend, pending acceptance)
+
+- **用户确认设计（2026-10-06）**：人工审核依赖边采用新表＋`relation_set`／`relation_list` 两个方法。
+- **已实现（待 main 验收，非完成）**：`brain_relations`（semantic／causal、有向、绑定两端 source_version 与 model_epoch、note≤1024、每来源≤64 边）；`relation_set` 带 guards，`reviewed=true` 保存／替换、`false` 撤回；`relation_list` 标 stale；F6 编辑／删除清除边，reopen／Reset 使边 stale 并被 planner 忽略。`dependency_plan` 合并新鲜人工边（via_kinds 增 `manual_semantic`／`manual_causal`，maxItems4）；health 增 `manual_relations`，methods 38；backup validate 识别可选表。不自动推断、审核、consent、拟合、重放或改写 effects。
+- **证据**：临时 venv（jsonschema4.26.0）`python -B -m unittest discover -s tests -q`：664 tests／OK／0 skips；新增 tests/test_relations.py 7 项及 schema 契约 live 示例／signature／health 变异。无独立 reviews；无真实数据。
+- **未做**：前端人工关系 UI／adapter；是否让 replay_preview 默认包含人工边；本改动未更新 rev7 验收文本。

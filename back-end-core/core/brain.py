@@ -9,7 +9,7 @@ import stat
 from contextlib import closing
 
 from model import BrainModel
-from model import preferences, reset
+from model import preferences, relations, reset
 from model.catalog import PARTITIONS
 from model.sources import public_record
 
@@ -34,6 +34,7 @@ class BrainCore:
             db.execute("BEGIN IMMEDIATE")
             pagination.initialize(db)
             preferences.initialize(db)
+            relations.initialize(db)
 
     @staticmethod
     def _partition(partition: str | None) -> None:
@@ -64,6 +65,42 @@ class BrainCore:
         if row is None:
             raise KeyError("brain input not found")
         return {**public_record(row, row["text"]), "text": row["text"]}
+
+    def input_duplicates(self, source_id: str, *, limit: int = 20) -> dict:
+        """Advisory exact matches of current raw text; no review or consent effects."""
+        self._limit(limit)
+        if not isinstance(source_id, str) or not source_id.strip() or "\0" in source_id:
+            raise ValueError("source_id must contain text without NUL")
+        try:
+            source_id.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("source_id must not contain surrogate code points") from None
+        with self.store._connect() as db:
+            db.execute("BEGIN")  # Target, count, rows and tokens share one read snapshot.
+            target = db.execute(
+                "SELECT i.source_version FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
+                "WHERE i.source_id=?", (source_id,),
+            ).fetchone()
+            if target is None:
+                raise KeyError("brain input not found")
+            revision = pagination.revision(db)
+            current_epoch = reset.epoch(db)
+            # Keep both the target body and candidate bodies inside SQLite.
+            matches = ("FROM brain_inputs i JOIN sources s ON s.id=i.source_id "
+                       "WHERE i.source_id<>? AND s.body COLLATE BINARY="
+                       "(SELECT body FROM sources WHERE id=?) COLLATE BINARY")
+            total = db.execute("SELECT COUNT(*) " + matches, (source_id, source_id)).fetchone()[0]
+            rows = db.execute(
+                "SELECT i.source_id, i.partition, i.kind, i.status, i.source_version, i.model_epoch, "
+                "(i.status='agreed' AND i.model_epoch=?) AS model_active, s.created_at " + matches +
+                " ORDER BY s.created_at DESC, i.source_id DESC LIMIT ?",
+                (current_epoch, source_id, source_id, limit),
+            ).fetchall()
+            items = [{**dict(row), "model_active": bool(row["model_active"])} for row in rows]
+            return {"source_id": source_id, "source_version": target["source_version"],
+                    "match_kind": "exact_text", "items": items, "total": total,
+                    "truncated": total > len(items), "input_revision": revision,
+                    "model_epoch": current_epoch}
 
     def input_edit(self, source_id: str, text: str, immediate: bool, **optional) -> dict:
         return self.model.input_edit(source_id, text, immediate, **optional)
@@ -162,6 +199,9 @@ class BrainCore:
 
     def replay_preview(self, source_ids: list[str]) -> dict:
         return self.model.replay_preview(source_ids)
+
+    def dependency_plan(self, source_ids: list[str], *, limit: int = 100) -> dict:
+        return self.model.dependency_plan(source_ids, limit=limit)
 
     def replay_reopen(self, source_ids: list[str], *, immediate: bool,
                       expected_source_versions: dict[str, int], expected_revision: int,
@@ -352,6 +392,16 @@ class BrainCore:
             training_consent=training_consent, expected_source_version=expected_source_version,
             expected_revision=expected_revision, expected_epoch=expected_epoch, reason=reason,
             group_id=group_id, group_reviewed=group_reviewed)
+
+    def relation_set(self, from_source_id: str, to_source_id: str, *, kind: str, reviewed: bool,
+                     expected_from_source_version: int, expected_to_source_version: int,
+                     expected_revision: int, expected_epoch: int, note: str | None = None) -> dict:
+        return relations.set_relation(self.store, from_source_id, to_source_id, kind, reviewed,
+            expected_from_source_version, expected_to_source_version, expected_revision,
+            expected_epoch, note=note)
+
+    def relation_list(self, source_id: str, *, limit: int = 100) -> dict:
+        return relations.list_relations(self.store, source_id, limit)
 
     def choice_feedback_get(self, source_id: str) -> dict:
         return preferences.get_feedback(self.store, source_id)

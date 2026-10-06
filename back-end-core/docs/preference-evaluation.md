@@ -9,10 +9,12 @@ rational endorsements prefer `b`. Its result is a wiring demonstration, not
 evidence about a person or real predictive validity. The template is never
 automatically imported.
 
-From `/home/a/Documents/Alpha/back-end-core`, using the supplied offline environment:
+From `/home/a/Documents/Alpha/back-end-core`, use a project environment with
+Python >= 3.10 and the project's dependencies (including `jsonschema` for
+schema tests). The commands below use that environment's `python`:
 
 ```sh
-TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. /tmp/alpha-verify-20261005-night.khVPhV/bin/python -B -m model.preference_evaluation --manifest docs/preference-evaluation.example.json
+TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -B -m model.preference_evaluation --manifest docs/preference-evaluation.example.json
 ```
 
 Add `--details` for held-out opaque case IDs and fixed prediction-reason enums,
@@ -181,7 +183,7 @@ any held-out scoring choice is read. Structural validation remains permitted.
 Run the synthetic protocol with:
 
 ```sh
-TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. /tmp/alpha-verify-20261005-night.khVPhV/bin/python -B -m model.preference_evaluation --manifest docs/preference-evaluation.example.json --comparisons
+TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -B -m model.preference_evaluation --manifest docs/preference-evaluation.example.json --comparisons
 ```
 
 The eleven predeclared variants are `full`, `equal_weight`, `chance`, and
@@ -396,7 +398,7 @@ verification separately from this manifest audit.
 ## Synthetic verification
 
 ```sh
-TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. /tmp/alpha-verify-20261005-night.khVPhV/bin/python -B -m unittest tests.test_preference_evaluation -v
+TMPDIR=/tmp HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -B -m unittest tests.test_preference_evaluation -v
 ```
 
 The same tests are included by backend discovery (`python -B -m unittest
@@ -421,3 +423,26 @@ loss and abstention, exact chance expectations, fixed heuristic ties, pairwise
 intersection and cohort/group denominators, input immutability, strict boolean
 flags, privacy and generic CLI errors. Only this focused test module is required
 for the comparison implementation owner's verification.
+
+Verification recorded 2026-10-06 used the temporary interpreter
+`/tmp/alpha-verify-20261006.ltAAKM/bin/python` (CPython 3.14.7,
+`--system-site-packages`, `jsonschema` 4.26.0), substituted for `python` in the
+commands above. It passed all 69 focused tests in 3.415 seconds. The synthetic
+CLI with `--comparisons`, and with `--comparisons --validate-only --details`,
+both exited 0. Independent synthetic checks also confirmed 18 default versus
+162 comparison fit calls, input immutability, validation-only skipping all
+fits/queries/baselines, the retained input bounds, and isolation of all nine
+model variants from other-target/state/domain development additions. This
+temporary environment is verification evidence, not a permanent runtime path.
+Main-owner proof and three fresh reviews remain required for phase acceptance;
+this evidence does not establish real predictive validity or close broad P3.
+
+## Dated acceptance suffix — 2026-10-06
+
+The owner record above retains its original scope. Main subsequently accepted
+only the offline two-baseline and eight matched-ablation tools: full601/84.585s/
+OK/0 skips, session65720 exit0, plus completed Lovelace/Linnaeus/Ramanujan reviews
+with no demonstrated blockers. Exact commands, CLI proof and frozen hashes are
+in the [latest root log](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance).
+No tests were rerun for this suffix; real holdout/calibration/parameter selection
+and broad P3 remain pending, with no automatic selection or validity claim.

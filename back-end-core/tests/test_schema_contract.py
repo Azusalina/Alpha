@@ -25,7 +25,8 @@ except ImportError:
 from core.api import BrainAPI, METHODS
 from core.brain import BrainCore
 from core.store import MemoryStore
-from model import preferences
+from model import preferences, dependencies, relations
+from tests.test_dependencies import provenance, ref
 
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "docs/api.schema.json"
 
@@ -74,6 +75,18 @@ class SchemaContractTests(unittest.TestCase):
         # Failures contain paths/messages, not a dump of input text.
         errors = list(self.validators[name].iter_errors(value))
         self.assertFalse(errors, [(list(error.absolute_path), error.message) for error in errors])
+
+    def test_typed_correction_revised_value_is_optional_bounded_and_retain_only(self):
+        base = {"type": "event", "value": "cancellation", "sign": 1, "evidence": "取消", "span": [1, 3]}
+        validator = self.validators["typedCorrection"]
+        for good in (base, {**base, "revised_value": "relief"}, {**base, "revised_value": "a b"},
+                     {**base, "sign": 0}):
+            self.assertTrue(validator.is_valid(good), good)
+        for bad in ({**base, "revised_value": ""}, {**base, "revised_value": " x"},
+                    {**base, "revised_value": "x "}, {**base, "revised_value": "x\n"},
+                    {**base, "revised_value": "x" * 65}, {**base, "revised_value": 1},
+                    {**base, "sign": 0, "revised_value": "relief"}, {**base, "unknown": 1}):
+            self.assertFalse(validator.is_valid(bad), bad)
 
     def legacy_pending(self, source):
         """Seed a historical pending candidate; new proposals are auto-accepted."""
@@ -127,6 +140,7 @@ class SchemaContractTests(unittest.TestCase):
         self.call("lock")
         source = self.call("submit", text="😀我重视公平。\r\n我很开心。我想联系朋友。", partition="rational")["source_id"]
         self.call("input_get", source_id=source)
+        self.call("input_duplicates", source_id=source, limit=1)
         self.call("input_list", partition="rational", status="pending")
         self.call("input_page", limit=1)
         self.call("preview", source_id=source)
@@ -156,6 +170,18 @@ class SchemaContractTests(unittest.TestCase):
                                               {"id": "other", "impacts": {"value.fairness": -1}}],
                   target="actual", partition="rational", domain="daily")
         self.call("replay_preview", source_ids=[source])
+        self.call("dependency_plan", source_ids=[source])
+        partner = self.call("submit", text="我重视自由。", partition="rational")["source_id"]
+        info = self.api.brain.model.reset_info()
+        relation = dict(from_source_id=source, to_source_id=partner, kind="causal", reviewed=True,
+                        note="reviewed synthetic relation",
+                        expected_from_source_version=self.api.brain.input_get(source)["source_version"],
+                        expected_to_source_version=self.api.brain.input_get(partner)["source_version"],
+                        expected_revision=info["input_revision"], expected_epoch=info["model_epoch"])
+        self.call("relation_set", **relation)
+        self.call("relation_list", source_id=partner, limit=5)
+        planned = self.call("dependency_plan", source_ids=[source])
+        self.assertEqual(planned["affected"][0]["via_kinds"], ["manual_causal"])
         reopened = self.call("correction_reopen", source_id=source, corrections=[], immediate=True,
                              **self.guards(source))
         self.assertTrue(reopened["effects"])
@@ -172,7 +198,7 @@ class SchemaContractTests(unittest.TestCase):
         self.call("input_delete", source_id=source)
         self.assertEqual(self.called, set(METHODS))
         self.assertEqual(set(self.result_validators), set(METHODS))
-        self.assertEqual(len(self.called), 34)
+        self.assertEqual(len(self.called), 38)
         for method, value in self.examples.items():
             with self.subTest(method=method):
                 # Every body rejects unknown fields, including inside list rows.
@@ -187,7 +213,7 @@ class SchemaContractTests(unittest.TestCase):
 
     def test_additive_methods_match_actual_module_and_core_signatures(self):
         methods = self.schema["$defs"]["request"]["properties"]["method"]["enum"]
-        self.assertEqual((len(methods), len(METHODS)), (34, 34))
+        self.assertEqual((len(methods), len(METHODS)), (38, 38))
         self.assertEqual(set(methods), set(METHODS))
         self.assertEqual(set(self.result_validators), set(METHODS))
         request_schemas = {
@@ -196,6 +222,10 @@ class SchemaContractTests(unittest.TestCase):
             if "const" in branch["if"]["properties"]["method"]
         }
         for method, module in (("memory_search_semantic", None),
+                               ("input_duplicates", None),
+                               ("dependency_plan", None),
+                               ("relation_set", relations.set_relation),
+                               ("relation_list", relations.list_relations),
                                ("choice_feedback_set", preferences.set_feedback),
                                ("choice_feedback_get", preferences.get_feedback),
                                ("preference_rank", preferences.rank_preferences)):
@@ -214,6 +244,10 @@ class SchemaContractTests(unittest.TestCase):
                     self.assertEqual(set(parameters), set(request_schemas[method]["properties"]))
         self.assertEqual(inspect.signature(BrainCore.memory_search_semantic).parameters["min_score"].default, 0)
         self.assertEqual(request_schemas["memory_search_semantic"]["properties"]["min_score"]["default"], 0)
+        duplicate_limit = inspect.signature(BrainCore.input_duplicates).parameters["limit"]
+        self.assertEqual(duplicate_limit.default, 20)
+        self.assertIs(duplicate_limit.kind, inspect.Parameter.KEYWORD_ONLY)
+        self.assertEqual(request_schemas["input_duplicates"]["properties"]["limit"]["default"], 20)
         for function in (BrainCore.choice_feedback_set, preferences.set_feedback):
             self.assertIsNone(inspect.signature(function).parameters["group_id"].default)
             self.assertIs(inspect.signature(function).parameters["group_reviewed"].default, False)
@@ -377,21 +411,227 @@ class SchemaContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 preferences.rank_from_fit(options, runtime_fit)
 
-    def test_rev5_health_contrast_feature_is_required_typed_and_closed(self):
+    def test_rev7_health_features_are_required_typed_and_closed(self):
         health = self.call("health")
-        self.assertEqual(health["contract_revision"], 5)
-        self.assertEqual(len(health["methods"]), 34)
+        self.assertEqual(health["contract_revision"], 7)
+        self.assertEqual(len(health["methods"]), 38)
+        self.assertIs(health["features"]["dependency_provenance"], True)
+        self.assertIs(health["features"]["dependency_planning"], True)
+        self.assertIs(health["features"]["semantic_label_revision"], True)
+        self.assertIs(health["features"]["manual_relations"], True)
         self.assertIs(health["features"]["preference_contrast_guard"], True)
+        self.assertIs(health["features"]["exact_text_duplicate_hint"], True)
         for mutate in (
             lambda x: x.update(contract_revision=4),
+            lambda x: x.update(contract_revision=5),
+            lambda x: x.update(contract_revision=6),
             lambda x: x["features"].pop("preference_contrast_guard"),
             lambda x: x["features"].update(preference_contrast_guard=False),
             lambda x: x["features"].update(preference_contrast_guard=1),
             lambda x: x["features"].update(extra_contrast_feature=True),
+            lambda x: x["features"].pop("exact_text_duplicate_hint"),
+            lambda x: x["features"].update(exact_text_duplicate_hint=False),
+            lambda x: x["features"].update(exact_text_duplicate_hint=1),
+            lambda x: x["methods"].remove("input_duplicates"),
+            lambda x: x["methods"].remove("dependency_plan"),
+            lambda x: x["features"].pop("dependency_provenance"),
+            lambda x: x["features"].update(dependency_provenance=False),
+            lambda x: x["features"].update(dependency_provenance=1),
+            lambda x: x["features"].pop("dependency_planning"),
+            lambda x: x["features"].update(dependency_planning=False),
+            lambda x: x["features"].update(dependency_planning="true"),
+            lambda x: x["features"].pop("manual_relations"),
+            lambda x: x["features"].update(manual_relations=False),
+            lambda x: x["features"].update(manual_relations=1),
+            lambda x: x["features"].pop("semantic_label_revision"),
+            lambda x: x["features"].update(semantic_label_revision=False),
+            lambda x: x["features"].update(semantic_label_revision=1),
         ):
             malformed = copy.deepcopy(health)
             mutate(malformed)
             self.assertFalse(self.result_validators["health"].is_valid(malformed))
+
+    def test_dependency_plan_request_is_closed_and_strictly_bounded(self):
+        def request(params):
+            return {"schema_version": 1, "id": "dependency-contract", "method": "dependency_plan", "params": params}
+        for params in ({"source_ids": ["a"]}, {"source_ids": [str(i) for i in range(16)], "limit": 100}):
+            self.validate("request", request(params))
+        for params in ({}, {"source_ids": []}, {"source_ids": "a"}, {"source_ids": ["a", "a"]},
+                       {"source_ids": [str(i) for i in range(17)]}, {"source_ids": [" "]},
+                       {"source_ids": ["bad\0id"]}, {"source_ids": ["\ud800"]}, {"source_ids": [1]},
+                       {"source_ids": ["a"], "limit": True}, {"source_ids": ["a"], "limit": None},
+                       {"source_ids": ["a"], "limit": 0}, {"source_ids": ["a"], "limit": 101},
+                       {"source_ids": ["a"], "automatic_replay": True}):
+            with self.subTest(params=repr(params)):
+                self.assertFalse(self.validators["request"].is_valid(request(params)))
+                response = self.api.handle(request(params))
+                self.assertEqual(response["error"]["code"], "INVALID_ARGUMENT")
+        branch = next(branch for branch in self.schema["$defs"]["request"]["allOf"]
+                      if branch["if"]["properties"]["method"].get("const") == "dependency_plan")
+        self.assertEqual(branch["then"]["properties"]["params"]["properties"]["limit"]["default"], 100)
+
+    def test_dependency_provenance_is_optional_for_legacy_but_closed_when_present(self):
+        source = self.call("submit", text="我重视公平。", partition="rational")["source_id"]
+        context = self.call("preview", source_id=source)["interpretation"]
+        self.assertIsNone(context["dependency_provenance"]["fit_id"])
+        self.assertTrue(context["dependency_provenance"]["complete"])
+        legacy = copy.deepcopy(context)
+        del legacy["dependency_provenance"]
+        self.validate("interpretation", legacy)
+        for bad in (None, {}, {**context["dependency_provenance"], "causal_usage": True}):
+            self.assertFalse(self.validators["interpretation"].is_valid({**legacy, "dependency_provenance": bad}))
+        fitted = self.call("review", source_id=source, agree=True)["interpretation"]
+        self.assertRegex(fitted["dependency_provenance"]["fit_id"], "^[0-9a-f]{32}$")
+        self.call("correction_history", source_id=source)
+
+    def test_dependency_metadata_nested_refs_flags_and_caps_match_runtime(self):
+        valid = provenance(tokenizer=[ref("a")], rules=[ref("b")], terms=["公平"])
+        self.validate("dependencyProvenance", valid)
+        bad_values = []
+        for field in valid:
+            missing = copy.deepcopy(valid)
+            del missing[field]
+            bad_values.append(missing)
+        bad_values.extend([
+            {**valid, "version": True}, {**valid, "fit_id": "A" * 32}, {**valid, "fit_id": "a" * 32 + "\n"},
+            {**valid, "input_revision": -1}, {**valid, "model_epoch": False},
+            {**valid, "scope": "causal_usage"}, {**valid, "tokenizer_terms": ["english"]},
+            {**valid, "tokenizer_terms": ["公平\n"]}, {**valid, "tokenizer_terms": ["公平"] * 129},
+            {**valid, "tokenizer_terms_truncated": True}, {**valid, "tokenizer_sources_truncated": True},
+            {**valid, "rule_sources_truncated": True}, {**valid, "complete": False},
+            {**valid, "tokenizer_sources": [ref("a", None)]}, {**valid, "rule_sources": [ref("b", None)]},
+            {**valid, "rule_sources": [{**ref("b"), "evidence": "synthetic"}]},
+            {**valid, "rule_sources": [{"source_id": "b", "fit_id": "a" * 32}]},
+            {**valid, "rule_sources": [ref("b", version=True)]}, {**valid, "rule_sources": [ref("b")] * 129},
+            {**valid, "tokenizer_sources": [ref("\ud800")]},
+        ])
+        for index, bad in enumerate(bad_values):
+            with self.subTest(case=index):
+                self.assertFalse(self.validators["dependencyProvenance"].is_valid(bad))
+                with self.assertRaises(ValueError):
+                    dependencies.validate(bad)
+        unknown = provenance(None, rules=[ref("legacy", None)])
+        self.validate("dependencyProvenance", unknown)
+        dependencies.validate(unknown)
+        capped = provenance(terms=[chr(0x3400 + i) + "词" for i in range(128)])
+        capped.update(tokenizer_terms_total=129, tokenizer_terms_truncated=True, complete=False)
+        self.validate("dependencyProvenance", capped)
+        dependencies.validate(capped)
+        # JSON Schema treats 1.0 as an integer; strict Python types and dynamic ordering/count equality stay runtime obligations.
+        structural = {**valid, "input_revision": 1.0}
+        self.validate("dependencyProvenance", structural)
+        with self.assertRaises(ValueError):
+            dependencies.validate(structural)
+
+    def test_dependency_result_is_closed_metadata_and_partial_status_is_consistent(self):
+        sources = [self.call("submit", text="我重视公平。", partition="rational", exclamation=True)["source_id"] for _ in range(3)]
+        result = self.call("dependency_plan", source_ids=[sources[0]])
+        self.assertEqual([row["source_id"] for row in result["affected"]], [sources[2]])
+        self.assertEqual(result["affected"][0]["via_kinds"], ["tokenizer"])
+        bad_values = []
+        for field in result:
+            value = copy.deepcopy(result)
+            del value[field]
+            bad_values.append(value)
+        for field in result["affected"][0]:
+            value = copy.deepcopy(result)
+            del value["affected"][0][field]
+            bad_values.append(value)
+        for changes in ({"scope": "causal_usage"}, {"status": "partial"}, {"changed_supports": 1},
+                        {"total_affected": -1}, {"scanned_sources": 1001}, {"graph_truncated": True},
+                        {"truncated": 1}, {"private_body": "synthetic"}):
+            bad_values.append({**result, **changes})
+        for changes in ({"text": "synthetic"}, {"fit_id": None}, {"distance": 0},
+                        {"source_version": True}, {"via_kinds": []}, {"via_kinds": ["causal"]},
+                        {"via_kinds": ["rule", "rule"]}, {"model_active": True, "replay_eligible": False}):
+            value = copy.deepcopy(result)
+            value["affected"][0].update(changes)
+            bad_values.append(value)
+        for index, value in enumerate(bad_values):
+            with self.subTest(case=index):
+                self.assertFalse(self.result_validators["dependency_plan"].is_valid(value))
+        self.validate("dependencyPlan", {**result, "status": "partial", "changed_supports": 1})
+
+    def test_dependency_real_jsonlines_success_errors_and_metadata_match_schema(self):
+        sources = [self.call("submit", text="我重视公平。SYNTHETIC_PRIVATE_WIRE", partition="rational",
+                             exclamation=True)["source_id"] for _ in range(3)]
+        requests = [
+            {"schema_version": 1, "id": "success", "method": "dependency_plan", "params": {"source_ids": [sources[0]]}},
+            {"schema_version": 1, "id": "invalid", "method": "dependency_plan", "params": {"source_ids": [sources[0]], "limit": True}},
+            {"schema_version": 1, "id": "missing", "method": "dependency_plan", "params": {"source_ids": ["SYNTHETIC_PRIVATE_MISSING"]}},
+            {"schema_version": 1, "id": "following", "method": "health", "params": {}},
+        ]
+        process = subprocess.run([sys.executable, "-B", "-m", "core.api", "--quiet", "--db", str(self.api.path)],
+                                 cwd=SCHEMA_PATH.parents[1],
+                                 input="".join(json.dumps(request) + "\n" for request in requests),
+                                 text=True, capture_output=True, check=True, timeout=10)
+        responses = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual(len(responses), len(requests))
+        for request, response in zip(requests, responses):
+            self.validate("response", response)
+            self.assertEqual(request["id"], response["id"])
+            if response["ok"]:
+                self.assertTrue(self.result_validators[request["method"]].is_valid(response["result"]))
+        self.assertEqual(responses[0]["result"]["affected"][0]["source_id"], sources[2])
+        self.assertEqual(responses[1]["error"]["code"], "INVALID_ARGUMENT")
+        self.assertEqual(responses[2]["error"]["code"], "NOT_FOUND")
+        self.assertNotIn("SYNTHETIC_PRIVATE", process.stdout)
+        self.assertEqual(process.stderr, "")
+
+    def test_duplicates_flat_request_and_closed_metadata_only_result(self):
+        source = self.call("submit", text="Synthetic exact text 😀\r\n", partition="rational")["source_id"]
+        match = self.call("submit", text="Synthetic exact text 😀\r\n", partition="emotional")["source_id"]
+        result = self.call("input_duplicates", source_id=source)
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["items"][0]["source_id"], match)
+        validator = self.result_validators["input_duplicates"]
+        for location in (result, result["items"][0]):
+            for field in location:
+                malformed = copy.deepcopy(result)
+                target = malformed if location is result else malformed["items"][0]
+                target.pop(field)
+                self.assertFalse(validator.is_valid(malformed), field)
+        for field in ("text", "body", "source_ref", "self_speaker", "excerpt", "summary", "evidence",
+                      "digest", "body_digest", "corrections", "history", "labels", "weights",
+                      "group_id", "group_reviewed", "training_consent", "confirm"):
+            for nested in (False, True):
+                malformed = copy.deepcopy(result)
+                target = malformed["items"][0] if nested else malformed
+                target[field] = "forbidden"
+                self.assertFalse(validator.is_valid(malformed), (field, nested))
+        for mutate in (
+            lambda x: x.update(match_kind="semantic"),
+            lambda x: x.update(total=-1),
+            lambda x: x.update(total=True),
+            lambda x: x.update(truncated=1),
+            lambda x: x.update(source_version=-1),
+            lambda x: x.update(input_revision=-1),
+            lambda x: x.update(model_epoch=-1),
+            lambda x: x.update(items=x["items"] * 101),
+            lambda x: x["items"][0].update(model_active=1),
+            lambda x: x["items"][0].update(model_active=True, status="pending"),
+            lambda x: x["items"][0].update(status="deleted"),
+            lambda x: x["items"][0].update(kind="input"),
+            lambda x: x["items"][0].update(partition="unknown"),
+            lambda x: x["items"][0].update(source_version=-1),
+            lambda x: x["items"][0].update(model_epoch=-1),
+            lambda x: x["items"][0].update(created_at=None),
+        ):
+            malformed = copy.deepcopy(result)
+            mutate(malformed)
+            self.assertFalse(validator.is_valid(malformed))
+        self.call("input_duplicates", source_id=source, limit=1)
+        self.call("input_duplicates", source_id=source, limit=100)
+        invalid = [{}]
+        invalid.extend({"source_id": v} for v in (None, 1, True, [], {}, "", " ", "nul\0id", "\ud800", "\udfff"))
+        invalid.extend({"source_id": source, "limit": v} for v in (None, True, 0, 101, -1, "2", []))
+        invalid.extend({"source_id": source, field: value} for field, value in (
+            ("partition", "rational"), ("status", "agreed"), ("cursor", None), ("text", "synthetic"),
+            ("params", {}), ("group_reviewed", True), ("training_consent", True)))
+        for params in invalid:
+            request = {"schema_version": 1, "id": "duplicates-invalid", "method": "input_duplicates", "params": params}
+            self.assertFalse(self.validators["request"].is_valid(request), params)
+            self.assertEqual(self.api.handle(request)["error"]["code"], "INVALID_ARGUMENT")
 
     def test_hybrid_requests_reject_nested_invalid_types_at_schema_and_runtime(self):
         from tests.test_hybrid_api import OPTIONS
@@ -475,7 +715,11 @@ class SchemaContractTests(unittest.TestCase):
                 for item in context["withheld_values"]:
                     self.assertEqual(text[slice(*item["span"])], item["evidence"])
                 fitted = self.call("review", source_id=source, agree=True)
-                self.assertEqual(context, fitted["interpretation"])
+                self.assertIsNone(context["dependency_provenance"]["fit_id"])
+                comparable = copy.deepcopy(fitted["interpretation"])
+                self.assertRegex(comparable["dependency_provenance"]["fit_id"], "^[0-9a-f]{32}$")
+                comparable["dependency_provenance"]["fit_id"] = None
+                self.assertEqual(context, comparable)
                 self.call("correction_history", source_id=source)
         self.assertTrue(context["withheld_truncated"])
         self.assertEqual(context["withheld_count"], 70)
@@ -741,6 +985,7 @@ class SchemaContractTests(unittest.TestCase):
         source = wire([{"schema_version": 1, "id": "submit", "method": "submit",
                         "params": {"text": "😀我重视公平。\r\n我很开心。我想联系朋友。", "partition": "rational"}}])[0]["result"]["source_id"]
         cases = [("health", {}), ("input_get", {"source_id": source}),
+                 ("dependency_plan", {"source_ids": [source], "limit": 1}),
                  ("preview", {"source_id": source}), ("review", {"source_id": source, "agree": True}),
                  ("effects", {}), ("state", {}), ("review_history", {"source_id": source}),
                  ("correction_history", {"source_id": source}), ("input_page", {})]

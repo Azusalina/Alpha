@@ -16,7 +16,7 @@ from unittest.mock import patch
 from core.access import change_password, setup_access
 from core.api import BrainAPI, METHODS, PUBLIC_METHODS
 from model.engine import BrainModel
-from model import preferences
+from model import preferences, dependencies
 
 
 OPTIONS = [{"id": "fair", "label": "Reviewed fair option", "impacts": {"value.fairness": 1}},
@@ -164,9 +164,13 @@ class HybridAPITests(unittest.TestCase):
                 with self.subTest(method=method):
                     self.assertEqual(self.call(method)["error"]["code"], "LOCKED")
             health = self.result("health")
-            self.assertEqual((health["contract_revision"], len(health["methods"])), (5, 34))
+            self.assertEqual((health["contract_revision"], len(health["methods"])), (7, 38))
+            self.assertIs(health["features"]["dependency_provenance"], True)
+            self.assertIs(health["features"]["dependency_planning"], True)
+            self.assertIs(health["features"]["semantic_label_revision"], True)
             self.assertTrue(health["features"]["reviewed_event_groups"])
             self.assertTrue(health["features"]["preference_contrast_guard"])
+            self.assertTrue(health["features"]["exact_text_duplicate_hint"])
             self.assertNotIn("model_epoch", health)
             self.assertTrue(health["features"]["semantic_encoder_configured"])
             self.result("unlock", password="synthetic lock sweep password")
@@ -294,6 +298,126 @@ class HybridAPITests(unittest.TestCase):
     def database_snapshot(self):
         with closing(sqlite3.connect(self.path)) as db:
             return list(db.iterdump())
+
+    def test_dependency_plan_is_metadata_only_without_encoder_weights_or_any_db_write(self):
+        sources = [self.submit("我重视公平。SYNTHETIC_PRIVATE_BODY") for _ in range(3)]
+        before = self.database_snapshot()
+        with patch("translator.semantic.LocalSentenceEncoder", side_effect=AssertionError("weight load")), \
+                patch.object(self.api.brain.model, "_observations", side_effect=AssertionError("extraction")), \
+                patch.object(self.api.brain.model, "_review", side_effect=AssertionError("fit")), \
+                patch.object(self.api.brain.model, "replay_reopen", side_effect=AssertionError("replay")):
+            first = self.result("dependency_plan", source_ids=[sources[0]])
+            second = self.result("dependency_plan", source_ids=[sources[0]])
+        self.assertEqual(first, second)
+        self.assertEqual(first["total_affected"], 1)
+        self.assertEqual(first["affected"][0]["source_id"], sources[2])
+        self.assertEqual(set(first), {"scope", "source_ids", "status", "affected", "total_affected", "truncated",
+                                    "scanned_sources", "total_sources", "graph_truncated", "untracked_sources",
+                                    "incomplete_sources", "changed_supports", "input_revision", "model_epoch"})
+        self.assertEqual(set(first["affected"][0]), {"source_id", "source_version", "model_epoch", "model_active",
+                                                   "replay_eligible", "fit_id", "provenance_complete", "distance", "via_kinds"})
+        self.assertNotIn("SYNTHETIC_PRIVATE", json.dumps(first))
+        self.assertEqual(self.encoder.calls, [])
+        self.assertEqual(before, self.database_snapshot())
+
+    def test_dependency_plan_access_is_rechecked_after_lock_or_password_rotation(self):
+        source = self.submit()
+        password = "synthetic dependency access password"
+        setup_access(self.path, password)
+        original_plan = dependencies.plan
+        for mutation in ("lock", "rotate"):
+            with self.subTest(mutation=mutation):
+                self.api = BrainAPI(self.path, semantic_encoder=self.encoder)
+                self.result("unlock", password=password)
+                before = self.database_snapshot()
+                def change_after_snapshot(db, source_ids, *, limit):
+                    result = original_plan(db, source_ids, limit=limit)
+                    if mutation == "lock":
+                        self.api.access.lock()
+                    else:
+                        change_password(self.path, password, "synthetic new dependency password")
+                    return result
+                with patch("model.engine.dependencies.plan", side_effect=change_after_snapshot):
+                    response = self.call("dependency_plan", source_ids=[source])
+                self.assertEqual(response["error"], {"code": "LOCKED", "message": "access is locked"})
+                self.assertIsNone(self.api._brain)
+                self.assertNotIn(source, json.dumps(response))
+                self.assertEqual(before, self.database_snapshot())
+        self.assertEqual(self.encoder.calls, [])
+
+    def test_dependency_plan_jsonlines_success_error_and_following_line_are_isolated(self):
+        sources = [self.submit("我重视公平。SYNTHETIC_PRIVATE_WIRE") for _ in range(3)]
+        requests = [
+            {"schema_version": 1, "id": "plan", "method": "dependency_plan", "params": {"source_ids": [sources[0]], "limit": 1}},
+            {"schema_version": 1, "id": "bad", "method": "dependency_plan", "params": {"source_ids": [sources[0]], "limit": True}},
+            {"schema_version": 1, "id": "missing", "method": "dependency_plan", "params": {"source_ids": ["SYNTHETIC_PRIVATE_MISSING"]}},
+            {"schema_version": 1, "id": "health", "method": "health", "params": {}},
+        ]
+        before = self.database_snapshot()
+        process = subprocess.run([sys.executable, "-B", "-m", "core.api", "--quiet", "--db", str(self.path)],
+                                 cwd=Path(__file__).resolve().parents[1],
+                                 input="".join(json.dumps(request) + "\n" for request in requests),
+                                 capture_output=True, text=True, check=True, timeout=10)
+        responses = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual([row["id"] for row in responses], ["plan", "bad", "missing", "health"])
+        self.assertTrue(responses[0]["ok"])
+        self.assertEqual(responses[0]["result"]["affected"][0]["source_id"], sources[2])
+        self.assertEqual(responses[1]["error"]["code"], "INVALID_ARGUMENT")
+        self.assertEqual(responses[2]["error"]["code"], "NOT_FOUND")
+        self.assertEqual((responses[3]["result"]["contract_revision"], len(responses[3]["result"]["methods"])), (7, 38))
+        self.assertNotIn("SYNTHETIC_PRIVATE", process.stdout)
+        self.assertEqual(process.stderr, "")
+        self.assertEqual(before, self.database_snapshot())
+
+    def test_dependency_plan_locked_missing_database_never_creates_database_or_sidecars(self):
+        password = "synthetic missing planner DB password"
+        setup_access(self.path, password)
+        self.path.unlink()
+        before = {path.name for path in self.path.parent.iterdir()}
+        with patch("core.api.BrainCore", side_effect=AssertionError("locked private DB access")):
+            self.api = BrainAPI(self.path, semantic_encoder=self.encoder)
+            for params in ({"source_ids": ["synthetic"]}, {}, {"source_ids": None}):
+                self.assertEqual(self.call("dependency_plan", **params)["error"],
+                                 {"code": "LOCKED", "message": "access is locked"})
+            self.assertIsNone(self.api._brain)
+            health = self.result("health")
+        self.assertNotIn("model_epoch", health)
+        self.assertIs(health["features"]["dependency_planning"], True)
+        self.assertFalse(self.path.exists())
+        self.assertEqual({path.name for path in self.path.parent.iterdir()}, before)
+        self.assertEqual(self.encoder.calls, [])
+
+    def test_dependency_plan_storage_failure_is_generic_read_only_and_access_takes_precedence(self):
+        source = self.submit()
+        before = self.database_snapshot()
+        with patch.object(self.api.brain.model.store, "_connect",
+                          side_effect=sqlite3.OperationalError("SYNTHETIC_PRIVATE_STORAGE /synthetic/path")):
+            response = self.call("dependency_plan", source_ids=[source])
+        self.assertEqual(response["error"], {"code": "STORAGE_ERROR", "message": "local storage operation failed"})
+        self.assertNotIn("SYNTHETIC_PRIVATE", json.dumps(response))
+        self.assertNotIn("result", response)
+        self.assertEqual(before, self.database_snapshot())
+        password = "synthetic failed planner password"
+        setup_access(self.path, password)
+        for mutation in ("lock", "rotate"):
+            with self.subTest(mutation=mutation):
+                self.api = BrainAPI(self.path, semantic_encoder=self.encoder)
+                self.result("unlock", password=password)
+                self.api.brain  # Initialize before the injected read failure.
+                def fail_after_access_change(db, source_ids, *, limit):
+                    if mutation == "lock":
+                        self.api.access.lock()
+                    else:
+                        change_password(self.path, password, "synthetic rotated failed planner password")
+                    raise sqlite3.OperationalError("SYNTHETIC_PRIVATE_FAILED_PLAN")
+                with patch("model.engine.dependencies.plan", side_effect=fail_after_access_change):
+                    response = self.call("dependency_plan", source_ids=[source])
+                self.assertEqual(response["error"], {"code": "LOCKED", "message": "access is locked"})
+                self.assertIsNone(self.api._brain)
+                self.assertNotIn(source, json.dumps(response))
+                self.assertNotIn("SYNTHETIC_PRIVATE", json.dumps(response))
+                self.assertEqual(before, self.database_snapshot())
+        self.assertEqual(self.encoder.calls, [])
 
     def test_preference_read_fits_again_without_any_database_writes_or_encoder_calls(self):
         sources = [self.submit() for _ in range(3)]

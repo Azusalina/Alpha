@@ -1,15 +1,23 @@
-# Frontend contract handoff: v1 — revision 5 backend synthetic contract delivered
+<a id="frontend-contract-handoff-v1--revision-5-backend-synthetic-contract-delivered"></a>
 
-> 2026-10-06 (Asia/Taipei): schema_version=1 / contract_revision=5 / 34 methods,
-> features.preference_contrast_guard=true, narrowly accepted by main session80693
-> exit0: 576/59.590s/OK/0 skips, all three final reviews no blockers.
-> [Current contract/proof](api.md#oct-6-final-rev5-backend-synthetic-contract).
+# Frontend contract handoff: v1 — revision 6 backend accepted, frontend pending
+
+> 2026-10-06 (Asia/Taipei): schema_version=1 / contract_revision=6 / 35 methods,
+> features.exact_text_duplicate_hint=true; prior contrast guarantees unchanged.
+> Latest main session90162 exit0: 620/100.682s/OK/0 skips; independent discovery
+> 620 unique IDs/0 loader errors. Aquinas/Tesla/Franklin terminal fresh reviews
+> found no blockers; only the exact-text duplicate hint backend is accepted
+> this phase. See [latest root log](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+> Earlier [main601/84.585s](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance)
+> retains its historical offline-tools/typed-validation scope.
+> Earlier rev5 main576/59.590s remains the dated [contract/numeric proof](api.md#oct-6-final-rev5-backend-synthetic-contract).
 > Frontend adapters/UI/group review/unlock/cache/native, overall P2/P3, actual
 > weights and real validity remain pending. Dated proposal/do-not-send/pending
 > records below are historical and superseded for current contract status.
+> Root has 13 pending items; overall goal ACTIVE/NOT ACHIEVED.
 
-Oct 2 backend exposed 30 accepted methods; current source declares 34; [api.md](api.md) and [api.schema.json](api.schema.json)
-document current rev5 params/results (synthetic backend conformance verified). Detect negotiated
+Oct 2 backend exposed 30 accepted methods; current source declares 35; [api.md](api.md) and [api.schema.json](api.schema.json)
+document current rev6 params/results (backend conformance accepted). Detect negotiated
 health.contract_revision plus methods/features,
 not schema_version alone. UI/TypeScript adapters and Rust validation belong to their
 owners. Frontend hardcoded method tests need owner updates to the accepted negotiated set;
@@ -93,7 +101,9 @@ contracts; real held-out validity evidence and frontend/native acceptance remain
 pending. F14 development is authorized; working backend signatures are below. No private DB, Git, PNG, frontend or shared TODO edits are
 part of this integration handoff.
 
-## F14 and semantic extension handoff (current revision 5)
+<a id="f14-and-semantic-extension-handoff-current-revision-5"></a>
+
+## F14 and semantic extension handoff (current revision 6)
 
 New methods: memory_search_semantic, choice_feedback_set, choice_feedback_get,
 preference_rank. Current flat params/results are in api.md; no feedback dictionary.
@@ -110,8 +120,8 @@ Set also accepts optional group_id:string|null=null and group_reviewed:boolean=f
 True review requires a nonblank 1–128 code point group ID without NUL/surrogates.
 Drafts may be saved; every returned feedback record contains both group fields.
 Legacy null/false normalization never backfills stored payloads or grants review.
-Health exposes contract_revision=5, features.reviewed_event_groups=true and
-features.preference_contrast_guard=true.
+Health exposes contract_revision=6, features.reviewed_event_groups=true,
+features.preference_contrast_guard=true and features.exact_text_duplicate_hint=true.
 
 Feedback record model_active is preference eligibility (approved + consent + group_reviewed +
 matching version/body/partition + feedback current epoch); input model_active is
@@ -142,7 +152,7 @@ similarity is evidence relevance, not truth. Lock/reconnect clears all new priva
 feedback/rank/search caches and queued operations too.
 
 Oct 4 frontend's root communication entry remains its owner's historical statement.
-Backend rev5/34-method synthetic contract is delivered. Adapter/group-review,
+Backend rev6/35-method contract is accepted. Duplicate adapter/UI/cache, group-review,
 unlock/version/F14 UI and native acceptance remain pending until separately verified.
 The user answered "不管" to the historical privacy note: no action. The frontend
 entry is preserved; the document audit does not touch files or Git history.
@@ -327,3 +337,94 @@ or encoder training; set/get do not fit. Frontend owner still needs independent
 adapters, group-review/consent/label/impact/guards, unlock/private-cache/version/F14
 and native acceptance. General correction/generic replay, P2/P3 overall, actual
 weights, GPU, online CI and real validity remain pending; no automatic write retry.
+
+## Oct 6 offline tools and typed validation acceptance boundary
+
+Accepted 2026-10-06 (Asia/Taipei): offline opt-in two-baseline tools, eight matched
+leave-one-feature-out tools and typed validation resource/consistency proof.
+Main full601/84.585s/OK/0 skips (session65720 exit0), focused40/9.939s/OK/0 skips
+(session67821 exit0, overlaps full), owner evaluator69/3.415s under DB/network
+denials and all three completed fresh reviews retain their separate scopes.
+Review details, exact commands and frozen source hashes are authoritative in
+the [latest root log](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance).
+This documentation recovery reruns no tests or benchmarks; the dated temporary
+CPython3.14.7/jsonschema4.26.0 environment is not a permanent runtime requirement.
+
+`--comparisons` is an explicit offline evaluator CLI opt-in, with 11 variants /
+10 pairs (full, nonpersonal equal_weight sum heuristic, analytic uniform chance,
+eight fixed ablations). Original cohort admission/numeric dedup precedes
+projection; no projection dedup, group/event mass loss or cross-axis pooling.
+All predictions/distributions precede held-out-label scoring; conditional
+intersection, original-cohort and equal-group denominators expose support loss.
+Main synthetic CLI exit0/empty stderr, automatic_selection=False,
+validity_claim=False/database_opened=False proves wiring only. No automatic
+selection, promotion or calibration claim; parameter selection using holdout
+results requires a new independent final holdout. See [protocol](preference-evaluation.md#opt-in-offline-comparisons).
+Schema v1/rev5/34 methods and frontend/API fields are unchanged by these tools.
+
+`validate_corrections` reuses at most one full translation per function
+invocation, with zero for empty/parameter-only/pretranslation failure, batch <=64
+and no cross-invocation/global cache. `correction_reopen` still validates before
+and inside the transaction; observations translate independently. This does not
+provide a one-parse API-request budget, API latency/native RSS or UI responsiveness
+guarantee. Historical benchmark measurements remain in the
+[original proof](correction-performance.md), without a rerun.
+
+Typed annotations intentionally do not override the 13 rule parameters; the
+user's future unified-consumption question remains unanswered. Source t/t →
+translator/13-rule model/memories stays separate from labels/impacts/consent/
+reviewed groups → temporary CPU preference fit, without persisted weights or
+encoder training. General correction/generic replay, broad P0/P2/P3, independent
+real holdout/calibration/parameter selection, frontend/native/guards/F13/F14,
+actual weights/resources/GPU/CI and encryption decision remain pending.
+Exact-text duplicate hints are not implemented/accepted here. The
+[root queue](../../front-back-communicate.md) retains 14 pending items; overall
+goal remains active, not achieved. Earlier dated contract proofs retain scope.
+
+## Oct 6 rev6 exact-text duplicate hint
+
+Backend accepted: schema1/rev6/35 methods,
+health.features.exact_text_duplicate_hint=true. Negotiate BOTH that feature and
+the input_duplicates method before exposing the adapter. Read-only main
+inspection: Remote.readHealth permits extra fields, but API_METHOD has no
+duplicate method. Duplicate adapter/UI/read-trigger/cache/native acceptance is
+still pending; frontend owner may explicitly query after saved submit/current
+edit, including a post-save trigger. Backend submit/edit/review do not invoke
+the hint. No manual-click-only requirement is introduced.
+
+Use the [closed API contract](api.md#oct-6-rev6-exact-text-duplicate-hint):
+source_id required, optional exact-int non-bool limit1..100 (default20);
+application target or NOT_FOUND, current raw SQLite BINARY equality only.
+Result source_version/GLOBAL input_revision/CURRENT model_epoch share one
+snapshot with total/items and may already be stale at return. Compare current
+guards before use and discard stale results. Item model_active is agreed
+current-epoch rule activity, never preference eligibility. Show metadata as
+advisory; no automatic grouping/approval/consent/merge/dedup/block-submit/refit.
+Different text does not establish the same event; group decisions need user
+review. Counts/IDs/statuses are private even without text: invalidate caches and
+in-flight hints on LOCKED/config rotation/reconnect/Reset/edit/delete/version
+changes. No automatic write retry.
+
+Main620/100.682s/OK/0 skips and Aquinas/Tesla/Franklin terminal no-blocker reviews
+accept only the backend; [exact proof](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint).
+Root13 pending includes this frontend work under F14/guards/native. General
+correction/dependency replay, real validity/weights/resources/CI/Python3.10 and
+broad P0/P2/P3 remain pending; overall goal ACTIVE/NOT ACHIEVED. Earlier rev5
+and offline-tools proofs above retain their dated scopes.
+
+## Oct 6 rev7 additions for the frontend (pending acceptance)
+
+- Negotiate by `health.features`: send typed-correction `revised_value` only when
+  `semantic_label_revision` is true; show/call `relation_set`/`relation_list` only when
+  `manual_relations` is true (38 methods). Never infer support from contract_revision alone.
+- `revised_value` is an explicit user relabel of an exact translator output (trimmed
+  1–64 characters, only with sign 1). It changes interpretation.translation and memory
+  claims, not raw text, effects or the 13 rule parameters. Already-fitted sources go
+  through `correction_reopen` and must be reconfirmed by the user.
+- Manual relations are user claims. Read `relation_list` per source; render `stale`
+  edges as outdated (not deletable by the backend; the user may retract with
+  `reviewed=false` using fresh guards). Notes/ids are private: clear them on LOCKED,
+  reconnect, Reset, edit/delete and version change. Conflicting or uncertain write
+  results get no automatic retry. `dependency_plan.affected[].via_kinds` may now contain
+  `manual_semantic`/`manual_causal`; such rows can have fit_id=null and
+  replay_eligible=false.

@@ -17,7 +17,7 @@ from uuid import uuid4
 from core.store import MemoryStore
 from core.extraction import deterministic_candidates
 from translator import translate
-from translator.learning import learnable_terms, own_chat_text
+from translator.learning import configured_phrases, learnable_terms, own_chat_text
 from translator.discourse import POLICY_VERSION
 
 from .catalog import BASELINE, BASELINE_PATH, PARAMETERS, PARTITIONS, PRIOR_STRENGTH, zero_state
@@ -25,7 +25,7 @@ from .approvals import initialize as initialize_approvals, metadata as approval_
 from .corrections import apply_local, latest_corrections, learned_rules, validate_corrections
 from .evidence import Contribution, extract_contributions
 from .ranking import rank_from_state
-from . import sources, reset
+from . import sources, reset, dependencies
 from .tracing import ModelTrace, traced
 
 
@@ -305,6 +305,8 @@ class BrainModel:
         contributions = apply_local(contributions, corrections)
         context = {"correction_revision": revision, "corrections": corrections,
                    "learned_rules": semantic_feedback, "evidence_policy": POLICY_VERSION, **diagnostics}
+        context['dependency_provenance'] = dependencies.capture(
+            db, row, configured_phrases(personal_phrases), semantic_feedback)
         translation = translate(row['body'], kind='diary' if row['kind'] == 'philosophy' else row['kind'],
                                 self_speaker=row['self_speaker'])
         context['translation'] = self._annotate_translation(translation, corrections)
@@ -316,15 +318,23 @@ class BrainModel:
     def _annotate_translation(translation: dict, corrections: list[dict]) -> dict:
         translation = json.loads(json.dumps(translation))
         for correction in corrections:
-            if 'type' not in correction or correction['sign'] != 0:
+            if 'type' not in correction:
                 continue
             family = correction['type']
             field = 'cues' if family == 'event' else 'candidates'
-            translation[field] = [r for r in translation[field] if not (
-                all(r[k] == correction[k] for k in ('value', 'evidence', 'span'))
-                and (family != 'event' or r['category'] == 'event_word')
-                and (family != 'tone' or r['type'] == 'textual_emotion')
-                and (family != 'intent' or r['type'] == 'contact_intention'))]
+
+            def targeted(r):
+                return (all(r[k] == correction[k] for k in ('value', 'evidence', 'span'))
+                        and (family != 'event' or r['category'] == 'event_word')
+                        and (family != 'tone' or r['type'] == 'textual_emotion')
+                        and (family != 'intent' or r['type'] == 'contact_intention'))
+            if correction['sign'] == 0:
+                translation[field] = [r for r in translation[field] if not targeted(r)]
+            elif 'revised_value' in correction:
+                # Explicit user relabel: only the exact targeted output's value changes.
+                for r in translation[field]:
+                    if targeted(r):
+                        r['value'] = correction['revised_value']
         return translation
 
     @traced('correction_set')
@@ -513,6 +523,13 @@ class BrainModel:
             return {'items': [self._replay_item(db, self._input(db, s)) for s in source_ids],
                     'input_revision': reset.revision(db), 'model_epoch': reset.epoch(db)}
 
+    def dependency_plan(self, source_ids: list[str], *, limit: int = 100) -> dict:
+        """Read-only recorded computational exposure, not causal validation."""
+        dependencies.validate_request(source_ids, limit)
+        with self.store._connect() as db:
+            db.execute('BEGIN')
+            return dependencies.plan(db, source_ids, limit=limit)
+
     @traced('replay_reopen')
     def replay_reopen(self, source_ids: list[str], *, immediate: bool,
                       expected_source_versions: dict[str, int], expected_revision: int,
@@ -667,6 +684,7 @@ class BrainModel:
         before_terms, terms, contributions, context = self._fit_observations(db, row)
         frozen = db.execute("SELECT 1 FROM brain_fit_context WHERE source_id=?", (source_id,)).fetchone()
         if frozen is None:
+            context['dependency_provenance']['fit_id'] = uuid4().hex
             db.execute("INSERT INTO brain_fit_context(source_id, payload, source_version) VALUES (?, ?, ?)",
                        (source_id, json.dumps(context, ensure_ascii=False), row['source_version']))
             db.executemany(

@@ -21,7 +21,8 @@ def validate_corrections(text: str, kind: str, self_speaker: str | None,
     report = None
     for item in corrections:
         if isinstance(item, dict) and "type" in item:
-            if set(item) != {"type", "value", "sign", "evidence", "span"}:
+            base = {"type", "value", "sign", "evidence", "span"}
+            if set(item) not in (base, base | {"revised_value"}):
                 raise ValueError("typed correction needs type, value, sign, evidence and span")
             family = item['type']
             span = item['span']
@@ -36,6 +37,14 @@ def validate_corrections(text: str, kind: str, self_speaker: str | None,
                 raise ValueError("unknown annotation type")
             if type(item['sign']) is not int or item['sign'] not in (0, 1):
                 raise ValueError("annotation sign must be 0 (suppress) or 1 (retain)")
+            if "revised_value" in item:
+                revised = item["revised_value"]
+                if (item["sign"] != 1 or not isinstance(revised, str) or revised != revised.strip()
+                        or not 1 <= len(revised) <= 64 or revised == item["value"]
+                        or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                               for ch in revised)):
+                    raise ValueError("revised_value must be a different trimmed 1-64 character "
+                                     "control-free label and requires sign 1")
             if report is None:
                 # One deterministic snapshot per invocation, after local validation.
                 report = translate(text, kind='diary' if kind == 'philosophy' else kind,

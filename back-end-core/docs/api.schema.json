@@ -6,6 +6,83 @@
   "$defs": {
     "text": {"type": "string", "minLength": 1},
     "sourceText": {"type": "string", "minLength": 1, "maxLength": 1000000, "not": {"pattern": "\\u0000"}},
+    "duplicateSourceId": {"type": "string", "minLength": 1, "pattern": "\\S", "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "dependencyFitId": {"oneOf": [{"type": "null"}, {"type": "string", "minLength": 32, "maxLength": 32, "pattern": "^[0-9a-f]{32}$"}]},
+    "dependencySourceIds": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/duplicateSourceId"}},
+    "dependencySourceRef": {
+      "type": "object", "required": ["source_id", "source_version", "fit_id"], "additionalProperties": false,
+      "properties": {"source_id": {"$ref": "#/$defs/duplicateSourceId"}, "source_version": {"$ref": "#/$defs/revision"}, "fit_id": {"$ref": "#/$defs/dependencyFitId"}}
+    },
+    "dependencyProvenance": {
+      "description": "Recorded available learning-input exposure, not proof of causal use. Optional for legacy interpretations; present null is invalid. Preview fit_id may be null even when coverage is complete. Runtime additionally checks sorted unique terms/source IDs, term total equality and strict Python integer types.",
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "fit_id", "input_revision", "model_epoch", "scope", "tokenizer_terms", "tokenizer_terms_total", "tokenizer_terms_truncated", "tokenizer_sources", "tokenizer_sources_truncated", "rule_sources", "rule_sources_truncated", "complete"],
+      "properties": {
+        "version": {"type": "integer", "const": 1}, "fit_id": {"$ref": "#/$defs/dependencyFitId"},
+        "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}, "scope": {"const": "available_learning_inputs"},
+        "tokenizer_terms": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "minLength": 2, "maxLength": 8, "pattern": "^[\u3400-\u9fff]{2,8}(?![\\s\\S])"}},
+        "tokenizer_terms_total": {"$ref": "#/$defs/revision"}, "tokenizer_terms_truncated": {"type": "boolean"},
+        "tokenizer_sources": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/dependencySourceRef"}},
+        "tokenizer_sources_truncated": {"type": "boolean"},
+        "rule_sources": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/dependencySourceRef"}},
+        "rule_sources_truncated": {"type": "boolean"}, "complete": {"type": "boolean"}
+      },
+      "allOf": [
+        {"if": {"properties": {"tokenizer_terms_truncated": {"const": true}}}, "then": {"properties": {"tokenizer_terms": {"minItems": 128}, "tokenizer_terms_total": {"minimum": 129}}}, "else": {"properties": {"tokenizer_terms_total": {"maximum": 128}}}},
+        {"if": {"properties": {"tokenizer_sources_truncated": {"const": true}}}, "then": {"properties": {"tokenizer_sources": {"minItems": 128}}}},
+        {"if": {"properties": {"rule_sources_truncated": {"const": true}}}, "then": {"properties": {"rule_sources": {"minItems": 128}}}},
+        {"if": {"properties": {"tokenizer_terms": {"maxItems": 0}}}, "then": {"properties": {"tokenizer_sources": {"maxItems": 0}, "tokenizer_sources_truncated": {"const": false}}}},
+        {"if": {"properties": {"complete": {"const": true}}}, "then": {"properties": {
+          "tokenizer_terms_truncated": {"const": false}, "tokenizer_sources_truncated": {"const": false}, "rule_sources_truncated": {"const": false},
+          "tokenizer_sources": {"items": {"properties": {"fit_id": {"type": "string"}}}}, "rule_sources": {"items": {"properties": {"fit_id": {"type": "string"}}}}
+        }}, "else": {"anyOf": [
+          {"properties": {"tokenizer_terms_truncated": {"const": true}}}, {"properties": {"tokenizer_sources_truncated": {"const": true}}}, {"properties": {"rule_sources_truncated": {"const": true}}},
+          {"properties": {"tokenizer_sources": {"contains": {"properties": {"fit_id": {"type": "null"}}}}}}, {"properties": {"rule_sources": {"contains": {"properties": {"fit_id": {"type": "null"}}}}}}
+        ]}}
+      ]
+    },
+    "relationNote": {"type": ["string", "null"], "maxLength": 1024, "not": {"pattern": "[\\u0000\\uD800-\\uDFFF]"}},
+    "relationRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from_source_id", "to_source_id", "kind", "from_source_version", "to_source_version", "model_epoch", "note", "created_at", "stale", "direction"],
+      "properties": {
+        "from_source_id": {"$ref": "#/$defs/choiceId"}, "to_source_id": {"$ref": "#/$defs/choiceId"}, "kind": {"enum": ["semantic", "causal"]},
+        "from_source_version": {"$ref": "#/$defs/revision"}, "to_source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"},
+        "note": {"$ref": "#/$defs/relationNote"}, "created_at": {"$ref": "#/$defs/text"}, "stale": {"type": "boolean"}, "direction": {"enum": ["outgoing", "incoming"]}
+      }
+    },
+    "dependencyAffected": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "source_version", "model_epoch", "model_active", "replay_eligible", "fit_id", "provenance_complete", "distance", "via_kinds"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/duplicateSourceId"}, "source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"},
+        "model_active": {"type": "boolean"}, "replay_eligible": {"type": "boolean"}, "fit_id": {"$ref": "#/$defs/dependencyFitId"}, "provenance_complete": {"type": "boolean"},
+        "distance": {"type": "integer", "minimum": 1, "maximum": 1000}, "via_kinds": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["rule", "tokenizer", "manual_semantic", "manual_causal"]}}
+      },
+      "allOf": [
+        {"if": {"properties": {"provenance_complete": {"const": true}}}, "then": {"properties": {"fit_id": {"type": "string"}}}},
+        {"if": {"properties": {"model_active": {"const": true}}}, "then": {"properties": {"replay_eligible": {"const": true}}}}
+      ]
+    },
+    "dependencyPlan": {
+      "description": "Read-only projection of recorded computational exposure. Complete means recorded coverage only. No inference, fitting or replay. Runtime owns snapshot consistency, ordering, unique affected IDs and cross-field counter relationships.",
+      "type": "object", "additionalProperties": false,
+      "required": ["scope", "source_ids", "status", "affected", "total_affected", "truncated", "scanned_sources", "total_sources", "graph_truncated", "untracked_sources", "incomplete_sources", "changed_supports", "input_revision", "model_epoch"],
+      "properties": {
+        "scope": {"const": "recorded_learning_inputs"}, "source_ids": {"$ref": "#/$defs/dependencySourceIds"}, "status": {"enum": ["complete", "partial"]},
+        "affected": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/dependencyAffected"}},
+        "total_affected": {"type": "integer", "minimum": 0, "maximum": 1000}, "truncated": {"type": "boolean"},
+        "scanned_sources": {"type": "integer", "minimum": 0, "maximum": 1000}, "total_sources": {"$ref": "#/$defs/revision"}, "graph_truncated": {"type": "boolean"},
+        "untracked_sources": {"type": "integer", "minimum": 0, "maximum": 1000}, "incomplete_sources": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "changed_supports": {"$ref": "#/$defs/revision"}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}
+      },
+      "if": {"properties": {"status": {"const": "complete"}}},
+      "then": {"properties": {"untracked_sources": {"const": 0}, "incomplete_sources": {"const": 0}, "changed_supports": {"const": 0}, "graph_truncated": {"const": false}, "truncated": {"const": false}}},
+      "else": {"anyOf": [
+        {"properties": {"untracked_sources": {"minimum": 1}}}, {"properties": {"incomplete_sources": {"minimum": 1}}}, {"properties": {"changed_supports": {"minimum": 1}}},
+        {"properties": {"graph_truncated": {"const": true}}}, {"properties": {"truncated": {"const": true}}}
+      ]}
+    },
     "partition": {"enum": ["rational", "emotional", "crazy"]},
     "optionalPartition": {"enum": ["rational", "emotional", "crazy", null]},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -159,6 +236,24 @@
         "revision": {"type": "integer", "minimum": 0}
       }
     },
+    "inputDuplicateItem": {
+      "type": "object", "required": ["source_id", "partition", "kind", "status", "source_version", "model_epoch", "model_active", "created_at"], "additionalProperties": false,
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "partition": {"$ref": "#/$defs/partition"}, "kind": {"enum": ["diary", "chat", "philosophy"]},
+        "status": {"enum": ["pending", "agreed", "disagreed", "revoked"]}, "source_version": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"},
+        "model_active": {"type": "boolean", "description": "Rule-source activity: status agreed and source epoch equals the snapshot epoch. Independent of feedback consent or qualification."}, "created_at": {"$ref": "#/$defs/text"}
+      },
+      "if": {"properties": {"model_active": {"const": true}}}, "then": {"properties": {"status": {"const": "agreed"}}}
+    },
+    "inputDuplicates": {
+      "description": "Read-only advisory exact BINARY equality of current stored raw text among application inputs, across all partitions, kinds, statuses and model epochs. Excludes the target and legacy store-only sources. No normalization, history search, inferred review, grouping, consent, merge or fitting. Runtime enforces ordering, snapshot consistency and truncated = total > items.length; the bound limits output, not the text scan.",
+      "type": "object", "required": ["source_id", "source_version", "match_kind", "items", "total", "truncated", "input_revision", "model_epoch"], "additionalProperties": false,
+      "properties": {
+        "source_id": {"$ref": "#/$defs/text"}, "source_version": {"$ref": "#/$defs/revision"}, "match_kind": {"const": "exact_text"},
+        "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/inputDuplicateItem"}}, "total": {"type": "integer", "minimum": 0},
+        "truncated": {"type": "boolean"}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}
+      }
+    },
     "approvalMetadata": {
       "type": "object", "required": ["status", "immediate", "confirm", "exclamation", "confirmed_by", "reason"],
       "properties": {
@@ -190,8 +285,10 @@
       "type": "object", "required": ["type", "value", "sign", "evidence", "span"], "additionalProperties": false,
       "properties": {
         "type": {"enum": ["event", "intent", "tone", "candidate"]}, "value": {"$ref": "#/$defs/text"},
-        "sign": {"type": "integer", "enum": [0, 1]}, "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"}
-      }
+        "sign": {"type": "integer", "enum": [0, 1]}, "evidence": {"$ref": "#/$defs/text"}, "span": {"$ref": "#/$defs/span"},
+        "revised_value": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(.*\\S)?(?![\\s\\S])"}
+      },
+      "allOf": [{"if": {"required": ["revised_value"]}, "then": {"properties": {"sign": {"const": 1}}}}]
     },
     "parameterCorrection": {
       "type": "object", "required": ["parameter", "sign", "evidence", "span"], "additionalProperties": false,
@@ -213,6 +310,7 @@
       "type": "object", "required": ["correction_revision", "corrections", "learned_rules"], "additionalProperties": false,
       "properties": {
         "correction_revision": {"type": "integer", "minimum": 0},
+        "dependency_provenance": {"$ref": "#/$defs/dependencyProvenance"},
         "corrections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/correction"}},
         "learned_rules": {"type": "array", "items": {
           "type": "object", "required": ["parameter", "evidence", "boundary", "status", "sign", "support_source_ids", "support"], "additionalProperties": false,
@@ -396,11 +494,11 @@
         "health": {
           "type": "object", "required": ["schema_version", "contract_revision", "candidate_publication", "llm_runtime_configured", "methods", "features", "access"], "additionalProperties": false,
           "properties": {
-            "schema_version": {"const": 1}, "contract_revision": {"const": 5}, "access": {"$ref": "#/$defs/accessStatus"}, "candidate_publication": {"const": "automatic_double_approval"}, "llm_runtime_configured": {"const": false},
+            "schema_version": {"const": 1}, "contract_revision": {"const": 7}, "access": {"$ref": "#/$defs/accessStatus"}, "candidate_publication": {"const": "automatic_double_approval"}, "llm_runtime_configured": {"const": false},
             "model_epoch": {"type": "integer", "minimum": 0},
-            "methods": {"type": "array", "minItems": 34, "maxItems": 34, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
-            "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete", "access_control", "source_versions", "correction_reopen", "explicit_replay", "typed_corrections", "semantic_memory_search", "semantic_encoder_configured", "choice_feedback", "preference_learning", "reviewed_event_groups", "preference_contrast_guard"], "additionalProperties": false,
-              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}, "semantic_memory_search": {"const": true}, "semantic_encoder_configured": {"type": "boolean"}, "choice_feedback": {"const": true}, "preference_learning": {"const": true}, "reviewed_event_groups": {"const": true}, "preference_contrast_guard": {"const": true}}}
+            "methods": {"type": "array", "minItems": 38, "maxItems": 38, "uniqueItems": true, "items": {"$ref": "#/$defs/request/properties/method"}},
+            "features": {"type": "object", "required": ["two_judgements", "exclamation_sets_both_true", "repeat_review", "preview_untrained", "input_summary", "input_pagination", "source_edit", "source_delete", "access_control", "source_versions", "correction_reopen", "explicit_replay", "typed_corrections", "semantic_memory_search", "semantic_encoder_configured", "choice_feedback", "preference_learning", "reviewed_event_groups", "preference_contrast_guard", "exact_text_duplicate_hint", "dependency_provenance", "dependency_planning", "semantic_label_revision", "manual_relations"], "additionalProperties": false,
+              "properties": {"two_judgements": {"const": true}, "exclamation_sets_both_true": {"const": true}, "repeat_review": {"const": true}, "preview_untrained": {"const": true}, "input_summary": {"const": true}, "input_pagination": {"const": true}, "source_edit": {"const": true}, "source_delete": {"const": true}, "access_control": {"const": true}, "source_versions": {"const": true}, "correction_reopen": {"const": true}, "explicit_replay": {"const": true}, "typed_corrections": {"const": true}, "semantic_memory_search": {"const": true}, "semantic_encoder_configured": {"type": "boolean"}, "choice_feedback": {"const": true}, "preference_learning": {"const": true}, "reviewed_event_groups": {"const": true}, "preference_contrast_guard": {"const": true}, "exact_text_duplicate_hint": {"const": true}, "dependency_provenance": {"type": "boolean", "const": true}, "dependency_planning": {"type": "boolean", "const": true}, "semantic_label_revision": {"type": "boolean", "const": true}, "manual_relations": {"type": "boolean", "const": true}}}
           },
           "allOf": [{"if": {"properties": {"access": {"properties": {"locked": {"const": true}}}}}, "then": {"not": {"required": ["model_epoch"]}}, "else": {"required": ["model_epoch"]}}]
         },
@@ -418,6 +516,7 @@
           "else": {"properties": {"exclamation": {"const": false}, "effects": {"const": []}, "translator_effects": {"const": []}}}
         },
         "input_get": {"$ref": "#/$defs/inputDetail"},
+        "input_duplicates": {"$ref": "#/$defs/inputDuplicates"},
         "input_edit": {
           "allOf": [{"$ref": "#/$defs/inputRecord"}],
           "properties": {"status": {"enum": ["pending", "disagreed"]}, "confirm": {"const": null}, "exclamation": {"const": false}, "confirmed_by": {"const": null}, "reviewed_at": {"const": null}, "edited_at": {"$ref": "#/$defs/text"}}
@@ -487,7 +586,16 @@
         "choice_feedback_set": {"allOf": [{"$ref": "#/$defs/choiceFeedbackFields"}], "required": ["input_revision"], "properties": {"input_revision": {"$ref": "#/$defs/revision"}}, "unevaluatedProperties": false},
         "choice_feedback_get": {"type": "object", "required": ["source_id", "records", "input_revision", "model_epoch"], "additionalProperties": false,
           "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "records": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/choiceFeedbackRecord"}}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}},
-        "preference_rank": {"$ref": "#/$defs/preferenceResult"}
+        "preference_rank": {"$ref": "#/$defs/preferenceResult"},
+        "dependency_plan": {"$ref": "#/$defs/dependencyPlan"},
+        "relation_set": {"type": "object", "additionalProperties": false,
+          "required": ["from_source_id", "to_source_id", "kind", "reviewed", "changed", "from_source_version", "to_source_version", "model_epoch", "input_revision"],
+          "properties": {"from_source_id": {"$ref": "#/$defs/choiceId"}, "to_source_id": {"$ref": "#/$defs/choiceId"}, "kind": {"enum": ["semantic", "causal"]},
+            "reviewed": {"type": "boolean"}, "changed": {"type": "boolean"}, "from_source_version": {"$ref": "#/$defs/revision"}, "to_source_version": {"$ref": "#/$defs/revision"},
+            "model_epoch": {"$ref": "#/$defs/revision"}, "input_revision": {"$ref": "#/$defs/revision"}}},
+        "relation_list": {"type": "object", "additionalProperties": false, "required": ["source_id", "relations", "truncated", "input_revision", "model_epoch"],
+          "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "relations": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/relationRecord"}},
+            "truncated": {"type": "boolean"}, "input_revision": {"$ref": "#/$defs/revision"}, "model_epoch": {"$ref": "#/$defs/revision"}}}
       }
     },
     "empty": {"type": "object", "additionalProperties": false},
@@ -500,10 +608,31 @@
       "properties": {
         "schema_version": {"const": 1},
         "id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search", "access_status", "unlock", "lock", "correction_reopen", "review_version", "replay_preview", "replay_reopen", "memory_search_semantic", "choice_feedback_set", "choice_feedback_get", "preference_rank"]},
+        "method": {"enum": ["health", "baseline", "submit", "input_get", "input_duplicates", "input_edit", "input_delete", "input_list", "input_page", "preview", "review", "review_history", "correction_set", "correction_history", "revoke", "state", "effects", "terms", "rank", "candidate_propose", "candidate_review", "candidate_list", "memory_list", "memory_search", "access_status", "unlock", "lock", "correction_reopen", "review_version", "replay_preview", "replay_reopen", "memory_search_semantic", "choice_feedback_set", "choice_feedback_get", "preference_rank", "dependency_plan", "relation_set", "relation_list"]},
         "params": {"type": "object"}
       },
       "allOf": [
+        {"if": {"properties": {"method": {"const": "dependency_plan"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_ids"], "additionalProperties": false,
+          "properties": {"source_ids": {"$ref": "#/$defs/dependencySourceIds"}, "limit": {"$ref": "#/$defs/limit", "default": 100}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "relation_set"}}}, "then": {"properties": {"params": {
+          "type": "object", "additionalProperties": false,
+          "required": ["from_source_id", "to_source_id", "kind", "reviewed", "expected_from_source_version", "expected_to_source_version", "expected_revision", "expected_epoch"],
+          "properties": {"from_source_id": {"$ref": "#/$defs/choiceId"}, "to_source_id": {"$ref": "#/$defs/choiceId"}, "kind": {"enum": ["semantic", "causal"]},
+            "reviewed": {"type": "boolean"}, "note": {"$ref": "#/$defs/relationNote", "default": null},
+            "expected_from_source_version": {"$ref": "#/$defs/revision"}, "expected_to_source_version": {"$ref": "#/$defs/revision"},
+            "expected_revision": {"$ref": "#/$defs/revision"}, "expected_epoch": {"$ref": "#/$defs/revision"}},
+          "if": {"properties": {"reviewed": {"const": false}}}, "then": {"properties": {"note": {"type": "null"}}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "relation_list"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "limit": {"$ref": "#/$defs/limit", "default": 100}}
+        }}}},
+        {"if": {"properties": {"method": {"const": "input_duplicates"}}}, "then": {"properties": {"params": {
+          "type": "object", "required": ["source_id"], "additionalProperties": false,
+          "properties": {"source_id": {"$ref": "#/$defs/duplicateSourceId"}, "limit": {"$ref": "#/$defs/limit", "default": 20}}
+        }}}},
         {"if": {"properties": {"method": {"const": "choice_feedback_set"}}}, "then": {"properties": {"params": {
           "type": "object", "required": ["source_id", "event_id", "domain", "options", "actual_choice_id", "endorsed_choice_id", "endorsement_partition", "training_consent", "expected_source_version", "expected_revision", "expected_epoch"], "additionalProperties": false,
           "properties": {"source_id": {"$ref": "#/$defs/choiceId"}, "event_id": {"$ref": "#/$defs/choiceId"}, "domain": {"$ref": "#/$defs/choiceDomain"}, "options": {"$ref": "#/$defs/choiceOptions"},

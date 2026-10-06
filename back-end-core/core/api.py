@@ -14,6 +14,7 @@ from typing import TextIO
 
 from translator.pipeline import MAX_CHARS
 from model.engine import BrainModel
+from model.dependencies import validate_request as validate_dependency_request
 from model.reset import verify_existing
 
 from .access import AccessError, AccessSession
@@ -21,7 +22,7 @@ from .brain import BrainCore
 from .pagination import StaleCursor
 
 SCHEMA_VERSION = 1
-CONTRACT_REVISION = 5
+CONTRACT_REVISION = 7
 MAX_REQUEST_CHARS = MAX_CHARS * 6 + 4096
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "brain.sqlite3"
 
@@ -31,6 +32,7 @@ METHODS = {
     "access_status": ((), ()), "unlock": (("password",), ()), "lock": ((), ()),
     "submit": (("text", "partition"), ("kind", "self_speaker", "source_ref", "immediate", "exclamation")),
     "input_get": (("source_id",), ()),
+    "input_duplicates": (("source_id",), ("limit",)),
     "input_edit": (("source_id", "text", "immediate"), ("kind", "self_speaker")),
     "input_delete": (("source_id",), ()),
     "input_list": ((), ("partition", "status", "limit")),
@@ -43,6 +45,7 @@ METHODS = {
     "correction_reopen": (("source_id", "corrections", "immediate", "expected_source_version", "expected_revision", "expected_epoch"), ()),
     "review_version": (("source_id", "agree", "expected_source_version", "expected_revision", "expected_epoch"), ()),
     "replay_preview": (("source_ids",), ()),
+    "dependency_plan": (("source_ids",), ("limit",)),
     "replay_reopen": (("source_ids", "immediate", "expected_source_versions", "expected_revision", "expected_epoch"), ()),
     "revoke": (("source_id",), ()), "state": ((), ("partition",)),
     "effects": ((), ("source_id",)),
@@ -58,10 +61,14 @@ METHODS = {
                              "expected_source_version", "expected_revision", "expected_epoch"),
                             ("reason", "group_id", "group_reviewed")),
     "choice_feedback_get": (("source_id",), ()),
+    "relation_set": (("from_source_id", "to_source_id", "kind", "reviewed", "expected_from_source_version",
+                      "expected_to_source_version", "expected_revision", "expected_epoch"), ("note",)),
+    "relation_list": (("source_id",), ("limit",)),
     "preference_rank": (("options", "target", "partition", "domain"), ()),
 }
 PUBLIC_METHODS = frozenset({"health", "baseline", "access_status", "unlock", "lock"})
 TEXT_FIELDS = {"text", "partition", "kind", "self_speaker", "source_ref", "source_id",
+               "from_source_id", "to_source_id",
                "candidate_id", "claim", "evidence", "query", "status", "cursor"}
 
 
@@ -191,7 +198,7 @@ class BrainAPI:
                             if isinstance(option, dict) and isinstance(option.get("id"), str) and not option["id"].strip():
                                 raise RequestError("INVALID_ARGUMENT", "option id must contain text")
                 if value is None and field in optional and field in {"partition", "status",
-                                                                    "self_speaker", "source_ref", "source_id", "cursor"}:
+                                                                    "self_speaker", "source_ref", "source_id", "cursor", "note"}:
                     continue
                 if field in TEXT_FIELDS and (not isinstance(value, str) or not value.strip()):
                     raise RequestError("INVALID_ARGUMENT", f"{field} must contain text")
@@ -200,11 +207,12 @@ class BrainAPI:
                         value.encode("utf-8")
                     except UnicodeEncodeError:
                         raise RequestError("INVALID_ARGUMENT", f"{field} must not contain surrogate code points") from None
-                if field in {"agree", "accept", "immediate", "exclamation", "training_consent", "group_reviewed"} and type(value) is not bool:
+                if field in {"agree", "accept", "immediate", "exclamation", "training_consent", "group_reviewed", "reviewed"} and type(value) is not bool:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be a boolean")
                 if field in {"limit", "min_documents"} and type(value) is not int:
                     raise RequestError("INVALID_ARGUMENT", f"{field} must be an integer")
-                if field in {"expected_revision", "expected_source_version", "expected_epoch"}:
+                if field in {"expected_revision", "expected_source_version", "expected_epoch",
+                             "expected_from_source_version", "expected_to_source_version"}:
                     _validate_revision(field, value)
                 if field == "source_ids":
                     _validate_source_ids(value)
@@ -237,6 +245,8 @@ class BrainAPI:
             if (method == "choice_feedback_set" and params.get("group_reviewed") is True
                     and params.get("group_id") is None):
                 raise RequestError("INVALID_ARGUMENT", "reviewed feedback requires a nonempty group_id")
+            if method == "dependency_plan":
+                validate_dependency_request(params["source_ids"], params.get("limit", 100))
             if method == "health":
                 access = self._access_status()
                 result = {"schema_version": SCHEMA_VERSION, "contract_revision": CONTRACT_REVISION,
@@ -252,7 +262,10 @@ class BrainAPI:
                                        "semantic_encoder_configured": self.semantic_encoder is not None or self.semantic_model_path is not None,
                                        "choice_feedback": True, "preference_learning": True,
                                        "reviewed_event_groups": True,
-                                       "preference_contrast_guard": True}}
+                                       "preference_contrast_guard": True,
+                                       "exact_text_duplicate_hint": True,
+                                       "dependency_provenance": True, "dependency_planning": True,
+                                       "semantic_label_revision": True, "manual_relations": True}}
                 if not access["locked"]:
                     result["model_epoch"] = self.brain.model.reset_info()["model_epoch"]
             elif method == "baseline":

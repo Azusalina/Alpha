@@ -1,6 +1,6 @@
 # Local hybrid understanding, evidence memory and choice preference learning
 
-> **2026-10-06 当前限定交付（Asia/Taipei）**：schema_version=1 / contract_revision=5 / 34 methods，preference_contrast_guard=true；main session80693 exit0，576／59.590s／OK／0 skips＋三份最终 reviews 无 blockers，main 限定接受 rev5 backend synthetic contract。三个完成子项已移至 [Oct 6 日志](../../frontback-log.md#oct-6-final-rev5-backend-synthetic-contract)；P2/P3 整体、前端、actual weights 和真实效度仍 [ ]，broad goal active。见 [当前 API／精确证明](api.md#oct-6-final-rev5-backend-synthetic-contract)。初稿／检查点和旧 dated pending／PROPOSED 保留历史，当前状态由 Oct 6 限定证明 supersede。
+> **2026-10-06 当前限定交付（Asia/Taipei）**：schema_version=1 / contract_revision=6 / 35 methods，health.features.exact_text_duplicate_hint=true，旧 contrast guarantees 不变。最新 main session90162 exit0，620／100.682s／OK／0 skips；独立 discovery620 unique IDs／0 loader errors。Aquinas／Tesla／Franklin 三份终态 fresh reviews 无 blockers；本阶段仅接受 exact-text duplicate hint 后端，见 [最新 Oct 6 日志](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint) 与 [当前阶段](#oct-6-rev6-exact-text-duplicate-hint)。旧 [main601／84.585s](#oct-6-offline-comparisons-and-typed-validation-performance) 与 [rev5 main576／59.590s](api.md#oct-6-final-rev5-backend-synthetic-contract) 保留历史范围。根未完成13项；broad P0/P2/P3、前端、actual weights 和真实效度仍 [ ]，broad goal ACTIVE／NOT ACHIEVED。初稿／检查点与 dated pending／PROPOSED 仅为历史。
 
 > **2026-10-05 历史限定证明（当前状态由 Oct 6 supersede）**：main 新环境 rev3 baseline full 458 tests、181.564s、OK、0 skips；早于 evaluator 零值／数值复制修复和 rev4 组改动。旧 411 历史验收保留。后续改动及 P2/P3 整体、真实效度、前端仍待验收；下方旧状态按末尾恢复记录解读。
 
@@ -18,11 +18,11 @@ F14 自 Oct 3 已解除延期。材料 immediate/confirm 双 true、实际选择
 | --- | --- | --- |
 | 前端／宿主 | 根 package.json：React 19、TypeScript、Vite 7、Tauri CLI ^2.12.0；src-tauri/Cargo.toml：Tauri major 2 | Tauri 2，不是 Tauri 3；前端／Rust 各归 owner，本次仅文档。 |
 | 规则与存储 | pyproject.toml Python >=3.10；translator/learning.py jieba；core/store.py SQLite；model/catalog.py 13 参数 | 词汇计数和规则参数不等于通用语义学习，observed=false 不等于测得中性。 |
-| 当前扩展 | core/api.py CONTRACT_REVISION=5、METHODS 34 项；model/contrast.py、model/ranking.py | rev5 contrast 后端合成契约已限定验收：main576／59.590s＋三份最终 reviews；rev4 483、rev3 458、411 保留历史范围，前端／整体效度仍 pending。 |
+| 当前扩展 | core/api.py CONTRACT_REVISION=6、METHODS 35 项；core/brain.py input_duplicates；model/contrast.py、model/ranking.py | 最新 main620／100.682s＋三份终态 fresh reviews 仅接受 exact-text duplicate hint 后端。旧 main601／84.585s 离线工具／typed validation 与 rev5 main576／59.590s contrast 证明保留历史范围；前端／整体效度仍 pending。 |
 | 私有访问与备份 | core/access.py AccessSession；core/backup.py validate_database；tests/test_hybrid_backup.py | 新反馈表曾实际破坏 protected setup/access/backup；精确参考 schema 修复及合成集成已有 main／fresh 限定证明，前端 access/cache 验收仍 pending。SQLite 明文，同 OS 用户直接文件读取在 gate 范围外。 |
 | 语义检索 | translator/semantic.py；core/brain.py memory_search_semantic | 可选冻结本机 encoder、请求内向量；未配置明确 lexical_fallback，配置后失败报错。最新至多 1000 候选池，非无界全集。 |
 | 偏好基线 | model/preferences.py；tests/test_preferences.py | 纯 Python L2 multinomial logistic，8 个 value.*；按请求临时 fit，不写 DB/持久权重、不训练 encoder。 |
-| 评测工具 | model/evaluation.py、model/readiness.py、translator/evaluation.py、model/preference_evaluation.py | 旧规则／收集工具及合成偏好 evaluator 已限定交付；rev5 P3 report 只输出 scalar contrast_rank，不输出 raw basis／weights／私有内部变量，不证明真实材料有效。 |
+| 评测工具 | model/evaluation.py、model/readiness.py、translator/evaluation.py、model/preference_evaluation.py | 合成 evaluator、opt-in 两基线及八参数 matched-ablation 工具已限定交付；P3 report 只输出 scalar contrast_rank，不输出 raw basis／weights／私有内部变量，无自动选参／calibration／真实效度声明。 |
 
 技术候选为 SentenceTransformers 6.1.0／PyTorch CPU；参考源码 ext-refs/sentence-transformers 为 commit `4a3b5cd6ec718e421f57e824a41ed3fd99595df6`、6.2.0.dev0，不是已安装运行版本。BGE-M3 仅候选，无模型权重下载／加载／CPU 性能或真实中文语义验收。
 
@@ -84,9 +84,12 @@ React/TypeScript/Vite -> Tauri 2 brain_call -> Python AccessSession
 
 Reset 排除旧反馈 epoch。明确 guarded feedback save 可以重新登记当前 epoch 的反馈，**不要求恢复旧规则 fit**；规则 re-review 不自动重新登记旧反馈。记忆／translator 保留不激活偏好 ML。F6 编辑／删除同事务 purge 反馈；revoke/reopen／版本或内容变化使旧反馈失效。反馈与规则的 model_active 必须独立展示。
 
-## 当前源码签名（rev5 后端合成契约已限定验收）
+<a id="当前源码签名rev5-后端合成契约已限定验收"></a>
+
+## 当前源码签名（rev6 后端已限定验收）
 
 ```python
+input_duplicates(source_id: str, *, limit: int = 20) -> dict
 memory_search_semantic(query: str, *, partition: str | None = None,
                        limit: int = 20, min_score: float = 0.0) -> dict
 choice_feedback_set(source_id: str, *, event_id: str, domain: str,
@@ -332,3 +335,58 @@ Frontend／一般纠错／generic replay、真实留出／baselines／ablation�
 参数选择、actual weights／资源发行／GPU／CI／整个 P2/P3 仍 pending。
 Root 15 项未完成，overall goal active，未 achieved；旧 rev4／483 与 dated
 history 原范围保留，仅其 contrast pending 当前状态由本次限定证明 supersede。
+
+## Oct 6 offline comparisons and typed validation performance
+
+2026-10-06（Asia/Taipei）最新限定验收：main full session65720 exit0，
+601 tests／84.585s／OK／0 skips；独立 discovery601 unique IDs／0 loader errors。
+Main focused session67821 exit0，40 tests／9.939s／OK／0 skips，与 full 重叠；
+owner evaluator69／3.415s 使用 DB／network denials，counts 不相加。
+Lovelace verification、Linnaeus antipattern、Ramanujan quality 均 completed，
+无 demonstrated blockers；精确 full 命令、CLI 证明、各 review 细节与冻结 source
+hashes 以 [最新根日志](../../frontback-log.md#oct-6-offline-comparisons-and-typed-validation-performance)
+为准。本次文档恢复不重跑测试／benchmark；临时 CPython3.14.7／jsonschema4.26.0
+环境 `/tmp/alpha-verify-20261006.ltAAKM` 只属于该日期证明，不是永久 runtime。
+
+//// - [x] **离线两基线工具**：显式 `--comparisons` 才启用 nonpersonal equal_weight sum heuristic 与 analytic uniform chance；chance 是解析期望，不是随机抽样或个人准确率。所有 variants 的 predictions／distributions 完成后才读取 held-out scoring labels，保留 target eligibility／consent／contamination／axis 隔离，无 automatic selection／promotion／validity claim。
+//// - [x] **八参数 matched-ablation 工具**：full＋两基线＋八个固定 leave-one-feature-out 共11 variants／10 full-vs-variant pairs；原始 cohort admission／numeric dedup 一次后才 projection，projection 不再次去重，保留原始 event multiplicity／group ownership／target masking。生产 support／span／tie／convergence guards 不变；BOTH_PREDICTED 交集、original-cohort 与 equal-group denominators 披露 support loss，18 default／162 comparison fits、1000-case 上限不变。见 [比较协议](preference-evaluation.md#opt-in-offline-comparisons)。
+//// - [x] **Typed validation 资源／一致性证明**：每次 validate_corrections 函数调用惰性完整重译至多一次，empty／parameter-only／pretranslation failure 为零；batch 上限64，无全局／跨调用 cache。correction_reopen 仍保留事务前后两次 validation，observations 另有翻译，不能写成每个 API request 一次。历史98,752-char／64 distinct-tone-target benchmark 的 median2.857913091s→0.057367233s、Python peak542,710→429,267B 保留原始测量，未重跑；不是 API latency／native RSS／frontend 响应保证。见 [原始性能证明](correction-performance.md)。
+
+Main synthetic CLI exit0／stderrEmpty，11 variants／10 pairs，
+automatic_selection=False／validity_claim=False／database_opened=False，
+仅证明 synthetic wiring。通用项目 Python how-to 与精确 dated 命令见
+[README](../README.md#oct-6-offline-tools-and-typed-validation-performance)。
+
+- [ ] 独立真实 actual／endorsed labels、provenance／holdout、coverage／prediction／calibration／参数选择。以 holdout 比较结果选参后，该 holdout 成为 development data，最终效度须新的独立 holdout；reviewed group ID 不证明独立性。
+- [ ] Broad P0/P2/P3、一般语义纠错／generic replay、frontend/native／guards／F13/F14、actual encoder weights／离线发行／资源／GPU／CI 与可选整库加密决策；exact-text duplicate hint 未在此阶段实现／验收。
+- [ ] 未来统一消费 typed annotations 的用户问题仍未回答；当前 typed annotations 有意不覆盖13个规则参数，此 split 保持。
+
+来源 t/t → translator／13-rule model／memories 与显式 labels／impacts／consent／
+reviewed groups → 八参数临时 CPU preference fit 保持分开；set/get 不 fit，
+不写 DB／持久 weights、不训练 encoder。Root [当前清单](../../front-back-communicate.md)
+仍14项未完成，overall goal active／未 achieved；上方 Oct 6 rev5 numeric proof
+及旧 dated history 不由新 suite 计数覆盖。
+
+## Oct 6 rev6 exact-text duplicate hint
+
+//// - [x] **2026-10-06｜Exact-text duplicate hint 后端限定交付**：schema1／rev6／35 methods，health.features.exact_text_duplicate_hint=true；main620／100.682s／OK／0 skips、discovery620 unique／0 loader errors 与三份终态 no-blocker reviews，仅验收后端。[精确命令／reviews／六个 hashes](../../frontback-log.md#oct-6-rev6-exact-text-duplicate-hint) 集中归档，本次不重跑。旧 main601／rev5 main576 与 recovery amendments 保留历史范围。
+
+input_duplicates 是 authenticated read-only advisory；当前 stored raw SQLite
+BINARY equality，不作 normalization／history／semantic／hash matching，
+限量 metadata 和 total／version／revision／epoch 共用单一 read snapshot。
+无 raw text／labels／weights／consent；model_active 是规则 agreed＋当前 epoch，
+不是偏好资格。后端不在 submit/edit/review 内自动调用；前端可保存／编辑后显式
+请求，包括 post-save trigger，其 owner 接线验收仍 pending。不自动分组／审核／
+认可／consent／合并／去重／阻挡提交／refit；用户审核 event groups 仍需保留。
+[API](api.md#oct-6-rev6-exact-text-duplicate-hint) 和
+[handoff](frontend-contract-handoff.md#oct-6-rev6-exact-text-duplicate-hint)
+规定 method＋feature 协商、stale-token guards 与私有 cache 失效。
+
+Root13 未完成；duplicate frontend adapter／UI／cache／native 纳入既有
+F14／guards／native bullets。一般语义纠错／依赖下游重放仍 pending；
+本 hint 不补全 supporting provenance 或 generic dependency replay。
+来源双 true→translator／13-rule model／memories 与 labels／impacts／consent／
+reviewed groups→八参数临时 preference fit 保持分开，typed annotations
+不自动覆盖13参数，未来统一消费用户决定仍未回答。真实留出／效度／选参、
+encoder weights／资源／CI／Python3.10／前端及 broad P0/P2/P3 继续 pending；
+整体目标 ACTIVE／NOT ACHIEVED。
