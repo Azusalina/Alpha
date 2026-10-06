@@ -38,6 +38,7 @@
 import { codePointLength, codePointSlice } from './spans';
 import { ADAPTER_METHODS, BACKEND_ERROR_CODES, BackendError, KINDS, PARTITIONS } from './types';
 import type {
+  AccessStatus,
   AdapterInfo,
   AdapterMethod,
   BackendErrorCode,
@@ -88,6 +89,11 @@ export interface RemoteOptions {
   newId?: () => string;
   /** Parallel `input_get` calls while hydrating excerpts. Default 4. */
   hydrateConcurrency?: number;
+  /**
+   * Called when a private method answers `LOCKED` (F13): the host drops every private cache
+   * and shows the unlock prompt. Not called for `unlock` itself (a wrong password is also `LOCKED`).
+   */
+  onLocked?: () => void;
 }
 
 /** What `health` says, reduced to what the adapter needs. */
@@ -96,8 +102,10 @@ export interface HealthReport {
   methods: readonly string[];
   /** `health.features`, boolean entries only (`two_judgements`, `input_pagination`, `source_edit` ...). */
   features: Readonly<Record<string, boolean>>;
-  /** `health.model_epoch`, null when the back end does not report one. */
+  /** `health.model_epoch`, null when the back end does not report one (a locked back end omits it). */
   modelEpoch: number | null;
+  /** `health.access`, null when absent (an older back end has no gate). */
+  access: AccessStatus | null;
 }
 
 /** The outcome of `RemoteBrainAdapter.probe`. */
@@ -169,6 +177,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
   private readonly proposedMethods: boolean;
   private readonly newId: () => string;
   private readonly concurrency: number;
+  private readonly onLocked: (() => void) | undefined;
   private counter = 0;
   private readonly prefix = Math.random().toString(36).slice(2, 8);
   /** Excerpts fetched with `input_get` (workaround for F5). */
@@ -181,6 +190,7 @@ export class RemoteBrainAdapter implements BrainAdapter {
     this.proposedMethods = options.proposedMethods ?? false;
     this.newId = options.newId ?? (() => `alpha-${this.prefix}-${++this.counter}`);
     this.concurrency = Math.max(1, Math.floor(options.hydrateConcurrency ?? 4));
+    this.onLocked = options.onLocked;
   }
 
   // -- wire
@@ -203,11 +213,22 @@ export class RemoteBrainAdapter implements BrainAdapter {
       bad(t('be.badResponse'));
     }
     const { code, message } = response.error;
+    if (code === 'LOCKED' && method !== 'unlock') {
+      // Private text (excerpts) and the epoch memo of the previous session must not survive the lock.
+      this.forgetPrivate();
+      this.onLocked?.();
+    }
     if (code === 'METHOD_NOT_FOUND' && PROPOSED_API_METHODS.has(method)) {
       throw new BackendError('UNSUPPORTED', t('be.unsupported'));
     }
     const known = WIRE_ERROR_CODES.has(code) ? (code as BackendErrorCode) : 'INTERNAL_ERROR';
     throw new BackendError(known, typeof message === 'string' && message ? message : t('be.opFailed'));
+  }
+
+  /** Drop everything this adapter cached from private reads, and the memoised `health` (its epoch). */
+  private forgetPrivate(): void {
+    this.excerpts.clear();
+    this.health = null;
   }
 
   private unsupported(what: string): never {
@@ -271,7 +292,12 @@ export class RemoteBrainAdapter implements BrainAdapter {
         if (typeof h.features === 'object' && h.features !== null && !Array.isArray(h.features)) {
           for (const [k, v] of Object.entries(h.features)) if (typeof v === 'boolean') features[k] = v;
         }
-        return { methods: h.methods as string[], features, modelEpoch: typeof h.model_epoch === 'number' ? h.model_epoch : null };
+        const a = h.access;
+        const access =
+          typeof a === 'object' && a !== null && typeof (a as { configured?: unknown }).configured === 'boolean' && typeof (a as { locked?: unknown }).locked === 'boolean'
+            ? { configured: (a as AccessStatus).configured, locked: (a as AccessStatus).locked }
+            : null;
+        return { methods: h.methods as string[], features, modelEpoch: typeof h.model_epoch === 'number' ? h.model_epoch : null, access };
       });
       this.health = pending;
       pending.catch(() => {
@@ -304,6 +330,32 @@ export class RemoteBrainAdapter implements BrainAdapter {
 
   async modelEpoch(): Promise<number | null> {
     return (await this.readHealth()).modelEpoch;
+  }
+
+  private accessOf(raw: unknown): AccessStatus {
+    const r = obj(raw, t('be.what.access'));
+    if (typeof r.configured !== 'boolean' || typeof r.locked !== 'boolean') bad(t('be.badAccess'));
+    return { configured: r.configured, locked: r.locked };
+  }
+
+  async accessStatus(): Promise<AccessStatus> {
+    return this.accessOf(await this.call('access_status'));
+  }
+
+  async unlock(password: string): Promise<AccessStatus> {
+    if (typeof password !== 'string') throw new BackendError('INVALID_ARGUMENT', t('be.badPassword'));
+    // The back end revokes the earlier session before it checks anything, so whatever was cached is stale either way.
+    this.forgetPrivate();
+    try {
+      return this.accessOf(await this.call('unlock', { password }));
+    } finally {
+      this.forgetPrivate();
+    }
+  }
+
+  async lock(): Promise<AccessStatus> {
+    this.forgetPrivate();
+    return this.accessOf(await this.call('lock'));
   }
 
   async submit(req: SubmitRequest): Promise<SubmitResult> {

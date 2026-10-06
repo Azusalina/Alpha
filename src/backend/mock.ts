@@ -72,6 +72,7 @@ import {
   PARTITIONS,
 } from './types';
 import type {
+  AccessStatus,
   AdapterInfo,
   AdapterMethod,
   BrainAdapter,
@@ -672,6 +673,19 @@ export class MockBrainAdapter implements BrainAdapter {
 
   modelEpoch(): Promise<number | null> {
     return this.call(() => null);
+  }
+
+  /** The demonstration has no password gate: it is never locked and cannot be (F13 applies to a real back end). */
+  accessStatus(): Promise<AccessStatus> {
+    return this.call((): AccessStatus => ({ configured: false, locked: false }));
+  }
+
+  unlock(): Promise<AccessStatus> {
+    return this.call((): AccessStatus => fail('UNSUPPORTED', t('be.unsupported')));
+  }
+
+  lock(): Promise<AccessStatus> {
+    return this.call((): AccessStatus => fail('UNSUPPORTED', t('be.unsupported')));
   }
 
   submit(req: SubmitRequest): Promise<SubmitResult> {

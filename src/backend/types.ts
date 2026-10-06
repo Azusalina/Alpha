@@ -369,6 +369,8 @@ export type BackendErrorCode =
   | 'INVALID_ARGUMENT'
   /** An `inputPage` cursor is out of date: discard the pages and ask for page 1 again. */
   | 'STALE_CURSOR'
+  /** The back end is password-protected and not unlocked (api.md "Access"): drop every private cache and ask the user. */
+  | 'LOCKED'
   | 'NOT_FOUND'
   | 'MODEL_UNAVAILABLE'
   | 'STORAGE_ERROR'
@@ -385,6 +387,16 @@ export class BackendError extends Error {
     this.name = 'BackendError';
     this.code = code;
   }
+}
+
+// ---- access (F13) ------------------------------------------------------------------
+
+/** `access_status` / `unlock` / `lock` (api.md "Access"): config-only, never private data. */
+export interface AccessStatus {
+  /** A password gate is configured for this back end. */
+  configured: boolean;
+  /** Configured and not unlocked: every private method fails `LOCKED`. */
+  locked: boolean;
 }
 
 // ---- the adapter -----------------------------------------------------------------
@@ -424,6 +436,17 @@ export interface BrainAdapter {
   capabilities(): Promise<ReadonlySet<AdapterMethod>>;
   /** `health.model_epoch` of a real back end; null when it does not report one (older back end, mock, none). */
   modelEpoch(): Promise<number | null>;
+
+  /** Public, config-only. The mock and a back end without a gate answer `{ configured: false, locked: false }`. */
+  accessStatus(): Promise<AccessStatus>;
+  /**
+   * Send the password once. The back end revokes any earlier access first, so a
+   * wrong password leaves it locked; that comes back as `LOCKED`. The adapter
+   * never keeps the password. A mock or a back end without a gate: `UNSUPPORTED`.
+   */
+  unlock(password: string): Promise<AccessStatus>;
+  /** Re-lock now. `UNSUPPORTED` without a gate. */
+  lock(): Promise<AccessStatus>;
 
   submit(req: SubmitRequest): Promise<SubmitResult>;
   /** Read-only hypothetical effects of any input that is not `agreed` (pending, disagreed, revoked). */
@@ -486,6 +509,7 @@ export const BACKEND_ERROR_CODES = [
   'METHOD_NOT_FOUND',
   'INVALID_ARGUMENT',
   'STALE_CURSOR',
+  'LOCKED',
   'NOT_FOUND',
   'MODEL_UNAVAILABLE',
   'STORAGE_ERROR',

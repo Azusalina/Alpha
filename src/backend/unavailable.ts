@@ -25,6 +25,9 @@ export class UnavailableAdapter implements BrainAdapter {
   modelEpoch(): Promise<number | null> {
     return Promise.resolve(null);
   }
+  accessStatus: BrainAdapter['accessStatus'] = () => this.fail();
+  unlock: BrainAdapter['unlock'] = () => this.fail();
+  lock: BrainAdapter['lock'] = () => this.fail();
   submit: BrainAdapter['submit'] = () => this.fail();
   preview: BrainAdapter['preview'] = () => this.fail();
   confirm: BrainAdapter['confirm'] = () => this.fail();
